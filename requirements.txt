@@ -1,0 +1,11 @@
+requests
+openai
+python-dotenv
+newsapi-python
+plotly
+
+# dev
+isort
+black
+flake8
+pydocstyle

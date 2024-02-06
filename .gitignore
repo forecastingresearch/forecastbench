@@ -1,0 +1,56 @@
+# Byte-compiled / optimized / DLL files
+plotly_charts
+*.html
+*.json
+*.csv
+-
+__pycache__/
+*.py[cod]
+*$py.class
+.vscode
+.history
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# pyenv
+.python-version
+
+# dotenv
+.env*
+/*.env
+!.env.template
+
+# virtualenv
+.venv
+venv/
+ENV/
+
+# Emacs backup files
+*~
+\#*\#
+.\#*
+
+# isort
+*.py.isorted
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Compressed files
+*.7z
+*.dmg
+*.gz
+*.xz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
