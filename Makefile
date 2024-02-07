@@ -1,9 +1,9 @@
 lint:
-	isort src/
-	black src/
-	flake8 src/
-	pydocstyle src/
+	isort .
+	black .
+	flake8 .
+	pydocstyle .
 
 clean:
-	rm -f *~
-	cd src/ && rm -f *~ && rm -rf plotly_charts && rm -f table_of_contents.html
+	find . -type f -name "*~" -exec rm -f {} +
+	cd src/gpt && rm -rf plotly_charts && rm -f table_of_contents.html

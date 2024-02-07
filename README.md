@@ -1,17 +1,17 @@
 # Proof of Concept for LLM Benchmark project using GPT
 
 ### Outline
-1. Select pertinent questions from Manifold by hand from the endpoint shown in `src/api_manifold_markets.py`.
+1. Select pertinent questions from Manifold by hand from the endpoint shown in `src/gpt/api_manifold_markets.py`.
 1. Hard coding these into `manifold_questions.py`, `main.py` does the following:
    1. Query a custom GPT news query Assistant to rephrase the forecast question as a query to News API
    1. Pass the generated query to News API to get relevant news articles
    1. Query a custom GPT forecasting Assistant to provide a forecast given the forecast question, Manifold market value, and news articles.
    1. Save the Manifold market value, GPT forecast, and GPT forecast reasoning to a JSON file.
-1. Create Plotly charts from JSON file in `src/create_charts.py`
+1. Create Plotly charts from JSON file in `src/gpt/create_charts.py`
 
 ---
 ### To run
-1. Set the following variables in `src/.env`
+1. Set the following variables in `src/gpt/.env`
    1. `OPENAI_API_KEY`
    1. `OPENAI_NEWS_QUERY_ASSISTANT_ID`
    1. `OPENAI_FORECASTING_ASSISTANT_ID`
@@ -29,7 +29,7 @@
 * Before pushing to this repo, please run `make lint` and fix any errors/warnings.
 ---
 
-### Hand picked questions from Manifold using `src/api_manifold_markets.py`. (manifold topics as section headers)
+### Hand picked questions from Manifold using `src/gpt/api_manifold_markets.py`. (manifold topics as section headers)
 #### movies
 - `7n8J9UqjVkeeASTbnzi0` Will Oppenheimer Win the Oscars for Best Picture, Best Actor (Cillian Murphy) and Best Director (Christopher Nolan)?
 - `UY00HaONtwy8Z8JbejwP` Will Count Fenring be a speaking character in Dune 2 (2024)?
