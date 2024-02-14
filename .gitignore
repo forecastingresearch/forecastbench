@@ -1,4 +1,6 @@
 # Byte-compiled / optimized / DLL files
+*.mk
+upload/
 plotly_charts
 *.html
 *.json
