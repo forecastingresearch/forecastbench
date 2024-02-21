@@ -19,20 +19,18 @@ clean:
 	find . -type f -name "*~" -exec rm -f {} +
 	cd src/gpt && rm -rf plotly_charts && rm -f table_of_contents.html
 
-deploy: infrastructure manifold
-
-infrastructure: router set-min-instances
-
-router:
-	make -C src/gcp/functions/router
+deploy: set-min-instances manifold
 
 set-min-instances:
 	make -C src/gcp/functions/set_min_instances
 
-manifold: manifold-question-generation manifold-forecast
+manifold: manifold-question-generation manifold-forecast manifold-workflow
 
 manifold-question-generation:
 	make -C src/gcp/functions/manifold/question_generation
 
 manifold-forecast:
 	make -C src/gcp/functions/manifold/forecast
+
+manifold-workflow:
+	make -C src/gcp/functions/manifold/workflow
