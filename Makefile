@@ -21,12 +21,12 @@ clean:
 
 deploy: infrastructure manifold
 
-infrastructure: router set_min_instances
+infrastructure: router set-min-instances
 
 router:
 	make -C src/gcp/functions/router
 
-set_min_instances:
+set-min-instances:
 	make -C src/gcp/functions/set_min_instances
 
 manifold: manifold-question-generation manifold-forecast
