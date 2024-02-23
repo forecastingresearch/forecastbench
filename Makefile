@@ -9,6 +9,8 @@ export MANIFOLD_QUESTIONS_PUBSUB_TOPIC_ID
 export CLOUD_DEPLOY_REGION := us-central1
 export SERVICE_ACCOUNT_JSON_PATH := $(ROOT_DIR)$(SERVICE_ACCOUNT_JSON)
 
+.PHONY: all clean lint deploy
+
 lint:
 	isort .
 	black .
@@ -17,26 +19,27 @@ lint:
 
 clean:
 	find . -type f -name "*~" -exec rm -f {} +
-	cd src/gpt && rm -rf plotly_charts && rm -f table_of_contents.html
+
+all: deploy
 
 deploy: main-workflow set-min-instances leaderboard manifold
 
 main-workflow:
-	make -C src/gcp/workflow
+	make -C src/workflow
 
 set-min-instances:
-	make -C src/gcp/functions/set_min_instances
+	make -C src/functions/set_min_instances
 
 leaderboard:
-	make -C src/gcp/functions/leaderboard
+	make -C src/functions/leaderboard
 
 manifold: manifold-question-generation manifold-forecast manifold-workflow
 
 manifold-question-generation:
-	make -C src/gcp/functions/manifold/question_generation
+	make -C src/functions/manifold/question_generation
 
 manifold-forecast:
-	make -C src/gcp/functions/manifold/forecast
+	make -C src/functions/manifold/forecast
 
 manifold-workflow:
-	make -C src/gcp/functions/manifold/workflow
+	make -C src/functions/manifold/workflow
