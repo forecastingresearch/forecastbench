@@ -19,7 +19,10 @@ clean:
 	find . -type f -name "*~" -exec rm -f {} +
 	cd src/gpt && rm -rf plotly_charts && rm -f table_of_contents.html
 
-deploy: set-min-instances leaderboard manifold
+deploy: main-workflow set-min-instances leaderboard manifold
+
+main-workflow:
+	make -C src/gcp/workflow
 
 set-min-instances:
 	make -C src/gcp/functions/set_min_instances
