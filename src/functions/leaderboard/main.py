@@ -191,6 +191,7 @@ def _make_horizon_leaderboard(df):
         )
         html_content += f'<div class="table-container">{plot_html}</div>'
 
+    utc_datetime = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     html_content = (
         """
         <!DOCTYPE html>
@@ -215,6 +216,14 @@ def _make_horizon_leaderboard(df):
                 padding-top: 10px;
                 padding-bottom: 0px;
             }
+            footer {
+                position: fixed;
+                right: 0;
+                bottom: 0;
+                color: black;
+                padding: 10px;
+                font-size: 0.8em;
+            }
         </style>
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
         </head>
@@ -222,7 +231,8 @@ def _make_horizon_leaderboard(df):
         <div id="leaderboard-header">Leaderboard</div>
         """
         + html_content
-        + """
+        + f"""
+        <footer>UTC Time: <span id="datetime">{utc_datetime}</span></footer>
         </body>
         </html>
         """
