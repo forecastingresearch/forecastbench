@@ -22,6 +22,7 @@ deploy : main.py .gcloudignore requirements.txt
 		--service-account $(SERVICE_ACCOUNT) \
 		--trigger-http \
 		--no-allow-unauthenticated \
+		--no-gen2 \
 		--set-env-vars CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET) \
 		--source $(UPLOAD_DIR)
 
