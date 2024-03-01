@@ -22,7 +22,7 @@ clean:
 
 all: deploy
 
-deploy: main-workflow set-min-instances leaderboard manifold wikidata
+deploy: main-workflow set-min-instances leaderboard news manifold wikidata
 
 main-workflow:
 	make -C src/workflow
@@ -32,6 +32,14 @@ set-min-instances:
 
 leaderboard:
 	make -C src/functions/leaderboard
+
+news: news-fetch news-workflow
+
+news-workflow:
+	make -C src/functions/news/workflow
+
+news-fetch:
+	make -C src/functions/news/fetch
 
 manifold: manifold-question-generation manifold-forecast manifold-workflow
 
