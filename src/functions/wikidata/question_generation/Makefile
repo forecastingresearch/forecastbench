@@ -12,7 +12,7 @@ deploy : main.py .gcloudignore requirements.txt
 	cp -r $(ROOT_DIR)gcp $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud functions deploy \
-		manifold_question_generation \
+		wikidata_question_generation \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--entry-point driver \
 		--runtime $(LATEST_PYTHON_RUNTIME) \

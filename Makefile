@@ -24,6 +24,8 @@ all: deploy
 
 deploy: main-workflow set-min-instances leaderboard news manifold wikidata
 
+workflows: main-workflow news-workflow manifold-workflow wikidata-workflow
+
 main-workflow:
 	make -C src/workflow
 
@@ -52,7 +54,10 @@ manifold-forecast:
 manifold-workflow:
 	make -C src/functions/manifold/workflow
 
-wikidata: wikidata-forecast wikidata-workflow
+wikidata: wikidata-question-generation wikidata-forecast wikidata-workflow
+
+wikidata-question-generation:
+	make -C src/functions/wikidata/question_generation
 
 wikidata-forecast:
 	make -C src/functions/wikidata/forecast
