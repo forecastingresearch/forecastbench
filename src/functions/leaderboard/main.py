@@ -8,6 +8,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 import gcp.storage.run as storage  # noqa: E402
@@ -163,6 +164,22 @@ def _merge_sanity_check(df_current_horizon):
 def _calculate_mean_squared_error(df):
     df["date"] = pd.to_datetime(df["date"])
     mean_squared_error = []
+    calibration = {}
+
+    def get_calibration_plot_data(df):
+        """Place avg forecasts/outcomes data into 10 bins for Calibration plots."""
+        bins = np.linspace(0, 1, 11)
+        digitized = np.digitize(df["forecast_value"], bins)
+        avg_predicted_prob = []
+        actual_outcome_rate = []
+        for i in range(1, len(bins)):
+            bin_forecasts = df["forecast_value"][digitized == i]
+            bin_outcomes = df["market_value_actual"][digitized == i]
+            if len(bin_forecasts) > 0 and len(bin_outcomes) > 0:
+                avg_predicted_prob.append(np.mean(bin_forecasts))
+                actual_outcome_rate.append(np.mean(bin_outcomes))
+        return avg_predicted_prob, actual_outcome_rate
+
     for horizon in sorted(df["horizon"].unique()):
         df_current_horizon = df[df["horizon"] == horizon].copy()
         df_current_horizon["shifted_date"] = df_current_horizon["date"] + pd.to_timedelta(
@@ -184,16 +201,17 @@ def _calculate_mean_squared_error(df):
         if not df_current_horizon.empty and isinstance(
             df_current_horizon["market_value_forecast"].iloc[0], list
         ):
-            # Add resolution column when the question has resolved (instead of using the market
-            # value as resolution criteria)
+            # Overwrite `market_value_actual` column when the question has resolved (instead of
+            # using the market value as resolution criteria)
             # e.g. for now, this is only for wikidata where resolution is a comparison of heads of
             #      state/gov
-            df_current_horizon["resolution"] = np.where(
+            df_current_horizon["market_value_actual"] = np.where(
                 df_current_horizon["market_value_forecast"].astype(str)
                 == df_current_horizon["market_value_actual"].astype(str),
                 1,
                 0,
             )
+            df_current_horizon["market_value_forecast"] = 1  # Random walk is just 1 for wikidata
 
         # Do this to drop the rows where multiple llms have forecast on the same question on the
         # same day
@@ -202,19 +220,15 @@ def _calculate_mean_squared_error(df):
         )
         num_comparison_model_forecasts = len(df_baseline)
         if num_comparison_model_forecasts > 0:
-            if "resolution" in df_baseline.columns:
-                random_walk_mse = ((1 - df_baseline["resolution"]) ** 2).mean()
-                always_1_mse = random_walk_mse
-                always_0_mse = ((0 - df_baseline["resolution"]) ** 2).mean()
-                always_05_mse = ((0.5 - df_baseline["resolution"]) ** 2).mean()
-            else:
-                # Case for numeric values
-                random_walk_mse = (
-                    (df_baseline["market_value_forecast"] - df_baseline["market_value_actual"]) ** 2
-                ).mean()
-                always_1_mse = ((1 - df_baseline["market_value_actual"]) ** 2).mean()
-                always_0_mse = ((0 - df_baseline["market_value_actual"]) ** 2).mean()
-                always_05_mse = ((0.5 - df_baseline["market_value_actual"]) ** 2).mean()
+            calibration[horizon] = {}
+
+            # Dummy models
+            random_walk_mse = (
+                (df_baseline["market_value_forecast"] - df_baseline["market_value_actual"]) ** 2
+            ).mean()
+            always_1_mse = ((1 - df_baseline["market_value_actual"]) ** 2).mean()
+            always_0_mse = ((0 - df_baseline["market_value_actual"]) ** 2).mean()
+            always_05_mse = ((0.5 - df_baseline["market_value_actual"]) ** 2).mean()
 
             entry_to_append = {
                 "horizon": horizon,
@@ -228,24 +242,17 @@ def _calculate_mean_squared_error(df):
             df_current_horizon = df_current_horizon.dropna(subset=["forecast_source"])
             for llm in df_current_horizon["forecast_source"].unique():
                 df_llms = df_current_horizon[df_current_horizon["forecast_source"] == llm]
+                calibration[horizon][llm] = get_calibration_plot_data(df_llms)
                 if df_llms.empty:
                     entry_to_append[llm] = (np.nan, 0)
                 else:
-                    if "resolution" in df_llms.columns:
-                        entry_to_append[llm] = (
-                            ((df_llms["forecast_value"] - df_llms["resolution"]) ** 2).mean(),
-                            len(df_llms),
-                        )
-                    else:
-                        entry_to_append[llm] = (
-                            (
-                                (df_llms["forecast_value"] - df_llms["market_value_actual"]) ** 2
-                            ).mean(),
-                            len(df_llms),
-                        )
+                    entry_to_append[llm] = (
+                        ((df_llms["forecast_value"] - df_llms["market_value_actual"]) ** 2).mean(),
+                        len(df_llms),
+                    )
             mean_squared_error.append(entry_to_append)
 
-    return pd.DataFrame(mean_squared_error).sort_values(by="horizon")
+    return pd.DataFrame(mean_squared_error).sort_values(by="horizon"), calibration
 
 
 def _calculate_overall_mean_squared_error(dataframes):
@@ -413,16 +420,102 @@ def _make_horizon_leaderboard(df_dict, df_overall):
     )
 
 
+def _make_calibration_plots(calibrations):
+    model_colors = {"gpt4": "blue", "gpt3.5": "green"}
+
+    max_cols = len(calibrations)
+    total_horizons = set(horizon for data in calibrations.values() for horizon in data)
+    max_rows = len(total_horizons)
+    legends_shown = set()
+
+    subplot_titles = []
+    for horizon in sorted(total_horizons):
+        plural = "" if horizon == 1 else "s"
+        for dataset_name in calibrations.keys():
+            subplot_titles.append(f"{dataset_name.capitalize()} - Horizon {horizon} day{plural}")
+
+    fig = make_subplots(
+        rows=max_rows, cols=max_cols, subplot_titles=subplot_titles, shared_yaxes=True
+    )
+
+    for col, (dataset_name, horizons_data) in enumerate(calibrations.items(), start=1):
+        for horizon, models_data in horizons_data.items():
+            row = sorted(total_horizons).index(horizon) + 1
+            for llm, (avg_predicted_probs, actual_outcome_rates) in models_data.items():
+                show_legend = llm not in legends_shown
+                legends_shown.add(llm)
+                fig.add_trace(
+                    go.Scatter(
+                        x=[0, 1],
+                        y=[0, 1],
+                        mode="lines",
+                        name="Perfect Calibration",
+                        line=dict(color="gray", dash="dash"),
+                        showlegend=False,
+                        hoverinfo="none",
+                    ),
+                    row=row,
+                    col=col,
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=avg_predicted_probs,
+                        y=actual_outcome_rates,
+                        mode="markers+lines",
+                        marker=dict(color=model_colors.get(llm, "black")),
+                        name=llm,
+                        showlegend=show_legend,
+                    ),
+                    row=row,
+                    col=col,
+                )
+                fig.add_hline(y=0, line_color="lightgray", layer="below", line_width=2)
+
+    fig.update_layout(
+        height=400 * max_rows,
+        width=800 * max_cols,
+        title_text="Calibration Plots",
+        showlegend=True,
+        legend=dict(itemclick=False),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        hovermode="closest",
+    )
+
+    for i in range(1, max_rows + 1):
+        for j in range(1, max_cols + 1):
+            fig.update_xaxes(range=[0, 1])
+            fig.update_yaxes(
+                range=[0 - 0.05, 1 + 0.05],
+                gridcolor="lightgray",
+                showticklabels=True,
+            )
+            if j == 1:
+                fig.update_yaxes(title_text="Observed Rate", row=i, col=j)
+            if i == max_rows:
+                fig.update_xaxes(title_text="Predicted Probability", row=i, col=j)
+
+    calibration_filename = "/tmp/calibration.html"
+    fig.write_html(calibration_filename, config={"displayModeBar": False})
+    print(f"Saved: {calibration_filename}")
+
+    storage.upload(
+        bucket_name=ref_storage_bucket,
+        local_filename=calibration_filename,
+    )
+
+
 def _create_leaderboards():
-    """Create Leaderboard."""
+    """Create Leaderboard and Calibration Plots."""
     dfm = _get_manifold_forecasts()
     dfw = _get_wikidata_forecasts()
 
-    dfm_mse = _calculate_mean_squared_error(dfm)
-    dfw_mse = _calculate_mean_squared_error(dfw)
+    dfm_mse, calibration_manifold = _calculate_mean_squared_error(dfm)
+    dfw_mse, calibration_wikidata = _calculate_mean_squared_error(dfw)
     df_mse_overall = _calculate_overall_mean_squared_error([dfm_mse, dfw_mse])
 
     _make_horizon_leaderboard({"manifold": dfm_mse, "wikidata": dfw_mse}, df_mse_overall)
+    _make_calibration_plots({"manifold": calibration_manifold, "wikidata": calibration_wikidata})
 
 
 def driver(request):
