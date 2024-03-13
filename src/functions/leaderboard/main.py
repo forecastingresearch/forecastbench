@@ -3,7 +3,7 @@
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -351,7 +351,7 @@ def _make_horizon_leaderboard(df_dict, df_overall):
     combined_html_content += f"""<div class="column"><h2>Overall</h2>{html}</div>"""
     combined_html_content += "</div>"
 
-    utc_datetime = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    utc_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     html_content = (
         """
         <!DOCTYPE html>
