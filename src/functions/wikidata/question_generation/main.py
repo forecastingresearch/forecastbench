@@ -48,7 +48,7 @@ def _formulate_wikidata_question(heads, head_name, country):
         else:
             head_list = ", ".join(heads[:-1]) + ", and " + heads[-1]
 
-    return f"Will {head_list} be the head{plural} of {head_name} of {country}?"
+    return f"Will {head_list} still be the head{plural} of {head_name} of {country}?"
 
 
 def _generate_questions_from_wikidata(df):
