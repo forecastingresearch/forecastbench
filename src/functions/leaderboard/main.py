@@ -172,7 +172,7 @@ def _calculate_mean_squared_error(df):
         digitized = np.digitize(df["forecast_value"], bins)
         avg_predicted_prob = []
         actual_outcome_rate = []
-        for i in range(1, len(bins)):
+        for i in np.unique(digitized):
             bin_forecasts = df["forecast_value"][digitized == i]
             bin_outcomes = df["market_value_actual"][digitized == i]
             if len(bin_forecasts) > 0 and len(bin_outcomes) > 0:
