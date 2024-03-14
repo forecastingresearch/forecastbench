@@ -484,7 +484,7 @@ def _make_calibration_plots(calibrations):
 
     for i in range(1, max_rows + 1):
         for j in range(1, max_cols + 1):
-            fig.update_xaxes(range=[0, 1])
+            fig.update_xaxes(range=[-0.05, 1.05])
             fig.update_yaxes(
                 range=[0 - 0.05, 1 + 0.05],
                 gridcolor="lightgray",
