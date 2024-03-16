@@ -2,8 +2,11 @@ export ROOT_DIR := $(abspath $(lastword $(MAKEFILE_LIST)))
 ROOT_DIR := $(dir $(ROOT_DIR))
 
 include *.mk
-export SERVICE_ACCOUNT
-export CLOUD_STORAGE_BUCKET
+export CLOUD_PROJECT
+export CLOUD_STORAGE_BUCKET_QUESTION_BANK
+export CLOUD_STORAGE_BUCKET_QUESTION_BANK_SERVICE_ACCOUNT
+export CLOUD_STORAGE_BUCKET_QUESTIONS
+
 export CLOUD_DEPLOY_REGION := us-central1
 
 .PHONY: all clean lint deploy
