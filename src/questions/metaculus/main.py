@@ -1,4 +1,4 @@
-"""Generate questions from Manifold API."""
+"""Generate questions from Metaculus API."""
 
 import json
 import os
@@ -11,16 +11,23 @@ import requests
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from utils import gcp  # noqa: E402
 
-json_market_filename = "manifold.json"
+json_market_filename = "metaculus.json"
 local_market_filename = f"/tmp/{json_market_filename}"
-json_market_values_filename = "manifold_values.json"
+json_market_values_filename = "metaculus_values.json"
 local_market_values_filename = f"/tmp/{json_market_values_filename}"
 bucket_name = os.environ.get("CLOUD_STORAGE_BUCKET")
-manifold_topic_slugs = ["entertainment", "sports-default", "technology-default"]
+metaculus_categories = [
+    "geopolitics",
+    "natural-sciences",
+    "sports-entertainment",
+    "health-pandemics",
+    "law",
+    "computing-and-math",
+]
 
 
 def _get_stored_question_data():
-    """Download Manifold question data from cloud storage."""
+    """Download Metaculus question data from cloud storage."""
     dfq = pd.DataFrame(
         columns=[
             "id",
@@ -62,29 +69,31 @@ def _get_stored_question_data():
 
 
 def _get_data(topics):
-    """Get the top 100 markets from Manifold Markets."""
-    print("Calling Manifold search-markets endpoint")
-    endpoint = "https://api.manifold.markets/v0/search-markets"
+    """Get the top 100 markets from Metaculus."""
+    print("Calling Metaculus search-markets endpoint")
+    endpoint = "https://www.metaculus.com/api2/questions/"
     params = {
-        "sort": "most-popular",
-        "contractType": "BINARY",
-        "filter": "open",
+        "order_by": "-activity",
+        "forecast_type": "binary",
+        "status": "active",
+        "has_group": "false",
         "limit": 100,
+        "main-feed": True,
     }
     response = requests.get(endpoint, params=params)
     utc_datetime_obj = datetime.now(timezone.utc)
     if not response.ok:
-        print(f"ERROR: Request to Manifold Markets API endpoint {endpoint} failed.")
+        print(f"ERROR: Request to Metaculus API endpoint {endpoint} failed.")
         raise
-    tmp = [(utc_datetime_obj, response.json())]
+    tmp = [(utc_datetime_obj, response.json()["results"])]
 
     for topic in topics:
-        response = requests.get(endpoint, params={**params, "topicSlug": topic})
+        response = requests.get(endpoint, params={**params, "search": f"include:{topic}"})
         utc_datetime_obj = datetime.now(timezone.utc)
         if not response.ok:
-            print(f"ERROR: Request to Manifold Markets API endpoint {endpoint} failed.")
+            print(f"ERROR: Request to Metaculus API endpoint {endpoint} failed.")
             raise
-        tmp.append((utc_datetime_obj, response.json()))
+        tmp.append((utc_datetime_obj, response.json()["results"]))
 
     # Remove duplicate markets
     seen_market_ids = set()
@@ -101,7 +110,7 @@ def _get_data(topics):
 
 
 def _update_questions(dfq, dfmv, datetime_and_markets):
-    """Update the dataframes given the latest Manifold market info."""
+    """Update the dataframes given the latest Metaculus info."""
 
     def _get_market_value_entry(market_id, utc_datetime_obj, value):
         return {
@@ -119,29 +128,35 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
         utc_date_str = utc_datetime_obj.strftime("%Y-%m-%d")
         for market in markets:
             market_for_id = dfq[dfq["id"] == market["id"]]
+            market_value = market["community_prediction"]["full"]
+            market_value = market_value["q2"] if "q2" in market_value else None
             if market_for_id.empty:
                 print(f"Adding new market `{market['id']}`")
                 new_markets.append(
                     {
                         "id": market["id"],
-                        "question": market["question"],
+                        "question": market["title"],
                         "resolution_criteria": (
-                            f"Resolves to the market value on {market['url']} at 12AM UTC."
+                            "Resolves to the community prediction on "
+                            f"https://www.metaculus.com{market['page_url']} at 12AM UTC."
                         ),
                         "resolved": False,
                     }
                 )
                 new_market_values.append(
-                    _get_market_value_entry(market["id"], utc_datetime_obj, market["probability"])
+                    _get_market_value_entry(market["id"], utc_datetime_obj, market_value)
                 )
             else:
                 index = market_for_id.index[0]
                 if not market_for_id.at[index, "resolved"]:
                     print(f"Updating market `{market['id']}`")
-                    dfq.at[index, "resolved"] = market["isResolved"]
+                    dfq.at[index, "resolved"] = market["active_state"].upper() in [
+                        "RESOLVED",
+                        "CLOSED",
+                    ]
                     if not _entry_exists_for_today(dfmv[dfmv["id"] == market["id"]], utc_date_str):
                         dfmv.loc[len(dfmv)] = _get_market_value_entry(
-                            market["id"], utc_datetime_obj, market["probability"]
+                            market["id"], utc_datetime_obj, market_value
                         )
 
     if new_markets:
@@ -163,12 +178,12 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
 
 
 def driver(event, context):
-    """Generate questions from Manifold API and update question file in GCP Cloud Storage."""
+    """Generate questions from Metaculus API and update question file in GCP Cloud Storage."""
     # Download existing questions from cloud storage
     dfq, dfmv = _get_stored_question_data()
 
-    # Get the latest Manifold data
-    response = _get_data(manifold_topic_slugs)
+    # Get the latest Metaculus data
+    response = _get_data(metaculus_categories)
 
     # Update the existing questions
     dfq, dfmv = _update_questions(dfq, dfmv, response)
