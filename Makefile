@@ -29,7 +29,7 @@ questions: manifold wikidata_heads_of_state_gov
 manifold:
 	make -C src/questions/manifold
 
-wikidata-heads-of_state-gov:
+wikidata_heads_of_state_gov:
 	make -C src/questions/wikidata_heads_of_state_gov
 
 leaderboard:
