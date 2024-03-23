@@ -137,7 +137,7 @@ def _get_wikidata_forecasts():
 
 def _merge_sanity_check(df_current_horizon):
     aligned_data = []
-    for index, row in df_current_horizon.iterrows():
+    for _, row in df_current_horizon.iterrows():
         actual_row = df_current_horizon[
             (df_current_horizon["id"] == row["id"])
             & (df_current_horizon["date"] == row["shifted_date"])
@@ -438,7 +438,7 @@ def _make_calibration_plots(calibrations):
         rows=max_rows, cols=max_cols, subplot_titles=subplot_titles, shared_yaxes=True
     )
 
-    for col, (dataset_name, horizons_data) in enumerate(calibrations.items(), start=1):
+    for col, (_, horizons_data) in enumerate(calibrations.items(), start=1):
         for horizon, models_data in horizons_data.items():
             row = sorted(total_horizons).index(horizon) + 1
             for llm, (avg_predicted_probs, actual_outcome_rates) in models_data.items():
