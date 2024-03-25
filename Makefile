@@ -18,7 +18,13 @@ lint:
 	pydocstyle .
 
 clean:
-	find . -type f -name "*~" -exec rm -f {} +
+	@find src -type d -mindepth 1 | while read dir; do \
+		if [ -f "$$dir/Makefile" ]; then \
+			echo "Running make clean in $$dir"; \
+			make -C $$dir clean; \
+			echo ""; \
+		fi ; \
+	done
 
 all: deploy
 
