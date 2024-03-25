@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-import utils.storage.run as storage  # noqa: E402
+from utils import gcp  # noqa: E402
 
 ref_storage_bucket = os.environ.get("CLOUD_STORAGE_BUCKET")
 
@@ -26,7 +26,7 @@ def _read_forecasts_from_files(filename: str):
     local_forecast_filename = "/tmp/forecast.json"
     try:
         print(f"Downloading forecast file: {filename}")
-        storage.download(
+        gcp.storage.download(
             bucket_name=ref_storage_bucket,
             filename=filename,
             local_filename=local_forecast_filename,
@@ -87,7 +87,7 @@ def _get_llms(data):
 def _get_manifold_forecasts():
     """Get all Manifold Markets forecasts into a dataframe."""
     forecasts = []
-    for filename in storage.list_with_prefix(
+    for filename in gcp.storage.list_with_prefix(
         bucket_name=ref_storage_bucket, prefix="forecasts/manifold"
     ):
         market_id, horizon = _get_market_id_and_horizon_from_manifold_filename(filename)
@@ -112,7 +112,7 @@ def _get_manifold_forecasts():
 def _get_wikidata_forecasts():
     """Get all Wikidata Markets forecasts into a dataframe."""
     forecasts = []
-    for filename in storage.list_with_prefix(
+    for filename in gcp.storage.list_with_prefix(
         bucket_name=ref_storage_bucket, prefix="forecasts/wikidata"
     ):
         market_id, horizon = _get_market_id_and_horizon_from_wikidata_filename(filename)
@@ -414,7 +414,7 @@ def _make_horizon_leaderboard(df_dict, df_overall):
         file.write(html_content)
     print(f"Saved: {leaderboard_filename}")
 
-    storage.upload(
+    gcp.storage.upload(
         bucket_name=ref_storage_bucket,
         local_filename=leaderboard_filename,
     )
@@ -499,7 +499,7 @@ def _make_calibration_plots(calibrations):
     fig.write_html(calibration_filename, config={"displayModeBar": False})
     print(f"Saved: {calibration_filename}")
 
-    storage.upload(
+    gcp.storage.upload(
         bucket_name=ref_storage_bucket,
         local_filename=calibration_filename,
     )

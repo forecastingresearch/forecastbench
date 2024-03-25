@@ -13,7 +13,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-import utils.storage.run as storage  # noqa: E402
+from utils import gcp  # noqa: E402
 
 json_filename = "wikidata_hos_hog.json"
 local_filename = f"/tmp/{json_filename}"
@@ -32,7 +32,7 @@ def _get_stored_question_data():
         ]
     )
     try:
-        storage.download_no_error_message_on_404(
+        gcp.storage.download_no_error_message_on_404(
             bucket_name=bucket_name,
             filename=json_filename,
             local_filename=local_filename,
@@ -202,7 +202,7 @@ def driver(event, context):
     records = df.to_dict(orient="records")
     with open(local_filename, "w", encoding="utf-8") as f:
         f.write(json.dumps(records, ensure_ascii=False))
-    storage.upload(
+    gcp.storage.upload(
         bucket_name=bucket_name,
         local_filename=local_filename,
     )

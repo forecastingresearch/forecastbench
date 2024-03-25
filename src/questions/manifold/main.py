@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-import utils.storage.run as storage  # noqa: E402
+from utils import gcp  # noqa: E402
 
 json_market_filename = "manifold.json"
 local_market_filename = f"/tmp/{json_market_filename}"
@@ -38,7 +38,7 @@ def _get_stored_question_data():
     )
     try:
         print(f"Get questions from {bucket_name}/{json_market_filename}")
-        storage.download_no_error_message_on_404(
+        gcp.storage.download_no_error_message_on_404(
             bucket_name=bucket_name,
             filename=json_market_filename,
             local_filename=local_market_filename,
@@ -48,7 +48,7 @@ def _get_stored_question_data():
             dfq = dfq_tmp
 
         print(f"Get market values from {bucket_name}/{json_market_values_filename}")
-        storage.download_no_error_message_on_404(
+        gcp.storage.download_no_error_message_on_404(
             bucket_name=bucket_name,
             filename=json_market_values_filename,
             local_filename=local_market_values_filename,
@@ -181,11 +181,11 @@ def driver(event, context):
             f.write(json_str + "\n")
     dfmv.to_json(local_market_values_filename, orient="records", lines=True, date_format="iso")
 
-    storage.upload(
+    gcp.storage.upload(
         bucket_name=bucket_name,
         local_filename=local_market_filename,
     )
-    storage.upload(
+    gcp.storage.upload(
         bucket_name=bucket_name,
         local_filename=local_market_values_filename,
     )
