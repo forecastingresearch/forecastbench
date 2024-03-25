@@ -103,10 +103,10 @@ def _get_manifold_data(topics):
 def _update_questions(dfq, dfmv, datetime_and_markets):
     """Update the dataframes given the latest Manifold market info."""
 
-    def _get_market_value_entry(market_id, utc_datetime_str, value):
+    def _get_market_value_entry(market_id, utc_datetime_obj, value):
         return {
             "id": market_id,
-            "datetime": utc_datetime_str,
+            "datetime": utc_datetime_obj,
             "value": value,
         }
 
@@ -116,7 +116,6 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
     new_markets = []
     new_market_values = []
     for utc_datetime_obj, markets in datetime_and_markets:
-        utc_datetime_str = utc_datetime_obj.strftime("%Y-%m-%d %H:%M:%S")
         utc_date_str = utc_datetime_obj.strftime("%Y-%m-%d")
         for market in markets:
             market_for_id = dfq[dfq["id"] == market["id"]]
@@ -133,7 +132,7 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
                     }
                 )
                 new_market_values.append(
-                    _get_market_value_entry(market["id"], utc_datetime_str, market["probability"])
+                    _get_market_value_entry(market["id"], utc_datetime_obj, market["probability"])
                 )
             else:
                 index = market_for_id.index[0]
@@ -142,7 +141,7 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
                     dfq.at[index, "resolved"] = market["isResolved"]
                     if not _entry_exists_for_today(dfmv[dfmv["id"] == market["id"]], utc_date_str):
                         dfmv.loc[len(dfmv)] = _get_market_value_entry(
-                            market["id"], utc_datetime_str, market["probability"]
+                            market["id"], utc_datetime_obj, market["probability"]
                         )
 
     if new_markets:
