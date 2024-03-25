@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-import gcp.storage.run as storage  # noqa: E402
+import utils.storage.run as storage  # noqa: E402
 
 ref_storage_bucket = os.environ.get("CLOUD_STORAGE_BUCKET")
 

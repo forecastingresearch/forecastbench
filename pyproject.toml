@@ -3,6 +3,6 @@ line-length = 100
 force-exclude = '''
 (
     ^/venv/
-    | ^/gcp/
+    | ^/utils/
 )
 '''

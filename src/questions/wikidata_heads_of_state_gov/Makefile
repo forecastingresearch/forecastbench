@@ -9,7 +9,7 @@ UPLOAD_DIR = upload
 deploy : main.py .gcloudignore requirements.txt
 	$(eval LATEST_PYTHON_RUNTIME := $(shell gcloud functions runtimes list --format="value(name)" --filter="python" --region $(CLOUD_DEPLOY_REGION) | tail -n 1))
 	mkdir -p $(UPLOAD_DIR)
-	cp -r $(ROOT_DIR)gcp $(UPLOAD_DIR)/
+	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud functions deploy \
 		question_generation_wikidata \

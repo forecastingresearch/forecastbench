@@ -13,7 +13,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-import gcp.storage.run as storage  # noqa: E402
+import utils.storage.run as storage  # noqa: E402
 
 json_filename = "wikidata_hos_hog.json"
 local_filename = f"/tmp/{json_filename}"

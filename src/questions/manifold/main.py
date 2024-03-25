@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-import gcp.storage.run as storage  # noqa: E402
+import utils.storage.run as storage  # noqa: E402
 
 json_market_filename = "manifold.json"
 local_market_filename = f"/tmp/{json_market_filename}"
