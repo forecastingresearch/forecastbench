@@ -129,7 +129,7 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
         for market in markets:
             market_for_id = dfq[dfq["id"] == market["id"]]
             market_value = market["community_prediction"]["full"]
-            market_value = market_value["q2"] if "q2" in market_value else None
+            market_value = market_value.get("q2") if isinstance(market_value, dict) else None
             if market_for_id.empty:
                 print(f"Adding new market `{market['id']}`")
                 new_markets.append(
