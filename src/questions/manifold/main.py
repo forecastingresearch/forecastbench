@@ -5,6 +5,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -100,6 +101,24 @@ def _get_data(topics):
     return unique_markets
 
 
+def _get_potentially_resolved_market_value(market):
+    """Get the market value based on the resolution.
+
+    A market that has resolved should return the resolved value. The possible values for
+    market["resolution"] and the associated return values are:
+    * YES -> 1
+    * NO -> 0
+    * MKT -> market probability
+    * CANCEL (i.e. N/A) -> NaN
+
+    A market that hasn't resolved returns the current market probability. This includes closed markets.
+    """
+    if not market["isResolved"]:
+        return market["probability"]
+
+    return {"YES": 1, "NO": 0, "CANCEL": np.nan}.get(market["resolution"], market["probability"])
+
+
 def _update_questions(dfq, dfmv, datetime_and_markets):
     """Update the dataframes given the latest Manifold market info."""
 
@@ -126,7 +145,9 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
                         "id": market["id"],
                         "question": market["question"],
                         "resolution_criteria": (
-                            f"Resolves to the market value on {market['url']} at 12AM UTC."
+                            "Resolves to the resolved value according to Manifold. "
+                            "If the question is unresolved, resolves to the market value on "
+                            f"{market['url']} at 12AM UTC."
                         ),
                         "resolved": False,
                     }
@@ -141,7 +162,9 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
                     dfq.at[index, "resolved"] = market["isResolved"]
                     if not _entry_exists_for_today(dfmv[dfmv["id"] == market["id"]], utc_date_str):
                         dfmv.loc[len(dfmv)] = _get_market_value_entry(
-                            market["id"], utc_datetime_obj, market["probability"]
+                            market["id"],
+                            utc_datetime_obj,
+                            _get_potentially_resolved_market_value(market),
                         )
 
     if new_markets:

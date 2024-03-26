@@ -5,6 +5,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -109,6 +110,24 @@ def _get_data(topics):
     return unique_markets
 
 
+def _get_potentially_resolved_market_value(market, market_value):
+    """Get the market value based on the resolution.
+
+    A market that has resolved should return the resolved value. The possible values for
+    market["resolution"] and the associated return values are:
+    * 0.0 (i.e. No) -> 0
+    * 1.0 (i.e. Yes) -> 1
+    * -1.0 (i.e. Ambiguous) -> NaN
+    * -2.0 (i.e. Annulled) -> NaN
+
+    A market that hasn't resolved returns the current market probability. This includes closed markets.
+    """
+    if market["active_state"] != "RESOLVED":
+        return market_value
+
+    return int(market["resolution"]) if market["resolution"] > 0 else np.nan
+
+
 def _update_questions(dfq, dfmv, datetime_and_markets):
     """Update the dataframes given the latest Metaculus info."""
 
@@ -129,7 +148,7 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
         for market in markets:
             market_for_id = dfq[dfq["id"] == market["id"]]
             market_value = market["community_prediction"]["full"]
-            market_value = market_value.get("q2") if isinstance(market_value, dict) else None
+            market_value = market_value.get("q2") if isinstance(market_value, dict) else np.nan
             if market_for_id.empty:
                 print(f"Adding new market `{market['id']}`")
                 new_markets.append(
@@ -137,7 +156,8 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
                         "id": market["id"],
                         "question": market["title"],
                         "resolution_criteria": (
-                            "Resolves to the community prediction on "
+                            "Resolves to the resolved value according to Metaculus. "
+                            "If the question is unresolved, resolves to the market value on "
                             f"https://www.metaculus.com{market['page_url']} at 12AM UTC."
                         ),
                         "resolved": False,
@@ -150,13 +170,12 @@ def _update_questions(dfq, dfmv, datetime_and_markets):
                 index = market_for_id.index[0]
                 if not market_for_id.at[index, "resolved"]:
                     print(f"Updating market `{market['id']}`")
-                    dfq.at[index, "resolved"] = market["active_state"].upper() in [
-                        "RESOLVED",
-                        "CLOSED",
-                    ]
+                    dfq.at[index, "resolved"] = market["active_state"] == "RESOLVED"
                     if not _entry_exists_for_today(dfmv[dfmv["id"] == market["id"]], utc_date_str):
                         dfmv.loc[len(dfmv)] = _get_market_value_entry(
-                            market["id"], utc_datetime_obj, market_value
+                            market["id"],
+                            utc_datetime_obj,
+                            _get_potentially_resolved_market_value(market, market_value),
                         )
 
     if new_markets:
