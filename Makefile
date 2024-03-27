@@ -30,7 +30,7 @@ all: deploy
 
 deploy: questions leaderboard
 
-questions: manifold metaculus wikidata_heads_of_state_gov
+questions: manifold metaculus wikidata
 
 manifold:
 	make -C src/questions/manifold
@@ -38,8 +38,8 @@ manifold:
 metaculus:
 	make -C src/questions/metaculus
 
-wikidata_heads_of_state_gov:
-	make -C src/questions/wikidata_heads_of_state_gov
+wikidata:
+	make -C src/questions/wikidata
 
 leaderboard:
 	make -C src/leaderboard

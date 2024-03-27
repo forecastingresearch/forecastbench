@@ -19,7 +19,7 @@ deploy : main.py .gcloudignore requirements.txt
 		--runtime $(LATEST_PYTHON_RUNTIME) \
 		--memory 512MB \
 		--max-instances 1 \
-		--timeout 30s \
+		--timeout 540s \
 		--service-account $(CLOUD_STORAGE_BUCKET_QUESTION_BANK_SERVICE_ACCOUNT) \
 		--trigger-topic cron_everyday_12AM_UTC \
 		--no-gen2 \
