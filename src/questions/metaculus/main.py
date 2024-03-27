@@ -6,6 +6,7 @@ import sys
 from datetime import datetime, timezone
 
 import backoff
+import certifi
 import numpy as np
 import pandas as pd
 import requests
@@ -96,7 +97,7 @@ def _get_data(topics):
         "limit": 100,
         "main-feed": True,
     }
-    response = requests.get(endpoint, params=params)
+    response = requests.get(endpoint, params=params, verify=certifi.where())
     utc_datetime_obj = datetime.now(timezone.utc)
     if not response.ok:
         print(f"ERROR: Request to Metaculus API endpoint {endpoint} failed.")
@@ -104,7 +105,9 @@ def _get_data(topics):
     tmp = [(utc_datetime_obj, response.json()["results"])]
 
     for topic in topics:
-        response = requests.get(endpoint, params={**params, "search": f"include:{topic}"})
+        response = requests.get(
+            endpoint, params={**params, "search": f"include:{topic}"}, verify=certifi.where()
+        )
         utc_datetime_obj = datetime.now(timezone.utc)
         if not response.ok:
             print(f"ERROR: Request to Metaculus API endpoint {endpoint} failed.")

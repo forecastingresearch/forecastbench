@@ -2,3 +2,4 @@ google-cloud-storage
 pandas
 pyarrow
 backoff
+certifi
