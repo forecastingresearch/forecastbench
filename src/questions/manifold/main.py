@@ -5,6 +5,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
+import backoff
 import numpy as np
 import pandas as pd
 import requests
@@ -62,6 +63,20 @@ def _get_stored_question_data():
     return dfq, dfmv
 
 
+def _print_error_info_handler(details):
+    print(
+        "Backing off {wait:0.1f} seconds after {tries} tries "
+        "calling function {target} with args {args} and kwargs "
+        "{kwargs}".format(**details)
+    )
+
+
+@backoff.on_exception(
+    backoff.expo,
+    requests.exceptions.RequestException,
+    max_time=300,
+    on_backoff=_print_error_info_handler,
+)
 def _get_data(topics):
     """Get the top 100 markets from Manifold Markets."""
     print("Calling Manifold search-markets endpoint")
@@ -76,7 +91,7 @@ def _get_data(topics):
     utc_datetime_obj = datetime.now(timezone.utc)
     if not response.ok:
         print(f"ERROR: Request to Manifold Markets API endpoint {endpoint} failed.")
-        raise
+        response.raise_for_status()
     tmp = [(utc_datetime_obj, response.json())]
 
     for topic in topics:
@@ -84,7 +99,7 @@ def _get_data(topics):
         utc_datetime_obj = datetime.now(timezone.utc)
         if not response.ok:
             print(f"ERROR: Request to Manifold Markets API endpoint {endpoint} failed.")
-            raise
+            response.raise_for_status()
         tmp.append((utc_datetime_obj, response.json()))
 
     # Remove duplicate markets
