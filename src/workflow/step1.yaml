@@ -1,0 +1,47 @@
+main:
+  steps:
+    - init:
+        assign:
+          - execution_results: {}
+          - execution_results.step1: True
+          - execution_results.manifold: {}
+    - manifold_run:
+        try:
+          steps:
+            - init_manifold:
+                assign:
+                  - execution_results.manifold: {}
+            - manifold:
+                call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                args:
+                  workflow_id: manifold-main
+                result: manifold_result
+            - save_successful_manifold_execution:
+                assign:
+                  - execution_results.manifold.success: True
+                  - execution_results.manifold.response: ${manifold_result}
+        except:
+            as: e
+            steps:
+              - save_failed_manifold_execution:
+                  switch:
+                    - condition: ${"tags" in e}
+                      steps:
+                        - handle_manifold_error:
+                            assign:
+                              - execution_results.failure: True
+                              - execution_results.manifold.failure: True
+                              - execution_results.manifold.exception: ${e.operation.error.payload}
+    - check_exception_encountered:
+        switch:
+          - condition: ${"failure" in execution_results}
+            steps:
+              - raise_exception:
+                  raise: ${execution_results}
+          - condition: ${not("failure" in execution_results)}
+            steps:
+              - assign_success:
+                  assign:
+                    - execution_results.success: True
+    - return_execution_results:
+        return: ${execution_results}

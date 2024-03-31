@@ -1,0 +1,65 @@
+main:
+  steps:
+    - init:
+        assign:
+          - execution_results: {}
+          - execution_results.manifold: {}
+    - manifold_fetch:
+        try:
+          steps:
+              - fetch:
+                  call: http.post
+                  args:
+                      url: https://us-central1-fri-llm-benchmark.cloudfunctions.net/manifold_fetch
+                      auth:
+                           type: OIDC
+                  result: api_response_fetch
+              - save_successful_fetch:
+                  assign:
+                    - execution_results.manifold.success: True
+                    - execution_results.manifold.fetch: ${api_response_fetch}
+        retry: ${http.default_retry}
+        except:
+            as: e
+            steps:
+                - save_failed_fetch:
+                    assign:
+                      - execution_results.manifold.exception: ${e}
+                - raise_fetch_exception:
+                    raise: ${execution_results}
+    - manifold_update_questions:
+        try:
+          steps:
+              - update_questions:
+                  call: http.post
+                  args:
+                      url: https://us-central1-fri-llm-benchmark.cloudfunctions.net/manifold_update_questions
+                      auth:
+                           type: OIDC
+                  result: api_response_update_questions
+              - save_successful_update_questions:
+                  assign:
+                    - execution_results.manifold.success: True
+                    - execution_results.manifold.update_questions: ${api_response_update_questions}
+        retry: ${http.default_retry}
+        except:
+            as: e
+            steps:
+                - save_failed_update_questions:
+                    assign:
+                      - execution_results.manifold.exception: ${e}
+                - raise_update_questions_exception:
+                    raise: ${execution_results}
+    - check_exception_encountered:
+        switch:
+          - condition: ${"failure" in execution_results}
+            steps:
+              - raise_exception:
+                  raise: ${execution_results}
+          - condition: ${not("failure" in execution_results)}
+            steps:
+              - assign_success:
+                  assign:
+                    - execution_results.success: True
+    - return_execution_results:
+        return: ${execution_results}
