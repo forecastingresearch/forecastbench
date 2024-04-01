@@ -30,7 +30,7 @@ all: deploy
 
 deploy: questions leaderboard
 
-questions: manifold metaculus wikidata
+questions: manifold metaculus wikidata infer
 
 manifold:
 	make -C src/questions/manifold
@@ -40,6 +40,9 @@ metaculus:
 
 wikidata:
 	make -C src/questions/wikidata
+
+infer:
+	make -C src/questions/infer
 
 leaderboard:
 	make -C src/leaderboard
