@@ -12,7 +12,7 @@ main:
             - run_step1:
                 call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
                 args:
-                  workflow_id: main_step1
+                  workflow_id: main-step1
                 result: step1_result
             - save_successful_step1_execution:
                 assign:

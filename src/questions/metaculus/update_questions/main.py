@@ -1,13 +1,15 @@
-"""Generate questions from Manifold API."""
+"""Generate questions from Metaculus API."""
 
 import logging
 import os
 import sys
+from datetime import datetime
 
 import backoff
 import certifi
 import numpy as np
 import pandas as pd
+import pytz
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -16,7 +18,7 @@ from helpers import data_utils, dates  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-source = "manifold"
+source = "metaculus"
 jsonl_question_filename = f"{source}_questions.jsonl"
 local_question_filename = f"/tmp/{jsonl_question_filename}"
 jsonl_resolution_filename = f"{source}_resolutions.jsonl"
@@ -24,22 +26,27 @@ local_resolution_filename = f"/tmp/{jsonl_resolution_filename}"
 jsonl_fetch_filename = f"{source}_fetch.jsonl"
 local_fetch_filename = f"/tmp/{jsonl_fetch_filename}"
 bucket_name = os.environ.get("CLOUD_STORAGE_BUCKET")
+API_KEY = os.environ.get("API_KEY_METACULUS")
 
 
 @backoff.on_exception(
     backoff.expo,
     requests.exceptions.RequestException,
-    max_time=300,
+    max_tries=5,
     on_backoff=data_utils.print_error_info_handler,
 )
 def _get_market(market_id):
-    """Get the market description and close time for the specified market."""
+    """Get the market description and resolution criteria for the specified market."""
     logger.info(f"Calling market endpoint for {market_id}")
-    endpoint = f"https://api.manifold.markets/v0/market/{market_id}"
-    response = requests.get(endpoint, verify=certifi.where())
+    endpoint = f"https://www.metaculus.com/api2/questions/{market_id}"
+    headers = {"Authorization": f"Token {API_KEY}"}
+    response = requests.get(endpoint, headers=headers, verify=certifi.where())
     utc_datetime_str = dates.get_datetime_now()
     if not response.ok:
-        logger.error(f"Request to market endpoint failed for {market_id}.")
+        logger.error(
+            f"Request to market endpoint failed for {market_id}: {response.status_code} Error. "
+            f"{response.text}"
+        )
         response.raise_for_status()
     return utc_datetime_str, response.json()
 
@@ -47,8 +54,8 @@ def _get_market(market_id):
 def _update_questions_and_resolved_values(dfq, dfr, dff):
     """Update the dataframes that hold the questions and the resolution values.
 
-    dfq: Manifold questions in the question bank
-    dfr: Manifold resolution values
+    dfq: Metaculus questions in the question bank
+    dfr: Metaculus resolution values
     dff: Today's fetched markets
     """
 
@@ -60,43 +67,62 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
         }
 
     def _entry_exists_for_today(resolution_values, utc_date_str):
-        return resolution_values["datetime"].str.startswith(utc_date_str).any()
+        return resolution_values["datetime"].astype(str).str.startswith(utc_date_str).any()
 
-    def _extract_description_helper(d):
-        """Extract 'text' values from a nested dictionary/list structure."""
-        if isinstance(d, dict):
-            return " ".join(
-                _extract_description_helper(v)
-                for k, v in d.items()
-                if k == "text" or k == "label" or isinstance(v, (dict, list))
-            )
-        elif isinstance(d, list):
-            return " ".join(_extract_description_helper(item) for item in d)
-        else:
-            return d
+    def _extract_probability(market):
+        """Parse the forecasts for the community prediction presented on Metaculus.
 
-    def _extract_description(description):
-        description = _extract_description_helper(description)
-        return description if description else "N/A"
+        Modifying the API data here because it's too much to keep in git and we can always backout
+        the Metaculus forecasts using the API if there's an error here.
+        """
+        market_value = market["community_prediction"]["full"]
+        return market_value.get("q2") if isinstance(market_value, dict) else np.nan
 
     def _get_potentially_resolved_market_value(market):
         """Get the market value based on the resolution.
 
         A market that has resolved should return the resolved value. The possible values for
         market["resolution"] and the associated return values are:
-        * YES -> 1
-        * NO -> 0
-        * MKT -> market probability
-        * CANCEL (i.e. N/A) -> NaN
+        * 0.0 (i.e. No) -> 0
+        * 1.0 (i.e. Yes) -> 1
+        * -1.0 (i.e. Ambiguous) -> NaN
+        * -2.0 (i.e. Annulled) -> NaN
 
         A market that hasn't resolved returns the current market probability. This includes closed markets.
         """
-        if not market["isResolved"]:
-            return market["probability"]
+        if market["active_state"] != "RESOLVED":
+            return _extract_probability(market)
 
-        return {"YES": 1, "NO": 0, "CANCEL": np.nan}.get(
-            market["resolution"], market["probability"]
+        return int(market["resolution"]) if market["resolution"] > 0 else np.nan
+
+    def _parse_datetime_potentially_with_microseconds(x):
+        """Handle different granularities of datetimes coming from API.
+
+        Data from API not consistent so must support two ways of parsing. It has multiple datetime
+        formats:
+        * with microseconds: 2024-12-30T23:00:16.291000Z e.g. for market 20761 (which seems like an
+          error)
+        * without microseconds: 2200-01-01T23:34:00Z for all other markets
+
+        Metaculus also has dates > pd.Timestamp.max=='2262-04-11 23:47:16.854775807'
+        """
+        return (
+            (
+                datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ")
+                if "." in x
+                else datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ")
+            )
+            .replace(tzinfo=pytz.utc)
+            .isoformat()
         )
+
+    dff["id"] = dff["id"].astype(str)
+    dff["begin_datetime"] = dff["begin_datetime"].apply(
+        _parse_datetime_potentially_with_microseconds
+    )
+    dff["close_datetime"] = dff["close_datetime"].apply(
+        _parse_datetime_potentially_with_microseconds
+    )
 
     # Find rows in dff not in dfq: These are the new markets to add to dfq
     rows_to_append = dff[~dff["id"].isin(dfq["id"])]
@@ -107,7 +133,7 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
     # have the market values.
     for _, row in dff.iterrows():
         utc_date_str = row["fetch_datetime"][:10]
-        if dfr.empty or not _entry_exists_for_today(dfr[dfr["id"] == row["id"]], utc_date_str):
+        if not _entry_exists_for_today(dfr[dfr["id"] == str(row["id"])], utc_date_str):
             dfr.loc[len(dfr)] = _get_resolution_entry(
                 row["id"],
                 row["fetch_datetime"],
@@ -119,13 +145,14 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
     for index, row in dfq.iterrows():
         utc_datetime_str, market = _get_market(row["id"])
         utc_date_str = utc_datetime_str[:10]
-        if market["isResolved"]:
+        dfq.at[index, "background"] = market.get("description", "N/A")
+        dfq.at[index, "source_resolution_criteria"] = market.get("resolution_criteria", "N/A")
+        if market["active_state"] == "RESOLVED":
             dfq.at[index, "resolved"] = True
             dfq.at[index, "resolution_datetime"] = pd.to_datetime(
-                market["resolutionTime"], unit="ms", utc=True
-            ).strftime("%Y-%m-%d %H:%M:%S.%f%z")
-        dfq.at[index, "background"] = _extract_description(market["description"])
-        if dfr.empty or not _entry_exists_for_today(dfr[dfr["id"] == market["id"]], utc_date_str):
+                market["resolve_time"], format="ISO8601", errors="coerce"
+            )
+        if not _entry_exists_for_today(dfr[dfr["id"] == str(market["id"])], utc_date_str):
             dfr.loc[len(dfr)] = _get_resolution_entry(
                 row["id"],
                 utc_datetime_str,

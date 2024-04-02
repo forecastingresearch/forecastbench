@@ -33,7 +33,7 @@ deploy: questions leaderboard
 
 questions: manifold metaculus wikidata infer
 
-workflows: main-workflow manifold-workflow infer-workflow
+workflows: main-workflow manifold-workflow infer-workflow metaculus-workflow
 
 main-workflow:
 	make -C src/workflow
@@ -49,8 +49,16 @@ manifold-fetch:
 manifold-update-questions:
 	make -C src/questions/manifold/update_questions
 
-metaculus:
-	make -C src/questions/metaculus
+metaculus: metaculus-workflow metaculus-fetch metaculus-update-questions
+
+metaculus-workflow:
+	make -C src/questions/metaculus/workflow
+
+metaculus-fetch:
+	make -C src/questions/metaculus/fetch
+
+metaculus-update-questions:
+	make -C src/questions/metaculus/update_questions
 
 wikidata:
 	make -C src/questions/wikidata
