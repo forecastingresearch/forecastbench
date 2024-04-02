@@ -1,0 +1,40 @@
+main:
+  steps:
+    - init:
+        assign:
+          - execution_results: {}
+    - step1:
+        try:
+          steps:
+            - init_step1:
+                assign:
+                  - execution_results.step1: {}
+            - run_step1:
+                call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                args:
+                  workflow_id: main_step1
+                result: step1_result
+            - save_successful_step1_execution:
+                assign:
+                  - execution_results.step1.success: True
+                  - execution_results.step1.response: ${step1_result}
+        except:
+            as: e
+            steps:
+              - save_failed_step1_collection_execution:
+                  switch:
+                    - condition: ${"tags" in e}
+                      steps:
+                        - handle_step1_collection_error:
+                            assign:
+                              - execution_results.failure: True
+                              - execution_results.step1.failure: True
+                              - execution_results.step1.exception: ${e.operation.error.payload}
+    - step_check_exception_encountered:
+        switch:
+          - condition: ${"failure" in execution_results.step1}
+            steps:
+              - raise_exception:
+                  raise: ${execution_results}
+    - step_return_execution_results:
+        return: ${execution_results}
