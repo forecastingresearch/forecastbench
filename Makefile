@@ -6,6 +6,7 @@ export CLOUD_PROJECT
 export CLOUD_STORAGE_BUCKET_QUESTION_BANK
 export CLOUD_STORAGE_BUCKET_QUESTION_BANK_SERVICE_ACCOUNT
 export CLOUD_STORAGE_BUCKET_QUESTIONS
+export CLOUD_WORKFLOW_SERVICE_ACCOUNT
 
 export CLOUD_DEPLOY_REGION := us-central1
 
@@ -32,8 +33,21 @@ deploy: questions leaderboard
 
 questions: manifold metaculus wikidata infer
 
-manifold:
-	make -C src/questions/manifold
+workflows: main-workflow manifold-workflow infer-workflow
+
+main-workflow:
+	make -C src/workflow
+
+manifold: manifold-workflow manifold-fetch manifold-update-questions
+
+manifold-workflow:
+	make -C src/questions/manifold/workflow
+
+manifold-fetch:
+	make -C src/questions/manifold/fetch
+
+manifold-update-questions:
+	make -C src/questions/manifold/update_questions
 
 metaculus:
 	make -C src/questions/metaculus
@@ -43,6 +57,10 @@ wikidata:
 
 infer:
 	make -C src/questions/infer
+
+infer-workflow:
+	make -C src/questions/infer/workflow
+
 
 leaderboard:
 	make -C src/leaderboard

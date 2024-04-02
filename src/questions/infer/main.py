@@ -12,6 +12,7 @@ import requests
 from google.cloud import secretmanager
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
+from helpers import data_utils  # noqa: E402
 from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
@@ -201,7 +202,7 @@ def update_questions(dfq, dfmv, all_questions_to_add):
 def driver(event, context):
     """Execute the main workflow of fetching, processing, and uploading questions."""
     # Download existing questions from cloud storage
-    dfq, dfmv = gcp.storage.get_stored_question_data(
+    dfq, dfmv = data_utils.get_stored_question_data(
         BUCKET_NAME,
         JSON_MARKET_FILENAME,
         LOCAL_MARKET_FILENAME,
