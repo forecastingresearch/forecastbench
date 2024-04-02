@@ -1,4 +1,5 @@
 """INFER script."""
+
 import json
 import logging
 import os
@@ -10,18 +11,19 @@ import pandas as pd
 import requests
 from google.cloud import secretmanager
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from utils import gcp
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
+from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 Project_ID = "fri-llm-benchmark"
+SOURCE = "infer"
 INFER_URL = "https://www.infer-pub.com"
 BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET")
-JSON_MARKET_FILENAME = "infer.json"
+JSON_MARKET_FILENAME = f"{SOURCE}_questions.json"
 LOCAL_MARKET_FILENAME = f"/tmp/{JSON_MARKET_FILENAME}"
-JSON_MARKET_VALUE_FILENAME = "infer_values.json"
+JSON_MARKET_VALUE_FILENAME = f"{SOURCE}_resolutions.json"
 LOCAL_MARKET_VALUES_FILENAME = f"/tmp/{JSON_MARKET_VALUE_FILENAME}"
 
 
@@ -87,7 +89,6 @@ def get_data(current_data):
       This includes a mix of newly fetched binary questions and existing unresolved questions,
       with additional metadata and reformatted fields for consistency.
     """
-
     API_KEY_INFER = get_secret(Project_ID, "API_KEY_INFER")
     HEADERS = {"Authorization": f"Bearer {API_KEY_INFER}"}
 
@@ -161,7 +162,8 @@ def update_questions(dfq, dfmv, all_questions_to_add):
     Parameters:
     - dfq (pd.DataFrame): DataFrame containing all existing questions.
     - dfmv (pd.DataFrame): DataFrame containing all historical community predictions.
-    - all_questions_to_add (list of dict): List of dictionaries, each representing a question with updated data.
+    - all_questions_to_add (list of dict): List of dictionaries, each representing a
+        question with updated data.
 
     The function updates dfq by either replacing existing questions with new data or adding new questions.
     It also appends new community predictions to dfmv for each question in all_questions_to_add.
@@ -198,7 +200,6 @@ def update_questions(dfq, dfmv, all_questions_to_add):
 
 def driver(event, context):
     """Execute the main workflow of fetching, processing, and uploading questions."""
-
     # Download existing questions from cloud storage
     dfq, dfmv = gcp.storage.get_stored_question_data(
         BUCKET_NAME,
