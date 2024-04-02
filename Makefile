@@ -31,9 +31,9 @@ all: deploy
 
 deploy: questions leaderboard
 
-questions: manifold metaculus wikidata
+questions: manifold metaculus wikidata infer
 
-workflows: main-workflow manifold-workflow
+workflows: main-workflow manifold-workflow infer-workflow
 
 main-workflow:
 	make -C src/workflow
@@ -54,6 +54,13 @@ metaculus:
 
 wikidata:
 	make -C src/questions/wikidata
+
+infer:
+	make -C src/questions/infer
+
+infer-workflow:
+	make -C src/questions/infer/workflow
+
 
 leaderboard:
 	make -C src/leaderboard

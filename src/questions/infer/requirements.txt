@@ -1,0 +1,5 @@
+google-cloud-storage
+requests
+certifi
+google-cloud-secret-manager
+pandas
