@@ -11,6 +11,7 @@ main:
           for:
             value: task
             in:
+              - acled
               - manifold
               - metaculus
             steps:

@@ -2,7 +2,20 @@
 
 import os
 
+BENCHMARK_START_YEAR = 2024
+
 BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET")
+
+FORECAST_HORIZONS_IN_DAYS = [
+    7,  # 1 week
+    30,  # 1 month
+    90,  # 3 months
+    180,  # 76 months
+    365,  # 1 year
+    1095,  # 3 years
+    1825,  # 5 years
+    3650,  # 10 years
+]
 
 QUESTION_FILE_COLUMN_DTYPE = {
     "id": str,
@@ -35,3 +48,26 @@ METACULUS_CATEGORIES = [
     "law",
     "computing-and-math",
 ]
+
+ACLED_FETCH_COLUMN_DTYPE = {
+    "event_id_cnty": str,
+    "event_date": str,
+    "iso": int,
+    "region": str,
+    "country": str,
+    "admin1": str,
+    "event_type": str,
+    "fatalities": int,
+    "timestamp": str,
+}
+ACLED_FETCH_COLUMNS = list(ACLED_FETCH_COLUMN_DTYPE.keys())
+
+ACLED_QUESTION_FILE_COLUMN_DTYPE = {
+    **QUESTION_FILE_COLUMN_DTYPE,
+    "lhs_func": str,
+    "lhs_args": dict,
+    "comparison_operator": str,
+    "rhs_func": str,
+    "rhs_args": dict,
+}
+ACLED_QUESTION_FILE_COLUMNS = list(ACLED_QUESTION_FILE_COLUMN_DTYPE.keys())

@@ -56,7 +56,7 @@ def download_and_read(filename, local_filename, df_tmp, dtype):
         local_filename=local_filename,
     )
     df = pd.read_json(local_filename, lines=True, dtype=dtype, convert_dates=False)
-    return df if not df.empty else df_tmp
+    return df.astype(dtype=dtype) if not df.empty else df_tmp
 
 
 def get_data_from_cloud_storage(
@@ -77,20 +77,10 @@ def get_data_from_cloud_storage(
     """
     filenames = generate_filenames(source)
 
-    def _download_and_read(filename, local_filename, df_tmp, dtype):
-        logger.info(f"Get from {constants.BUCKET_NAME}/{filename}")
-        gcp.storage.download_no_error_message_on_404(
-            bucket_name=constants.BUCKET_NAME,
-            filename=filename,
-            local_filename=local_filename,
-        )
-        df = pd.read_json(local_filename, lines=True, dtype=dtype, convert_dates=False)
-        return df if not df.empty else df_tmp
-
     results = []
     if return_question_data:
         dfq = pd.DataFrame(columns=constants.QUESTION_FILE_COLUMNS)
-        dfq = _download_and_read(
+        dfq = download_and_read(
             filenames["jsonl_question"],
             filenames["local_question"],
             dfq,
@@ -100,7 +90,7 @@ def get_data_from_cloud_storage(
 
     if return_resolution_data:
         dfr = pd.DataFrame(columns=constants.constants.RESOLUTION_FILE_COLUMNS)
-        dfr = _download_and_read(
+        dfr = download_and_read(
             filenames["jsonl_resolution"],
             filenames["local_resolution"],
             dfr,
