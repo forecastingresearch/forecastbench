@@ -83,11 +83,11 @@ def _get_data(topics):
         df = _call_endpoint(df, {"topicSlug": topic})
 
     df = df.drop_duplicates(subset="id", keep="first", ignore_index=True)
-    df["fetch_datetime"] = df["fetch_datetime"].astype(str)
+    df["fetch_datetime"] = df["fetch_datetime"]
     df["background"] = "N/A"
     df["source_resolution_criteria"] = "N/A"
-    df["begin_datetime"] = pd.to_datetime(df["createdTime"], unit="ms", utc=True).astype(str)
-    df["close_datetime"] = pd.to_datetime(df["closeTime"], unit="ms", utc=True).astype(str)
+    df["begin_datetime"] = df["createdTime"].apply(dates.convert_epoch_time_in_ms_to_iso)
+    df["close_datetime"] = df["closeTime"].apply(dates.convert_epoch_time_in_ms_to_iso)
     df["resolved"] = False
     df["resolution_datetime"] = "N/A"
     df = df.dropna(subset=["probability"])

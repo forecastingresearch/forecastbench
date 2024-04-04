@@ -121,9 +121,9 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
         utc_date_str = utc_datetime_str[:10]
         if market["isResolved"]:
             dfq.at[index, "resolved"] = True
-            dfq.at[index, "resolution_datetime"] = pd.to_datetime(
-                market["resolutionTime"], unit="ms", utc=True
-            ).strftime("%Y-%m-%d %H:%M:%S.%f%z")
+            dfq.at[index, "resolution_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
+                market["resolutionTime"]
+            )
         dfq.at[index, "background"] = _extract_description(market["description"])
         if dfr.empty or not _entry_exists_for_today(dfr[dfr["id"] == market["id"]], utc_date_str):
             dfr.loc[len(dfr)] = _get_resolution_entry(

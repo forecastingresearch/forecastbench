@@ -19,4 +19,5 @@ deploy-step1 : step1.yaml
 		--service-account $(CLOUD_WORKFLOW_SERVICE_ACCOUNT) \
 		--source=$< \
 
-
+clean:
+	@:

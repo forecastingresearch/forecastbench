@@ -6,6 +6,9 @@ all :
 
 UPLOAD_DIR = upload
 
+.gcloudignore:
+	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
+
 deploy : main.py .gcloudignore requirements.txt
 	$(eval LATEST_PYTHON_RUNTIME := $(shell gcloud functions runtimes list --format="value(name)" --filter="python" --region $(CLOUD_DEPLOY_REGION) | tail -n 1))
 	mkdir -p $(UPLOAD_DIR)
@@ -30,4 +33,4 @@ deploy : main.py .gcloudignore requirements.txt
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR)
+	rm -rf $(UPLOAD_DIR) .gcloudignore

@@ -31,9 +31,9 @@ all: deploy
 
 deploy: questions leaderboard
 
-questions: manifold metaculus wikidata infer
+questions: manifold metaculus wikidata infer yfinance
 
-workflows: main-workflow manifold-workflow infer-workflow metaculus-workflow
+workflows: main-workflow manifold-workflow infer-workflow metaculus-workflow yfinance-workflow
 
 main-workflow:
 	make -C src/workflow
@@ -60,15 +60,38 @@ metaculus-fetch:
 metaculus-update-questions:
 	make -C src/questions/metaculus/update_questions
 
-wikidata:
-	make -C src/questions/wikidata
+wikidata: wikidata-workflow wikidata-fetch wikidata-update-questions
 
-infer:
-	make -C src/questions/infer
+wikidata-workflow:
+	make -C src/questions/wikidata/workflow
+
+wikidata-fetch:
+	make -C src/questions/wikidata/fetch
+
+wikidata-update-questions:
+	make -C src/questions/wikidata/update_questions
+
+infer: infer-workflow infer-fetch infer-update-questions
 
 infer-workflow:
 	make -C src/questions/infer/workflow
 
+infer-fetch:
+	make -C src/questions/infer/fetch
+
+infer-update-questions:
+	make -C src/questions/infer/update_questions
+
+yfinance: yfinance-workflow yfinance-fetch yfinance-update-questions
+
+yfinance-workflow:
+	make -C src/questions/yfinance/workflow
+
+yfinance-fetch:
+	make -C src/questions/yfinance/fetch
+
+yfinance-update-questions:
+	make -C src/questions/yfinance/update_questions
 
 leaderboard:
 	make -C src/leaderboard

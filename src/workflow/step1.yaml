@@ -11,8 +11,11 @@ main:
           for:
             value: task
             in:
+              - infer
+              - yfinance
               - manifold
               - metaculus
+              - wikidata
             steps:
               - run:
                   try:

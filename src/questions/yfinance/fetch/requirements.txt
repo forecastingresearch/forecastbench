@@ -1,0 +1,4 @@
+google-cloud-storage
+yfinance
+pandas
+tqdm

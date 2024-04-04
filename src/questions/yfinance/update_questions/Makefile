@@ -16,7 +16,7 @@ deploy : main.py .gcloudignore requirements.txt
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud functions deploy \
-		manifold_update_questions \
+		yfinance_update_questions \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--entry-point driver \
@@ -29,6 +29,7 @@ deploy : main.py .gcloudignore requirements.txt
 		--no-allow-unauthenticated \
 		--no-gen2 \
 		--set-env-vars CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK) \
+		--set-env-vars CLOUD_PROJECT=$(CLOUD_PROJECT) \
 		--source $(UPLOAD_DIR)
 
 clean :

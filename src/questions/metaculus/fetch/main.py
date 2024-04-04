@@ -97,8 +97,8 @@ def _get_data(topics):
     df["question"] = df["title"]
     df["background"] = "N/A"
     df["source_resolution_criteria"] = "N/A"
-    df["begin_datetime"] = df["publish_time"]
-    df["close_datetime"] = df["close_time"]
+    df["begin_datetime"] = df["publish_time"].apply(dates.convert_zulu_to_iso)
+    df["close_datetime"] = df["close_time"].apply(dates.convert_zulu_to_iso)
     df["url"] = "https://www.metaculus.com" + df["page_url"]
     df["resolved"] = False
     df["resolution_datetime"] = "N/A"
