@@ -3,13 +3,11 @@
 import logging
 import os
 import sys
-from datetime import datetime
 
 import backoff
 import certifi
 import numpy as np
 import pandas as pd
-import pytz
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -67,7 +65,7 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
         }
 
     def _entry_exists_for_today(resolution_values, utc_date_str):
-        return resolution_values["datetime"].astype(str).str.startswith(utc_date_str).any()
+        return resolution_values["datetime"].str.startswith(utc_date_str).any()
 
     def _extract_probability(market):
         """Parse the forecasts for the community prediction presented on Metaculus.
@@ -95,35 +93,6 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
 
         return int(market["resolution"]) if market["resolution"] > 0 else np.nan
 
-    def _parse_datetime_potentially_with_microseconds(x):
-        """Handle different granularities of datetimes coming from API.
-
-        Data from API not consistent so must support two ways of parsing. It has multiple datetime
-        formats:
-        * with microseconds: 2024-12-30T23:00:16.291000Z e.g. for market 20761 (which seems like an
-          error)
-        * without microseconds: 2200-01-01T23:34:00Z for all other markets
-
-        Metaculus also has dates > pd.Timestamp.max=='2262-04-11 23:47:16.854775807'
-        """
-        return (
-            (
-                datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ")
-                if "." in x
-                else datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ")
-            )
-            .replace(tzinfo=pytz.utc)
-            .isoformat()
-        )
-
-    dff["id"] = dff["id"].astype(str)
-    dff["begin_datetime"] = dff["begin_datetime"].apply(
-        _parse_datetime_potentially_with_microseconds
-    )
-    dff["close_datetime"] = dff["close_datetime"].apply(
-        _parse_datetime_potentially_with_microseconds
-    )
-
     # Find rows in dff not in dfq: These are the new markets to add to dfq
     rows_to_append = dff[~dff["id"].isin(dfq["id"])]
     rows_to_append = rows_to_append.drop(columns=["fetch_datetime", "probability"])
@@ -133,7 +102,7 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
     # have the market values.
     for _, row in dff.iterrows():
         utc_date_str = row["fetch_datetime"][:10]
-        if not _entry_exists_for_today(dfr[dfr["id"] == str(row["id"])], utc_date_str):
+        if not _entry_exists_for_today(dfr[dfr["id"] == row["id"]], utc_date_str):
             dfr.loc[len(dfr)] = _get_resolution_entry(
                 row["id"],
                 row["fetch_datetime"],
@@ -149,10 +118,8 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
         dfq.at[index, "source_resolution_criteria"] = market.get("resolution_criteria", "N/A")
         if market["active_state"] == "RESOLVED":
             dfq.at[index, "resolved"] = True
-            dfq.at[index, "resolution_datetime"] = pd.to_datetime(
-                market["resolve_time"], format="ISO8601", errors="coerce"
-            )
-        if not _entry_exists_for_today(dfr[dfr["id"] == str(market["id"])], utc_date_str):
+            dfq.at[index, "resolution_datetime"] = dates.convert_zulu_to_iso(market["resolve_time"])
+        if not _entry_exists_for_today(dfr[dfr["id"] == market["id"]], utc_date_str):
             dfr.loc[len(dfr)] = _get_resolution_entry(
                 row["id"],
                 utc_datetime_str,
