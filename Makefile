@@ -60,15 +60,22 @@ metaculus-fetch:
 metaculus-update-questions:
 	make -C src/questions/metaculus/update_questions
 
-wikidata:
-	make -C src/questions/wikidata
+wikidata: wikidata-workflow wikidata-fetch wikidata-update-questions
+
+wikidata-workflow:
+	make -C src/questions/wikidata/workflow
+
+wikidata-fetch:
+	make -C src/questions/wikidata/fetch
+
+wikidata-update-questions:
+	make -C src/questions/wikidata/update_questions
 
 infer:
 	make -C src/questions/infer
 
 infer-workflow:
 	make -C src/questions/infer/workflow
-
 
 leaderboard:
 	make -C src/leaderboard
