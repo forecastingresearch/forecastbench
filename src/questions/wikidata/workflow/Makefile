@@ -14,4 +14,7 @@ deploy-main : main.yaml
 		--project $(CLOUD_PROJECT) \
 		--service-account $(CLOUD_WORKFLOW_SERVICE_ACCOUNT) \
 		--source=$(TMP_DEPLOY_FILE)
+	$(MAKE) clean
+
+clean:
 	rm -f $(TMP_DEPLOY_FILE)
