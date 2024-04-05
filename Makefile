@@ -53,7 +53,7 @@ all: deploy
 
 deploy: questions workflows metadata curate-questions resolve
 
-questions: manifold metaculus acled infer yfinance
+questions: manifold metaculus acled infer yfinance polymarket
 
 workflows: main-workflow
 
@@ -106,6 +106,14 @@ yfinance-fetch:
 
 yfinance-update-questions:
 	make -C src/questions/yfinance/update_questions
+
+polymarket: polymarket-fetch polymarket-update-questions
+
+polymarket-fetch:
+	make -C src/questions/polymarket/fetch
+
+polymarket-update-questions:
+	make -C src/questions/polymarket/update_questions
 
 tag-questions:
 	make -C src/metadata/tag_questions

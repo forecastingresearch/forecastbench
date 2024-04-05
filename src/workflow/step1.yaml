@@ -17,6 +17,7 @@ main:
               - metaculus
               - infer
               - yfinance
+              - polymarket
             steps:
               - run:
                   try:
