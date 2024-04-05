@@ -3,55 +3,51 @@ main:
     - init:
         assign:
           - execution_results: {}
-          - execution_results.manifold: {}
-          - execution_results.manifold.fetch: {}
-          - execution_results.manifold.update_questions: {}
-    - manifold_fetch:
+          - execution_results.infer: {}
+    - infer_fetch:
         try:
           steps:
               - fetch:
                   call: http.post
                   args:
-                      url: https://SUBDOMAIN.cloudfunctions.net/manifold_fetch
+                      url: https://SUBDOMAIN.cloudfunctions.net/infer_fetch
                       auth:
                            type: OIDC
-                      timeout: 1800
                   result: api_response_fetch
               - save_successful_fetch:
                   assign:
-                    - execution_results.manifold.success: True
-                    - execution_results.manifold.fetch: ${api_response_fetch}
+                    - execution_results.infer.success: True
+                    - execution_results.infer.fetch: ${api_response_fetch}
         retry: ${http.default_retry}
         except:
             as: e
             steps:
                 - save_failed_fetch:
                     assign:
-                      - execution_results.manifold.fetch.exception: ${e}
+                      - execution_results.infer.exception: ${e}
                 - raise_fetch_exception:
                     raise: ${execution_results}
-    - manifold_update_questions:
+    - infer_update_questions:
         try:
           steps:
               - update_questions:
                   call: http.post
                   args:
-                      url: https://SUBDOMAIN.cloudfunctions.net/manifold_update_questions
+                      url: https://SUBDOMAIN.cloudfunctions.net/infer_update_questions
                       auth:
                            type: OIDC
-                      timeout: 1800
                   result: api_response_update_questions
               - save_successful_update_questions:
                   assign:
-                    - execution_results.manifold.success: True
-                    - execution_results.manifold.update_questions: ${api_response_update_questions}
+                    - execution_results.infer.success: True
+                    - execution_results.infer.update_questions: ${api_response_update_questions}
         retry: ${http.default_retry}
         except:
             as: e
             steps:
                 - save_failed_update_questions:
                     assign:
-                      - execution_results.manifold.update_questions.exception: ${e}
+                      - execution_results.infer.exception: ${e}
                 - raise_update_questions_exception:
                     raise: ${execution_results}
     - check_exception_encountered:

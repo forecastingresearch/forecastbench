@@ -16,20 +16,21 @@ deploy : main.py .gcloudignore requirements.txt
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud functions deploy \
-		manifold_update_questions \
+		acled_fetch \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--entry-point driver \
 		--runtime $(LATEST_PYTHON_RUNTIME) \
-		--memory 2GiB \
+		--memory 8GiB \
 		--max-instances 1 \
-		--timeout 1800s \
+		--timeout 3600s \
 		--service-account $(CLOUD_STORAGE_BUCKET_QUESTION_BANK_SERVICE_ACCOUNT) \
 		--trigger-http \
 		--no-allow-unauthenticated \
 		--gen2 \
 		--set-env-vars CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK) \
+		--set-secrets API_KEY_ACLED=API_KEY_ACLED:latest,API_EMAIL_ACLED=API_EMAIL_ACLED:latest \
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore
+	rm -rf $(UPLOAD_DIR)

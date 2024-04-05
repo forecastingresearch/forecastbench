@@ -16,19 +16,19 @@ deploy : main.py .gcloudignore requirements.txt
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud functions deploy \
-		manifold_update_questions \
+		infer_update_questions \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--entry-point driver \
 		--runtime $(LATEST_PYTHON_RUNTIME) \
-		--memory 2GiB \
+		--memory 512MB \
 		--max-instances 1 \
-		--timeout 1800s \
+		--timeout 540s \
 		--service-account $(CLOUD_STORAGE_BUCKET_QUESTION_BANK_SERVICE_ACCOUNT) \
 		--trigger-http \
 		--no-allow-unauthenticated \
-		--gen2 \
-		--set-env-vars CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK) \
+		--no-gen2 \
+		--set-env-vars CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK),CLOUD_PROJECT=$(CLOUD_PROJECT) \
 		--source $(UPLOAD_DIR)
 
 clean :

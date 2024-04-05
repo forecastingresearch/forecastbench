@@ -7,33 +7,13 @@ import sys
 
 import pandas as pd
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
+from . import constants
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-QUESTION_FILE_COLUMN_DTYPE = {
-    "id": str,
-    "question": str,
-    "background": str,
-    "source_resolution_criteria": str,
-    "begin_datetime": str,
-    "close_datetime": str,
-    "url": str,
-    "resolution_datetime": str,
-    "resolved": bool,
-}
-QUESTION_FILE_COLUMNS = list(QUESTION_FILE_COLUMN_DTYPE.keys())
-
-RESOLUTION_FILE_COLUMN_DTYPE = {
-    "id": str,
-    "datetime": str,
-}
-
-# value is not included in dytpe because it's of type ANY
-RESOLUTION_FILE_COLUMNS = list(RESOLUTION_FILE_COLUMN_DTYPE.keys()) + ["value"]
 
 
 def print_error_info_handler(details):
@@ -45,128 +25,119 @@ def print_error_info_handler(details):
     )
 
 
+def generate_filenames(source):
+    """
+    Generate and return filenames based on the given source.
+
+    Parameters:
+    - source (str): The source name used to construct filenames.
+
+    Returns:
+    - A dictionary containing the keys 'jsonl_fetch', 'local_fetch', 'jsonl_question',
+      'local_question', 'jsonl_resolution', and 'local_resolution' with their respective filenames.
+    """
+    filenames = {
+        "jsonl_fetch": f"{source}_fetch.jsonl",
+        "local_fetch": f"/tmp/{source}_fetch.jsonl",
+        "jsonl_question": f"{source}_questions.jsonl",
+        "local_question": f"/tmp/{source}_questions.jsonl",
+        "jsonl_resolution": f"{source}_resolutions.jsonl",
+        "local_resolution": f"/tmp/{source}_resolutions.jsonl",
+    }
+    return filenames
+
+
+def download_and_read(filename, local_filename, df_tmp, dtype):
+    """Download data from cloud storage."""
+    logger.info(f"Get from {constants.BUCKET_NAME}/{filename}")
+    gcp.storage.download_no_error_message_on_404(
+        bucket_name=constants.BUCKET_NAME,
+        filename=filename,
+        local_filename=local_filename,
+    )
+    df = pd.read_json(local_filename, lines=True, dtype=dtype, convert_dates=False)
+    return df.astype(dtype=dtype) if not df.empty else df_tmp
+
+
 def get_data_from_cloud_storage(
-    BUCKET_NAME,
-    JSONL_QUESTION_FILENAME,
-    LOCAL_QUESTION_FILENAME,
-    JSONL_RESOLUTION_FILENAME,
-    LOCAL_RESOLUTION_FILENAME,
-    JSONL_FETCH_FILENAME,
-    LOCAL_FETCH_FILENAME,
+    source, return_question_data=False, return_resolution_data=False, return_fetch_data=False
 ):
-    """Download question data from cloud storage."""
-    dfq = pd.DataFrame(columns=QUESTION_FILE_COLUMNS)
-    dfr = pd.DataFrame(columns=RESOLUTION_FILE_COLUMNS)
-    dff = pd.DataFrame(
-        columns=QUESTION_FILE_COLUMNS
-        + [
-            "fetch_datetime",
-            "probability",
-        ]
-    )
+    """
+    Download data from cloud storage based on source and selectively return data frames.
 
-    def _download_and_read(filename, local_filename, df_tmp, dtype):
-        logger.info(f"Get from {BUCKET_NAME}/{filename}")
-        gcp.storage.download_no_error_message_on_404(
-            bucket_name=BUCKET_NAME,
-            filename=filename,
-            local_filename=local_filename,
-        )
-        df = pd.read_json(local_filename, lines=True, dtype=dtype, convert_dates=False)
-        return df if not df.empty else df_tmp
+    Parameters:
+    - bucket_name (str): The name of the cloud storage bucket.
+    - source (str): The source name used to construct and identify filenames.
+    - return_question_data (bool): Whether to return the question data frame.
+    - return_resolution_data (bool): Whether to return the resolution data frame.
+    - return_fetch_data (bool): Whether to return the fetch data frame.
 
-    try:
-        dfq = _download_and_read(
-            JSONL_QUESTION_FILENAME,
-            LOCAL_QUESTION_FILENAME,
+    Returns:
+    - A tuple of pandas DataFrame objects as per the boolean flags.
+    """
+    filenames = generate_filenames(source)
+
+    results = []
+    if return_question_data:
+        dfq = pd.DataFrame(columns=constants.QUESTION_FILE_COLUMNS)
+        dfq = download_and_read(
+            filenames["jsonl_question"],
+            filenames["local_question"],
             dfq,
-            QUESTION_FILE_COLUMN_DTYPE,
+            constants.QUESTION_FILE_COLUMN_DTYPE,
         )
-        dfr = _download_and_read(
-            JSONL_RESOLUTION_FILENAME,
-            LOCAL_RESOLUTION_FILENAME,
+        results.append(dfq)
+
+    if return_resolution_data:
+        dfr = pd.DataFrame(columns=constants.constants.RESOLUTION_FILE_COLUMNS)
+        dfr = download_and_read(
+            filenames["jsonl_resolution"],
+            filenames["local_resolution"],
             dfr,
-            dtype=RESOLUTION_FILE_COLUMN_DTYPE,
+            constants.constants.RESOLUTION_FILE_COLUMN_DTYPE,
         )
-        dff = _download_and_read(
-            JSONL_FETCH_FILENAME,
-            LOCAL_FETCH_FILENAME,
+        results.append(dfr)
+
+    if return_fetch_data:
+        dff = pd.DataFrame(
+            columns=constants.QUESTION_FILE_COLUMNS + ["fetch_datetime", "probability"]
+        )
+        dff = download_and_read(
+            filenames["jsonl_fetch"],
+            filenames["local_fetch"],
             dff,
-            {**QUESTION_FILE_COLUMN_DTYPE, "fetch_datetime": str},
+            {"id": str},
         )
-    except Exception:
-        pass
+        results.append(dff)
 
-    return dfq, dfr, dff
+    if len(results) == 1:
+        return results[0]
+
+    return tuple(results)
 
 
-def upload_questions_and_resolution(
-    dfq,
-    dfr,
-    BUCKET_NAME,
-    LOCAL_QUESTION_FILENAME,
-    LOCAL_RESOLUTION_FILENAME,
-):
-    """Write files to disk and upload to storage."""
+def upload_questions(dfq, source):
+    """
+    Write question data frame to disk and upload to cloud storage.
+
+    This function handles file naming through the `generate_filenames` utility and ensures
+    that data is sorted before upload. It leverages GCP storage utilities for the upload process.
+
+    Parameters:
+    - dfq (pandas.DataFrame): DataFrame containing question data.
+    - source (str): The source name.
+    """
+    filenames = generate_filenames(source)
+    local_question_filename = filenames["local_question"]
+
     dfq = dfq.sort_values(by=["id"], ignore_index=True)
-    dfr = dfr.sort_values(by=["id", "datetime"], ignore_index=True)
 
-    with open(LOCAL_QUESTION_FILENAME, "w", encoding="utf-8") as f:
-        # can't use `dfq.to_json` because we don't want escape chars
+    with open(local_question_filename, "w", encoding="utf-8") as f:
         for record in dfq.to_dict(orient="records"):
-            json_str = json.dumps(record, ensure_ascii=False)
-            f.write(json_str + "\n")
-    dfr.to_json(LOCAL_RESOLUTION_FILENAME, orient="records", lines=True, date_format="iso")
+            jsonl_str = json.dumps(record, ensure_ascii=False)
+            f.write(jsonl_str + "\n")
 
     gcp.storage.upload(
-        bucket_name=BUCKET_NAME,
-        local_filename=LOCAL_QUESTION_FILENAME,
+        bucket_name=constants.BUCKET_NAME,
+        local_filename=local_question_filename,
     )
-    gcp.storage.upload(
-        bucket_name=BUCKET_NAME,
-        local_filename=LOCAL_RESOLUTION_FILENAME,
-    )
-
-
-def get_stored_question_data(
-    BUCKET_NAME,
-    JSON_MARKET_FILENAME,
-    LOCAL_MARKET_FILENAME,
-    JSON_MARKET_VALUE_FILENAME,
-    LOCAL_MARKET_VALUES_FILENAME,
-):
-    """Download question data from cloud storage."""
-    # Initialize dataframes with predefined columns
-    dfq = pd.DataFrame(columns=QUESTION_FILE_COLUMNS)
-    dfmv = pd.DataFrame(columns=RESOLUTION_FILE_COLUMNS)
-
-    try:
-        # Attempt to download and read the market questions file
-        logger.info(f"Get questions from {BUCKET_NAME}/{JSON_MARKET_FILENAME}")
-        gcp.storage.download_no_error_message_on_404(
-            bucket_name=BUCKET_NAME,
-            filename=JSON_MARKET_FILENAME,
-            local_filename=LOCAL_MARKET_FILENAME,
-        )
-        # Check if the file is not empty before reading
-        if os.path.getsize(LOCAL_MARKET_FILENAME) > 0:
-            dfq_tmp = pd.read_json(LOCAL_MARKET_FILENAME, lines=True)
-            if not dfq_tmp.empty:
-                dfq = dfq_tmp
-
-        # Attempt to download and read the market values file
-        logger.info(f"Get market values from {BUCKET_NAME}/{JSON_MARKET_VALUE_FILENAME}")
-        gcp.storage.download_no_error_message_on_404(
-            bucket_name=BUCKET_NAME,
-            filename=JSON_MARKET_VALUE_FILENAME,
-            local_filename=LOCAL_MARKET_VALUES_FILENAME,
-        )
-        # Check if the file is not empty before reading
-        if os.path.getsize(LOCAL_MARKET_VALUES_FILENAME) > 0:
-            dfmv_tmp = pd.read_json(LOCAL_MARKET_VALUES_FILENAME, lines=True)
-            if not dfmv_tmp.empty:
-                dfmv = dfmv_tmp
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-
-    return dfq, dfmv

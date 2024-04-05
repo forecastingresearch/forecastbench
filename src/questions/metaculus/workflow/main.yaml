@@ -13,6 +13,7 @@ main:
                       url: https://SUBDOMAIN.cloudfunctions.net/metaculus_fetch
                       auth:
                            type: OIDC
+                      timeout: 1800
                   result: api_response_fetch
               - save_successful_fetch:
                   assign:
@@ -36,6 +37,7 @@ main:
                       url: https://SUBDOMAIN.cloudfunctions.net/metaculus_update_questions
                       auth:
                            type: OIDC
+                      timeout: 1800
                   result: api_response_update_questions
               - save_successful_update_questions:
                   assign:

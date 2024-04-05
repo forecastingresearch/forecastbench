@@ -6,6 +6,11 @@ All datetimes should be stored as ISO 8601 in seconds in UTC.
 from datetime import datetime, timezone
 
 
+def get_datetime_today_midnight():
+    """Get datetime.now in UTC at midnight."""
+    return datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def get_datetime_now() -> str:
     """Get datetime.now in UTC removing microseconds."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -32,4 +37,5 @@ def convert_zulu_to_iso(time_str: str) -> str:
 
     e.g. "2023-05-06T14:00:00Z" -> "2023-05-06T14:00:00+00:00"
     """
+    time_str = time_str.replace("Z", "+00:00")
     return datetime.fromisoformat(time_str).isoformat(timespec="seconds")

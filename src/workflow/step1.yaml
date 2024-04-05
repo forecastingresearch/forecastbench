@@ -11,6 +11,8 @@ main:
           for:
             value: task
             in:
+              - infer
+              - acled
               - manifold
               - metaculus
               - wikidata
