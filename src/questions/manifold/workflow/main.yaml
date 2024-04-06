@@ -4,6 +4,8 @@ main:
         assign:
           - execution_results: {}
           - execution_results.manifold: {}
+          - execution_results.manifold.fetch: {}
+          - execution_results.manifold.update_questions: {}
     - manifold_fetch:
         try:
           steps:
@@ -24,7 +26,7 @@ main:
             steps:
                 - save_failed_fetch:
                     assign:
-                      - execution_results.manifold.exception: ${e}
+                      - execution_results.manifold.fetch.exception: ${e}
                 - raise_fetch_exception:
                     raise: ${execution_results}
     - manifold_update_questions:
@@ -41,13 +43,20 @@ main:
                   assign:
                     - execution_results.manifold.success: True
                     - execution_results.manifold.update_questions: ${api_response_update_questions}
-        retry: ${http.default_retry}
+        retry:
+          predicate: ${idempotent_predicate}
+          max_retries: 10
+          backoff:
+              # Manifold rate limit is 1,000 requests/minute
+              initial_delay: 60
+              max_delay: 1200
+              multiplier: 2
         except:
             as: e
             steps:
                 - save_failed_update_questions:
                     assign:
-                      - execution_results.manifold.exception: ${e}
+                      - execution_results.manifold.update_questions.exception: ${e}
                 - raise_update_questions_exception:
                     raise: ${execution_results}
     - check_exception_encountered:
@@ -63,3 +72,11 @@ main:
                     - execution_results.success: True
     - return_execution_results:
         return: ${execution_results}
+
+
+# Always return true because the function is idempotent
+idempotent_predicate:
+  params: [e]
+  steps:
+    - return_true:
+        return: true
