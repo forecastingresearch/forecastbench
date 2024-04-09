@@ -7,34 +7,13 @@ import sys
 
 import pandas as pd
 
+from . import constants
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET")
-
-QUESTION_FILE_COLUMN_DTYPE = {
-    "id": str,
-    "question": str,
-    "background": str,
-    "source_resolution_criteria": str,
-    "begin_datetime": str,
-    "close_datetime": str,
-    "url": str,
-    "resolution_datetime": str,
-    "resolved": bool,
-}
-QUESTION_FILE_COLUMNS = list(QUESTION_FILE_COLUMN_DTYPE.keys())
-
-RESOLUTION_FILE_COLUMN_DTYPE = {
-    "id": str,
-    "datetime": str,
-}
-
-# value is not included in dytpe because it's of type ANY
-RESOLUTION_FILE_COLUMNS = list(RESOLUTION_FILE_COLUMN_DTYPE.keys()) + ["value"]
 
 
 def print_error_info_handler(details):
@@ -70,9 +49,9 @@ def generate_filenames(source):
 
 def download_and_read(filename, local_filename, df_tmp, dtype):
     """Download data from cloud storage."""
-    logger.info(f"Get from {BUCKET_NAME}/{filename}")
+    logger.info(f"Get from {constants.BUCKET_NAME}/{filename}")
     gcp.storage.download_no_error_message_on_404(
-        bucket_name=BUCKET_NAME,
+        bucket_name=constants.BUCKET_NAME,
         filename=filename,
         local_filename=local_filename,
     )
@@ -99,9 +78,9 @@ def get_data_from_cloud_storage(
     filenames = generate_filenames(source)
 
     def _download_and_read(filename, local_filename, df_tmp, dtype):
-        logger.info(f"Get from {BUCKET_NAME}/{filename}")
+        logger.info(f"Get from {constants.BUCKET_NAME}/{filename}")
         gcp.storage.download_no_error_message_on_404(
-            bucket_name=BUCKET_NAME,
+            bucket_name=constants.BUCKET_NAME,
             filename=filename,
             local_filename=local_filename,
         )
@@ -110,27 +89,29 @@ def get_data_from_cloud_storage(
 
     results = []
     if return_question_data:
-        dfq = pd.DataFrame(columns=QUESTION_FILE_COLUMNS)
+        dfq = pd.DataFrame(columns=constants.QUESTION_FILE_COLUMNS)
         dfq = _download_and_read(
             filenames["jsonl_question"],
             filenames["local_question"],
             dfq,
-            QUESTION_FILE_COLUMN_DTYPE,
+            constants.QUESTION_FILE_COLUMN_DTYPE,
         )
         results.append(dfq)
 
     if return_resolution_data:
-        dfr = pd.DataFrame(columns=RESOLUTION_FILE_COLUMNS)
+        dfr = pd.DataFrame(columns=constants.constants.RESOLUTION_FILE_COLUMNS)
         dfr = _download_and_read(
             filenames["jsonl_resolution"],
             filenames["local_resolution"],
             dfr,
-            RESOLUTION_FILE_COLUMN_DTYPE,
+            constants.constants.RESOLUTION_FILE_COLUMN_DTYPE,
         )
         results.append(dfr)
 
     if return_fetch_data:
-        dff = pd.DataFrame(columns=QUESTION_FILE_COLUMNS + ["fetch_datetime", "probability"])
+        dff = pd.DataFrame(
+            columns=constants.QUESTION_FILE_COLUMNS + ["fetch_datetime", "probability"]
+        )
         dff = download_and_read(
             filenames["jsonl_fetch"],
             filenames["local_fetch"],
@@ -172,10 +153,10 @@ def upload_questions_and_resolution(dfq, dfr, source):
     dfr.to_json(local_resolution_filename, orient="records", lines=True, date_format="iso")
 
     gcp.storage.upload(
-        bucket_name=BUCKET_NAME,
+        bucket_name=constants.BUCKET_NAME,
         local_filename=local_question_filename,
     )
     gcp.storage.upload(
-        bucket_name=BUCKET_NAME,
+        bucket_name=constants.BUCKET_NAME,
         local_filename=local_resolution_filename,
     )

@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import data_utils, dates  # noqa: E402
+from helpers import constants, data_utils, dates  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 source = "manifold"
 filenames = data_utils.generate_filenames(source=source)
-bucket_name = os.environ.get("CLOUD_STORAGE_BUCKET")
 
 
 @backoff.on_exception(
@@ -104,12 +103,14 @@ def _update_questions_and_resolved_values(dfq, dff):
         remote_filename = f"{source}/{basename}"
         local_filename = "/tmp/tmp.jsonl"
         gcp.storage.download_no_error_message_on_404(
-            bucket_name=bucket_name, filename=remote_filename, local_filename=local_filename
+            bucket_name=constants.BUCKET_NAME,
+            filename=remote_filename,
+            local_filename=local_filename,
         )
         df = pd.read_json(
             local_filename,
             lines=True,
-            dtype=data_utils.RESOLUTION_FILE_COLUMN_DTYPE,
+            dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
             convert_dates=False,
         )
         if not df.empty and pd.to_datetime(df["datetime"].iloc[-1]) >= TODAY:
@@ -131,7 +132,7 @@ def _update_questions_and_resolved_values(dfq, dff):
             ]
         )
         if df.empty:
-            return pd.DataFrame(columns=data_utils.RESOLUTION_FILE_COLUMNS)
+            return pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
 
         df["datetime"] = pd.to_datetime(df["datetime"]) + pd.DateOffset(days=1)
         df = df.sort_values(by="datetime")
@@ -159,12 +160,14 @@ def _update_questions_and_resolved_values(dfq, dff):
 
         df["id"] = market["id"]
         df["datetime"] = df["datetime"].apply(lambda x: x.isoformat())
-        df = df[["id", "datetime", "value"]].astype(dtype=data_utils.RESOLUTION_FILE_COLUMN_DTYPE)
+        df = df[["id", "datetime", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
         # Save and Upload
         df.to_json(local_filename, orient="records", lines=True, date_format="iso")
         gcp.storage.upload(
-            bucket_name=bucket_name, local_filename=local_filename, filename=remote_filename
+            bucket_name=constants.BUCKET_NAME,
+            local_filename=local_filename,
+            filename=remote_filename,
         )
 
         return df
@@ -197,7 +200,7 @@ def _update_questions_and_resolved_values(dfq, dff):
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
     # Recreate all rows of `dfr` for unresolved questions
-    dfr = pd.DataFrame(columns=data_utils.RESOLUTION_FILE_COLUMNS)
+    dfr = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
     for index, row in dfq[dfq["resolved"] == False].iterrows():  # noqa: E712
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)

@@ -11,20 +11,20 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import data_utils, dates  # noqa: E402
+from helpers import constants, data_utils, dates  # noqa: E402
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
+from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 source = "metaculus"
-jsonl_question_filename = f"{source}_questions.jsonl"
-local_question_filename = f"/tmp/{jsonl_question_filename}"
-jsonl_resolution_filename = f"{source}_resolutions.jsonl"
-local_resolution_filename = f"/tmp/{jsonl_resolution_filename}"
-jsonl_fetch_filename = f"{source}_fetch.jsonl"
-local_fetch_filename = f"/tmp/{jsonl_fetch_filename}"
-bucket_name = os.environ.get("CLOUD_STORAGE_BUCKET")
+filenames = data_utils.generate_filenames(source=source)
 API_KEY = os.environ.get("API_KEY_METACULUS")
+# The Metaculus rate limit is 1,000 queries per hour, so we limit the number of questions we use
+# to 1,000 - number of queries executed by the `fetch` function.
+QUESTION_LIMIT = 1000 - (len(constants.METACULUS_CATEGORIES) + 1)
 
 
 @backoff.on_exception(
@@ -39,23 +39,22 @@ def _get_market(market_id):
     endpoint = f"https://www.metaculus.com/api2/questions/{market_id}"
     headers = {"Authorization": f"Token {API_KEY}"}
     response = requests.get(endpoint, headers=headers, verify=certifi.where())
-    utc_datetime_str = dates.get_datetime_now()
     if not response.ok:
         logger.error(
             f"Request to market endpoint failed for {market_id}: {response.status_code} Error. "
             f"{response.text}"
         )
         response.raise_for_status()
-    return utc_datetime_str, response.json()
+    return response.json()
 
 
-def _update_questions_and_resolved_values(dfq, dfr, dff):
+def _update_questions_and_resolved_values(dfq, dff):
     """Update the dataframes that hold the questions and the resolution values.
 
     dfq: Metaculus questions in the question bank
-    dfr: Metaculus resolution values
     dff: Today's fetched markets
     """
+    TODAY = pd.Timestamp(dates.get_datetime_today_midnight()).normalize()
 
     def _get_resolution_entry(market_id, utc_datetime_str, value):
         return {
@@ -76,7 +75,7 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
         market_value = market["community_prediction"]["full"]
         return market_value.get("q2") if isinstance(market_value, dict) else np.nan
 
-    def _get_potentially_resolved_market_value(market):
+    def _get_resolved_market_value(market):
         """Get the market value based on the resolution.
 
         A market that has resolved should return the resolved value. The possible values for
@@ -88,43 +87,104 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
 
         A market that hasn't resolved returns the current market probability. This includes closed markets.
         """
-        if market["active_state"] != "RESOLVED":
-            return _extract_probability(market)
-
         return int(market["resolution"]) if market["resolution"] > 0 else np.nan
 
-    # Find rows in dff not in dfq: These are the new markets to add to dfq
-    rows_to_append = dff[~dff["id"].isin(dfq["id"])]
-    rows_to_append = rows_to_append.drop(columns=["fetch_datetime", "probability"])
-    dfq = pd.concat([dfq, rows_to_append], ignore_index=True)
+    def _create_resolution_file(dfq, index, market):
 
-    # Update dfr for everything in dff as these markets are all open/non-resolved and we already
-    # have the market values.
-    for _, row in dff.iterrows():
-        utc_date_str = row["fetch_datetime"][:10]
-        if not _entry_exists_for_today(dfr[dfr["id"] == row["id"]], utc_date_str):
-            dfr.loc[len(dfr)] = _get_resolution_entry(
-                row["id"],
-                row["fetch_datetime"],
-                row["probability"],
-            )
+        basename = f"{market['id']}.jsonl"
+        remote_filename = f"{source}/{basename}"
+        local_filename = "/tmp/tmp.jsonl"
+        df = pd.DataFrame(
+            [
+                {
+                    "datetime": dates.convert_zulu_to_iso(forecast["time"]),
+                    "value": forecast["raw"],
+                }
+                for forecast in market.get("simplified_history", {}).get("community_prediction", {})
+            ]
+        )
+        if df.empty:
+            return pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
 
-    # Update all questions in dfq. Update resolved, resolution_datetime, and background. For those
-    # questions that were not updated in the loop above, update dfr.
-    for index, row in dfq.iterrows():
-        utc_datetime_str, market = _get_market(row["id"])
-        utc_date_str = utc_datetime_str[:10]
-        dfq.at[index, "background"] = market.get("description", "N/A")
-        dfq.at[index, "source_resolution_criteria"] = market.get("resolution_criteria", "N/A")
+        df["datetime"] = pd.to_datetime(df["datetime"]) + pd.DateOffset(days=1)
+        df = df.sort_values(by="datetime")
+
+        if dfq.at[index, "resolved"]:
+            # If the market has been resolved, add the market value and resolution datetime
+            resolved_datetime = pd.to_datetime(dfq.at[index, "resolution_datetime"])
+            df = df[df["datetime"] <= resolved_datetime]
+            df.loc[len(df)] = {
+                "datetime": resolved_datetime,
+                "value": _get_resolved_market_value(market),
+            }
+        else:
+            # Add a value for today if not present
+            last_date_in_df = df["datetime"].max()
+            if TODAY > last_date_in_df:
+                df.loc[len(df)] = {
+                    "datetime": TODAY,
+                    "value": df["value"].iloc[-1],
+                }
+
+        df.set_index("datetime", inplace=True)
+        df = df.resample("D").last().ffill()
+        df = df.reset_index(names="datetime")
+
+        df["id"] = market["id"]
+        df["datetime"] = df["datetime"].apply(lambda x: x.isoformat())
+        df = df[["id", "datetime", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+
+        # Save and Upload
+        df.to_json(local_filename, orient="records", lines=True, date_format="iso")
+        gcp.storage.upload(
+            bucket_name=constants.BUCKET_NAME,
+            local_filename=local_filename,
+            filename=remote_filename,
+        )
+
+        return df
+
+    def _assign_market_values_to_df(df, index, market):
+        df.at[index, "question"] = market["title"] if "title" in market else market["title_short"]
+        df.at[index, "background"] = market.get("description", "N/A")
+        df.at[index, "source_resolution_criteria"] = market.get("resolution_criteria", "N/A")
+        df.at[index, "begin_datetime"] = (
+            dates.convert_zulu_to_iso(market["publish_time"]) if "publish_time" in market else "N/A"
+        )
+        df.at[index, "close_datetime"] = (
+            dates.convert_zulu_to_iso(market["close_time"]) if "close_time" in market else "N/A"
+        )
+        df.at[index, "url"] = "https://www.metaculus.com" + market["page_url"]
         if market["active_state"] == "RESOLVED":
-            dfq.at[index, "resolved"] = True
-            dfq.at[index, "resolution_datetime"] = dates.convert_zulu_to_iso(market["resolve_time"])
-        if not _entry_exists_for_today(dfr[dfr["id"] == market["id"]], utc_date_str):
-            dfr.loc[len(dfr)] = _get_resolution_entry(
-                row["id"],
-                utc_datetime_str,
-                _get_potentially_resolved_market_value(market),
-            )
+            df.at[index, "resolved"] = True
+            df.at[index, "resolution_datetime"] = dates.convert_zulu_to_iso(market["resolve_time"])
+        return df
+
+    # Find rows in dff not in dfq: These are the new markets to add to dfq
+    col_to_append = dff[~dff["id"].isin(dfq["id"])]["id"]
+
+    # Set all non-id columns to `None` for the new markets
+    df_ids_to_append = pd.DataFrame(col_to_append).assign(
+        **{col: None for col in dfq.columns if col != "id"}
+    )
+    df_ids_to_append["resolved"] = False
+    df_ids_to_append["resolution_datetime"] = "N/A"
+
+    # Limit the number of new questions to avoid rate limit
+    max_to_add = QUESTION_LIMIT - len(dfq[dfq["resolved"] == False])  # noqa: E712
+    if max_to_add > 0:
+        df_ids_to_append = df_ids_to_append.head(max_to_add)
+        dfq = pd.concat([dfq, df_ids_to_append], ignore_index=True)
+
+    # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
+    # Recreate all rows of `dfr` for unresolved questions
+    dfr = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
+    for index, row in dfq[dfq["resolved"] == False].iterrows():  # noqa: E712
+        market = _get_market(row["id"])
+        dfq = _assign_market_values_to_df(dfq, index, market)
+        df_tmp = _create_resolution_file(dfq, index, market)
+        if not df_tmp.empty:
+            dfr = df_tmp if dfr.empty else pd.concat([dfr, df_tmp], ignore_index=True)
 
     return dfq, dfr
 
@@ -132,27 +192,22 @@ def _update_questions_and_resolved_values(dfq, dfr, dff):
 def driver(_):
     """Pull in fetched data and update questions and resolved values in question bank."""
     # Download pertinent files from Cloud Storage
-    dfq, dfr, dff = data_utils.get_data_from_cloud_storage(
-        bucket_name,
-        jsonl_question_filename,
-        local_question_filename,
-        jsonl_resolution_filename,
-        local_resolution_filename,
-        jsonl_fetch_filename,
-        local_fetch_filename,
+    dff = data_utils.download_and_read(
+        filename=filenames["jsonl_fetch"],
+        local_filename=filenames["local_fetch"],
+        df_tmp=pd.DataFrame(columns=["id"]),
+        dtype={"id": str},
+    )
+    dfq = data_utils.get_data_from_cloud_storage(
+        source=source,
+        return_question_data=True,
     )
 
     # Update the existing questions and resolution values
-    dfq, dfr = _update_questions_and_resolved_values(dfq, dfr, dff)
+    dfq, dfr = _update_questions_and_resolved_values(dfq, dff)
 
     # Save and upload
-    data_utils.upload_questions_and_resolution(
-        dfq,
-        dfr,
-        bucket_name,
-        local_question_filename,
-        local_resolution_filename,
-    )
+    data_utils.upload_questions_and_resolution(dfq, dfr, source)
 
     logger.info("Done.")
 

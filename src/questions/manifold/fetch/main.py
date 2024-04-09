@@ -10,7 +10,7 @@ import certifi
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import data_utils  # noqa: E402
+from helpers import constants, data_utils  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -19,8 +19,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 filenames = data_utils.generate_filenames(source="manifold")
-bucket_name = os.environ.get("CLOUD_STORAGE_BUCKET")
-manifold_topic_slugs = ["entertainment", "sports-default", "technology-default"]
 
 
 @backoff.on_exception(
@@ -66,7 +64,7 @@ def _get_data(topics):
 def driver(_):
     """Fetch Manifold data and update question file in GCP Cloud Storage."""
     # Get the latest Manifold data
-    ids = _get_data(manifold_topic_slugs)
+    ids = _get_data(constants.MANIFOLD_TOPIC_SLUGS)
 
     # Save
     with open(filenames["local_fetch"], "w") as f:
@@ -75,7 +73,7 @@ def driver(_):
 
     # Upload
     gcp.storage.upload(
-        bucket_name=bucket_name,
+        bucket_name=constants.BUCKET_NAME,
         local_filename=filenames["local_fetch"],
     )
 
