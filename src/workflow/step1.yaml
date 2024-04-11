@@ -13,7 +13,6 @@ main:
             in:
               - manifold
               - metaculus
-              - wikidata
             steps:
               - run:
                   try:
