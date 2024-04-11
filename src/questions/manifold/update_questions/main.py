@@ -196,6 +196,7 @@ def _update_questions_and_resolved_values(dfq, dff):
         **{col: None for col in dfq.columns if col != "id"}
     )
     df_ids_to_append["resolved"] = False
+    df_ids_to_append["resolution_datetime"] = "N/A"
     dfq = pd.concat([dfq, df_ids_to_append], ignore_index=True)
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
