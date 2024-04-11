@@ -29,11 +29,11 @@ clean:
 
 all: deploy
 
-deploy: questions leaderboard
+deploy: questions workflows
 
-questions: manifold metaculus infer
+questions: manifold metaculus
 
-workflows: main-workflow manifold-workflow infer-workflow metaculus-workflow
+workflows: main-workflow manifold-workflow metaculus-workflow
 
 main-workflow:
 	make -C src/workflow
