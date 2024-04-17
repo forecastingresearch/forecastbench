@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates  # noqa: E402
+from helpers import constants, data_utils, dates, decorator  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -189,6 +189,7 @@ def _update_questions_and_resolved_values(dfq, dff):
     return dfq, dfr
 
 
+@decorator.log_runtime
 def driver(_):
     """Pull in fetched data and update questions and resolved values in question bank."""
     # Download pertinent files from Cloud Storage

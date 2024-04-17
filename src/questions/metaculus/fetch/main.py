@@ -10,7 +10,7 @@ import certifi
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils  # noqa: E402
+from helpers import constants, data_utils, decorator  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -62,6 +62,7 @@ def _get_data(topics):
     return sorted(ids)
 
 
+@decorator.log_runtime
 def driver(_):
     """Fetch Metaculus data and update fetch file in GCP Cloud Storage."""
     # Get the latest Manifold data
