@@ -7,6 +7,7 @@ from . import dates
 BENCHMARK_START_YEAR = 2024
 
 BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET")
+PROJECT_ID = os.environ.get("CLOUD_PROJECT")
 
 FREEZE_WINDOW_IN_DAYS = 7
 
@@ -18,7 +19,7 @@ FORECAST_HORIZONS_IN_DAYS = [
     7,  # 1 week
     30,  # 1 month
     90,  # 3 months
-    180,  # 76 months
+    180,  # 6 months
     365,  # 1 year
     1095,  # 3 years
     1825,  # 5 years

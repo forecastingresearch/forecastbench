@@ -6,6 +6,7 @@ All datetimes should be stored as ISO 8601 in seconds in UTC.
 from datetime import datetime, timezone
 
 import pytz
+from dateutil import parser
 
 
 def get_datetime_today():
@@ -60,6 +61,7 @@ def convert_zulu_to_datetime(time_str: str) -> datetime:
 
     e.g. "2023-05-06T14:00:00Z" -> datetime.datetime(2023, 5, 6, 14, 0, tzinfo=datetime.timezone.utc)
     """
+    time_str = time_str.replace("Z", "+00:00")
     return datetime.fromisoformat(time_str)
 
 
@@ -69,3 +71,38 @@ def convert_zulu_to_iso(time_str: str) -> str:
     e.g. "2023-05-06T14:00:00Z" -> "2023-05-06T14:00:00+00:00"
     """
     return convert_zulu_to_datetime(time_str).isoformat(timespec="seconds")
+
+
+def change_timezone_to_utc(datetime_str: str) -> str:
+    """Change a date with timezone to UTC.
+
+    e.g. "2023-06-22T15:00:00.000-04:00" -> "2023-06-22T19:00:00+00:00"
+    """
+    dt = parser.parse(datetime_str)
+    return dt.astimezone(pytz.utc).isoformat(timespec="seconds")
+
+
+def convert_datetime_str_to_iso_utc(datetime_str: str) -> str:
+    """Convert one of the following datetime formats to ISO & UTC.
+
+    Don't error out on bad date. Just return the original value passed.
+
+    * "2023-06-22T15:00:00.000-04:00"
+    * "2023-06-22T19:00:00Z"
+    """
+    try:
+        dt = parser.parse(datetime_str)
+        if dt.tzinfo:
+            if dt.tzinfo.utcoffset(dt) is None or dt.tzinfo.utcoffset(dt).total_seconds() == 0:
+                return (
+                    convert_zulu_to_iso(datetime_str)
+                    if datetime_str.endswith("Z")
+                    else datetime_str
+                )
+            else:
+                return change_timezone_to_utc(datetime_str)
+        else:
+            raise ValueError("No timezone info available.")
+    except ValueError as e:
+        raise ValueError("Invalid datetime format.") from e
+    return datetime_str
