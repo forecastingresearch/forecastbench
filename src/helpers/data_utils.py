@@ -116,37 +116,28 @@ def get_data_from_cloud_storage(
     return tuple(results)
 
 
-def upload_questions_and_resolution(dfq, dfr, source):
+def upload_questions(dfq, source):
     """
-    Write question and resolution data frames to disk and upload them to cloud storage.
+    Write question data frame to disk and upload to cloud storage.
 
     This function handles file naming through the `generate_filenames` utility and ensures
     that data is sorted before upload. It leverages GCP storage utilities for the upload process.
 
     Parameters:
     - dfq (pandas.DataFrame): DataFrame containing question data.
-    - dfr (pandas.DataFrame): DataFrame containing resolution data.
     - source (str): The source name.
     """
     filenames = generate_filenames(source)
     local_question_filename = filenames["local_question"]
-    local_resolution_filename = filenames["local_resolution"]
 
     dfq = dfq.sort_values(by=["id"], ignore_index=True)
-    dfr = dfr.sort_values(by=["id", "datetime"], ignore_index=True)
 
     with open(local_question_filename, "w", encoding="utf-8") as f:
         for record in dfq.to_dict(orient="records"):
             jsonl_str = json.dumps(record, ensure_ascii=False)
             f.write(jsonl_str + "\n")
 
-    dfr.to_json(local_resolution_filename, orient="records", lines=True, date_format="iso")
-
     gcp.storage.upload(
         bucket_name=constants.BUCKET_NAME,
         local_filename=local_question_filename,
-    )
-    gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
-        local_filename=local_resolution_filename,
     )

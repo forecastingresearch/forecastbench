@@ -177,16 +177,13 @@ def _update_questions_and_resolved_values(dfq, dff):
         dfq = pd.concat([dfq, df_ids_to_append], ignore_index=True)
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
-    # Recreate all rows of `dfr` for unresolved questions
-    dfr = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
+    # Recreate all rows of resolution files for unresolved questions
     for index, row in dfq[dfq["resolved"] == False].iterrows():  # noqa: E712
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)
-        df_tmp = _create_resolution_file(dfq, index, market)
-        if not df_tmp.empty:
-            dfr = df_tmp if dfr.empty else pd.concat([dfr, df_tmp], ignore_index=True)
+        _create_resolution_file(dfq, index, market)
 
-    return dfq, dfr
+    return dfq
 
 
 @decorator.log_runtime
@@ -205,10 +202,10 @@ def driver(_):
     )
 
     # Update the existing questions and resolution values
-    dfq, dfr = _update_questions_and_resolved_values(dfq, dff)
+    dfq = _update_questions_and_resolved_values(dfq, dff)
 
     # Save and upload
-    data_utils.upload_questions_and_resolution(dfq, dfr, source)
+    data_utils.upload_questions(dfq, source)
 
     logger.info("Done.")
 

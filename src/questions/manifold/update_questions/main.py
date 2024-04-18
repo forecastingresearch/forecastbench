@@ -76,7 +76,7 @@ def _update_questions_and_resolved_values(dfq, dff):
 
     For Manifold, store resolution values by market id to decrease calls to endpoint. First check
     the file to see if an entry exists for today. If so, skip. Otherwise, recreate the file. When
-    done, return dfq & dfr.
+    done, return dfq.
 
     dfq: Manifold questions in the question bank
     dff: Today's fetched markets
@@ -170,8 +170,6 @@ def _update_questions_and_resolved_values(dfq, dff):
             filename=remote_filename,
         )
 
-        return df
-
     def _assign_market_values_to_df(df, index, market):
         df.at[index, "question"] = market["question"]
         df.at[index, "background"] = market["textDescription"]
@@ -200,15 +198,13 @@ def _update_questions_and_resolved_values(dfq, dff):
     dfq = pd.concat([dfq, df_ids_to_append], ignore_index=True)
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
-    # Recreate all rows of `dfr` for unresolved questions
-    dfr = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
+    # Recreate all rows of resolution files for unresolved questions
     for index, row in dfq[dfq["resolved"] == False].iterrows():  # noqa: E712
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)
-        df_tmp = _create_resolution_file(dfq, index, market)
-        dfr = df_tmp if dfr.empty else pd.concat([dfr, df_tmp], ignore_index=True)
+        _create_resolution_file(dfq, index, market)
 
-    return dfq, dfr
+    return dfq
 
 
 @decorator.log_runtime
@@ -227,10 +223,10 @@ def driver(_):
     )
 
     # Update the existing questions and resolution values
-    dfq, dfr = _update_questions_and_resolved_values(dfq, dff)
+    dfq = _update_questions_and_resolved_values(dfq, dff)
 
     # Save and upload
-    data_utils.upload_questions_and_resolution(dfq, dfr, source)
+    data_utils.upload_questions(dfq, source)
 
     logger.info("Done.")
 
