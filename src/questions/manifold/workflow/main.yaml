@@ -45,14 +45,7 @@ main:
                   assign:
                     - execution_results.manifold.success: True
                     - execution_results.manifold.update_questions: ${api_response_update_questions}
-        retry:
-          predicate: ${idempotent_predicate}
-          max_retries: 10
-          backoff:
-              # Manifold rate limit is 1,000 requests/minute
-              initial_delay: 60
-              max_delay: 1200
-              multiplier: 2
+        retry: ${http.default_retry}
         except:
             as: e
             steps:
@@ -74,11 +67,3 @@ main:
                     - execution_results.success: True
     - return_execution_results:
         return: ${execution_results}
-
-
-# Always return true because the function is idempotent
-idempotent_predicate:
-  params: [e]
-  steps:
-    - return_true:
-        return: true
