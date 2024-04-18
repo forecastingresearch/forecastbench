@@ -60,6 +60,7 @@ def convert_zulu_to_datetime(time_str: str) -> datetime:
 
     e.g. "2023-05-06T14:00:00Z" -> datetime.datetime(2023, 5, 6, 14, 0, tzinfo=datetime.timezone.utc)
     """
+    time_str = time_str.replace("Z", "+00:00")
     return datetime.fromisoformat(time_str)
 
 

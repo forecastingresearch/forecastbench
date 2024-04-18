@@ -16,19 +16,19 @@ deploy : main.py .gcloudignore requirements.txt
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud functions deploy \
-		question_generation_infer \
+		infer_fetch \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--entry-point driver \
 		--runtime $(LATEST_PYTHON_RUNTIME) \
 		--memory 512MB \
 		--max-instances 1 \
-		--timeout 540s \
+		--timeout 60s \
 		--service-account $(CLOUD_STORAGE_BUCKET_QUESTION_BANK_SERVICE_ACCOUNT) \
-		--trigger-topic cron_everyday_12AM_UTC \
+		--trigger-http \
+		--no-allow-unauthenticated \
 		--no-gen2 \
-		--set-env-vars CLOUD_PROJECT=$(CLOUD_PROJECT),CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK) \
-		--set-secrets API_KEY_INFER=API_KEY_INFER:latest \
+		--set-env-vars CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK),CLOUD_PROJECT=$(CLOUD_PROJECT) \
 		--source $(UPLOAD_DIR)
 
 clean :

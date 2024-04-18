@@ -18,7 +18,7 @@ FORECAST_HORIZONS_IN_DAYS = [
     7,  # 1 week
     30,  # 1 month
     90,  # 3 months
-    180,  # 76 months
+    180,  # 6 months
     365,  # 1 year
     1095,  # 3 years
     1825,  # 5 years
