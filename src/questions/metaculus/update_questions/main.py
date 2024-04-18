@@ -90,7 +90,6 @@ def _update_questions_and_resolved_values(dfq, dff):
         return int(market["resolution"]) if market["resolution"] > 0 else np.nan
 
     def _create_resolution_file(dfq, index, market):
-
         basename = f"{market['id']}.jsonl"
         remote_filename = f"{source}/{basename}"
         local_filename = "/tmp/tmp.jsonl"

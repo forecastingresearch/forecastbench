@@ -37,4 +37,5 @@ def convert_zulu_to_iso(time_str: str) -> str:
 
     e.g. "2023-05-06T14:00:00Z" -> "2023-05-06T14:00:00+00:00"
     """
+    time_str = time_str.replace("Z", "+00:00")
     return datetime.fromisoformat(time_str).isoformat(timespec="seconds")
