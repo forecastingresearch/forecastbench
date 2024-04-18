@@ -2,9 +2,17 @@
 
 import os
 
+from . import dates
+
 BENCHMARK_START_YEAR = 2024
 
 BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET")
+
+FREEZE_WINDOW_IN_DAYS = 7
+
+FREEZE_DATETIME = os.environ.get("FREEZE_DATETIME", dates.get_datetime_today()).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
 FORECAST_HORIZONS_IN_DAYS = [
     7,  # 1 week
@@ -27,6 +35,8 @@ QUESTION_FILE_COLUMN_DTYPE = {
     "url": str,
     "resolution_datetime": str,
     "resolved": bool,
+    "continual_resolution": bool,
+    "forecast_horizons": object,  # list<int>
 }
 QUESTION_FILE_COLUMNS = list(QUESTION_FILE_COLUMN_DTYPE.keys())
 

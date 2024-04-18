@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+from datetime import timedelta
 
 import pandas as pd
 
@@ -89,12 +90,12 @@ def get_data_from_cloud_storage(
         results.append(dfq)
 
     if return_resolution_data:
-        dfr = pd.DataFrame(columns=constants.constants.RESOLUTION_FILE_COLUMNS)
+        dfr = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
         dfr = download_and_read(
             filenames["jsonl_resolution"],
             filenames["local_resolution"],
             dfr,
-            constants.constants.RESOLUTION_FILE_COLUMN_DTYPE,
+            constants.RESOLUTION_FILE_COLUMN_DTYPE,
         )
         results.append(dfr)
 
@@ -141,3 +142,31 @@ def upload_questions(dfq, source):
         bucket_name=constants.BUCKET_NAME,
         local_filename=local_question_filename,
     )
+
+
+def get_horizons(dt):
+    """Return the valid forecast horizons for the question.
+
+    This returns the first forecast horizon >= the given datetime, `dt`. If no horizons satisfy this
+    request, it returns the empty list. The maximum horizons returned is
+    `constants.FORECAST_HORIZONS_IN_DAYS`.
+
+    Parameters:
+    - dt (datetime): a datetime that represents the market close time.
+    """
+    human_forecast_release_datetime = constants.FREEZE_DATETIME
+    llm_forecast_release_datetime = human_forecast_release_datetime + timedelta(
+        days=constants.FREEZE_WINDOW_IN_DAYS
+    )
+    all_forecasts_due = llm_forecast_release_datetime.replace(
+        hour=23, minute=59, second=59, microsecond=999999
+    )
+    ndays = dt - all_forecasts_due
+    ndays = ndays.days + (1 if ndays.total_seconds() > 0 else 0)
+    if ndays < 0:
+        return []
+    elif ndays >= max(constants.FORECAST_HORIZONS_IN_DAYS):
+        return constants.FORECAST_HORIZONS_IN_DAYS
+    horizons = [x for x in constants.FORECAST_HORIZONS_IN_DAYS if x <= ndays]
+    horizons += [next(x for x in constants.FORECAST_HORIZONS_IN_DAYS if x > ndays)]
+    return horizons
