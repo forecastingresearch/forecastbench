@@ -140,23 +140,11 @@ def get_data(current_data):
         )
         resolved_at_str = dates.convert_zulu_to_iso(q["resolved_at"]) if q["resolved_at"] else "N/A"
 
-        # calculate horizons
-        if final_closed_at_str != "N/A":
-            current_time_ = datetime.fromisoformat(current_time)
-            close_time_ = datetime.fromisoformat(final_closed_at_str)
-            days_until_close = (close_time_ - current_time_).days
-            forecast_horizons = [
-                h for h in constants.FORECAST_HORIZONS_IN_DAYS if h < days_until_close
-            ]
-            next_horizon_index = (
-                constants.FORECAST_HORIZONS_IN_DAYS.index(forecast_horizons[-1]) + 1
-                if forecast_horizons
-                else 0
-            )
-            if next_horizon_index < len(constants.FORECAST_HORIZONS_IN_DAYS):
-                forecast_horizons.append(constants.FORECAST_HORIZONS_IN_DAYS[next_horizon_index])
-        else:
-            forecast_horizons = constants.FORECAST_HORIZONS_IN_DAYS
+        forecast_horizons = (
+            data_utils.get_horizons(datetime.fromisoformat(final_closed_at_str))
+            if final_closed_at_str != "N/A"
+            else constants.FORECAST_HORIZONS_IN_DAYS
+        )
 
         forecast_yes = "N/A"
         if q["answers"]:
