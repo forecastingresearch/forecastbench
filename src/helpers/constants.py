@@ -1,19 +1,55 @@
 """Constants."""
 
 import os
+from datetime import timedelta
 
-from . import dates
+from . import dates, prompts, resolutions
 
 BENCHMARK_START_YEAR = 2024
 
 BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET")
+PUBLIC_BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET_QUESTIONS")
 PROJECT_ID = os.environ.get("CLOUD_PROJECT")
+
+FREEZE_NUM_LLM_QUESTIONS = 1000
+
+FREEZE_NUM_HUMAN_QUESTIONS = 200
+
+# Assumed in the code
+assert FREEZE_NUM_LLM_QUESTIONS > FREEZE_NUM_HUMAN_QUESTIONS
+
+FREEZE_QUESTION_SOURCES = {
+    "manifold": {
+        "name": "Manifold",  # Name to use in the human prompt
+        "human_prompt": prompts.market,  # The human prompt to use
+        "resolution_criteria": resolutions.market,
+    },
+    "metaculus": {
+        "name": "Metaculus",
+        "human_prompt": prompts.market,
+        "resolution_criteria": resolutions.metaculus,
+    },
+    "acled": {
+        "name": "ACLED",
+        "human_prompt": prompts.acled,
+        "resolution_criteria": resolutions.acled,
+    },
+    "infer": {
+        "name": "INFER",
+        "human_prompt": prompts.market,
+        "resolution_criteria": resolutions.infer,
+    },
+}
 
 FREEZE_WINDOW_IN_DAYS = 7
 
 FREEZE_DATETIME = os.environ.get("FREEZE_DATETIME", dates.get_datetime_today()).replace(
     hour=0, minute=0, second=0, microsecond=0
 )
+
+FORECAST_DATETIME = FREEZE_DATETIME + timedelta(days=FREEZE_WINDOW_IN_DAYS)
+
+FORECAST_DATE = FORECAST_DATETIME.date()
 
 FORECAST_HORIZONS_IN_DAYS = [
     7,  # 1 week

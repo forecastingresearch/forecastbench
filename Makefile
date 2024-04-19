@@ -33,11 +33,14 @@ clean:
 
 all: deploy
 
-deploy: questions workflows
+deploy: questions workflows curate-questions
 
 questions: manifold metaculus acled infer
 
 workflows: main-workflow manifold-workflow metaculus-workflow acled-workflow infer-workflow
+
+curate-questions:
+	make -C src/curate_questions
 
 main-workflow:
 	make -C src/workflow
