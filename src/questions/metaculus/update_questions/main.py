@@ -157,6 +157,12 @@ def _update_questions_and_resolved_values(dfq, dff):
         if market["active_state"] == "RESOLVED":
             df.at[index, "resolved"] = True
             df.at[index, "resolution_datetime"] = dates.convert_zulu_to_iso(market["resolve_time"])
+        df.at[index, "continual_resolution"] = False
+        df.at[index, "forecast_horizons"] = (
+            data_utils.get_horizons(dates.convert_zulu_to_datetime(market["close_time"]))
+            if "close_time" in market
+            else constants.FORECAST_HORIZONS_IN_DAYS
+        )
         return df
 
     # Find rows in dff not in dfq: These are the new markets to add to dfq

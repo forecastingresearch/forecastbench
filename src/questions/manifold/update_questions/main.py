@@ -183,6 +183,10 @@ def _update_questions_and_resolved_values(dfq, dff):
             df.at[index, "resolution_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
                 market["resolutionTime"]
             )
+        df.at[index, "continual_resolution"] = False
+        df.at[index, "forecast_horizons"] = data_utils.get_horizons(
+            dates.convert_epoch_in_ms_to_datetime(market["closeTime"])
+        )
         return df
 
     # Find rows in dff not in dfq: These are the new markets to add to dfq

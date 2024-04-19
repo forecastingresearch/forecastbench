@@ -103,7 +103,7 @@ def get_histroical_forecasts(current_df, id):
 
 
 def create_resolution_file(
-    question, get_histroical_forecasts_func=get_histroical_forecasts, source=SOURCE
+    question, resolved, get_histroical_forecasts_func=get_histroical_forecasts, source=SOURCE
 ):
     """
     Create or update a resolution file based on the question ID provided. Download the existing file, if any.
@@ -143,7 +143,17 @@ def create_resolution_file(
         return df
 
     df = get_histroical_forecasts_func(df, question["id"])
-    # TO DO: add checking resolved or not
+
+    if resolved:
+        resolution_row = pd.DataFrame(
+            {
+                "id": [question["id"]],
+                "datetime": [question["resolution_datetime"][:10]],
+                "value": [question["probability"]],
+            }
+        )
+        df = pd.concat([df, resolution_row], ignore_index=True)
+
     logging.info(df)
     df = df[["id", "datetime", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
@@ -169,7 +179,7 @@ def update_questions(dfq, dff):
     """
     dff_list = dff.to_dict("records")
     for question in dff_list:
-        create_resolution_file(question)
+        create_resolution_file(question, resolved=question["resolved"])
 
         del question["fetch_datetime"]
         del question["probability"]
