@@ -12,9 +12,13 @@ export CLOUD_DEPLOY_REGION := us-central1
 
 .PHONY: all clean lint deploy
 
+MAKE_LINT_ERROR_OUT ?= 0
+ISORT_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check-only,)
+BLACK_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check,)
+
 lint:
-	isort .
-	black .
+	isort $(ISORT_FLAGS) .
+	black $(BLACK_FLAGS) .
 	flake8 .
 	pydocstyle .
 
