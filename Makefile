@@ -35,9 +35,9 @@ all: deploy
 
 deploy: questions workflows
 
-questions: manifold metaculus acled
+questions: manifold metaculus acled infer
 
-workflows: main-workflow manifold-workflow metaculus-workflow acled-workflow
+workflows: main-workflow manifold-workflow metaculus-workflow acled-workflow infer-workflow
 
 main-workflow:
 	make -C src/workflow
@@ -64,11 +64,16 @@ metaculus-fetch:
 metaculus-update-questions:
 	make -C src/questions/metaculus/update_questions
 
-infer:
-	make -C src/questions/infer
+infer: infer-workflow infer-fetch infer-update-questions
 
 infer-workflow:
 	make -C src/questions/infer/workflow
+
+infer-fetch:
+	make -C src/questions/infer/fetch
+
+infer-update-questions:
+	make -C src/questions/infer/update_questions
 
 acled: acled-workflow acled-fetch acled-update-questions
 
