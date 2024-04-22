@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+from datetime import timedelta
 
 import backoff
 import certifi
@@ -81,7 +82,8 @@ def _update_questions_and_resolved_values(dfq, dff):
     dfq: Manifold questions in the question bank
     dff: Today's fetched markets
     """
-    TODAY = pd.Timestamp(dates.get_datetime_today_midnight()).normalize()
+    # Use yesterday because we run at midnight UTC so have complete info for yesterday.
+    YESTERDAY = dates.get_date_today() - timedelta(days=1)
 
     def _get_resolved_market_value(market):
         """Get the market value based on the resolution.
@@ -113,13 +115,12 @@ def _update_questions_and_resolved_values(dfq, dff):
             dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
             convert_dates=False,
         )
-        if not df.empty and pd.to_datetime(df["datetime"].iloc[-1]) >= TODAY:
+        if not df.empty and pd.to_datetime(df["date"].iloc[-1]).date() >= YESTERDAY:
             # Check last datetime to see if we've already gotten the resolution value for today
             # If we have, return to avoid unnecessary API calls
             return df
 
-        # Get the last market value for the day and make this the value at midnight the next day
-        # (i.e., the first moment of the next day)
+        # Get the last market value for the day and make this the value for the day
         forecasts = _get_market_forecasts(market["id"])
         df = pd.DataFrame(
             [
@@ -134,33 +135,31 @@ def _update_questions_and_resolved_values(dfq, dff):
         if df.empty:
             return pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
 
-        df["datetime"] = pd.to_datetime(df["datetime"]) + pd.DateOffset(days=1)
+        df["datetime"] = pd.to_datetime(df["datetime"])
         df = df.sort_values(by="datetime")
+        df["date"] = df["datetime"].dt.date
+        df = df[df["date"] <= YESTERDAY]
+        df = df.groupby(by="date").last().reset_index()
+        df = df[["date", "value"]]
 
+        date_range = pd.date_range(start=df["date"].min(), end=YESTERDAY, freq="D")
         if market["isResolved"]:
-            # If the market has been resolved, add the market value and resolution datetime
-            resolved_datetime = pd.to_datetime(dfq.at[index, "resolution_datetime"])
-            df = df[df["datetime"] <= resolved_datetime]
+            # If the market has been resolved, add the market value and resolution date
+            resolved_date = pd.Timestamp(dfq.at[index, "source_resolution_datetime"]).date()
+            df = df[df["date"] <= resolved_date]
             df.loc[len(df)] = {
-                "datetime": resolved_datetime,
+                "date": resolved_date,
                 "value": _get_resolved_market_value(market),
             }
-        else:
-            # Add a value for today if not present
-            last_date_in_df = df["datetime"].max()
-            if TODAY > last_date_in_df:
-                df.loc[len(df)] = {
-                    "datetime": TODAY,
-                    "value": df["value"].iloc[-1],
-                }
+            date_range = pd.date_range(start=df["date"].min(), end=resolved_date, freq="D")
 
-        df.set_index("datetime", inplace=True)
-        df = df.resample("D").last().ffill()
-        df = df.reset_index(names="datetime")
+        df_dates = pd.DataFrame(date_range, columns=["date"])
+        df_dates["date"] = df_dates["date"].dt.date
+        df = pd.merge(left=df_dates, right=df, on="date", how="left")
+        df = df.ffill()
 
         df["id"] = market["id"]
-        df["datetime"] = df["datetime"].apply(lambda x: x.isoformat())
-        df = df[["id", "datetime", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
         # Save and Upload
         df.to_json(local_filename, orient="records", lines=True, date_format="iso")
@@ -170,18 +169,24 @@ def _update_questions_and_resolved_values(dfq, dff):
             filename=remote_filename,
         )
 
+        # Return the last market value for the series
+        return df["value"].iloc[-1]
+
     def _assign_market_values_to_df(df, index, market):
+        url = market["url"]
         df.at[index, "question"] = market["question"]
         df.at[index, "background"] = market["textDescription"]
         df.at[index, "source_resolution_criteria"] = "N/A"
-        df.at[index, "begin_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
+        df.at[index, "source_begin_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
             market["createdTime"]
         )
-        df.at[index, "close_datetime"] = dates.convert_epoch_time_in_ms_to_iso(market["closeTime"])
-        df.at[index, "url"] = market["url"]
+        df.at[index, "source_close_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
+            market["closeTime"]
+        )
+        df.at[index, "url"] = url
         if market["isResolved"]:
             df.at[index, "resolved"] = True
-            df.at[index, "resolution_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
+            df.at[index, "source_resolution_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
                 market["resolutionTime"]
             )
         df.at[index, "continual_resolution"] = False
@@ -198,7 +203,8 @@ def _update_questions_and_resolved_values(dfq, dff):
         **{col: None for col in dfq.columns if col != "id"}
     )
     df_ids_to_append["resolved"] = False
-    df_ids_to_append["resolution_datetime"] = "N/A"
+    df_ids_to_append["value_at_freeze_datetime_explanation"] = "The market value."
+    df_ids_to_append["source_resolution_datetime"] = "N/A"
     dfq = pd.concat([dfq, df_ids_to_append], ignore_index=True)
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
@@ -206,7 +212,7 @@ def _update_questions_and_resolved_values(dfq, dff):
     for index, row in dfq[dfq["resolved"] == False].iterrows():  # noqa: E712
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)
-        _create_resolution_file(dfq, index, market)
+        dfq.at[index, "value_at_freeze_datetime"] = _create_resolution_file(dfq, index, market)
 
     return dfq
 

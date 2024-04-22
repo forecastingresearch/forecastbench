@@ -84,7 +84,6 @@ def driver(_):
     gcp.storage.upload(
         bucket_name=constants.BUCKET_NAME,
         local_filename=filenames["local_fetch"],
-        destination_folder=source,
     )
 
     logger.info("Done.")

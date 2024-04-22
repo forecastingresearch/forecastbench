@@ -31,13 +31,15 @@ QUESTION_FILE_COLUMN_DTYPE = {
     "question": str,
     "background": str,
     "source_resolution_criteria": str,
-    "begin_datetime": str,
-    "close_datetime": str,
+    "source_begin_datetime": str,
+    "source_close_datetime": str,
     "url": str,
-    "resolution_datetime": str,
+    "source_resolution_datetime": str,
     "resolved": bool,
     "continual_resolution": bool,
     "forecast_horizons": object,  # list<int>
+    "value_at_freeze_datetime": str,
+    "value_at_freeze_datetime_explanation": str,
 }
 QUESTION_FILE_COLUMNS = list(QUESTION_FILE_COLUMN_DTYPE.keys())
 
@@ -76,9 +78,9 @@ ACLED_FETCH_COLUMNS = list(ACLED_FETCH_COLUMN_DTYPE.keys())
 ACLED_QUESTION_FILE_COLUMN_DTYPE = {
     **QUESTION_FILE_COLUMN_DTYPE,
     "lhs_func": str,
-    "lhs_args": dict,
+    "lhs_args": object,  # <dict>
     "comparison_operator": str,
     "rhs_func": str,
-    "rhs_args": dict,
+    "rhs_args": object,  # <dict>
 }
 ACLED_QUESTION_FILE_COLUMNS = list(ACLED_QUESTION_FILE_COLUMN_DTYPE.keys())

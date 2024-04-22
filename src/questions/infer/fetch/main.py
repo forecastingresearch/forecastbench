@@ -184,11 +184,13 @@ def get_data(current_data):
                 if q["clarifications"]
                 else "N/A"
             ),
-            "begin_datetime": scoring_start_time_str,
-            "close_datetime": final_closed_at_str,
+            "source_begin_datetime": scoring_start_time_str,
+            "source_close_datetime": final_closed_at_str,
             "url": f"{INFER_URL}/questions/{q['id']}",
             "resolved": q.get("resolved?", False),
-            "resolution_datetime": "N/A" if not q.get("resolved?", False) else final_resolved_str,
+            "source_resolution_datetime": (
+                "N/A" if not q.get("resolved?", False) else final_resolved_str
+            ),
             "fetch_datetime": current_time,
             "probability": forecast_yes,
             "continual_resolution": False,

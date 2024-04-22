@@ -14,6 +14,11 @@ def get_datetime_today():
     return datetime.now(timezone.utc)
 
 
+def get_date_today():
+    """Get datetime.now in UTC as a date."""
+    return get_datetime_today().date()
+
+
 def get_datetime_today_midnight():
     """Get datetime.now in UTC at midnight."""
     return get_datetime_today().replace(hour=0, minute=0, second=0, microsecond=0)

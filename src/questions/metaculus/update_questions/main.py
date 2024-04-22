@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+from datetime import timedelta
 
 import backoff
 import certifi
@@ -54,7 +55,8 @@ def _update_questions_and_resolved_values(dfq, dff):
     dfq: Metaculus questions in the question bank
     dff: Today's fetched markets
     """
-    TODAY = pd.Timestamp(dates.get_datetime_today_midnight()).normalize()
+    # Use yesterday because we run at midnight UTC so have complete info for yesterday.
+    YESTERDAY = dates.get_date_today() - timedelta(days=1)
 
     def _get_resolution_entry(market_id, utc_datetime_str, value):
         return {
@@ -104,35 +106,34 @@ def _update_questions_and_resolved_values(dfq, dff):
             ]
         )
         if df.empty:
-            return pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
+            # No one has forecast on the market yet.
+            return None
 
-        df["datetime"] = pd.to_datetime(df["datetime"]) + pd.DateOffset(days=1)
+        df["datetime"] = pd.to_datetime(df["datetime"])
         df = df.sort_values(by="datetime")
+        df["date"] = df["datetime"].dt.date
+        df = df[df["date"] <= YESTERDAY]
+        df = df.groupby(by="date").last().reset_index()
+        df = df[["date", "value"]]
 
+        date_range = pd.date_range(start=df["date"].min(), end=YESTERDAY, freq="D")
         if dfq.at[index, "resolved"]:
             # If the market has been resolved, add the market value and resolution datetime
-            resolved_datetime = pd.to_datetime(dfq.at[index, "resolution_datetime"])
-            df = df[df["datetime"] <= resolved_datetime]
+            resolved_date = pd.Timestamp(dfq.at[index, "source_resolution_datetime"]).date()
+            df = df[df["datetime"] <= resolved_date]
             df.loc[len(df)] = {
-                "datetime": resolved_datetime,
+                "datetime": resolved_date,
                 "value": _get_resolved_market_value(market),
             }
-        else:
-            # Add a value for today if not present
-            last_date_in_df = df["datetime"].max()
-            if TODAY > last_date_in_df:
-                df.loc[len(df)] = {
-                    "datetime": TODAY,
-                    "value": df["value"].iloc[-1],
-                }
+            date_range = pd.date_range(start=df["date"].min(), end=resolved_date, freq="D")
 
-        df.set_index("datetime", inplace=True)
-        df = df.resample("D").last().ffill()
-        df = df.reset_index(names="datetime")
+        df_dates = pd.DataFrame(date_range, columns=["date"])
+        df_dates["date"] = df_dates["date"].dt.date
+        df = pd.merge(left=df_dates, right=df, on="date", how="left")
+        df = df.ffill()
 
         df["id"] = market["id"]
-        df["datetime"] = df["datetime"].apply(lambda x: x.isoformat())
-        df = df[["id", "datetime", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
         # Save and Upload
         df.to_json(local_filename, orient="records", lines=True, date_format="iso")
@@ -142,22 +143,26 @@ def _update_questions_and_resolved_values(dfq, dff):
             filename=remote_filename,
         )
 
-        return df
+        # Return the last market value for the series
+        return df["value"].iloc[-1]
 
     def _assign_market_values_to_df(df, index, market):
+        url = "https://www.metaculus.com" + market["page_url"]
         df.at[index, "question"] = market["title"] if "title" in market else market["title_short"]
         df.at[index, "background"] = market.get("description", "N/A")
         df.at[index, "source_resolution_criteria"] = market.get("resolution_criteria", "N/A")
-        df.at[index, "begin_datetime"] = (
+        df.at[index, "source_begin_datetime"] = (
             dates.convert_zulu_to_iso(market["publish_time"]) if "publish_time" in market else "N/A"
         )
-        df.at[index, "close_datetime"] = (
+        df.at[index, "source_close_datetime"] = (
             dates.convert_zulu_to_iso(market["close_time"]) if "close_time" in market else "N/A"
         )
-        df.at[index, "url"] = "https://www.metaculus.com" + market["page_url"]
+        df.at[index, "url"] = url
         if market["active_state"] == "RESOLVED":
             df.at[index, "resolved"] = True
-            df.at[index, "resolution_datetime"] = dates.convert_zulu_to_iso(market["resolve_time"])
+            df.at[index, "source_resolution_datetime"] = dates.convert_zulu_to_iso(
+                market["resolve_time"]
+            )
         df.at[index, "continual_resolution"] = False
         df.at[index, "forecast_horizons"] = (
             data_utils.get_horizons(dates.convert_zulu_to_datetime(market["close_time"]))
@@ -174,7 +179,8 @@ def _update_questions_and_resolved_values(dfq, dff):
         **{col: None for col in dfq.columns if col != "id"}
     )
     df_ids_to_append["resolved"] = False
-    df_ids_to_append["resolution_datetime"] = "N/A"
+    df_ids_to_append["value_at_freeze_datetime_explanation"] = "The market value."
+    df_ids_to_append["source_resolution_datetime"] = "N/A"
 
     # Limit the number of new questions to avoid rate limit
     max_to_add = QUESTION_LIMIT - len(dfq[dfq["resolved"] == False])  # noqa: E712
@@ -187,7 +193,8 @@ def _update_questions_and_resolved_values(dfq, dff):
     for index, row in dfq[dfq["resolved"] == False].iterrows():  # noqa: E712
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)
-        _create_resolution_file(dfq, index, market)
+        last_val = _create_resolution_file(dfq, index, market)
+        dfq.at[index, "value_at_freeze_datetime"] = last_val if last_val else "N/A"
 
     return dfq
 

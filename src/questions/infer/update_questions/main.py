@@ -173,7 +173,7 @@ def create_resolution_file(
     )
 
     if (not df.empty and pd.to_datetime(df["date"].iloc[-1]).tz_localize("UTC") >= TODAY) or (
-        not df.empty and df["date"].iloc[-1][:10] == question["resolution_datetime"][:10]
+        not df.empty and df["date"].iloc[-1][:10] == question["source_resolution_datetime"][:10]
     ):
         # Check last datetime to see if we've already gotten the resolution value for today
         # If we have, return to avoid unnecessary API calls
@@ -183,11 +183,11 @@ def create_resolution_file(
     df.date = df["date"].dt.date
 
     if resolved:
-        df = df[df.date < pd.to_datetime(question["resolution_datetime"][:10]).date()]
+        df = df[df.date < pd.to_datetime(question["source_resolution_datetime"][:10]).date()]
         resolution_row = pd.DataFrame(
             {
                 "id": [question["id"]],
-                "date": [question["resolution_datetime"][:10]],
+                "date": [question["source_resolution_datetime"][:10]],
                 "value": [question["probability"]],
             }
         )
