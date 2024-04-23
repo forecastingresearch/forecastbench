@@ -43,7 +43,7 @@ QUESTION_FILE_COLUMNS = list(QUESTION_FILE_COLUMN_DTYPE.keys())
 
 RESOLUTION_FILE_COLUMN_DTYPE = {
     "id": str,
-    "datetime": str,
+    "date": str,
 }
 
 # value is not included in dytpe because it's of type ANY

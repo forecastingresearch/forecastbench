@@ -44,8 +44,8 @@ def get_historical_forecasts(current_df, id):
     last_date = None
 
     # Check if 'current_df' is not empty and contains the 'datetime' column
-    if not current_df.empty and "datetime" in current_df.columns:
-        last_date = pd.to_datetime(current_df["datetime"].iloc[-1]).tz_localize("UTC")
+    if not current_df.empty and "date" in current_df.columns:
+        last_date = pd.to_datetime(current_df["date"].iloc[-1]).tz_localize("UTC")
 
     while True:
         try:
@@ -88,45 +88,50 @@ def get_historical_forecasts(current_df, id):
                 )
             )
 
-    df = pd.DataFrame(all_forecasts, columns=["datetime", "value"])
-    df["datetime"] = pd.to_datetime(df["datetime"])
+    df = pd.DataFrame(all_forecasts, columns=["date", "value"])
+    df["date"] = pd.to_datetime(df["date"])
+    df["value"] = df["value"].astype(float)
     df["id"] = id
 
     # Sort by datetime first
-    df_sorted = df.sort_values("datetime")
+    df_sorted = df.sort_values("date")
 
     # Reset index after sorting
     df_sorted.reset_index(drop=True, inplace=True)
 
     # Convert datetime to date only after sorting
-    df_sorted["datetime"] = df_sorted["datetime"].dt.date
-    df_final = df_sorted[["id", "datetime", "value"]]
+    df_sorted["date"] = df_sorted["date"].dt.date
+    df_final = df_sorted[["id", "date", "value"]]
 
     # Check if the existing dataframe is empty
     if current_df.empty:
         # Directly return if there's no existing data to merge
-        result_df = df_final.drop_duplicates(subset=["id", "datetime"], keep="last")
+        result_df = df_final.drop_duplicates(subset=["id", "date"], keep="last")
     else:
         # Process current dataframe similarly
-        current_df["datetime"] = pd.to_datetime(current_df["datetime"]).dt.date
-        current_df_final = current_df[["id", "datetime", "value"]]
+        current_df["date"] = pd.to_datetime(current_df["date"]).dt.date
+        current_df_final = current_df[["id", "date", "value"]]
         # Concatenate and remove duplicates
         result_df = (
             pd.concat([current_df_final, df_final], axis=0)
-            .sort_values(by=["datetime"], ascending=True)  # Ensure sorting by date for consistency
+            .sort_values(by=["date"], ascending=True)  # Ensure sorting by date for consistency
             .drop_duplicates(
-                subset=["id", "datetime"], keep="last"
+                subset=["id", "date"], keep="last"
             )  # Keep the last entry for each id-date combination
             .reset_index(drop=True)
         )
 
-    result_df.set_index("datetime", inplace=True)
-    date_range = pd.date_range(start=result_df.index.min(), end=result_df.index.max())
+    # fill in mising date with previous date's value
+    result_df.loc[:, "date"] = pd.to_datetime(result_df["date"]).dt.tz_localize("UTC")
+    result_df = result_df.infer_objects()
+    result_df.set_index("date", inplace=True)
+    today_date = pd.Timestamp(pd.Timestamp.now().date(), tz="UTC")
+    date_range = pd.date_range(start=result_df.index.min(), end=today_date)
     result_df = result_df.reindex(date_range)
     result_df["value"] = result_df["value"].ffill()
     result_df["id"] = id
     result_df.reset_index(inplace=True)
-    result_df.rename(columns={"index": "datetime"}, inplace=True)
+    result_df.rename(columns={"index": "date"}, inplace=True)
 
     return result_df
 
@@ -167,29 +172,28 @@ def create_resolution_file(
         convert_dates=False,
     )
 
-    if (not df.empty and pd.to_datetime(df["datetime"].iloc[-1]).tz_localize("UTC") >= TODAY) or (
-        not df.empty and df["datetime"].iloc[-1][:10] == question["resolution_datetime"][:10]
+    if (not df.empty and pd.to_datetime(df["date"].iloc[-1]).tz_localize("UTC") >= TODAY) or (
+        not df.empty and df["date"].iloc[-1][:10] == question["resolution_datetime"][:10]
     ):
         # Check last datetime to see if we've already gotten the resolution value for today
         # If we have, return to avoid unnecessary API calls
         return df
 
     df = get_historical_forecasts_func(df, question["id"])
-    df.datetime = df.datetime.dt.date
+    df.date = df["date"].dt.date
 
     if resolved:
-        df = df[df.datetime < pd.to_datetime(question["resolution_datetime"][:10]).date()]
+        df = df[df.date < pd.to_datetime(question["resolution_datetime"][:10]).date()]
         resolution_row = pd.DataFrame(
             {
                 "id": [question["id"]],
-                "datetime": [question["resolution_datetime"][:10]],
+                "date": [question["resolution_datetime"][:10]],
                 "value": [question["probability"]],
             }
         )
         df = pd.concat([df, resolution_row], ignore_index=True)
 
-    logger.info(df[["id", "datetime", "value"]])
-    df = df[["id", "datetime", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+    df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
     df.to_json(local_filename, orient="records", lines=True, date_format="iso")
     gcp.storage.upload(

@@ -75,9 +75,6 @@ def get_data(current_data):
     API_KEY_INFER = keys.get_secret("API_KEY_INFER")
     HEADERS = {"Authorization": f"Bearer {API_KEY_INFER}"}
 
-    start_time = datetime.now()
-    logger.info(f"Scraping start time: {start_time}")
-
     unresolved_ids = (
         current_data[~current_data["resolved"]]["id"].tolist() if not current_data.empty else []
     )
@@ -115,10 +112,6 @@ def get_data(current_data):
 
     all_questions_to_add = all_binary_questions + all_existing_unresolved_questions
 
-    end_time = datetime.now()
-
-    logger.info(f"Scraping end time: {end_time}")
-    logger.info(f"Total scraping duration: {end_time - start_time}")
     logger.info(f"Number of questions fetched: {len(all_questions_to_add)}")
     current_time = dates.get_datetime_now()
     for i in range(len(all_questions_to_add)):
@@ -200,6 +193,8 @@ def get_data(current_data):
             "probability": forecast_yes,
             "continual_resolution": False,
             "forecast_horizons": forecast_horizons,
+            "value_at_freeze_datetime": forecast_yes,
+            "value_at_freeze_datetime_explanation": "The aggregated community forecast.",
         }
 
     return pd.DataFrame(all_questions_to_add)
