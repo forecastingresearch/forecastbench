@@ -53,7 +53,7 @@ all: deploy
 
 deploy: questions workflows metadata curate-questions
 
-questions: manifold metaculus acled infer
+questions: manifold metaculus acled infer yfinance
 
 workflows: main-workflow
 
@@ -96,6 +96,14 @@ acled-fetch:
 
 acled-update-questions:
 	make -C src/questions/acled/update_questions
+
+yfinance: yfinance-fetch yfinance-update-questions
+
+yfinance-fetch:
+	make -C src/questions/yfinance/fetch
+
+yfinance-update-questions:
+	make -C src/questions/yfinance/update_questions
 
 tag-questions:
 	make -C src/metadata/tag_questions
