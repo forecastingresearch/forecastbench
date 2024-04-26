@@ -86,8 +86,8 @@ def _generate_forecast_questions(dfq, dff):
         event_type_str = _get_event_type_str(event_type)
         question = (
             f"According to ACLED, will there be more {event_type_str} in {country} for the 30 "
-            f"days before resolution than the 30-day average of {event_type_str} over the past 360 days?"
-            + event_type_explanation
+            f"days before resolution than the 30-day average of {event_type_str} over the past 360 "
+            f"days? {event_type_explanation}"
         )
         return {
             "id": f"{country}.{event_type}.last30Days.gt.{event_type}.30DayAvgOverPast360Days",
@@ -121,7 +121,7 @@ def _generate_forecast_questions(dfq, dff):
         question = (
             f"According to ACLED, will there be more than ten times as many {event_type_str} in "
             f"{country} for the 30 days before resolution than one plus the 30-day average of "
-            f"{event_type_str} over the past 360 days?" + event_type_explanation
+            f"{event_type_str} over the past 360 days? {event_type_explanation}"
         )
         return {
             "id": (
