@@ -33,6 +33,22 @@ clean:
 		fi ; \
 	done
 
+.venv:
+	python3 -m venv .venv
+
+install-requirements:
+	@. ${ROOT_DIR}.venv/bin/activate && ${ROOT_DIR}/.venv/bin/python3 -m pip install -r requirements.txt
+	@find src -type d | while read dir; do \
+		if [ -f "$$dir/Makefile" ] && [ -f "$$dir/requirements.txt" ]; then \
+			echo "\nInstalling requirements in $$dir"; \
+			(cd $$dir && . ${ROOT_DIR}/.venv/bin/activate && python3 -m pip install -r requirements.txt); \
+			echo "Installation complete in $$dir\n"; \
+		fi; \
+	done
+
+setup-python-env: .venv install-requirements
+	@:
+
 all: deploy
 
 deploy: questions workflows curate-questions
