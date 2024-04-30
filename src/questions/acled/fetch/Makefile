@@ -28,7 +28,7 @@ deploy : main.py .gcloudignore requirements.txt
 		--trigger-http \
 		--no-allow-unauthenticated \
 		--gen2 \
-		--set-env-vars CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK) \
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
 		--set-secrets API_KEY_ACLED=API_KEY_ACLED:latest,API_EMAIL_ACLED=API_EMAIL_ACLED:latest \
 		--source $(UPLOAD_DIR)
 

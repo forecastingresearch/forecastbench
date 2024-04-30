@@ -44,6 +44,8 @@ ENV/
 \#*\#
 .\#*
 
+*.ipynb
+
 # isort
 *.py.isorted
 
