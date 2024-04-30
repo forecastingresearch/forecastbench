@@ -3,7 +3,7 @@
 import os
 from datetime import timedelta
 
-from . import dates, keys, prompts, resolutions
+from . import dates, keys, question_prompts, resolutions
 
 BENCHMARK_START_YEAR = 2024
 
@@ -30,22 +30,22 @@ assert FREEZE_NUM_LLM_QUESTIONS > FREEZE_NUM_HUMAN_QUESTIONS
 FREEZE_QUESTION_SOURCES = {
     "manifold": {
         "name": "Manifold",  # Name to use in the human prompt
-        "human_prompt": prompts.market,  # The human prompt to use
+        "human_prompt": question_prompts.market,  # The human prompt to use
         "resolution_criteria": resolutions.market,
     },
     "metaculus": {
         "name": "Metaculus",
-        "human_prompt": prompts.market,
+        "human_prompt": question_prompts.market,
         "resolution_criteria": resolutions.metaculus,
     },
     "acled": {
         "name": "ACLED",
-        "human_prompt": prompts.acled,
+        "human_prompt": question_prompts.acled,
         "resolution_criteria": resolutions.acled,
     },
     "infer": {
         "name": "INFER",
-        "human_prompt": prompts.market,
+        "human_prompt": question_prompts.market,
         "resolution_criteria": resolutions.infer,
     },
 }
@@ -129,6 +129,29 @@ ACLED_QUESTION_FILE_COLUMN_DTYPE = {
     "rhs_args": object,  # <dict>
 }
 ACLED_QUESTION_FILE_COLUMNS = list(ACLED_QUESTION_FILE_COLUMN_DTYPE.keys())
+
+META_DATA_FILE_COLUMN_DTYPE = {
+    "source": str,
+    "id": str,
+    "category": str,
+}
+META_DATA_FILE_COLUMNS = list(META_DATA_FILE_COLUMN_DTYPE.keys())
+META_DATA_FILENAME = "question_metadata.jsonl"
+
+QUESTION_CATEGORIES = [
+    "Science & Tech",
+    "Healthcare & Biology",
+    "Economics & Business",
+    "Environment & Energy",
+    "Politics & Governance",
+    "Education & Research",
+    "Arts & Recreation",
+    "Security & Defense",
+    "Social Sciences",
+    "Sports",
+    "Other",
+]
+
 
 MODEL_TOKEN_LIMITS = {
     "claude-2.1": 200000,

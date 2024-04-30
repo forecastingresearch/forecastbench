@@ -24,6 +24,25 @@ main:
                   - execution_results.failure: True
                   - execution_results.success["step1"]: False
                   - execution_results.exception["step1"]: ${e.operation.error.payload}
+    - step2:
+        try:
+          steps:
+            - run_step2:
+                call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                args:
+                  workflow_id: main-step2
+                result: step2_result
+            - save_successful_step2_execution:
+                assign:
+                  - execution_results.success["step2"]: True
+        except:
+          as: e
+          steps:
+            - save_failed_step2_execution:
+                assign:
+                  - execution_results.failure: True
+                  - execution_results.success["step2"]: False
+                  - execution_results.exception["step2"]: ${e.operation.error.payload}
     - step_check_exception_encountered:
         switch:
           - condition: ${"failure" in execution_results}

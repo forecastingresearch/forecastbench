@@ -14,7 +14,7 @@ import pandas as pd
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, data_utils, decorator, prompts  # noqa: E402
+from helpers import constants, data_utils, decorator, question_prompts  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -219,7 +219,7 @@ def write_questions(questions, filename):
                         "id": get_id(combo_rows),
                         "source": source,
                         "combination_of": combo_rows.to_dict(orient="records"),
-                        "question": prompts.combination,
+                        "question": question_prompts.combination,
                         "background": "N/A",
                         "source_resolution_criteria": "N/A",
                         "source_begin_datetime": "N/A",
@@ -229,7 +229,7 @@ def write_questions(questions, filename):
                         "value_at_freeze_datetime": "N/A",
                         "value_at_freeze_datetime_explanation": "N/A",
                         "freeze_datetime": constants.FREEZE_DATETIME.isoformat(),
-                        "human_prompt": prompts.combination,
+                        "human_prompt": question_prompts.combination,
                         "continual_resolution": get_continual_resolution(combo_rows),
                         "forecast_horizons": get_forecast_horizon(combo_rows),
                     }

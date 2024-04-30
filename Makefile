@@ -51,11 +51,13 @@ setup-python-env: .venv install-requirements
 
 all: deploy
 
-deploy: questions workflows curate-questions
+deploy: questions workflows metadata curate-questions
 
 questions: manifold metaculus acled infer
 
 workflows: main-workflow
+
+metadata: tag-questions
 
 curate-questions:
 	make -C src/curate_questions
@@ -94,6 +96,9 @@ acled-fetch:
 
 acled-update-questions:
 	make -C src/questions/acled/update_questions
+
+tag-questions:
+	make -C src/metadata/tag_questions
 
 leaderboard:
 	make -C src/leaderboard

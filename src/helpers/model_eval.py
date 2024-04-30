@@ -10,7 +10,7 @@ import google.generativeai as google_ai
 import openai
 import together
 
-from . import constants, prompts
+from . import constants, llm_prompts
 
 anthropic_console = anthropic.Anthropic(api_key=constants.API_KEY_ANTHROPIC)
 anthropic_async_client = anthropic.AsyncAnthropic(api_key=constants.API_KEY_ANTHROPIC)
@@ -391,9 +391,9 @@ def reformat_answers(response, models, prompt="N/A", question="N/A", single=Fals
       list of responses (if single is False).
     """
     if single:
-        reformat_prompt = prompts.REFORMAT_SINGLE_PROMPT.format(response=response)
+        reformat_prompt = llm_prompts.REFORMAT_SINGLE_PROMPT.format(response=response)
     else:
-        reformat_prompt = prompts.REFORMAT_PROMPT.format(
+        reformat_prompt = llm_prompts.REFORMAT_PROMPT.format(
             user_prompt=prompt,
             model_response=response,
             n_horizons=len(question["forecast_horizons"]),
