@@ -1,0 +1,68 @@
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - source: ${args.source}
+          - source_url: ${"https://SUBDOMAIN.cloudfunctions.net/" + source + "_"}
+          - execution_results: {}
+          - execution_results.success: {}
+          - execution_results.exception: {}
+    - source_fetch:
+        try:
+          steps:
+              - fetch:
+                  call: http.post
+                  args:
+                      url: ${source_url + "fetch"}
+                      auth:
+                           type: OIDC
+                      timeout: 1800
+                  result: api_response_fetch
+              - save_successful_fetch:
+                  assign:
+                    - execution_results.success["fetch"]: True
+        retry: ${http.default_retry}
+        except:
+            as: e
+            steps:
+              - save_failed_fetch:
+                  assign:
+                    - execution_results.failure: True
+                    - execution_results.success["fetch"]: False
+                    - execution_results.exception["fetch"]: ${e}
+              - raise_fetch_exception:
+                  raise: ${execution_results}
+    - source_update_questions:
+        try:
+          steps:
+              - update_questions:
+                  call: http.post
+                  args:
+                      url: ${source_url + "update_questions"}
+                      auth:
+                           type: OIDC
+                      timeout: 1800
+                  result: api_response_update_questions
+              - save_successful_update_questions:
+                  assign:
+                    - execution_results.success["update_questions"]: True
+        retry: ${http.default_retry}
+        except:
+            as: e
+            steps:
+              - save_failed_update_questions:
+                  assign:
+                    - execution_results.failure: True
+                    - execution_results.success["update_questions"]: False
+                    - execution_results.exception["update_questions"]: ${e}
+              - raise_update_questions_exception:
+                  raise: ${execution_results}
+    - check_exception_encountered:
+        switch:
+          - condition: ${"failure" in execution_results}
+            steps:
+              - raise_exception:
+                  raise: ${execution_results}
+    - return_execution_results:
+        return: ${execution_results}

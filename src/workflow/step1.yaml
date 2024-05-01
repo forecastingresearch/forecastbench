@@ -3,13 +3,14 @@ main:
     - init:
         assign:
           - execution_results: {}
-          - execution_results.step1: True
+          - execution_results.success: {}
+          - execution_results.exception: {}
     - step1:
         parallel:
           exception_policy: continueAll
           shared: [execution_results]
           for:
-            value: task
+            value: data_source
             in:
               - acled
               - manifold
@@ -19,40 +20,29 @@ main:
               - run:
                   try:
                     steps:
-                      - init_iteration:
-                          assign:
-                            - execution_results:
-                                ${task}: {}
                       - loop_body:
                           call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
                           args:
-                            workflow_id: ${task + "-main"}
-                          result: task_result
+                            workflow_id: fetch_and_update_data_source
+                            argument:
+                              source: ${data_source}
+                          result: data_source_result
                       - save_successful:
                           assign:
-                            - execution_results:
-                                ${task}: {"success": True}
+                            - execution_results.success[string(data_source)]: True
                   except:
-                      as: e
-                      steps:
-                        - save_failed:
-                             steps:
-                               - handle_error:
-                                   assign:
-                                     - execution_results:
-                                         failure: True
-                                         ${task}: {"failure": True}
-                                         ${task}: {"exception": '${e.operation.error.payload}'}
+                    as: e
+                    steps:
+                      - save_failed:
+                          assign:
+                            - execution_results.failure: True
+                            - execution_results.success[string(data_source)]: False
+                            - execution_results.exception[string(data_source)]: ${e.operation.error.payload}
     - check_exception_encountered:
          switch:
            - condition: ${"failure" in execution_results}
              steps:
                - raise_exception:
                    raise: ${execution_results}
-           - condition: ${not("failure" in execution_results)}
-             steps:
-               - assign_success:
-                   assign:
-                     - execution_results.success: True
     - return_execution_results:
         return: ${execution_results}

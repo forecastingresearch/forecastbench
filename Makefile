@@ -55,7 +55,7 @@ deploy: questions workflows curate-questions
 
 questions: manifold metaculus acled infer
 
-workflows: main-workflow manifold-workflow metaculus-workflow acled-workflow infer-workflow
+workflows: main-workflow
 
 curate-questions:
 	make -C src/curate_questions
@@ -63,10 +63,7 @@ curate-questions:
 main-workflow:
 	make -C src/workflow
 
-manifold: manifold-workflow manifold-fetch manifold-update-questions
-
-manifold-workflow:
-	make -C src/questions/manifold/workflow
+manifold: manifold-fetch manifold-update-questions
 
 manifold-fetch:
 	make -C src/questions/manifold/fetch
@@ -74,10 +71,7 @@ manifold-fetch:
 manifold-update-questions:
 	make -C src/questions/manifold/update_questions
 
-metaculus: metaculus-workflow metaculus-fetch metaculus-update-questions
-
-metaculus-workflow:
-	make -C src/questions/metaculus/workflow
+metaculus: metaculus-fetch metaculus-update-questions
 
 metaculus-fetch:
 	make -C src/questions/metaculus/fetch
@@ -85,10 +79,7 @@ metaculus-fetch:
 metaculus-update-questions:
 	make -C src/questions/metaculus/update_questions
 
-infer: infer-workflow infer-fetch infer-update-questions
-
-infer-workflow:
-	make -C src/questions/infer/workflow
+infer: infer-fetch infer-update-questions
 
 infer-fetch:
 	make -C src/questions/infer/fetch
@@ -96,10 +87,7 @@ infer-fetch:
 infer-update-questions:
 	make -C src/questions/infer/update_questions
 
-acled: acled-workflow acled-fetch acled-update-questions
-
-acled-workflow:
-	make -C src/questions/acled/workflow
+acled: acled-fetch acled-update-questions
 
 acled-fetch:
 	make -C src/questions/acled/fetch
