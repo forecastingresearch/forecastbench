@@ -118,7 +118,7 @@ def _update_questions_and_resolved_values(dfq, dff):
         if not df.empty and pd.to_datetime(df["date"].iloc[-1]).date() >= YESTERDAY:
             # Check last datetime to see if we've already gotten the resolution value for today
             # If we have, return to avoid unnecessary API calls
-            return df
+            return df["value"].iloc[-1]
 
         # Get the last market value for the day and make this the value for the day
         forecasts = _get_market_forecasts(market["id"])
@@ -133,7 +133,7 @@ def _update_questions_and_resolved_values(dfq, dff):
             ]
         )
         if df.empty:
-            return pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
+            return None
 
         df["datetime"] = pd.to_datetime(df["datetime"])
         df = df.sort_values(by="datetime")
