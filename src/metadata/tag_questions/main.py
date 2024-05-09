@@ -22,6 +22,26 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def get_categories_from_llm(dfq):
+    """Get category for question from gpt 3.5-turbo."""
+    for index, row in dfq[dfq["category"] == ""].iterrows():
+        prompt = llm_prompts.ASSIGN_CATEGORY_PROMPT.format(
+            question=row["question"], background=row["background"]
+        )
+        try:
+            response = model_eval.get_response_from_model(
+                model_name="gpt-3.5-turbo-0125", prompt=prompt, max_tokens=50, temperature=0
+            )
+            category = response.strip('"').strip("'").strip(" ").strip(".")
+            dfq.at[index, "category"] = (
+                category if category in constants.QUESTION_CATEGORIES else "Other"
+            )
+        except Exception as e:
+            logger.error(f"Error in assign_category: {e}")
+            dfq.at[index, "category"] = "Other"
+    return dfq
+
+
 @decorator.log_runtime
 def driver(_):
     """Pull in fetched data and update questions and resolved values in question bank."""
@@ -43,29 +63,23 @@ def driver(_):
         dfq["source"] = source
 
         dfq = dfq.merge(dfmeta, on=["source", "id"], how="left").fillna("")
+        dfq["category"] = dfq["category"].apply(
+            lambda x: x if x in constants.QUESTION_CATEGORIES else ""
+        )
         dfmeta = dfmeta[dfmeta["source"] != source]
-        for index, row in dfq[dfq["category"] == ""].iterrows():
-            prompt = llm_prompts.ASSIGN_CATEGORY_PROMPT.format(
-                question=row["question"], background=row["background"]
-            )
-            try:
-                response = model_eval.get_response_from_model(
-                    model_name="gpt-3.5-turbo-0125", prompt=prompt, max_tokens=50, temperature=0
-                )
-                category = response.strip('"').strip("'").strip(" ").strip(".")
-                dfq.at[index, "category"] = (
-                    category if category in constants.QUESTION_CATEGORIES else "Other"
-                )
-            except Exception as e:
-                logger.error(f"Error in assign_category: {e}")
-                dfq.at[index, "category"] = "Other"
 
-        dfq_categories = dfq[constants.META_DATA_FILE_COLUMNS]
-        dfq_categories = dfq_categories[dfq_categories["category"] != ""]
+        if source == "acled":
+            # Hard code ACLED categories
+            dfq["category"] = "Security & Defense"
+        else:
+            dfq = get_categories_from_llm(dfq)
+
+        dfq = dfq[constants.META_DATA_FILE_COLUMNS]
+        dfq = dfq[dfq["category"] != ""]
         dfmeta = pd.concat(
             [
                 dfmeta,
-                dfq_categories,
+                dfq,
             ],
             ignore_index=True,
         )

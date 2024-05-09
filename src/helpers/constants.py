@@ -144,10 +144,8 @@ QUESTION_CATEGORIES = [
     "Economics & Business",
     "Environment & Energy",
     "Politics & Governance",
-    "Education & Research",
     "Arts & Recreation",
     "Security & Defense",
-    "Social Sciences",
     "Sports",
     "Other",
 ]
