@@ -146,7 +146,7 @@ def _update_questions_and_resolved_values(dfq, dff):
         if market["isResolved"]:
             # If the market has been resolved, add the market value and resolution date
             resolved_date = pd.Timestamp(dfq.at[index, "source_resolution_datetime"]).date()
-            df = df[df["date"] <= resolved_date]
+            df = df[df["date"] < resolved_date]
             df.loc[len(df)] = {
                 "date": resolved_date,
                 "value": _get_resolved_market_value(market),
