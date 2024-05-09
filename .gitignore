@@ -6,6 +6,7 @@ upload2/
 plotly_charts
 *.html
 *.json
+*.jsonl
 *.csv
 -
 __pycache__/

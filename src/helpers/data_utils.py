@@ -148,6 +148,45 @@ def upload_questions(dfq, source):
     )
 
 
+def upload_resolutions(dfr, source):
+    """
+    Write resolution data frame to disk and upload to cloud storage.
+
+    This function handles file naming through the `generate_filenames` utility and ensures
+    that data is sorted before upload. It leverages GCP storage utilities for the upload process.
+
+    Parameters:
+    - dfr (pandas.DataFrame): DataFrame containing resolutiondata.
+    - source (str): The source name.
+    """
+    filenames = generate_filenames(source)
+    local_resolution_filename = filenames["local_resolution"]
+
+    dfr = dfr.sort_values(by=["id", "date"], ignore_index=True)
+
+    dfr.to_json(local_resolution_filename, orient="records", lines=True, date_format="iso")
+
+    gcp.storage.upload(
+        bucket_name=constants.BUCKET_NAME,
+        local_filename=local_resolution_filename,
+    )
+
+
+def upload_questions_and_resolution(dfq, dfr, source):
+    """
+    Upload both questions and resolutions.
+
+    Wrapper for `upload_questions` and `upload_resolutions`.
+
+    Parameters:
+    - dfq (pandas.DataFrame): DataFrame containing question data.
+    - dfr (pandas.DataFrame): DataFrame containing resolutiondata.
+    - source (str): The source name.
+    """
+    upload_questions(dfq, source)
+    upload_resolutions(dfq, source)
+
+
 def get_horizons(dt):
     """Return the valid forecast horizons for the question.
 

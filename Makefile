@@ -10,7 +10,7 @@ export CLOUD_WORKFLOW_SERVICE_ACCOUNT
 
 export CLOUD_DEPLOY_REGION := us-central1
 
-export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK),CLOUD_STORAGE_BUCKET_QUESTIONS=$(CLOUD_STORAGE_BUCKET_QUESTIONS),CLOUD_PROJECT=$(CLOUD_PROJECT)
+export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_STORAGE_BUCKET=$(CLOUD_STORAGE_BUCKET_QUESTION_BANK),CLOUD_STORAGE_BUCKET_QUESTIONS=$(CLOUD_STORAGE_BUCKET_QUESTIONS),CLOUD_PROJECT=$(CLOUD_PROJECT),CLOUD_STORAGE_BUCKET_PROCESSED_FORECASTS=$(CLOUD_STORAGE_BUCKET_PROCESSED_FORECASTS),CLOUD_STORAGE_BUCKET_FORECASTS=$(CLOUD_STORAGE_BUCKET_FORECASTS)
 
 .PHONY: all clean lint deploy
 
@@ -51,13 +51,15 @@ setup-python-env: .venv install-requirements
 
 all: deploy
 
-deploy: questions workflows metadata curate-questions
+deploy: questions workflows metadata curate-questions resolve
 
 questions: manifold metaculus acled infer yfinance
 
 workflows: main-workflow
 
 metadata: tag-questions validate-questions
+
+resolve: resolve-forecasts
 
 curate-questions:
 	make -C src/curate_questions
@@ -111,5 +113,5 @@ tag-questions:
 validate-questions:
 	make -C src/metadata/validate_questions
 
-leaderboard:
-	make -C src/leaderboard
+resolve-forecasts:
+	make -C src/resolve_forecasts

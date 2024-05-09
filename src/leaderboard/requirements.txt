@@ -1,4 +1,0 @@
-google-cloud-storage
-pandas
-pyarrow
-plotly

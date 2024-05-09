@@ -9,6 +9,11 @@ import pytz
 from dateutil import parser
 
 
+def convert_iso_str_to_date(iso_date_str):
+    """Get date_str as date."""
+    return datetime.strptime(iso_date_str, "%Y-%m-%d").date()
+
+
 def get_datetime_today():
     """Get datetime.now in UTC."""
     return datetime.now(timezone.utc)

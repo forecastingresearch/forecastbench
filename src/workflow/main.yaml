@@ -5,44 +5,72 @@ main:
           - execution_results: {}
           - execution_results.success: {}
           - execution_results.exception: {}
-    - step1:
+    - fetch_data:
         try:
           steps:
-            - run_step1:
+            - run_fetch_data:
                 call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
                 args:
                   workflow_id: main-step1
-                result: step1_result
-            - save_successful_step1_execution:
+                result: fetch_data_result
+            - save_successful_fetch_data_execution:
                 assign:
-                  - execution_results.success["step1"]: True
+                  - execution_results.success["fetch_data"]: True
         except:
           as: e
           steps:
-            - save_failed_step1_execution:
+            - save_failed_fetch_data_execution:
                 assign:
                   - execution_results.failure: True
-                  - execution_results.success["step1"]: False
-                  - execution_results.exception["step1"]: ${e.operation.error.payload}
-    - step2:
-        try:
-          steps:
-            - run_step2:
-                call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
-                args:
-                  workflow_id: main-step2
-                result: step2_result
-            - save_successful_step2_execution:
-                assign:
-                  - execution_results.success["step2"]: True
-        except:
-          as: e
-          steps:
-            - save_failed_step2_execution:
-                assign:
-                  - execution_results.failure: True
-                  - execution_results.success["step2"]: False
-                  - execution_results.exception["step2"]: ${e.operation.error.payload}
+                  - execution_results.success["fetch_data"]: False
+                  - execution_results.exception["fetch_data"]: ${e.operation.error.payload}
+    - parallel_metadata_and_resolve:
+        parallel:
+          exception_policy: continueAll
+          shared: [execution_results]
+          branches:
+            - metadataBranch:
+                steps:
+                  - metadata:
+                      try:
+                        steps:
+                          - run_metadata:
+                              call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                              args:
+                                workflow_id: main-step2
+                              result: metadata_result
+                          - save_successful_metadata_execution:
+                              assign:
+                                - execution_results.success["metadata"]: True
+                      except:
+                        as: e
+                        steps:
+                          - save_failed_metadata_execution:
+                              assign:
+                                - execution_results.failure: True
+                                - execution_results.success["metadata"]: False
+                                - execution_results.exception["metadata"]: ${e.operation.error.payload}
+            - resolveBranch:
+                steps:
+                  - resolve:
+                      try:
+                        steps:
+                          - run_resolve:
+                              call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+                              args:
+                                workflow_id: main-resolve
+                              result: resolve_result
+                          - save_successful_resolve_execution:
+                              assign:
+                                - execution_results.success["resolve"]: True
+                      except:
+                        as: e
+                        steps:
+                          - save_failed_resolve_execution:
+                              assign:
+                                - execution_results.failure: True
+                                - execution_results.success["resolve"]: False
+                                - execution_results.exception["resolve"]: ${e.operation.error.payload}
     - step_check_exception_encountered:
         switch:
           - condition: ${"failure" in execution_results}
