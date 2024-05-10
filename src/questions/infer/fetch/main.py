@@ -58,7 +58,8 @@ def get_data(current_data):
     Fetch and prepare question data for processing.
 
     This function performs several key operations:
-    - Retrieves unresolved question IDs from the current data.
+    - Retrieves IDs of unresolved question and resolved questions without resolution files
+        from the current data.
     - Fetches all active, unresolved, and binary questions using provided API endpoints.
     - Filters out duplicated questions.
     - Augments and restructures question data for further processing.
@@ -80,13 +81,27 @@ def get_data(current_data):
     )
     logger.info(f"unresolved_ids: {unresolved_ids}")
 
-    if unresolved_ids:
-        params = {"status": "closed", "ids": ", ".join(unresolved_ids)}
-        all_existing_unresolved_questions = fetch_questions(
+    resolved_ids = (
+        current_data[current_data["resolved"]]["id"].tolist() if not current_data.empty else []
+    )
+
+    resolved_files = gcp.storage.list_with_prefix(bucket_name=constants.BUCKET_NAME, prefix=SOURCE)
+
+    resolved_ids_without_resolution_files = [
+        id for id in resolved_ids if f"{SOURCE}/{id}.jsonl" not in resolved_files
+    ]
+
+    logger.info(f"resolved_ids_without_resolution_files: {resolved_ids_without_resolution_files}")
+
+    all_existing_ids_to_fetch = unresolved_ids + resolved_ids_without_resolution_files
+
+    if all_existing_ids_to_fetch:
+        params = {"status": "closed", "ids": ", ".join(all_existing_ids_to_fetch)}
+        all_existing_questions = fetch_questions(
             INFER_URL + "/api/v1/questions", params=params, headers=HEADERS
         )
     else:
-        all_existing_unresolved_questions = []
+        all_existing_questions = []
 
     all_active_questions = fetch_questions(
         INFER_URL + "/api/v1/questions", params=None, headers=HEADERS
@@ -105,12 +120,12 @@ def get_data(current_data):
     # Convert all_new_questions to a set of IDs for faster lookup
     all_binary_questions_ids = set(q["id"] for q in all_binary_questions)
 
-    # Filter out questions from all_existing_unresolved_questions if their IDs are in all_new_questions_ids
-    all_existing_unresolved_questions = [
-        q for q in all_existing_unresolved_questions if q["id"] not in all_binary_questions_ids
+    # Filter out questions from all_existing_questions if their IDs are in all_new_questions_ids
+    all_existing_questions = [
+        q for q in all_existing_questions if q["id"] not in all_binary_questions_ids
     ]
 
-    all_questions_to_add = all_binary_questions + all_existing_unresolved_questions
+    all_questions_to_add = all_binary_questions + all_existing_questions
 
     logger.info(f"Number of questions fetched: {len(all_questions_to_add)}")
     current_time = dates.get_datetime_now()

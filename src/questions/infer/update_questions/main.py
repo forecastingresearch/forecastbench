@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import time
+from datetime import timedelta
 
 import pandas as pd
 import requests
@@ -42,6 +43,7 @@ def get_historical_forecasts(current_df, id):
     all_responses = []
     page_count = 1
     last_date = None
+    current_time = dates.get_datetime_today_midnight()
 
     # Check if 'current_df' is not empty and contains the 'datetime' column
     if not current_df.empty and "date" in current_df.columns:
@@ -90,6 +92,9 @@ def get_historical_forecasts(current_df, id):
 
     df = pd.DataFrame(all_forecasts, columns=["date", "value"])
     df["date"] = pd.to_datetime(df["date"])
+
+    df = df[df["date"].dt.date < current_time.date()]
+
     df["value"] = df["value"].astype(float)
     df["id"] = id
 
@@ -115,20 +120,20 @@ def get_historical_forecasts(current_df, id):
         result_df = (
             pd.concat([current_df_final, df_final], axis=0)
             .sort_values(by=["date"], ascending=True)  # Ensure sorting by date for consistency
-            .drop_duplicates(
-                subset=["id", "date"], keep="last"
-            )  # Keep the last entry for each id-date combination
+            .drop_duplicates(subset=["id", "date"], keep="last")
             .reset_index(drop=True)
         )
 
     # fill in mising date with previous date's value
     result_df.loc[:, "date"] = pd.to_datetime(result_df["date"]).dt.tz_localize("UTC")
     result_df = result_df.infer_objects()
-    result_df.set_index("date", inplace=True)
-    today_date = pd.Timestamp(pd.Timestamp.now().date(), tz="UTC")
-    date_range = pd.date_range(start=result_df.index.min(), end=today_date)
-    result_df = result_df.reindex(date_range)
-    result_df["value"] = result_df["value"].ffill()
+    result_df = result_df.sort_values(by="date")
+    # Reindex to fill in missing dates
+    all_dates = pd.date_range(
+        start=result_df["date"].min(), end=current_time - timedelta(days=1), freq="D"
+    )
+    result_df = result_df.set_index("date").reindex(all_dates, method="ffill").reset_index()
+
     result_df["id"] = id
     result_df.reset_index(inplace=True)
     result_df.rename(columns={"index": "date"}, inplace=True)
@@ -136,9 +141,7 @@ def get_historical_forecasts(current_df, id):
     return result_df
 
 
-def create_resolution_file(
-    question, resolved, get_historical_forecasts_func=get_historical_forecasts, source=SOURCE
-):
+def create_resolution_file(question, resolved, get_historical_forecasts_func, source):
     """
     Create or update a resolution file based on the question ID provided. Download the existing file, if any.
 
@@ -158,7 +161,6 @@ def create_resolution_file(
     basename = f"{question['id']}.jsonl"
     remote_filename = f"{source}/{basename}"
     local_filename = "/tmp/tmp.jsonl"
-    TODAY = pd.Timestamp(dates.get_datetime_today_midnight()).normalize()
 
     gcp.storage.download_no_error_message_on_404(
         bucket_name=constants.BUCKET_NAME,
@@ -172,11 +174,11 @@ def create_resolution_file(
         convert_dates=False,
     )
 
-    if (not df.empty and pd.to_datetime(df["date"].iloc[-1]).tz_localize("UTC") >= TODAY) or (
-        not df.empty and df["date"].iloc[-1][:10] == question["source_resolution_datetime"][:10]
-    ):
-        # Check last datetime to see if we've already gotten the resolution value for today
-        # If we have, return to avoid unnecessary API calls
+    yesterday = dates.get_datetime_today_midnight() - timedelta(days=1)
+
+    if not df.empty and pd.to_datetime(df["date"].iloc[-1]).tz_localize("UTC") >= yesterday:
+        logger.info(f"{question['id']} is skipped because it's already up-to-date!")
+        # Check last date to see if we've already gotten the resolution value for today
         return df
 
     df = get_historical_forecasts_func(df, question["id"])
@@ -217,7 +219,7 @@ def update_questions(dfq, dff):
     """
     dff_list = dff.to_dict("records")
     for question in dff_list:
-        create_resolution_file(question, resolved=question["resolved"])
+        create_resolution_file(question, question["resolved"], get_historical_forecasts, SOURCE)
 
         del question["fetch_datetime"]
         del question["probability"]
