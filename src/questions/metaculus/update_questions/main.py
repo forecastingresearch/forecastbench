@@ -190,13 +190,25 @@ def _update_questions_and_resolved_values(dfq, dff):
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
     # Recreate all rows of resolution files for unresolved questions
-    for index, row in dfq[dfq["resolved"] == False].iterrows():  # noqa: E712
+    for index, row in dfq[~dfq["resolved"]].iterrows():
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)
         last_val = _create_resolution_file(dfq, index, market)
         dfq.at[index, "value_at_freeze_datetime"] = last_val if last_val else "N/A"
 
-    return dfq
+    # Save and upload
+    # Upload dfq before checking resolved questions in case we hit rate limit
+    data_utils.upload_questions(dfq, source)
+
+    for index, row in dfq[dfq["resolved"]].iterrows():
+        # Regenerate resolution files in case they've been deleted
+        resolved_files = gcp.storage.list_with_prefix(
+            bucket_name=constants.BUCKET_NAME, prefix=source
+        )
+        filename = f"{row['id']}.jsonl"
+        if filename not in resolved_files:
+            market = _get_market(row["id"])
+            _create_resolution_file(dfq, index, market)
 
 
 @decorator.log_runtime
@@ -215,10 +227,7 @@ def driver(_):
     )
 
     # Update the existing questions and resolution values
-    dfq = _update_questions_and_resolved_values(dfq, dff)
-
-    # Save and upload
-    data_utils.upload_questions(dfq, source)
+    _update_questions_and_resolved_values(dfq, dff)
 
     logger.info("Done.")
 
