@@ -113,6 +113,10 @@ def _update_questions_and_resolved_values(dfq, dff):
         df = df.sort_values(by="datetime")
         df["date"] = df["datetime"].dt.date
         df = df[df["date"] <= YESTERDAY]
+        if df.empty:
+            # empty if this market only has forecasts from today
+            return None
+
         df = df.groupby(by="date").last().reset_index()
         df = df[["date", "value"]]
 
