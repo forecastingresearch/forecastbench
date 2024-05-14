@@ -54,6 +54,9 @@ def driver(_):
         ),
         dtype=constants.META_DATA_FILE_COLUMN_DTYPE,
     )
+    if "category" not in dfmeta.columns:
+        dfmeta["category"] = ""
+
     for source, _ in constants.FREEZE_QUESTION_SOURCES.items():
         logger.info(f"Getting categories for {source} questions.")
         dfq = data_utils.get_data_from_cloud_storage(

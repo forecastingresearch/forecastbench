@@ -50,6 +50,10 @@ FREEZE_QUESTION_SOURCES = {
     },
 }
 
+DATA_SOURCES = [
+    "acled",
+]
+
 FREEZE_WINDOW_IN_DAYS = 7
 
 FREEZE_DATETIME = os.environ.get("FREEZE_DATETIME", dates.get_datetime_today()).replace(
@@ -134,6 +138,7 @@ META_DATA_FILE_COLUMN_DTYPE = {
     "source": str,
     "id": str,
     "category": str,
+    "valid_question": bool,
 }
 META_DATA_FILE_COLUMNS = list(META_DATA_FILE_COLUMN_DTYPE.keys())
 META_DATA_FILENAME = "question_metadata.jsonl"

@@ -57,7 +57,11 @@ def download_and_read(filename, local_filename, df_tmp, dtype):
         local_filename=local_filename,
     )
     df = pd.read_json(local_filename, lines=True, dtype=dtype, convert_dates=False)
-    return df.astype(dtype=dtype) if not df.empty else df_tmp
+    if df.empty:
+        return df_tmp
+    # Allows us to pass a dtype that may contain column names that are not in the df
+    dtype_modified = {k: v for k, v in dtype.items() if k in df.columns}
+    return df.astype(dtype=dtype_modified) if dtype_modified else df
 
 
 def get_data_from_cloud_storage(

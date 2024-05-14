@@ -57,7 +57,7 @@ questions: manifold metaculus acled infer yfinance
 
 workflows: main-workflow
 
-metadata: tag-questions
+metadata: tag-questions validate-questions
 
 curate-questions:
 	make -C src/curate_questions
@@ -107,6 +107,9 @@ yfinance-update-questions:
 
 tag-questions:
 	make -C src/metadata/tag_questions
+
+validate-questions:
+	make -C src/metadata/validate_questions
 
 leaderboard:
 	make -C src/leaderboard
