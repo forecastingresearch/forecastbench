@@ -62,13 +62,12 @@ def _generate_forecast_questions(dfq, dff):
 
     common_question_fields = {
         "background": "N/A",
-        "source_resolution_criteria": "N/A",
-        "source_begin_datetime": "N/A",
-        "source_close_datetime": "N/A",
+        "market_info_resolution_criteria": "N/A",
+        "market_info_open_datetime": "N/A",
+        "market_info_close_datetime": "N/A",
+        "market_info_resolution_datetime": "N/A",
         "url": "https://acleddata.com/",
-        "source_resolution_datetime": "N/A",
         "resolved": False,
-        "continual_resolution": True,
         "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
     }
 
@@ -105,10 +104,10 @@ def _generate_forecast_questions(dfq, dff):
                 "col": event_type,
                 "ref_date": "get_freeze_date()",
             },
-            "value_at_freeze_datetime": _30_day_avg_over_past_360_days(
+            "freeze_datetime_value": _30_day_avg_over_past_360_days(
                 dfr, country, event_type, TODAY
             ),
-            "value_at_freeze_datetime_explanation": (
+            "freeze_datetime_value_explanation": (
                 f"The 30-day average of {event_type_str} over the past 360 days in {country}. "
                 "This reference value will potentially change as ACLED updates its dataset."
             ),
@@ -142,10 +141,10 @@ def _generate_forecast_questions(dfq, dff):
                 "col": event_type,
                 "ref_date": "get_freeze_date()",
             },
-            "value_at_freeze_datetime": _30_day_avg_over_past_360_days_plus_1(
+            "freeze_datetime_value": _30_day_avg_over_past_360_days_plus_1(
                 dfr, country, event_type, TODAY
             ),
-            "value_at_freeze_datetime_explanation": (
+            "freeze_datetime_value_explanation": (
                 f"One plus the 30-day average of {event_type_str} over the past 360 days "
                 f"in {country}. "
                 "This reference value will potentially change as ACLED updates its dataset."

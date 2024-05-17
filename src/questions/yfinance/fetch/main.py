@@ -123,18 +123,17 @@ def fetch_all_stock(dfq):
                         "its market close price on the forecast date?"
                     ),
                     "background": background,
-                    "source_resolution_criteria": "N/A",
-                    "source_begin_datetime": "N/A",
-                    "source_close_datetime": "N/A",
+                    "market_info_resolution_criteria": "N/A",
+                    "market_info_open_datetime": "N/A",
+                    "market_info_close_datetime": "N/A",
                     "url": f"https://finance.yahoo.com/quote/{ticker}",
                     "resolved": False,
-                    "source_resolution_datetime": "N/A",
+                    "market_info_resolution_datetime": "N/A",
                     "fetch_datetime": current_time,
                     "probability": current_price,
-                    "continual_resolution": True,
                     "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
-                    "value_at_freeze_datetime": current_price,
-                    "value_at_freeze_datetime_explanation": f"The latest market close price of {ticker}.",
+                    "freeze_datetime_value": current_price,
+                    "freeze_datetime_value_explanation": f"The latest market close price of {ticker}.",
                 }
             )
 

@@ -353,22 +353,21 @@ def fetch_all(dfq, FRED_QUESTIONS_NAMES):
                     f" {series.get('seasonal_adjustment', 'N/A')} "
                     f" 3. the update frequency: {series.get('frequency', 'N/A')} "
                 ),
-                "source_resolution_criteria": "N/A",
-                "source_begin_datetime": "N/A",
-                "source_close_datetime": "N/A",
+                "market_info_resolution_criteria": "N/A",
+                "market_info_open_datetime": "N/A",
+                "market_info_close_datetime": "N/A",
                 "url": f"https://fred.stlouisfed.org/series/{series_id}",
                 "resolved": False,
-                "source_resolution_datetime": "N/A",
+                "market_info_resolution_datetime": "N/A",
                 "fetch_datetime": dates.get_datetime_now(),
                 "probability": current_value,
-                "continual_resolution": True,
                 "forecast_horizons": (
                     constants.FORECAST_HORIZONS_IN_DAYS
                     if series["frequency_short"] != "M"
                     else constants.FORECAST_HORIZONS_IN_DAYS[1:]
                 ),
-                "value_at_freeze_datetime": current_value,
-                "value_at_freeze_datetime_explanation": (
+                "freeze_datetime_value": current_value,
+                "freeze_datetime_value_explanation": (
                     "The latest value released in "
                     f"{series['title']} from the "
                     f"release {release['name']}."

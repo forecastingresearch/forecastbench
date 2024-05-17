@@ -195,24 +195,23 @@ def get_data(current_data):
             "id": str(q["id"]),
             "question": q["name"],
             "background": q["description"],
-            "source_resolution_criteria": (
+            "market_info_resolution_criteria": (
                 " ".join([content["content"] for content in q["clarifications"]])
                 if q["clarifications"]
                 else "N/A"
             ),
-            "source_begin_datetime": scoring_start_time_str,
-            "source_close_datetime": final_closed_at_str,
+            "market_info_open_datetime": scoring_start_time_str,
+            "market_info_close_datetime": final_closed_at_str,
             "url": f"{INFER_URL}/questions/{q['id']}",
             "resolved": q.get("resolved?", False),
-            "source_resolution_datetime": (
+            "market_info_resolution_datetime": (
                 "N/A" if not q.get("resolved?", False) else final_resolved_str
             ),
             "fetch_datetime": current_time,
             "probability": forecast_yes,
-            "continual_resolution": False,
             "forecast_horizons": forecast_horizons,
-            "value_at_freeze_datetime": forecast_yes,
-            "value_at_freeze_datetime_explanation": "The aggregated community forecast.",
+            "freeze_datetime_value": forecast_yes,
+            "freeze_datetime_value_explanation": "The aggregated community forecast.",
         }
 
     return pd.DataFrame(all_questions_to_add)

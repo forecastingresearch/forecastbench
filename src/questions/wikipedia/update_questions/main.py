@@ -83,8 +83,8 @@ def add_to_dfq(dfq, dfr, page, wid, id_field_value):
         "value": value,
     }
     question = fill_template(page=page, page_key="question", values=values)
-    value_at_freeze_datetime_explanation = fill_template(
-        page=page, page_key="value_at_freeze_datetime_explanation", values=values
+    freeze_datetime_value_explanation = fill_template(
+        page=page, page_key="freeze_datetime_value_explanation", values=values
     )
 
     background = fill_template(page=page, page_key="background", values=values)
@@ -93,16 +93,15 @@ def add_to_dfq(dfq, dfr, page, wid, id_field_value):
         "id": wid,
         "question": question,
         "background": background,
-        "source_resolution_criteria": "N/A",
-        "source_begin_datetime": "N/A",
-        "source_close_datetime": "N/A",
+        "market_info_resolution_criteria": "N/A",
+        "market_info_open_datetime": "N/A",
+        "market_info_close_datetime": "N/A",
         "url": f"https://en.wikipedia.org/wiki/{page['page_title']}",
-        "source_resolution_datetime": "N/A",
+        "market_info_resolution_datetime": "N/A",
         "resolved": resolved,
-        "continual_resolution": True,
         "forecast_horizons": [] if resolved else constants.FORECAST_HORIZONS_IN_DAYS,
-        "value_at_freeze_datetime": value,
-        "value_at_freeze_datetime_explanation": value_at_freeze_datetime_explanation,
+        "freeze_datetime_value": value,
+        "freeze_datetime_value_explanation": freeze_datetime_value_explanation,
     }
 
     df_question = pd.DataFrame([row])

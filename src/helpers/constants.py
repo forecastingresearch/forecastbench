@@ -81,16 +81,15 @@ QUESTION_FILE_COLUMN_DTYPE = {
     "id": str,
     "question": str,
     "background": str,
-    "source_resolution_criteria": str,
-    "source_begin_datetime": str,
-    "source_close_datetime": str,
     "url": str,
-    "source_resolution_datetime": str,
     "resolved": bool,
-    "continual_resolution": bool,
-    "forecast_horizons": object,  # list<int>
-    "value_at_freeze_datetime": str,
-    "value_at_freeze_datetime_explanation": str,
+    "forecast_horizons": object,
+    "freeze_datetime_value": str,
+    "freeze_datetime_value_explanation": str,
+    "market_info_resolution_criteria": str,
+    "market_info_open_datetime": str,
+    "market_info_close_datetime": str,
+    "market_info_resolution_datetime": str,
 }
 QUESTION_FILE_COLUMNS = list(QUESTION_FILE_COLUMN_DTYPE.keys())
 
