@@ -56,7 +56,7 @@ all: deploy
 
 deploy: questions workflows metadata curate-questions resolve naive-forecaster leaderboard
 
-questions: manifold metaculus acled infer yfinance polymarket wikipedia fred
+questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
 workflows: main-workflow
 
@@ -134,6 +134,14 @@ fred-fetch:
 
 fred-update-questions:
 	make -C src/questions/fred/update_questions
+	
+dbnomics: dbnomics-fetch dbnomics-update-questions
+
+dbnomics-fetch:
+	make -C src/questions/dbnomics/fetch
+
+dbnomics-update-questions:
+	make -C src/questions/dbnomics/update_questions
 
 tag-questions:
 	make -C src/metadata/tag_questions
