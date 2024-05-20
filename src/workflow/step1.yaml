@@ -20,6 +20,7 @@ main:
               - polymarket
               - wikipedia
               - fred
+              - dbnomics
             steps:
               - run:
                   try:
