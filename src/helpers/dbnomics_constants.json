@@ -1,0 +1,7 @@
+[
+    {
+        "id": "meteofrance/TEMPERATURE/celsius.07005.D",
+        "forecast_horizons": "[7,30,90,180,365,1095,1825,3650]",
+        "record_start_date": "2024-05-01"
+    }
+]

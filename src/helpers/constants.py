@@ -5,6 +5,8 @@ from datetime import timedelta
 
 from . import dates, keys, question_prompts, resolutions
 
+import pandas as pd
+
 BENCHMARK_START_YEAR = 2024
 
 BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET")
@@ -197,3 +199,15 @@ MODEL_NAME_TO_SOURCE = {
     "mistralai/Mixtral-8x22B-Instruct-v0.1": TOGETHER_AI_SOURCE,
     "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": TOGETHER_AI_SOURCE,
 }
+
+DBNOMICS_DATA = pd.read_json("dbnomics_constants.json")
+
+DBNOMICS_FETCH_COLUMN_DTYPE = {
+    "id": str,
+    "period": str,
+    "value": float,
+    "provider_name": str,
+    "dataset_name": str,
+    "series_name": str,
+}
+DBNOMICS_FETCH_COLUMNS = list(DBNOMICS_FETCH_COLUMN_DTYPE.keys())
