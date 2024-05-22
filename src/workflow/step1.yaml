@@ -18,6 +18,7 @@ main:
               - infer
               - yfinance
               - polymarket
+              - wikipedia
             steps:
               - run:
                   try:
