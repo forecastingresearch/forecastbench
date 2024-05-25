@@ -329,6 +329,25 @@ def update_leaderboard(leaderboard, organization, model, df):
     return leaderboard
 
 
+def write_leaderboard_csv(leaderboard):
+    """Write the leaderboard dict as a csv. Don't upload."""
+    flattened_data = []
+    for organization, models in leaderboard.items():
+        for model_name, attributes in models.items():
+            row = {
+                "Organization": organization,
+                "Model Name": model_name,
+                "Number Resolved": attributes.get("n_resolved", None),
+                "Number Unresolved": attributes.get("n_unresolved", None),
+                "Resolved": attributes.get("resolved", None),
+                "Unresolved": attributes.get("unresolved", None),
+            }
+            flattened_data.append(row)
+
+    df = pd.DataFrame(flattened_data).sort_values(by=["Resolved", "Unresolved"])
+    df.to_csv("/tmp/leaderboard.csv", index=False)
+
+
 def get_resolution_values_for_forecast_date(
     forecast_date, resolved_values_for_question_sources, resolution_values
 ):
@@ -452,6 +471,7 @@ def driver(_):
 
     logger.info(leaderboard)
     pprint(leaderboard)
+    write_leaderboard_csv(leaderboard)
     logger.info("Done.")
 
     return "OK", 200
