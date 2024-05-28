@@ -53,14 +53,14 @@ def _get_market_forecasts(market_id):
     endpoint = "https://api.manifold.markets/v0/bets"
     params = {
         "contractId": market_id,
-        "order": "asc",
     }
 
     all_bets = []
     n_requests = 0
     while True:
         n_requests += 1
-        logger.info(f"Request number {n_requests}.")
+        if n_requests % 100 == 0:
+            logger.info(f"Request number {n_requests} for {market_id}.")
         response = requests.get(endpoint, params=params, verify=certifi.where())
         if not response.ok:
             logger.error(f"Request to bets endpoint failed for {market_id}.")
@@ -68,7 +68,9 @@ def _get_market_forecasts(market_id):
         if len(response.json()) == 0:
             break
         all_bets += [m for m in response.json()]
-        params["after"] = all_bets[-1]["id"]
+        if all_bets[-1]["createdTime"] < constants.BENCHMARK_START_DATE_EPOCHTIME_MS:
+            break
+        params["before"] = all_bets[-1]["id"]
     return all_bets
 
 
@@ -213,6 +215,7 @@ def _update_questions_and_resolved_values(dfq, dff):
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
     # Recreate all rows of resolution files for unresolved questions
+    dfq["resolved"] = dfq["resolved"].astype(bool)
     for index, row in dfq[~dfq["resolved"]].iterrows():
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)

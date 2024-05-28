@@ -194,6 +194,7 @@ def _update_questions_and_resolved_values(dfq, dff):
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
     # Recreate all rows of resolution files for unresolved questions
+    dfq["resolved"] = dfq["resolved"].astype(bool)
     for index, row in dfq[~dfq["resolved"]].iterrows():
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)
