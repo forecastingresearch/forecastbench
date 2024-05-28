@@ -1,7 +1,7 @@
 """Constants."""
 
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from . import dates, keys, question_prompts, resolutions
 
@@ -11,6 +11,10 @@ BENCHMARK_START_YEAR = 2024
 BENCHMARK_START_MONTH = 5
 BENCHMARK_START_DAY = 1
 BENCHMARK_START_DATE = f"{BENCHMARK_START_YEAR}-{BENCHMARK_START_MONTH}-{BENCHMARK_START_DAY}"
+
+parsed_date = datetime.strptime(BENCHMARK_START_DATE + " 00:00", "%Y-%m-%d %H:%M")
+BENCHMARK_START_DATE_EPOCHTIME = int(parsed_date.timestamp())
+BENCHMARK_START_DATE_EPOCHTIME_MS = BENCHMARK_START_DATE_EPOCHTIME * 1000
 
 BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET")
 PUBLIC_BUCKET_NAME = os.environ.get("CLOUD_STORAGE_BUCKET_QUESTIONS")
