@@ -57,7 +57,7 @@ def driver(_):
     if "category" not in dfmeta.columns:
         dfmeta["category"] = ""
 
-    for source, _ in constants.FREEZE_QUESTION_SOURCES.items():
+    for source in ["dbnomics", "fred"]:  # constants.FREEZE_QUESTION_SOURCES.items():
         logger.info(f"Getting categories for {source} questions.")
         dfq = data_utils.get_data_from_cloud_storage(
             source=source,
@@ -74,6 +74,12 @@ def driver(_):
         if source == "acled":
             # Hard code ACLED categories
             dfq["category"] = "Security & Defense"
+        elif source == "dbnomics":
+            dfq["category"] = "Environment & Energy"
+        elif source == "fred":
+            dfq["category"] = "Economics & Business"
+        elif source == "yfinance":
+            dfq["category"] = "Economics & Business"
         else:
             dfq = get_categories_from_llm(dfq)
 

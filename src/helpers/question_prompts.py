@@ -22,3 +22,7 @@ combination = (
     "Below, you'll see two probability questions. We're going to ask you to predict the probability "
     "that both will happen, that one will happen but not the other, and that neither will happen."
 )
+
+yfinance = "Fill in"
+
+wikipedia = "Fill in"

@@ -63,10 +63,29 @@ FREEZE_QUESTION_SOURCES = {
         "human_prompt": question_prompts.market,
         "resolution_criteria": resolutions.infer,
     },
+    "polymarket": {
+        "name": "Polymarket",
+        "human_prompt": question_prompts.market,
+        "resolution_criteria": resolutions.market,
+    },
+    "yfinance": {
+        "name": "Yahoo! Finance",
+        "human_prompt": question_prompts.yfinance,
+        "resolution_criteria": resolutions.yfinance,
+    },
+    "wikipedia": {
+        "name": "Wikipedia",
+        "human_prompt": question_prompts.wikipedia,
+        "resolution_criteria": resolutions.wikipedia,
+    },
 }
 
 DATA_SOURCES = [
     "acled",
+    "dbnomics",
+    "fred",
+    "yfinance",
+    "wikipedia",
 ]
 
 FREEZE_WINDOW_IN_DAYS = 7

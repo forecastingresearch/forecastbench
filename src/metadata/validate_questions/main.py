@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def validate_questions(dfq):
     """Validate question with gpt 3.5-turbo."""
     invalid_questions = []
-    for index, row in dfq[dfq["valid_question"] == ""].iterrows():
+    for index, row in dfq.iterrows():
         question = row["question"]
         prompt = llm_prompts.VALIDATE_QUESTION_PROMPT.format(question=question)
         try:
@@ -72,7 +72,9 @@ def driver(_):
     if "valid_question" not in dfmeta.columns:
         dfmeta["valid_question"] = ""
     n_total_invalid = 0
-    for source, _ in constants.FREEZE_QUESTION_SOURCES.items():
+    for source in [
+        "polymarket",
+    ]:
         logger.info(f"Validating {source} questions.")
         dfq = data_utils.get_data_from_cloud_storage(
             source=source,
@@ -86,6 +88,8 @@ def driver(_):
         if source in constants.DATA_SOURCES + [
             "infer",
             "metaculus",
+            "dbnomics",
+            "fred",
         ]:
             dfq["valid_question"] = True
         else:
