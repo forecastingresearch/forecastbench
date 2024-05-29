@@ -2,10 +2,15 @@
 
 import itertools
 import json
+import os
+import sys
 
 import markets
 import numpy as np
 import pandas as pd
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+from helpers import constants  # noqa: E402
 
 llm_or_human = "llm"
 question_set_filename = f"2024-05-03-{llm_or_human}.jsonl"
@@ -49,29 +54,37 @@ df["forecast"] = np.random.rand(len(df))
 print(df)
 
 output = {
-    "organization": "FRI/Berkeley",
+    "organization": constants.BENCHMARK_NAME,
     "question_set": question_set_filename,
     "forecast_date": forecast_date,
 }
 
 output["model"] = "Random Uniform"
 output["forecasts"] = json.loads(df.to_json(orient="records"))
-write_json_file(f"{forecast_date}.fri-berkeley.{llm_or_human}-random-forecast.json", output)
+write_json_file(
+    f"{forecast_date}.{constants.BENCHMARK_NAME}.{llm_or_human}-random-forecast.json", output
+)
 
 
 df["forecast"] = 0.5
 output["model"] = "Always 0.5"
 output["forecasts"] = json.loads(df.to_json(orient="records"))
-write_json_file(f"{forecast_date}.fri-berkeley.{llm_or_human}-always-0.5-forecast.json", output)
+write_json_file(
+    f"{forecast_date}.{constants.BENCHMARK_NAME}.{llm_or_human}-always-0.5-forecast.json", output
+)
 
 
 df["forecast"] = 0
 output["model"] = "Always 0"
 output["forecasts"] = json.loads(df.to_json(orient="records"))
-write_json_file(f"{forecast_date}.fri-berkeley.{llm_or_human}-always-zero-forecast.json", output)
+write_json_file(
+    f"{forecast_date}.{constants.BENCHMARK_NAME}.{llm_or_human}-always-zero-forecast.json", output
+)
 
 
 df["forecast"] = 1
 output["model"] = "Always 1"
 output["forecasts"] = json.loads(df.to_json(orient="records"))
-write_json_file(f"{forecast_date}.fri-berkeley.{llm_or_human}-always-one-forecast.json", output)
+write_json_file(
+    f"{forecast_date}.{constants.BENCHMARK_NAME}.{llm_or_human}-always-one-forecast.json", output
+)
