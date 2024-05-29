@@ -51,7 +51,7 @@ setup-python-env: .venv install-requirements
 
 all: deploy
 
-deploy: questions workflows metadata curate-questions resolve
+deploy: questions workflows metadata curate-questions resolve naive-forecaster
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia
 
@@ -132,3 +132,6 @@ validate-questions:
 
 resolve-forecasts:
 	make -C src/resolve_forecasts
+
+naive-forecaster:
+	make -C src/base_eval/naive_forecaster

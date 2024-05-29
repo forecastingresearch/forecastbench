@@ -5,6 +5,8 @@ from datetime import timedelta
 
 from . import dates, keys, question_prompts, resolutions
 
+BENCHMARK_NAME = "ForecastBench"
+
 BENCHMARK_START_YEAR = 2024
 BENCHMARK_START_MONTH = 5
 BENCHMARK_START_DAY = 1
