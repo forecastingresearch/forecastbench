@@ -19,6 +19,7 @@ main:
               - yfinance
               - polymarket
               - wikipedia
+              - fred
             steps:
               - run:
                   try:

@@ -54,7 +54,7 @@ all: deploy
 
 deploy: questions workflows metadata curate-questions resolve naive-forecaster
 
-questions: manifold metaculus acled infer yfinance polymarket wikipedia
+questions: manifold metaculus acled infer yfinance polymarket wikipedia fred
 
 workflows: main-workflow
 
@@ -124,6 +124,14 @@ wikipedia-fetch:
 
 wikipedia-update-questions:
 	make -C src/questions/wikipedia/update_questions
+
+fred: fred-fetch fred-update-questions
+
+fred-fetch:
+	make -C src/questions/fred/fetch
+
+fred-update-questions:
+	make -C src/questions/fred/update_questions
 
 tag-questions:
 	make -C src/metadata/tag_questions
