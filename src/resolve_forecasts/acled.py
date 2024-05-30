@@ -141,7 +141,8 @@ def resolve_question(mid, forecast_submitted_date, forecast_evaluation_date, dfq
 def resolve(df, dfq, dfr):
     """Resolve ACLED questions."""
     logger.info("Resolving ACLED questions.")
-    mask = df["source"] == "acled"
+    max_date = dfr["event_date"].max()
+    mask = (df["source"] == "acled") & (df["forecast_evaluation_date"] <= max_date)
     for index, row in df[mask].iterrows():
         forecast_submitted_date = row["forecast_submitted_date"].date()
         forecast_evaluation_date = row["forecast_evaluation_date"].date()
