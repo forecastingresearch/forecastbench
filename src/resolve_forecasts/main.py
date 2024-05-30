@@ -414,6 +414,7 @@ def driver(_):
     leaderboard = {}
     resolved_values_for_question_sources = {}
     files = gcp.storage.list(constants.FORECAST_BUCKET_NAME)
+    files = [f for f in files if "/" not in f]
     for f in files:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
