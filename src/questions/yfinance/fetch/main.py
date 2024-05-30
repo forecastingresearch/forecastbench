@@ -70,7 +70,7 @@ def fetch_one_stock(ticker):
     try:
         ticker = yf.Ticker(ticker)
         company_name = ticker.info["longName"]
-        hist = ticker.history(period="2d").reset_index()
+        hist = ticker.history(period="5d").reset_index()
         yesterday = dates.get_date_today() - timedelta(days=1)
         hist["Date"] = pd.to_datetime(hist["Date"])
         hist = hist[hist["Date"].dt.date <= yesterday].tail(1)
