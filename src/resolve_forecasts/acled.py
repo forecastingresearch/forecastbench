@@ -7,10 +7,9 @@ from datetime import timedelta
 
 import numpy as np
 import pandas as pd
-import resolution_helpers
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, data_utils  # noqa: E402
+from helpers import constants, data_utils, resolution  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -117,7 +116,7 @@ def resolve_eq(question, dfr, forecast_date_func, resolution_date_func):
 
 def resolve_question(mid, forecast_submitted_date, forecast_evaluation_date, dfq, dfr):
     """Resolve an individual ACLED question."""
-    question = resolution_helpers.get_question(dfq, mid)
+    question = resolution.get_question(dfq, mid)
     if question is None:
         logger.warn(f"ACLED: could NOT find {mid}")
         return np.nan
@@ -146,7 +145,7 @@ def resolve(df, dfq, dfr):
     for index, row in df[mask].iterrows():
         forecast_submitted_date = row["forecast_submitted_date"].date()
         forecast_evaluation_date = row["forecast_evaluation_date"].date()
-        if not resolution_helpers.is_combo(row):
+        if not resolution.is_combo(row):
             value = resolve_question(
                 mid=row["id"],
                 forecast_submitted_date=forecast_submitted_date,
@@ -169,9 +168,9 @@ def resolve(df, dfq, dfr):
                 dfq=dfq,
                 dfr=dfr,
             )
-            value = resolution_helpers.combo_change_sign(
+            value = resolution.combo_change_sign(
                 value1, row["direction"][0]
-            ) * resolution_helpers.combo_change_sign(value2, row["direction"][1])
+            ) * resolution.combo_change_sign(value2, row["direction"][1])
         df.at[index, "resolved_to"] = value
     df.loc[mask, "resolved"] = True
     return df

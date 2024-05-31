@@ -1,0 +1,5 @@
+google-cloud-storage
+google-cloud-secret-manager
+pandas
+tqdm
+gcsfs==2024.3.1

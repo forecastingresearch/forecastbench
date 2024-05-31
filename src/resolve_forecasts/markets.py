@@ -5,11 +5,10 @@ import os
 import sys
 
 import pandas as pd
-import resolution_helpers
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants  # noqa: E402
+from helpers import constants, resolution  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -36,7 +35,7 @@ def make_resolution_df(source):
         ],
         ignore_index=True,
     )
-    df = resolution_helpers.make_columns_hashable(df)
+    df = resolution.make_columns_hashable(df)
     df["date"] = pd.to_datetime(df["date"])
     df["id"] = df["id"].astype(str)
     return df
@@ -55,7 +54,7 @@ def resolve(source, df, dfq, dfr):
     - dfr: market values and resolutions for all markets belonging to `source`
     """
     logger.info(f"Resolving Market `{source}.`")
-    df_market, df = resolution_helpers.split_dataframe_on_source(df=df, source=source)
+    df_market, df = resolution.split_dataframe_on_source(df=df, source=source)
     df_market["id"] = df_market["id"].astype(str)
 
     # Get market values at forecast_evaluation_date

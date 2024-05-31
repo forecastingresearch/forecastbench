@@ -12,10 +12,9 @@ import acled
 import markets
 import numpy as np
 import pandas as pd
-import resolution_helpers
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, data_utils, dates, decorator  # noqa: E402
+from helpers import constants, data_utils, dates, decorator, resolution  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -57,10 +56,11 @@ def download_and_read_forecast_file(filename):
     return data if all(key in data for key in required_forecast_file_keys) else None
 
 
-def upload_processed_forecast_file(df, forecast_date, filename):
+def upload_processed_forecast_file(data, forecast_date, filename):
     """Upload processed forecast file."""
     local_filename = "/tmp/tmp.json"
-    df.to_json(local_filename, orient="records", lines=True)
+    with open(local_filename, "w") as f:
+        f.write(json.dumps(data, indent=4))
     gcp.storage.upload(
         bucket_name=constants.PROCESSED_FORECAST_BUCKET_NAME,
         local_filename=local_filename,
@@ -98,7 +98,7 @@ def get_forecast_horizon_for_combo(combo_rows):
 
 def get_forecast_horizon(row, dfq):
     """Get forecast horizon for all questions."""
-    if resolution_helpers.is_combo(row):
+    if resolution.is_combo(row):
         matches = dfq[dfq["id"].isin(row["id"])]
         if len(matches) == 2:
             return get_forecast_horizon_for_combo(matches)
@@ -125,14 +125,14 @@ def get_resolutions_for_llm_question_set(forecast_date, resolution_values):
         convert_dates=False,
     )
     df = df[["id", "source", "forecast_horizons"]]
-    df = resolution_helpers.make_columns_hashable(df)
+    df = resolution.make_columns_hashable(df)
     n_start = len(df)
     logger.info(f"LM question set starting with {n_start} questions.")
 
     # DROP COMBO QUESTIONS FOR MARKETS
     df = df[
         ~df.apply(
-            lambda x: resolution_helpers.is_combo(x) and x["source"] in markets.MARKET_SOURCES,
+            lambda x: resolution.is_combo(x) and x["source"] in markets.MARKET_SOURCES,
             axis=1,
         )
     ].reset_index(drop=True)
@@ -171,7 +171,7 @@ def get_resolutions_for_llm_question_set(forecast_date, resolution_values):
     indices_to_drop = []
     df["direction"] = df.apply(lambda x: tuple(), axis=1)
     for index, row in df.iterrows():
-        if resolution_helpers.is_combo(row):
+        if resolution.is_combo(row):
             indices_to_drop += [index]
             for direction in itertools.product((1, -1), repeat=len(row["id"])):
                 new_row = row.copy()
@@ -199,7 +199,7 @@ def get_resolutions_for_human_question_set(forecast_date, df_llm_resolutions):
         lines=True,
         convert_dates=False,
     )
-    df = resolution_helpers.make_columns_hashable(df)
+    df = resolution.make_columns_hashable(df)
     df = pd.merge(df_llm_resolutions, df, on=["id", "source"]).reset_index(drop=True)
 
     logger.info(f"Human question set has {len(df)} questions expanded using llm_resolutions.")
@@ -369,7 +369,7 @@ def get_resolution_values_for_forecast_date(
 
 def prepare_forecast_file(df, forecast_date):
     """Prepare the organization's forecast file."""
-    df = resolution_helpers.make_columns_hashable(df)
+    df = resolution.make_columns_hashable(df)
     if "reasoning" in df.columns:
         df = df.drop(columns=["reasoning"])
     df["horizon"] = df["horizon"].apply(lambda x: "N/A" if pd.isna(x) else x)
@@ -377,7 +377,7 @@ def prepare_forecast_file(df, forecast_date):
     # DROP COMBO QUESTIONS FOR MARKETS
     df = df[
         ~df.apply(
-            lambda x: resolution_helpers.is_combo(x) and x["source"] in markets.MARKET_SOURCES,
+            lambda x: resolution.is_combo(x) and x["source"] in markets.MARKET_SOURCES,
             axis=1,
         )
     ].reset_index(drop=True)
@@ -436,6 +436,13 @@ def driver(_):
         ):
             continue
 
+        team_forecast = {
+            "organization": organization,
+            "model": model,
+            "question_set": question_set_filename,
+            "forecast_date": forecast_date,
+        }
+
         is_human_question_set = "human" in question_set_filename
         human_llm_key = "human" if is_human_question_set else "llm"
 
@@ -463,12 +470,14 @@ def driver(_):
 
         df = score_forecasts(df=df, df_question_resolutions=df_question_resolutions)
 
-        upload_processed_forecast_file(df=df, forecast_date=forecast_date, filename=f)
-
         leaderboard = update_leaderboard(
             leaderboard=leaderboard, organization=organization, model=model, df=df
         )
         print("\n")
+        # Convert to json then load to keep pandas json conversion
+        # df.to_dict has different variable conversions and hence is undesireable
+        team_forecast["forecasts"] = json.loads(df.to_json(orient="records", date_format="iso"))
+        upload_processed_forecast_file(data=team_forecast, forecast_date=forecast_date, filename=f)
 
     logger.info(leaderboard)
     pprint(leaderboard)
