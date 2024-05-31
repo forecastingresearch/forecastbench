@@ -9,6 +9,8 @@ import anthropic
 import google.generativeai as google_ai
 import openai
 import together
+from mistralai.client import MistralClient
+from mistralai.models.chat_completion import ChatMessage
 
 from . import constants, llm_prompts
 
@@ -22,6 +24,8 @@ client = openai.OpenAI(
     api_key=constants.API_KEY_TOGETHERAI,
     base_url="https://api.together.xyz/v1",
 )
+mistral_client = MistralClient(api_key=constants.API_KEY_MISTRAL)
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -55,8 +59,15 @@ def get_response_with_retry(api_call, wait_time, error_msg):
         try:
             return api_call()
         except Exception as e:
+            if "repetitive patterns" in str(e):
+                logger.info(
+                    "Repetitive patterns detected in the prompt. Modifying prompt and retrying..."
+                )
+                return "need_a_new_reformat_prompt"
+
             logger.info(f"{error_msg}: {e}")
             logger.info(f"Waiting for {wait_time} seconds before retrying...")
+
             time.sleep(wait_time)
 
 
@@ -96,7 +107,15 @@ def get_response_from_oai_model(
         # logger.info(f"full prompt: {prompt}")
         return response.choices[0].message.content
 
-    return get_response_with_retry(api_call, wait_time, "OpenAI API request exceeded rate limit.")
+    if (
+        get_response_with_retry(api_call, wait_time, "OpenAI API request exceeded rate limit.")
+        == "need_a_new_reformat_prompt"
+    ):
+        return "need_a_new_reformat_prompt"
+    else:
+        return get_response_with_retry(
+            api_call, wait_time, "OpenAI API request exceeded rate limit."
+        )
 
 
 def get_response_from_anthropic_model(model_name, prompt, max_tokens, temperature, wait_time):
@@ -128,6 +147,43 @@ def get_response_from_anthropic_model(model_name, prompt, max_tokens, temperatur
     return get_response_with_retry(
         api_call, wait_time, "Anthropic API request exceeded rate limit."
     )
+
+
+def get_response_from_mistral_model(model_name, prompt, max_tokens, temperature, wait_time):
+    """
+    Make an API call to the OpenAI API and retry on failure after a specified wait time.
+
+    Args:
+        model_name (str): Name of the model to use (such as "gpt-4").
+        prompt (str): Fully specififed prompt to use for the API call.
+        max_tokens (int): Maximum number of tokens to sample.
+        temperature (float): Sampling temperature.
+        wait_time (int): Time to wait before retrying, in seconds.
+
+    Returns:
+        str: Response string from the API call.
+    """
+
+    def api_call():
+        """
+        Make an API call to the OpenAI API, without retrying on failure.
+
+        Returns:
+            str: Response string from the API call.
+        """
+        messages = [ChatMessage(role="user", content=prompt)]
+
+        # No streaming
+        chat_response = mistral_client.chat(
+            model=model_name,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        return chat_response.choices[0].message.content
+
+    return get_response_with_retry(api_call, wait_time, "Mistral API request exceeded rate limit.")
 
 
 def get_response_from_together_ai_model(model_name, prompt, max_tokens, temperature, wait_time):
@@ -225,6 +281,10 @@ def get_response_from_model(
         )
     elif model_source == constants.GOOGLE_SOURCE:
         return get_response_from_google_model(
+            model_name, prompt, max_tokens, temperature, wait_time
+        )
+    elif model_source == constants.MISTRAL_SOURCE:
+        return get_response_from_mistral_model(
             model_name, prompt, max_tokens, temperature, wait_time
         )
     else:
@@ -368,7 +428,7 @@ def convert_string_to_list(string_list):
     return actual_list
 
 
-def reformat_answers(response, models, prompt="N/A", question="N/A", single=False):
+def reformat_answers(response, prompt="N/A", question="N/A", single=False):
     """
     Reformat the given response based on whether a single response or multiple responses are required.
 
@@ -378,8 +438,6 @@ def reformat_answers(response, models, prompt="N/A", question="N/A", single=Fals
 
     Parameters:
     - response (str): The original response from the model that needs to be reformatted.
-    - models (dict): a dict with model information. For example: {
-    "gpt_3p5_turbo_0125": {"source": "OAI", "full_name": "gpt-3.5-turbo-0125"}}
     - prompt (str, optional): The user prompt to use in the reformatting process. Defaults to 'N/A'.
     - question (str or dict, optional): The question data used to format the response when not single.
       Defaults to 'N/A'.
@@ -390,24 +448,46 @@ def reformat_answers(response, models, prompt="N/A", question="N/A", single=Fals
     - str or list: The reformatted model response, either as a probability (if single is True) or as a
       list of responses (if single is False).
     """
-    if single:
-        reformat_prompt = llm_prompts.REFORMAT_SINGLE_PROMPT.format(response=response)
-    else:
-        reformat_prompt = llm_prompts.REFORMAT_PROMPT.format(
-            user_prompt=prompt,
-            model_response=response,
-            n_horizons=len(question["forecast_horizons"]),
+
+    def reformatted_raw_response(
+        response, prompt, question, REFORMAT_SINGLE_PROMPT, REFORMAT_PROMPT, single=False
+    ):
+        if single:
+            reformat_prompt = REFORMAT_SINGLE_PROMPT.format(response=response)
+        else:
+            reformat_prompt = REFORMAT_PROMPT.format(
+                user_prompt=prompt,
+                model_response=response,
+                n_horizons=len(question["forecast_horizons"]),
+            )
+        raw_response = get_response_from_model(
+            prompt=reformat_prompt,
+            max_tokens=100,
+            model_name="gpt-3.5-turbo-0125",
+            temperature=0,
+            wait_time=30,
+        )
+        return raw_response
+
+    raw_response = reformatted_raw_response(
+        response,
+        prompt,
+        question,
+        llm_prompts.REFORMAT_SINGLE_PROMPT,
+        llm_prompts.REFORMAT_PROMPT,
+        single,
+    )
+    if raw_response == "need_a_new_reformat_prompt":
+        raw_response = reformatted_raw_response(
+            response,
+            prompt,
+            question,
+            llm_prompts.REFORMAT_SINGLE_PROMPT_2,
+            llm_prompts.REFORMAT_PROMPT_2,
+            single,
         )
 
-    response = get_response_from_model(
-        prompt=reformat_prompt,
-        max_tokens=100,
-        model_name=models["gpt_3p5_turbo_0125"]["full_name"],
-        temperature=0,
-        wait_time=30,
-    )
-
     if single:
-        return extract_probability(response)
+        return extract_probability(raw_response)
 
-    return convert_string_to_list(response)
+    return convert_string_to_list(raw_response)
