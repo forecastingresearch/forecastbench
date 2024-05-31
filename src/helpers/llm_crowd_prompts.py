@@ -2,10 +2,6 @@
 
 from . import llm_prompts
 
-# The following SCRATCH_PAD_WITH_SUMMARIES prompt 1 and 2 are mainly from paper:
-# "Approaching Human-Level Forecasting with Language Models" by Halawi et al. (2024)
-# Some are modified versions in order to adapt to our needs
-# https://arxiv.org/pdf/2402.18563v1
 SCRATCH_PAD_WITH_SUMMARIES_MARKET_PROMPT_1 = llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_MARKET_PROMPT
 SCRATCH_PAD_WITH_SUMMARIES_NON_MARKET_PROMPT_1 = (
     llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_NON_MARKET_PROMPT
@@ -154,7 +150,7 @@ Instructions:
 """  # noqa: B950
 
 # Molly's + Sam's
-SUPERFORECASTER_MARKET_PROMPT_3 = """
+SCRATCH_PAD_WITH_SUMMARIES_MARKET_PROMPT_3 = """
 Question:
 {question}
 
@@ -233,7 +229,7 @@ Here, we’re thinking about things that are probably quite unlikely to happen, 
 
 """  # noqa: B950
 
-SUPERFORECASTER_NON_MARKET_PROMPT_3 = """
+SCRATCH_PAD_WITH_SUMMARIES_NON_MARKET_PROMPT_3 = """
 You’re going to predict the probability of the following potential outcome “at each of the resolution dates”.
 
 Question:
@@ -320,7 +316,7 @@ Here, we’re thinking about things that are probably quite unlikely to happen, 
 
 """  # noqa: B950
 
-SUPERFORECASTER_JOINT_QUESTION_PROMPT_3 = """
+SCRATCH_PAD_WITH_SUMMARIES_JOINT_QUESTION_PROMPT_3 = """
 {human_prompt} “at each of the resolution dates”.
 
 Question 1:
@@ -425,7 +421,7 @@ Here, we’re thinking about things that are probably quite unlikely to happen, 
 """  # noqa: B950
 
 # Molly's
-SUPERFORECASTER_MARKET_PROMPT_4 = """
+SCRATCH_PAD_WITH_SUMMARIES_MARKET_PROMPT_4 = """
 Question:
 {question}
 
@@ -458,7 +454,7 @@ Output your answer (a number between 0 and 1) with an asterisk at the beginning 
 {{ Insert final odds for the original statement. }}
 """  # noqa: B950
 
-SUPERFORECASTER_NON_MARKET_PROMPT_4 = """
+SCRATCH_PAD_WITH_SUMMARIES_NON_MARKET_PROMPT_4 = """
 You’re going to predict the probability of the following potential outcome “at each of the resolution dates”.
 
 Question:
@@ -501,7 +497,7 @@ Output your answer (a number between 0 and 1) with an asterisk at the beginning 
 
 """  # noqa: B950
 
-SUPERFORECASTER_JOINT_QUESTION_PROMPT_4 = """
+SCRATCH_PAD_WITH_SUMMARIES_JOINT_QUESTION_PROMPT_4 = """
 {human_prompt} “at each of the resolution dates”.
 
 Question 1:
@@ -561,7 +557,7 @@ Output your answer (a number between 0 and 1) with an asterisk at the beginning 
 """  # noqa: B950
 
 # SAM's
-SUPERFORECASTER_MARKET_PROMPT_5 = """
+SCRATCH_PAD_WITH_SUMMARIES_MARKET_PROMPT_5 = """
 Question:
 {question}
 
@@ -608,7 +604,7 @@ Instructions:
 {{ Insert your answer }}
 """  # noqa: B950
 
-SUPERFORECASTER_NON_MARKET_PROMPT_5 = """
+SCRATCH_PAD_WITH_SUMMARIES_NON_MARKET_PROMPT_5 = """
 You’re going to predict the probability of the following potential outcome “at each of the resolution dates”.
 
 Question:
@@ -664,7 +660,7 @@ Instructions:
 
 """  # noqa: B950
 
-SUPERFORECASTER_JOINT_QUESTION_PROMPT_5 = """
+SCRATCH_PAD_WITH_SUMMARIES_JOINT_QUESTION_PROMPT_5 = """
 {human_prompt} “at each of the resolution dates”.
 
 Question 1:

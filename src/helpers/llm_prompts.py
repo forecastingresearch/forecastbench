@@ -7,10 +7,6 @@ HUMAN_JOINT_PROMPT_2 = "Below, you'll see two probability questions. We're going
 HUMAN_JOINT_PROMPT_3 = "Below, you'll see two probability questions. We're going to ask you to predict the probability that question 2 will happen, but not question 1."  # noqa: B950
 HUMAN_JOINT_PROMPT_4 = "Below, you'll see two probability questions. We're going to ask you to predict the probability that neither will happen."  # noqa: B950
 
-# The following zero-shot, and scratchpad prompts mainly come from paper:
-# "Approaching Human-Level Forecasting with Language Models" by Halawi et al. (2024)
-# Some are modified versions in order to adapt to our needs
-# https://arxiv.org/pdf/2402.18563v1
 ZERO_SHOT_MARKET_PROMPT = """
 You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can't answer, pick the base rate, but return a number between 0 and 1.
 
