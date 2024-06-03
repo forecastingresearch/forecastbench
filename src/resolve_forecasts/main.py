@@ -86,7 +86,18 @@ def resolve_questions(df, resolution_values):
             df = acled.resolve(df=df.copy(), dfq=dfq, dfr=dfr)
         else:
             logger.warning(f"*** Not able to resolve {source} ***")
-    return df
+
+    # Remove all forecasts on dataset questions that have not resolved
+    n_pre_drop = len(df)
+    df = df[~(~df["source"].isin(markets.MARKET_SOURCES) & ~df["resolved"])]
+    logger.info(f"Dropped {n_pre_drop - len(df)} dataset questions that have not yet resolved.")
+
+    # Remove all forecast questions that have resolved to np.nan
+    n_pre_drop = len(df)
+    df = df[~df["resolved_to"].isna()]
+    logger.info(f"Dropped {n_pre_drop - len(df)} questions that have resolved to NaN.")
+
+    return df.reset_index(drop=True)
 
 
 def get_forecast_horizon_for_combo(combo_rows):
@@ -225,7 +236,7 @@ def impute_missing_forecasts(df):
     # For data tasks, apply a forecast of 0.5 to missing forecasts
     df.loc[(df["source"] == "acled") & (df["forecast"].isna()), "forecast"] = 0.5
 
-    # For market tasks, appy a forecast of the market value at forecast_submitted_date
+    # For market tasks, apply a forecast of the market value at forecast_submitted_date
     df.loc[(df["source"].isin(markets.MARKET_SOURCES)) & (df["forecast"].isna()), "forecast"] = df[
         "market_value_at_submission"
     ]
