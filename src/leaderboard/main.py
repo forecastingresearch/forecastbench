@@ -61,8 +61,8 @@ def download_human_question_set(forecast_date):
     return df
 
 
-def add_to_leaderboard(leaderboard, org_and_model, df):
-    """Add scores to the leaderboard."""
+def get_leaderboard_entry(df):
+    """Create the leaderboard entry for the given dataframe."""
     # Masks
     data_mask = df["source"].isin(constants.DATA_SOURCES)
     market_mask = ~data_mask
@@ -87,22 +87,32 @@ def add_to_leaderboard(leaderboard, org_and_model, df):
     overall_std_dev = df["score"].std()
     n_overall = len(df)
 
-    leaderboard += [
-        {
-            **org_and_model,
-            "data": data_resolved_score,
-            "n_data": n_data_resolved,
-            "market_resolved": market_resolved_score,
-            "n_market_resolved": n_market_resolved,
-            "market_unresolved": market_unresolved_score,
-            "n_market_unresolved": n_market_unresolved,
-            "market_overall": market_overall_score,
-            "n_market_overall": n_market_overall,
-            "overall": overall_score,
-            "n_overall": n_overall,
-            "std_dev": overall_std_dev,
-        }
-    ]
+    return {
+        "data": data_resolved_score,
+        "n_data": n_data_resolved,
+        "market_resolved": market_resolved_score,
+        "n_market_resolved": n_market_resolved,
+        "market_unresolved": market_unresolved_score,
+        "n_market_unresolved": n_market_unresolved,
+        "market_overall": market_overall_score,
+        "n_market_overall": n_market_overall,
+        "overall": overall_score,
+        "n_overall": n_overall,
+        "std_dev": overall_std_dev,
+    }
+
+
+def add_to_leaderboard(leaderboard, org_and_model, df):
+    """Add scores to the leaderboard."""
+    horizons = df["horizon"].unique()
+    for horizon in horizons:
+        horizon_key = str(int(horizon))
+        leaderboard_entry = [org_and_model | get_leaderboard_entry(df[df["horizon"] == horizon])]
+        leaderboard[horizon_key] = leaderboard.get(horizon_key, []) + leaderboard_entry
+
+    leaderboard_entry = [org_and_model | get_leaderboard_entry(df)]
+    leaderboard["overall"] = leaderboard.get("overall", []) + leaderboard_entry
+
     return leaderboard
 
 
@@ -115,23 +125,30 @@ def add_to_llm_and_human_leaderboard(leaderboard, org_and_model, df, forecast_da
     """Parse the forecasts to include only those questions that were in the human question set."""
     df_human_question_set = download_human_question_set(forecast_date)
     df_only_human_question_set = pd.merge(
-        df, df_human_question_set[["id", "source"]], on=["id", "source"], how="right"
+        df, df_human_question_set[["id", "source"]], on=["id", "source"], how="inner"
     )
     return add_to_leaderboard(
         leaderboard=leaderboard, org_and_model=org_and_model, df=df_only_human_question_set
     )
 
 
-def make_html_table(df, basename):
+def make_html_table(df, title, basename):
     """Make and upload HTLM leaderboard."""
-    # Round columns to 3 decimal places
-    numeric_cols = df.select_dtypes(include="number").columns
-    df[numeric_cols] = df[numeric_cols].round(3)
-
     # Replace NaN with empty strings for display
     df = df.fillna("")
 
-    df = df.sort_values(by="overall", ignore_index=True)
+    # Add ranking
+    df.insert(loc=0, column="Ranking", value="")
+    df["score_diff"] = df["overall"] - df["overall"].shift(1)
+    for index, row in df.iterrows():
+        if row["score_diff"] != 0:
+            prev_rank = index + 1
+        df.loc[index, "Ranking"] = prev_rank
+    df.drop(columns="score_diff", inplace=True)
+
+    # Round columns to 3 decimal places
+    numeric_cols = df.select_dtypes(include="number").columns
+    df[numeric_cols] = df[numeric_cols].round(3)
 
     # Rename columns
     n_data = df["n_data"].max()
@@ -156,7 +173,6 @@ def make_html_table(df, basename):
     # Remove lengths from df
     df = df[[c for c in df.columns if not c.startswith("n_")]]
 
-    df.insert(0, "Ranking", range(1, len(df) + 1))
     html_code = df.to_html(
         classes="table table-striped table-bordered", index=False, table_id="myTable"
     )
@@ -199,11 +215,20 @@ def make_html_table(df, basename):
             .dataTables_wrapper {
               margin-bottom: 20px; /* Add bottom margin */
             }
+            h1 {
+              text-align: center;
+              margin-top: 10px;
+              font-family: 'Arial', sans-serif;
+              font-size: 16px;
+           }
         </style>
     </head>
     <body>
         <div class="container mt-4">
     """
+        + "<h1>"
+        + title
+        + "</h1>"
         + html_code
         + """
         </div>
@@ -245,12 +270,11 @@ def make_html_table(df, basename):
 @decorator.log_runtime
 def driver(_):
     """Create new leaderboard."""
-    llm_leaderboard = []
-    llm_and_human_leaderboard = []
+    llm_leaderboard = {}
+    llm_and_human_leaderboard = {}
     files = gcp.storage.list(constants.PROCESSED_FORECAST_BUCKET_NAME)
     files = [file for file in files if file.endswith(".json")]
     for f in files:
-
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
         data = download_and_read_forecast_file(filename=f)
@@ -293,16 +317,31 @@ def driver(_):
         df["z_score_wrt_naive_mean"] = (df["overall"] - naive_baseline_mean) / naive_std_dev
         return df
 
-    df_llm = get_z_score(pd.DataFrame(llm_leaderboard)).sort_values(by="overall", ignore_index=True)
-    df_llm_human = get_z_score(pd.DataFrame(llm_and_human_leaderboard)).sort_values(
-        by="overall", ignore_index=True
-    )
+    def is_numeric(s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
 
-    upload_leaderboard(df=df_llm, basename="leaderboard_llm")
-    upload_leaderboard(df=df_llm_human, basename="leaderboard_llm_human")
+    for key in llm_leaderboard:
+        title = "Leaderboard: " + (f"{key} day" if is_numeric(key) else "overall")
+        df_llm = get_z_score(pd.DataFrame(llm_leaderboard[key])).sort_values(
+            by=["overall", "z_score_wrt_naive_mean"], ignore_index=True
+        )
+        upload_leaderboard(df=df_llm, basename=f"leaderboard_lm_{key}")
+        make_html_table(df=df_llm, title=title, basename=f"lm_leaderboard_{key}")
 
-    make_html_table(df=df_llm, basename="lm_leaderboard")
-    make_html_table(df=df_llm_human, basename="lm_human_leaderboard")
+        if key in llm_and_human_leaderboard:
+            df_llm_human = get_z_score(pd.DataFrame(llm_and_human_leaderboard[key])).sort_values(
+                by=["overall", "z_score_wrt_naive_mean"], ignore_index=True
+            )
+            upload_leaderboard(df=df_llm_human, basename=f"leaderboard_lm_human_{key}")
+            make_html_table(
+                df=df_llm_human,
+                title=f"Human {title}",
+                basename=f"lm_human_leaderboard_{key}",
+            )
 
     logger.info("Done.")
 
