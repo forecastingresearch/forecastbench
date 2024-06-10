@@ -44,6 +44,35 @@ QUESTION_SET_FIELDS = [
 TODAY = dates.get_date_today()
 
 
+def upload_questions_and_resolutions_file(df, forecast_date):
+    """Upload resolutions dataset."""
+    local_filename = f"/tmp/{forecast_date}_resolutions.jsonl"
+    df = df[
+        [
+            "id",
+            "source",
+            "direction",
+            "forecast_submitted_date",
+            "forecast_evaluation_date",
+            "resolved_to",
+            "resolved",
+        ]
+    ]
+    df["direction"] = df["direction"].apply(lambda x: None if len(x) == 0 else x)
+    df["forecast_submitted_date"] = (
+        df["forecast_submitted_date"].dt.strftime("%Y-%m-%d").astype(str)
+    )
+    df["forecast_evaluation_date"] = (
+        df["forecast_evaluation_date"].dt.strftime("%Y-%m-%d").astype(str)
+    )
+    df.to_json(local_filename, orient="records", lines=True)
+    gcp.storage.upload(
+        bucket_name=constants.LEADERBOARD_BUCKET_NAME,
+        local_filename=local_filename,
+        destination_folder="supplementary_materials/datasets/question_and_resolution_sets",
+    )
+
+
 def download_and_read_forecast_file(filename):
     """Download forecast file."""
     local_filename = "/tmp/tmp.json"
@@ -374,6 +403,11 @@ def get_resolution_values_for_forecast_date(
         get_resolutions_for_human_question_set(
             forecast_date, resolved_values_for_question_sources[forecast_date]["llm"]
         )
+    )
+
+    upload_questions_and_resolutions_file(
+        df=resolved_values_for_question_sources[forecast_date]["llm"].copy(),
+        forecast_date=forecast_date,
     )
     return resolved_values_for_question_sources
 
