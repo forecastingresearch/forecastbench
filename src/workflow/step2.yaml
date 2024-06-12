@@ -2,13 +2,13 @@ main:
   steps:
     - init:
         assign:
-          - execution_results: {}
-          - execution_results.success: {}
-          - execution_results.exception: {}
+          - results: {}
+          - results.categorize: Null
+          - results.validation: Null
     - categorize:
         try:
           steps:
-              - call_metadata_tag_questions:
+              - call_metadata_categorize:
                   call: http.post
                   args:
                       url: https://SUBDOMAIN.cloudfunctions.net/metadata_tag_questions
@@ -18,22 +18,20 @@ main:
                   result: api_response_categorize
               - save_successful_categorize:
                   assign:
-                    - execution_results.success["categorize"]: True
+                    - results.categorize: True
         retry: ${http.default_retry}
         except:
           as: e
           steps:
               - save_failed_categorize:
                   assign:
-                    - execution_results.failure: True
-                    - execution_results.success["categorize"]: False
-                    - execution_results.exception["categorize"]: ${e}
-              - raise_categorize_exception:
-                  raise: ${execution_results}
+                    - results.categorize: False
+              - raise_categorize:
+                  raise: ${results}
     - validate_questions:
         try:
           steps:
-              - call_metadata_validate_questions:
+              - call_metadata_validation:
                   call: http.post
                   args:
                       url: https://SUBDOMAIN.cloudfunctions.net/metadata_validate_questions
@@ -41,25 +39,17 @@ main:
                            type: OIDC
                       timeout: 1800
                   result: api_response_validate_questions
-              - save_successful_validate_questions:
+              - save_successful_validation:
                   assign:
-                    - execution_results.success["validate_questions"]: True
+                    - results.validation: True
         retry: ${http.default_retry}
         except:
           as: e
           steps:
               - save_failed_validate_questions:
                   assign:
-                    - execution_results.failure: True
-                    - execution_results.success["validate_questions"]: False
-                    - execution_results.exception["validate_questions"]: ${e}
+                    - results.validation: False
               - raise_validate_questions_exception:
-                  raise: ${execution_results}
-    - check_exception_encountered:
-        switch:
-          - condition: ${"failure" in execution_results}
-            steps:
-              - raise_exception:
-                  raise: ${execution_results}
-    - return_execution_results:
-        return: ${execution_results}
+                  raise: ${results}
+    - return_results:
+        return: True

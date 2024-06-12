@@ -4,7 +4,7 @@ main:
         assign:
           - execution_results: {}
           - execution_results.success: {}
-          - execution_results.exception: {}
+          - execution_results.failure: {}
     - step1:
         parallel:
           exception_policy: continueAll
@@ -31,22 +31,20 @@ main:
                             argument:
                               source: ${data_source}
                           result: data_source_result
-                      - save_successful:
+                      - save_success:
                           assign:
-                            - execution_results.success[string(data_source)]: True
+                            - execution_results.success[string(data_source)]: ${data_source_result}
                   except:
                     as: e
                     steps:
-                      - save_failed:
+                      - save_failure:
                           assign:
-                            - execution_results.failure: True
-                            - execution_results.success[string(data_source)]: False
-                            - execution_results.exception[string(data_source)]: ${e.operation.error.payload}
+                            - execution_results.failure[string(data_source)]: ${json.decode(e.operation.error.payload)}
     - check_exception_encountered:
          switch:
-           - condition: ${"failure" in execution_results}
+           - condition: ${len(execution_results.failure) != 0}
              steps:
                - raise_exception:
                    raise: ${execution_results}
     - return_execution_results:
-        return: ${execution_results}
+        return: True

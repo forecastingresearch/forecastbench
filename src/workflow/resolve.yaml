@@ -2,9 +2,9 @@ main:
   steps:
     - init:
         assign:
-          - execution_results: {}
-          - execution_results.success: {}
-          - execution_results.exception: {}
+          - results: {}
+          - results.resolve: Null
+          - results.leaderboard: Null
     - resolve:
         try:
           steps:
@@ -18,18 +18,16 @@ main:
                   result: api_response_resolve
               - save_successful_resolve:
                   assign:
-                    - execution_results.success["resolve"]: True
+                    - results.resolve: True
         retry: ${http.default_retry}
         except:
           as: e
           steps:
               - save_failed_resolve:
                   assign:
-                    - execution_results.failure: True
-                    - execution_results.success["resolve"]: False
-                    - execution_results.exception["resolve"]: ${e}
+                    - results.resolve: False
               - raise_resolve_exception:
-                  raise: ${execution_results}
+                  raise: ${results}
     - leaderboard:
         try:
           steps:
@@ -43,23 +41,15 @@ main:
                   result: api_response_leaderboard
               - save_successful_leaderboard:
                   assign:
-                    - execution_results.success["leaderboard"]: True
+                    - results.leaderboard: True
         retry: ${http.default_retry}
         except:
           as: e
           steps:
               - save_failed_leaderboard:
                   assign:
-                    - execution_results.failure: True
-                    - execution_results.success["leaderboard"]: False
-                    - execution_results.exception["leaderboard"]: ${e}
+                    - results.leaderboard: False
               - raise_leaderboard_exception:
-                  raise: ${execution_results}
-    - check_exception_encountered:
-        switch:
-          - condition: ${"failure" in execution_results}
-            steps:
-              - raise_exception:
-                  raise: ${execution_results}
-    - return_execution_results:
-        return: ${execution_results}
+                  raise: ${results}
+    - return_results:
+        return: True
