@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator, keys  # noqa: E402
+from helpers import constants, data_utils, dates, decorator, env, keys  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -85,7 +85,9 @@ def get_data(current_data):
         current_data[current_data["resolved"]]["id"].tolist() if not current_data.empty else []
     )
 
-    resolved_files = gcp.storage.list_with_prefix(bucket_name=constants.BUCKET_NAME, prefix=SOURCE)
+    resolved_files = gcp.storage.list_with_prefix(
+        bucket_name=env.QUESTION_BANK_BUCKET, prefix=SOURCE
+    )
 
     resolved_ids_without_resolution_files = [
         id for id in resolved_ids if f"{SOURCE}/{id}.jsonl" not in resolved_files
@@ -238,7 +240,7 @@ def driver(_):
     # Upload
     logger.info("Uploading to GCP...")
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=filenames["local_fetch"],
     )
 

@@ -13,7 +13,15 @@ from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator, fred, keys  # noqa: E402
+from helpers import (  # noqa: E402
+    constants,
+    data_utils,
+    dates,
+    decorator,
+    env,
+    fred,
+    keys,
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -394,7 +402,7 @@ def driver(_):
     logger.info("Uploading to GCP...")
     # Upload
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=filenames["local_fetch"],
     )
     logger.info("Done.")

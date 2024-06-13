@@ -17,6 +17,7 @@ from helpers import (  # noqa: E402
     data_utils,
     dates,
     decorator,
+    env,
     keys,
     metaculus,
 )
@@ -149,7 +150,7 @@ def _update_questions_and_resolved_values(dfq, dff):
         # Save and Upload
         df.to_json(local_filename, orient="records", lines=True, date_format="iso")
         gcp.storage.upload(
-            bucket_name=constants.BUCKET_NAME,
+            bucket_name=env.QUESTION_BANK_BUCKET,
             local_filename=local_filename,
             filename=remote_filename,
         )
@@ -215,7 +216,7 @@ def _update_questions_and_resolved_values(dfq, dff):
     for index, row in dfq[dfq["resolved"]].iterrows():
         # Regenerate resolution files in case they've been deleted
         resolved_files = gcp.storage.list_with_prefix(
-            bucket_name=constants.BUCKET_NAME, prefix=source
+            bucket_name=env.QUESTION_BANK_BUCKET, prefix=source
         )
         filename = f"{row['id']}.jsonl"
         if filename not in resolved_files:

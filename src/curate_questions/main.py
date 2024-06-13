@@ -14,7 +14,13 @@ import pandas as pd
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, data_utils, decorator, question_prompts  # noqa: E402
+from helpers import (  # noqa: E402
+    constants,
+    data_utils,
+    decorator,
+    env,
+    question_prompts,
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -244,7 +250,7 @@ def write_questions(questions, filename):
             f.write(jsonl_str + "\n")
 
     gcp.storage.upload(
-        bucket_name=constants.PUBLIC_BUCKET_NAME,
+        bucket_name=env.QUESTION_SETS_BUCKET,
         local_filename=local_filename,
     )
 

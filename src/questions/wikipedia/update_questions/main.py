@@ -8,7 +8,7 @@ import sys
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, decorator, wikipedia  # noqa: E402
+from helpers import constants, data_utils, decorator, env, wikipedia  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -54,7 +54,9 @@ def create_resolution_file(dff, page, wid, id_field_value):
     local_filename = f"/tmp/{wid}.jsonl"
     df.to_json(local_filename, orient="records", lines=True, date_format="iso")
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME, local_filename=local_filename, destination_folder=source
+        bucket_name=env.QUESTION_BANK_BUCKET,
+        local_filename=local_filename,
+        destination_folder=source,
     )
     return df
 
@@ -175,7 +177,7 @@ def driver(_):
     remote_filename = f"{source}/{hash_filename}"
     local_hash_filename = f"/tmp/{hash_filename}"
     gcp.storage.download_no_error_message_on_404(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         filename=remote_filename,
         local_filename=local_hash_filename,
     )
@@ -200,7 +202,7 @@ def driver(_):
 
     # Upload Questions
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=filenames["local_question"],
     )
 
@@ -209,7 +211,7 @@ def driver(_):
         json.dump(wikipedia.hash_mapping, file, indent=4)
 
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=local_hash_filename,
         destination_folder=source,
     )

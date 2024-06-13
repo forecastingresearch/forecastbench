@@ -13,7 +13,7 @@ import pandas as pd
 import resolution_helpers
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import constants, data_utils, dates, decorator  # noqa: E402
+from helpers import constants, data_utils, dates, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from utils import gcp  # noqa: E402
@@ -59,7 +59,7 @@ def resolve_questions(df, resolution_values):
 def get_question_file(filename):
     """Download question set file."""
     df = pd.read_json(
-        f"gs://{constants.PUBLIC_BUCKET_NAME}/{filename}",
+        f"gs://{env.QUESTION_SETS_BUCKET}/{filename}",
         lines=True,
         convert_dates=False,
     )

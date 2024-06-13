@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, data_utils, dates, decorator, resolution  # noqa: E402
+from helpers import data_utils, dates, decorator, env, resolution  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -67,7 +67,7 @@ def upload_questions_and_resolutions_file(df, forecast_date):
     )
     df.to_json(local_filename, orient="records", lines=True)
     gcp.storage.upload(
-        bucket_name=constants.LEADERBOARD_BUCKET_NAME,
+        bucket_name=env.LEADERBOARD_BUCKET,
         local_filename=local_filename,
         destination_folder="supplementary_materials/datasets/question_and_resolution_sets",
     )
@@ -77,7 +77,7 @@ def download_and_read_forecast_file(filename):
     """Download forecast file."""
     local_filename = "/tmp/tmp.json"
     gcp.storage.download(
-        bucket_name=constants.FORECAST_BUCKET_NAME, filename=filename, local_filename=local_filename
+        bucket_name=env.FORECAST_SETS_BUCKET, filename=filename, local_filename=local_filename
     )
     with open(local_filename, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -91,7 +91,7 @@ def upload_processed_forecast_file(data, forecast_date, filename):
     with open(local_filename, "w") as f:
         f.write(json.dumps(data, indent=4))
     gcp.storage.upload(
-        bucket_name=constants.PROCESSED_FORECAST_BUCKET_NAME,
+        bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
         local_filename=local_filename,
         destination_folder=forecast_date,
         filename=filename,
@@ -160,7 +160,7 @@ def get_resolutions_for_llm_question_set(forecast_date, resolution_values):
     filename = f"{forecast_date}-llm.jsonl"
     logger.info(f"Getting resolutions for {filename}.")
     df = pd.read_json(
-        f"gs://{constants.PUBLIC_BUCKET_NAME}/{filename}",
+        f"gs://{env.QUESTION_SETS_BUCKET}/{filename}",
         lines=True,
         convert_dates=False,
     )
@@ -235,7 +235,7 @@ def get_resolutions_for_human_question_set(forecast_date, df_llm_resolutions):
     Assumes human questions are a subset of llm questions.
     """
     df = pd.read_json(
-        f"gs://{constants.PUBLIC_BUCKET_NAME}/{forecast_date}-human.jsonl",
+        f"gs://{env.QUESTION_SETS_BUCKET}/{forecast_date}-human.jsonl",
         lines=True,
         convert_dates=False,
     )
@@ -458,7 +458,7 @@ def driver(_):
 
     leaderboard = {}
     resolved_values_for_question_sources = {}
-    files = gcp.storage.list(constants.FORECAST_BUCKET_NAME)
+    files = gcp.storage.list(env.FORECAST_SETS_BUCKET)
     files = [f for f in files if "/" not in f]
     for f in files:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")

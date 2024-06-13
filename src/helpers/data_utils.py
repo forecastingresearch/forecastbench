@@ -8,7 +8,7 @@ from datetime import timedelta
 
 import pandas as pd
 
-from . import constants
+from . import constants, env
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -50,9 +50,9 @@ def generate_filenames(source):
 
 def download_and_read(filename, local_filename, df_tmp, dtype):
     """Download data from cloud storage."""
-    logger.info(f"Get from {constants.BUCKET_NAME}/{filename}")
+    logger.info(f"Get from {env.QUESTION_BANK_BUCKET}/{filename}")
     gcp.storage.download_no_error_message_on_404(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         filename=filename,
         local_filename=local_filename,
     )
@@ -143,7 +143,7 @@ def upload_questions(dfq, source):
             f.write(jsonl_str + "\n")
 
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=local_question_filename,
     )
 
@@ -167,7 +167,7 @@ def upload_resolutions(dfr, source):
     dfr.to_json(local_resolution_filename, orient="records", lines=True, date_format="iso")
 
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=local_resolution_filename,
     )
 

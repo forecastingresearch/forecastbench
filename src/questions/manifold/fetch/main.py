@@ -10,7 +10,7 @@ import certifi
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, decorator  # noqa: E402
+from helpers import data_utils, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -76,7 +76,7 @@ def driver(_):
 
     # Upload
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=filenames["local_fetch"],
     )
 

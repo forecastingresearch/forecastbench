@@ -12,7 +12,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator  # noqa: E402
+from helpers import constants, data_utils, dates, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -107,7 +107,7 @@ def _update_questions_and_resolved_values(dfq, dff):
         remote_filename = f"{source}/{basename}"
         local_filename = "/tmp/tmp.jsonl"
         gcp.storage.download_no_error_message_on_404(
-            bucket_name=constants.BUCKET_NAME,
+            bucket_name=env.QUESTION_BANK_BUCKET,
             filename=remote_filename,
             local_filename=local_filename,
         )
@@ -170,7 +170,7 @@ def _update_questions_and_resolved_values(dfq, dff):
         # Save and Upload
         df.to_json(local_filename, orient="records", lines=True, date_format="iso")
         gcp.storage.upload(
-            bucket_name=constants.BUCKET_NAME,
+            bucket_name=env.QUESTION_BANK_BUCKET,
             local_filename=local_filename,
             filename=remote_filename,
         )
@@ -228,7 +228,7 @@ def _update_questions_and_resolved_values(dfq, dff):
     for index, row in dfq[dfq["resolved"]].iterrows():
         # Regenerate resolution files in case they've been deleted
         resolved_files = gcp.storage.list_with_prefix(
-            bucket_name=constants.BUCKET_NAME, prefix=source
+            bucket_name=env.QUESTION_BANK_BUCKET, prefix=source
         )
         filename = f"{row['id']}.jsonl"
         if filename not in resolved_files:

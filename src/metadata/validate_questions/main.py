@@ -11,6 +11,7 @@ from helpers import (  # noqa: E402
     constants,
     data_utils,
     decorator,
+    env,
     llm_prompts,
     model_eval,
 )
@@ -109,7 +110,7 @@ def driver(_):
         dfmeta.to_json(local_filename, lines=True, orient="records")
         logger.info(f"Uploading metadata for {source}. Total of {n_false} invalid questions.")
         gcp.storage.upload(
-            bucket_name=constants.BUCKET_NAME,
+            bucket_name=env.QUESTION_BANK_BUCKET,
             local_filename=local_filename,
         )
     logger.info(f"Total of {n_total_invalid} invalid questions.")

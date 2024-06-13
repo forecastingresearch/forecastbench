@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, decorator, wikipedia  # noqa: E402
+from helpers import constants, data_utils, decorator, env, wikipedia  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -116,7 +116,7 @@ def download_and_store_wikipedia_tables():
         df = download_tables(page=page)
         df.to_json(local_filename, orient="records", lines=True, force_ascii=False)
         gcp.storage.upload(
-            bucket_name=constants.BUCKET_NAME,
+            bucket_name=env.QUESTION_BANK_BUCKET,
             local_filename=local_filename,
             destination_folder=wikipedia.fetch_directory,
         )

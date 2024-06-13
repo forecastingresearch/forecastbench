@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, resolution  # noqa: E402
+from helpers import constants, env, resolution  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -22,11 +22,11 @@ MARKET_SOURCES = ("manifold", "metaculus", "infer")
 
 def make_resolution_df(source):
     """Prepare market data for resolution."""
-    files = gcp.storage.list_with_prefix(bucket_name=constants.BUCKET_NAME, prefix=source)
+    files = gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=source)
     df = pd.concat(
         [
             pd.read_json(
-                f"gs://{constants.BUCKET_NAME}/{f}",
+                f"gs://{env.QUESTION_BANK_BUCKET}/{f}",
                 lines=True,
                 dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
                 convert_dates=False,

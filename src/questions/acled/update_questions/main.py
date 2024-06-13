@@ -10,7 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import acled, constants, data_utils, dates, decorator  # noqa: E402
+from helpers import acled, constants, data_utils, dates, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -202,7 +202,7 @@ def driver(_):
 
     # Upload
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=filenames["local_question"],
     )
 

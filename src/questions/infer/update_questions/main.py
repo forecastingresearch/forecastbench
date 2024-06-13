@@ -10,7 +10,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
-from helpers import constants, data_utils, dates, decorator, keys  # noqa: E402
+from helpers import constants, data_utils, dates, decorator, env, keys  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -163,7 +163,7 @@ def create_resolution_file(question, resolved, get_historical_forecasts_func, so
     local_filename = "/tmp/tmp.jsonl"
 
     gcp.storage.download_no_error_message_on_404(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         filename=remote_filename,
         local_filename=local_filename,
     )
@@ -199,7 +199,7 @@ def create_resolution_file(question, resolved, get_historical_forecasts_func, so
 
     df.to_json(local_filename, orient="records", lines=True, date_format="iso")
     gcp.storage.upload(
-        bucket_name=constants.BUCKET_NAME,
+        bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=local_filename,
         filename=remote_filename,
     )

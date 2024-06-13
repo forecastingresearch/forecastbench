@@ -8,7 +8,7 @@ import sys
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, decorator, resolution  # noqa: E402
+from helpers import constants, decorator, env, resolution  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -23,7 +23,7 @@ def download_and_read_forecast_file(filename):
     """Download forecast file."""
     local_filename = "/tmp/tmp.json"
     gcp.storage.download(
-        bucket_name=constants.PROCESSED_FORECAST_BUCKET_NAME,
+        bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
         filename=filename,
         local_filename=local_filename,
     )
@@ -38,7 +38,7 @@ def upload_leaderboard(df, basename):
     local_filename = f"/tmp/{basename}.csv"
     df.to_csv(local_filename, index=False)
     gcp.storage.upload(
-        bucket_name=constants.PROCESSED_FORECAST_BUCKET_NAME,
+        bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
         local_filename=local_filename,
     )
 
@@ -46,7 +46,7 @@ def upload_leaderboard(df, basename):
 def download_human_question_set(forecast_date):
     """Download the question set that was given to humans."""
     df = pd.read_json(
-        f"gs://{constants.PUBLIC_BUCKET_NAME}/{forecast_date}-human.jsonl",
+        f"gs://{env.QUESTION_SETS_BUCKET}/{forecast_date}-human.jsonl",
         lines=True,
         convert_dates=False,
     )
@@ -262,7 +262,7 @@ def make_html_table(df, title, basename):
     with open(local_filename, "w") as file:
         file.write(html_code)
     gcp.storage.upload(
-        bucket_name=constants.LEADERBOARD_BUCKET_NAME,
+        bucket_name=env.LEADERBOARD_BUCKET,
         local_filename=local_filename,
     )
 
@@ -272,7 +272,7 @@ def driver(_):
     """Create new leaderboard."""
     llm_leaderboard = {}
     llm_and_human_leaderboard = {}
-    files = gcp.storage.list(constants.PROCESSED_FORECAST_BUCKET_NAME)
+    files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
     files = [file for file in files if file.endswith(".json")]
     for f in files:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
