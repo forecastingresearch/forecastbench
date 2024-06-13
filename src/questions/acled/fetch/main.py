@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, decorator  # noqa: E402
+from helpers import constants, data_utils, decorator, keys  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 source = "acled"
 filenames = data_utils.generate_filenames(source=source)
-API_KEY = os.environ.get("API_KEY_ACLED")
-API_EMAIL = os.environ.get("API_EMAIL_ACLED")
+API_KEY = keys.get_secret(secret_name="API_KEY_ACLED")
+API_EMAIL = keys.get_secret(secret_name="API_EMAIL_ACLED")
 # Need 2 years of data to get monthly average over the year
 # As ACLED only uses > filter so >2022 gets 2023 or more recent, providing yearly average for
 # questions in 2024

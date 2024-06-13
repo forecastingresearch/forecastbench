@@ -10,7 +10,7 @@ import certifi
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, decorator  # noqa: E402
+from helpers import constants, data_utils, decorator, keys  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 filenames = data_utils.generate_filenames(source="metaculus")
-API_KEY = os.environ.get("API_KEY_METACULUS")
+API_KEY = keys.get_secret(secret_name="API_KEY_METACULUS")
 
 
 @backoff.on_exception(

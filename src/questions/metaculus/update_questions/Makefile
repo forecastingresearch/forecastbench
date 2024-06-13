@@ -29,7 +29,6 @@ deploy : main.py .gcloudignore requirements.txt
 		--no-allow-unauthenticated \
 		--gen2 \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
-		--set-secrets API_KEY_METACULUS=API_KEY_METACULUS:latest \
 		--source $(UPLOAD_DIR)
 
 clean :
