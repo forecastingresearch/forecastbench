@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, data_utils, resolution  # noqa: E402
+from helpers import acled, data_utils, resolution  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,8 +23,8 @@ def make_resolution_df():
     df = data_utils.download_and_read(
         filename=filenames["jsonl_fetch"],
         local_filename=filenames["local_fetch"],
-        df_tmp=pd.DataFrame(columns=constants.ACLED_FETCH_COLUMNS),
-        dtype=constants.ACLED_FETCH_COLUMN_DTYPE,
+        df_tmp=pd.DataFrame(columns=acled.FETCH_COLUMNS),
+        dtype=acled.FETCH_COLUMN_DTYPE,
     )
 
     df = df[["country", "event_date", "event_type", "fatalities"]].copy()

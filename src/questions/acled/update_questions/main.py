@@ -10,7 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator  # noqa: E402
+from helpers import acled, constants, data_utils, dates, decorator  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -179,15 +179,15 @@ def driver(_):
     dff = data_utils.download_and_read(
         filename=filenames["jsonl_fetch"],
         local_filename=filenames["local_fetch"],
-        df_tmp=pd.DataFrame(columns=constants.ACLED_FETCH_COLUMNS),
-        dtype=constants.ACLED_FETCH_COLUMN_DTYPE,
+        df_tmp=pd.DataFrame(columns=acled.FETCH_COLUMNS),
+        dtype=acled.FETCH_COLUMN_DTYPE,
     )
 
     dfq = data_utils.download_and_read(
         filename=filenames["jsonl_question"],
         local_filename=filenames["local_question"],
-        df_tmp=pd.DataFrame(columns=constants.ACLED_QUESTION_FILE_COLUMNS),
-        dtype=constants.ACLED_QUESTION_FILE_COLUMN_DTYPE,
+        df_tmp=pd.DataFrame(columns=acled.QUESTION_FILE_COLUMNS),
+        dtype=acled.QUESTION_FILE_COLUMN_DTYPE,
     )
 
     # Update the existing questions

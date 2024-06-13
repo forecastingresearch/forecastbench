@@ -12,7 +12,14 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator, keys  # noqa: E402
+from helpers import (  # noqa: E402
+    constants,
+    data_utils,
+    dates,
+    decorator,
+    keys,
+    metaculus,
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -25,7 +32,7 @@ filenames = data_utils.generate_filenames(source=source)
 API_KEY = keys.get_secret(secret_name="API_KEY_METACULUS")
 # The Metaculus rate limit is 1,000 queries per hour, so we limit the number of questions we use
 # to 1,000 - number of queries executed by the `fetch` function.
-QUESTION_LIMIT = 1000 - (len(constants.METACULUS_CATEGORIES) + 1)
+QUESTION_LIMIT = 1000 - (len(metaculus.CATEGORIES) + 1)
 
 
 @backoff.on_exception(

@@ -115,40 +115,6 @@ RESOLUTION_FILE_COLUMN_DTYPE = {
 # value is not included in dytpe because it's of type ANY
 RESOLUTION_FILE_COLUMNS = list(RESOLUTION_FILE_COLUMN_DTYPE.keys()) + ["value"]
 
-MANIFOLD_TOPIC_SLUGS = ["entertainment", "sports-default", "technology-default"]
-
-METACULUS_CATEGORIES = [
-    "geopolitics",
-    "natural-sciences",
-    "sports-entertainment",
-    "health-pandemics",
-    "law",
-    "computing-and-math",
-]
-
-ACLED_FETCH_COLUMN_DTYPE = {
-    "event_id_cnty": str,
-    "event_date": str,
-    "iso": int,
-    "region": str,
-    "country": str,
-    "admin1": str,
-    "event_type": str,
-    "fatalities": int,
-    "timestamp": str,
-}
-ACLED_FETCH_COLUMNS = list(ACLED_FETCH_COLUMN_DTYPE.keys())
-
-ACLED_QUESTION_FILE_COLUMN_DTYPE = {
-    **QUESTION_FILE_COLUMN_DTYPE,
-    "lhs_func": str,
-    "lhs_args": object,  # <dict>
-    "comparison_operator": str,
-    "rhs_func": str,
-    "rhs_args": object,  # <dict>
-}
-ACLED_QUESTION_FILE_COLUMNS = list(ACLED_QUESTION_FILE_COLUMN_DTYPE.keys())
-
 META_DATA_FILE_COLUMN_DTYPE = {
     "source": str,
     "id": str,

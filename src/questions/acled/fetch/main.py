@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, decorator, keys  # noqa: E402
+from helpers import acled, constants, data_utils, decorator, keys  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -41,13 +41,13 @@ def _call_endpoint():
     params = {
         "key": API_KEY,
         "email": API_EMAIL,
-        "fields": "|".join(constants.ACLED_FETCH_COLUMNS),
+        "fields": "|".join(acled.FETCH_COLUMNS),
         "year": ACLED_START_YEAR,
         "year_where": ">",
     }
 
     page = 0
-    df = pd.DataFrame(columns=constants.ACLED_FETCH_COLUMNS)
+    df = pd.DataFrame(columns=acled.FETCH_COLUMNS)
     while True:
         page += 1
         logger.info(f"Downloading page {page}")
@@ -59,7 +59,7 @@ def _call_endpoint():
         if response.json()["count"] == 0:
             break
         df_tmp = pd.DataFrame(response.json()["data"])
-        df_tmp = df_tmp.astype(constants.ACLED_FETCH_COLUMN_DTYPE)
+        df_tmp = df_tmp.astype(acled.FETCH_COLUMN_DTYPE)
         rows_to_append = df_tmp[~df_tmp["event_id_cnty"].isin(df["event_id_cnty"])]
         df = df_tmp if df.empty else pd.concat([df, rows_to_append], ignore_index=True)
 

@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 filenames = data_utils.generate_filenames(source="manifold")
 
+MANIFOLD_TOPIC_SLUGS = ["entertainment", "sports-default", "technology-default"]
+
 
 @backoff.on_exception(
     backoff.expo,
@@ -52,11 +54,11 @@ def _call_endpoint(ids, additional_params=None):
     return ids
 
 
-def _get_data(topics):
+def _get_data():
     """Get pertinent Manifold questions and data."""
     logger.info("Calling Manifold search-markets endpoint")
     ids = _call_endpoint(set())
-    for topic in topics:
+    for topic in MANIFOLD_TOPIC_SLUGS:
         ids = _call_endpoint(ids, {"topicSlug": topic})
     return sorted(ids)
 
@@ -65,7 +67,7 @@ def _get_data(topics):
 def driver(_):
     """Fetch Manifold data and update question file in GCP Cloud Storage."""
     # Get the latest Manifold data
-    ids = _get_data(constants.MANIFOLD_TOPIC_SLUGS)
+    ids = _get_data()
 
     # Save
     with open(filenames["local_fetch"], "w") as f:
