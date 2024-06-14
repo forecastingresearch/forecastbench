@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 source = "metaculus"
 filenames = data_utils.generate_filenames(source=source)
-API_KEY = keys.get_secret(secret_name="API_KEY_METACULUS")
+
 # The Metaculus rate limit is 1,000 queries per hour, so we limit the number of questions we use
 # to 1,000 - number of queries executed by the `fetch` function.
 QUESTION_LIMIT = 1000 - (len(metaculus.CATEGORIES) + 1)
@@ -46,7 +46,7 @@ def _get_market(market_id):
     """Get the market description and resolution criteria for the specified market."""
     logger.info(f"Calling market endpoint for {market_id}")
     endpoint = f"https://www.metaculus.com/api2/questions/{market_id}"
-    headers = {"Authorization": f"Token {API_KEY}"}
+    headers = {"Authorization": f"Token {keys.API_KEY_METACULUS}"}
     response = requests.get(endpoint, headers=headers, verify=certifi.where())
     if not response.ok:
         logger.error(

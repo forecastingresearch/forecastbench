@@ -19,7 +19,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 filenames = data_utils.generate_filenames(source="metaculus")
-API_KEY = keys.get_secret(secret_name="API_KEY_METACULUS")
 
 
 @backoff.on_exception(
@@ -43,7 +42,7 @@ def _call_endpoint(ids, additional_params=None):
         params.update(additional_params)
     logger.info(f"Calling {endpoint} with additional params {additional_params}")
 
-    headers = {"Authorization": f"Token {API_KEY}"}
+    headers = {"Authorization": f"Token {keys.API_KEY_METACULUS}"}
     response = requests.get(endpoint, params=params, headers=headers, verify=certifi.where())
     if not response.ok:
         logger.error("Request to Metaculus API endpoint failed.")

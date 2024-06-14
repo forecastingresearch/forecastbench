@@ -36,9 +36,8 @@ def get_historical_forecasts(current_df, id):
     Returns:
         pd.DataFrame: A DataFrame containing combined old and new forecast data, sorted.
     """
-    API_KEY_INFER = keys.get_secret("API_KEY_INFER")
     params = {"question_id": id}
-    headers = {"Authorization": f"Bearer {API_KEY_INFER}"}
+    headers = {"Authorization": f"Bearer {keys.API_KEY_INFER}"}
     endpoint = "https://www.infer-pub.com/api/v1/prediction_sets"
     all_responses = []
     page_count = 1

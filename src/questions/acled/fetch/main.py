@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 
 source = "acled"
 filenames = data_utils.generate_filenames(source=source)
-API_KEY = keys.get_secret(secret_name="API_KEY_ACLED")
-API_EMAIL = keys.get_secret(secret_name="API_EMAIL_ACLED")
 # Need 2 years of data to get monthly average over the year
 # As ACLED only uses > filter so >2022 gets 2023 or more recent, providing yearly average for
 # questions in 2024
@@ -39,8 +37,8 @@ def _call_endpoint():
     """Fetch data from Acled."""
     endpoint = "https://api.acleddata.com/acled/read"
     params = {
-        "key": API_KEY,
-        "email": API_EMAIL,
+        "key": keys.API_KEY_ACLED,
+        "email": keys.API_EMAIL_ACLED,
         "fields": "|".join(acled.FETCH_COLUMNS),
         "year": ACLED_START_YEAR,
         "year_where": ">",

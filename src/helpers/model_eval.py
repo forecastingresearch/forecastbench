@@ -12,19 +12,19 @@ import together
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 
-from . import constants, llm_prompts
+from . import constants, keys, llm_prompts
 
-anthropic_console = anthropic.Anthropic(api_key=constants.API_KEY_ANTHROPIC)
-anthropic_async_client = anthropic.AsyncAnthropic(api_key=constants.API_KEY_ANTHROPIC)
-oai_async_client = openai.AsyncOpenAI(api_key=constants.API_KEY_OPENAI)
-oai = openai.OpenAI(api_key=constants.API_KEY_OPENAI)
-together.api_key = constants.API_KEY_TOGETHERAI
-google_ai.configure(api_key=constants.API_KEY_GOOGLE)
+anthropic_console = anthropic.Anthropic(api_key=keys.API_KEY_ANTHROPIC)
+anthropic_async_client = anthropic.AsyncAnthropic(api_key=keys.API_KEY_ANTHROPIC)
+oai_async_client = openai.AsyncOpenAI(api_key=keys.API_KEY_OPENAI)
+oai = openai.OpenAI(api_key=keys.API_KEY_OPENAI)
+together.api_key = keys.API_KEY_TOGETHERAI
+google_ai.configure(api_key=keys.API_KEY_GOOGLE)
 client = openai.OpenAI(
-    api_key=constants.API_KEY_TOGETHERAI,
+    api_key=keys.API_KEY_TOGETHERAI,
     base_url="https://api.together.xyz/v1",
 )
-mistral_client = MistralClient(api_key=constants.API_KEY_MISTRAL)
+mistral_client = MistralClient(api_key=keys.API_KEY_MISTRAL)
 
 
 # Set up logging

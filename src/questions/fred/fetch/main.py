@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 SOURCE = "fred"
 PARAMS = {
-    "api_key": keys.get_secret("API_KEY_FRED"),
+    "api_key": keys.API_KEY_FRED,
     "file_type": "json",
 }
 

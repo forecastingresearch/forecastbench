@@ -20,9 +20,8 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-API_KEY_POLYMARKET = keys.get_secret("API_KEY_POLYMARKET")
 SOURCE = "polymarket"
-client = ClobClient("https://clob.polymarket.com", key=API_KEY_POLYMARKET, chain_id=POLYGON)
+client = ClobClient("https://clob.polymarket.com", key=keys.API_KEY_POLYMARKET, chain_id=POLYGON)
 
 
 def fetch_price_history(market_id):

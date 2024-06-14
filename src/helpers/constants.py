@@ -3,7 +3,7 @@
 import os
 from datetime import datetime, timedelta
 
-from . import dates, keys, question_prompts, resolutions
+from . import dates, question_prompts, resolutions
 
 BENCHMARK_NAME = "ForecastBench"
 
@@ -15,13 +15,6 @@ BENCHMARK_START_DATE = f"{BENCHMARK_START_YEAR}-{BENCHMARK_START_MONTH}-{BENCHMA
 parsed_date = datetime.strptime(BENCHMARK_START_DATE + " 00:00", "%Y-%m-%d %H:%M")
 BENCHMARK_START_DATE_EPOCHTIME = int(parsed_date.timestamp())
 BENCHMARK_START_DATE_EPOCHTIME_MS = BENCHMARK_START_DATE_EPOCHTIME * 1000
-
-API_KEY_ANTHROPIC = keys.get_secret("API_KEY_ANTHROPIC")
-API_KEY_OPENAI = keys.get_secret("API_KEY_OPENAI")
-API_KEY_TOGETHERAI = keys.get_secret("API_KEY_TOGETHERAI")
-API_KEY_NEWSCATCHER = keys.get_secret("API_KEY_NEWSCATCHER")
-API_KEY_GOOGLE = keys.get_secret("API_KEY_GEMINI")
-API_KEY_MISTRAL = keys.get_secret("API_KEY_MISTRAL")
 
 OAI_SOURCE = "OAI"
 ANTHROPIC_SOURCE = "ANTHROPIC"

@@ -73,8 +73,7 @@ def get_data(current_data):
       This includes a mix of newly fetched binary questions and existing unresolved questions,
       with additional metadata and reformatted fields for consistency.
     """
-    API_KEY_INFER = keys.get_secret("API_KEY_INFER")
-    HEADERS = {"Authorization": f"Bearer {API_KEY_INFER}"}
+    HEADERS = {"Authorization": f"Bearer {keys.API_KEY_INFER}"}
 
     unresolved_ids = (
         current_data[~current_data["resolved"]]["id"].tolist() if not current_data.empty else []
