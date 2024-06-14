@@ -249,6 +249,19 @@ def write_questions(questions, filename):
     )
 
 
+def drop_invalid_questions(dfq, dfmeta):
+    """Drop invalid questions from dfq."""
+    if dfmeta.empty:
+        return dfq
+    dfq = pd.merge(
+        dfq,
+        dfmeta,
+        how="inner",
+        on=["id", "source"],
+    )
+    return dfq[dfq["valid_question"]].drop(columns="valid_question")
+
+
 @decorator.log_runtime
 def driver(_):
     """Curate questions for forecasting."""
@@ -258,6 +271,15 @@ def driver(_):
 
     def format_string_value(row, template, value):
         return template.format(f_string_value=value)
+
+    dfmeta = data_utils.download_and_read(
+        filename=constants.META_DATA_FILENAME,
+        local_filename=f"/tmp/{constants.META_DATA_FILENAME}",
+        df_tmp=pd.DataFrame(columns=constants.META_DATA_FILE_COLUMNS).astype(
+            constants.META_DATA_FILE_COLUMN_DTYPE
+        ),
+        dtype=constants.META_DATA_FILE_COLUMN_DTYPE,
+    )
 
     # Get the latest questions
     QUESTIONS = constants.FREEZE_QUESTION_SOURCES
@@ -272,6 +294,7 @@ def driver(_):
             logger.info(f"Found 0 questions from {source}.")
         else:
             dfq["source"] = source
+            dfq = drop_invalid_questions(dfq=dfq, dfmeta=dfmeta)
             dfq = dfq[~dfq["resolved"]]
             dfq = dfq[dfq["forecast_horizons"].map(len) > 0]
             dfq["human_prompt"] = dfq.apply(
