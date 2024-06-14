@@ -29,7 +29,7 @@ deploy : main.py .gcloudignore requirements.txt
 		--memory 2GiB \
 		--max-instances 1 \
 		--timeout 3000s \
-		--service-account $(CLOUD_STORAGE_BUCKET_QUESTION_BANK_SERVICE_ACCOUNT) \
+		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
 		--trigger-http \
 		--no-allow-unauthenticated \
 		--gen2 \
