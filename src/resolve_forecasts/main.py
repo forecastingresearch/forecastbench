@@ -195,7 +195,7 @@ def get_resolutions_for_llm_question_set(forecast_date, resolution_values):
         df_common_resolved = df[mask]
         for mid in df_common_resolved["id"]:
             resolution_date = dfq_resolved.loc[
-                dfq_resolved["id"] == mid, "source_resolution_datetime"
+                dfq_resolved["id"] == mid, "market_info_resolution_datetime"
             ].iloc[0]
             resolution_date = pd.to_datetime(resolution_date).date()
             df_tmp = df[(df["id"] == mid) & (df["source"] == source)]

@@ -129,13 +129,12 @@ if __name__ == "__main__":
         "rhs_func": "_30_day_avg_over_past_360_days",
         "rhs_args": {"country": "Aruba", "col": "Protests", "ref_date": "get_freeze_date()"},
         "background": "N/A",
-        "source_resolution_criteria": "N/A",
+        "market_info_resolution_criteria": "N/A",
         "begin_datetime": "N/A",
         "close_datetime": "N/A",
         "url": "https://acleddata.com/",
         "resolution_datetime": "N/A",
         "resolved": False,
-        "continual_resolution": True,
         "forecast_horizons": [7, 30, 90, 180, 365, 1095, 1825, 3650],
     }
 
@@ -155,13 +154,12 @@ if __name__ == "__main__":
         "rhs_func": "_30_day_avg_over_past_360_days_plus_1",
         "rhs_args": {"country": "Cambodia", "col": "Riots", "ref_date": "get_freeze_date()"},
         "background": "N/A",
-        "source_resolution_criteria": "N/A",
+        "market_info_resolution_criteria": "N/A",
         "begin_datetime": "N/A",
         "close_datetime": "N/A",
         "url": "https://acleddata.com/",
         "resolution_datetime": "N/A",
         "resolved": False,
-        "continual_resolution": True,
         "forecast_horizons": [7, 30, 90, 180, 365, 1095, 1825, 3650],
     }
 

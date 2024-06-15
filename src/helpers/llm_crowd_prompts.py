@@ -62,10 +62,10 @@ Resolution Criteria:
 {resolution_criteria}
 
 Current value on {freeze_datetime}:
-{value_at_freeze_datetime}
+{freeze_datetime_value}
 
 Value Explanation:
-{value_at_freeze_datetime_explanation}
+{freeze_datetime_value_explanation}
 
 We have retrieved the following information for this question:
 {retrieved_info}
@@ -114,16 +114,16 @@ Question 2 Resolution Criteria:
 {resolution_criteria_2}
 
 Question 1 Current value on {freeze_datetime_1}:
-{value_at_freeze_datetime_1}
+{freeze_datetime_value_1}
 
 Question 1 Value Explanation:
-{value_at_freeze_datetime_explanation_1}
+{freeze_datetime_value_explanation_1}
 
 Question 2 Current value on {freeze_datetime_1}:
-{value_at_freeze_datetime_2}
+{freeze_datetime_value_2}
 
 Question 2 Value Explanation:
-{value_at_freeze_datetime_explanation_2}
+{freeze_datetime_value_explanation_2}
 
 We have retrieved the following information for Question 1:
 {retrieved_info_1}
@@ -246,10 +246,10 @@ Resolution Criteria:
 {resolution_criteria}
 
 Current value on {freeze_datetime}:
-{value_at_freeze_datetime}
+{freeze_datetime_value}
 
 Value Explanation:
-{value_at_freeze_datetime_explanation}
+{freeze_datetime_value_explanation}
 
 We have retrieved the following information for this question:
 {retrieved_info}
@@ -342,16 +342,16 @@ Question 2 Resolution Criteria:
 {resolution_criteria_2}
 
 Question 1 Current value on {freeze_datetime_1}:
-{value_at_freeze_datetime_1}
+{freeze_datetime_value_1}
 
 Question 1 Value Explanation:
-{value_at_freeze_datetime_explanation_1}
+{freeze_datetime_value_explanation_1}
 
 Question 2 Current value on {freeze_datetime_1}:
-{value_at_freeze_datetime_2}
+{freeze_datetime_value_2}
 
 Question 2 Value Explanation:
-{value_at_freeze_datetime_explanation_2}
+{freeze_datetime_value_explanation_2}
 
 We have retrieved the following information for Question 1:
 {retrieved_info_1}
@@ -471,10 +471,10 @@ Resolution Criteria:
 {resolution_criteria}
 
 Current value on {freeze_datetime}:
-{value_at_freeze_datetime}
+{freeze_datetime_value}
 
 Value Explanation:
-{value_at_freeze_datetime_explanation}
+{freeze_datetime_value_explanation}
 
 Here’s some related information from the news that I’ve collected for you:
 {retrieved_info}
@@ -523,16 +523,16 @@ Question 2 Resolution Criteria:
 {resolution_criteria_2}
 
 Question 1 Current value on {freeze_datetime_1}:
-{value_at_freeze_datetime_1}
+{freeze_datetime_value_1}
 
 Question 1 Value Explanation:
-{value_at_freeze_datetime_explanation_1}
+{freeze_datetime_value_explanation_1}
 
 Question 2 Current value on {freeze_datetime_1}:
-{value_at_freeze_datetime_2}
+{freeze_datetime_value_2}
 
 Question 2 Value Explanation:
-{value_at_freeze_datetime_explanation_2}
+{freeze_datetime_value_explanation_2}
 
 Here’s some related information from the news that I’ve collected for Question 1:
 {retrieved_info_1}
@@ -621,10 +621,10 @@ Resolution Criteria:
 {resolution_criteria}
 
 Current value on {freeze_datetime}:
-{value_at_freeze_datetime}
+{freeze_datetime_value}
 
 Value Explanation:
-{value_at_freeze_datetime_explanation}
+{freeze_datetime_value_explanation}
 
 Here’s some related information from the news that I’ve collected for you:
 {retrieved_info}
@@ -686,16 +686,16 @@ Question 2 Resolution Criteria:
 {resolution_criteria_2}
 
 Question 1 Current value on {freeze_datetime_1}:
-{value_at_freeze_datetime_1}
+{freeze_datetime_value_1}
 
 Question 1 Value Explanation:
-{value_at_freeze_datetime_explanation_1}
+{freeze_datetime_value_explanation_1}
 
 Question 2 Current value on {freeze_datetime_1}:
-{value_at_freeze_datetime_2}
+{freeze_datetime_value_2}
 
 Question 2 Value Explanation:
-{value_at_freeze_datetime_explanation_2}
+{freeze_datetime_value_explanation_2}
 
 Here’s some related information from the news that I’ve collected for Question 1:
 {retrieved_info_1}

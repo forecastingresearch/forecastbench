@@ -184,11 +184,11 @@ def create_resolution_file(question, resolved, get_historical_forecasts_func, so
     df.date = df["date"].dt.date
 
     if resolved:
-        df = df[df.date < pd.to_datetime(question["source_resolution_datetime"][:10]).date()]
+        df = df[df.date < pd.to_datetime(question["market_info_resolution_datetime"][:10]).date()]
         resolution_row = pd.DataFrame(
             {
                 "id": [question["id"]],
-                "date": [question["source_resolution_datetime"][:10]],
+                "date": [question["market_info_resolution_datetime"][:10]],
                 "value": [question["probability"]],
             }
         )

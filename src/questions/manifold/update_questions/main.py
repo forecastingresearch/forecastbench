@@ -151,7 +151,7 @@ def _update_questions_and_resolved_values(dfq, dff):
         date_range = pd.date_range(start=df["date"].min(), end=YESTERDAY, freq="D")
         if market["isResolved"]:
             # If the market has been resolved, add the market value and resolution date
-            resolved_date = pd.Timestamp(dfq.at[index, "source_resolution_datetime"]).date()
+            resolved_date = pd.Timestamp(dfq.at[index, "market_info_resolution_datetime"]).date()
             df = df[df["date"] < resolved_date]
             df.loc[len(df)] = {
                 "date": resolved_date,
@@ -182,20 +182,19 @@ def _update_questions_and_resolved_values(dfq, dff):
         url = market["url"]
         df.at[index, "question"] = market["question"]
         df.at[index, "background"] = market["textDescription"]
-        df.at[index, "source_resolution_criteria"] = "N/A"
-        df.at[index, "source_begin_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
+        df.at[index, "market_info_resolution_criteria"] = "N/A"
+        df.at[index, "market_info_open_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
             market["createdTime"]
         )
-        df.at[index, "source_close_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
+        df.at[index, "market_info_close_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
             market["closeTime"]
         )
         df.at[index, "url"] = url
         if market["isResolved"]:
             df.at[index, "resolved"] = True
-            df.at[index, "source_resolution_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
+            df.at[index, "market_info_resolution_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
                 market["resolutionTime"]
             )
-        df.at[index, "continual_resolution"] = False
         df.at[index, "forecast_horizons"] = data_utils.get_horizons(
             dates.convert_epoch_in_ms_to_datetime(market["closeTime"])
         )
@@ -209,8 +208,8 @@ def _update_questions_and_resolved_values(dfq, dff):
         **{col: None for col in dfq.columns if col != "id"}
     )
     df_ids_to_append["resolved"] = False
-    df_ids_to_append["value_at_freeze_datetime_explanation"] = "The market value."
-    df_ids_to_append["source_resolution_datetime"] = "N/A"
+    df_ids_to_append["freeze_datetime_value_explanation"] = "The market value."
+    df_ids_to_append["market_info_resolution_datetime"] = "N/A"
     dfq = pd.concat([dfq, df_ids_to_append], ignore_index=True)
 
     # Update all unresolved questions in dfq. Update resolved, resolution_datetime, and background.
@@ -219,7 +218,7 @@ def _update_questions_and_resolved_values(dfq, dff):
     for index, row in dfq[~dfq["resolved"]].iterrows():
         market = _get_market(row["id"])
         dfq = _assign_market_values_to_df(dfq, index, market)
-        dfq.at[index, "value_at_freeze_datetime"] = _create_resolution_file(dfq, index, market)
+        dfq.at[index, "freeze_datetime_value"] = _create_resolution_file(dfq, index, market)
 
     # Save and upload
     # Upload dfq before checking resolved questions in case we hit rate limit

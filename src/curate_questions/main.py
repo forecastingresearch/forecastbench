@@ -208,11 +208,6 @@ def write_questions(questions, filename):
         fh2 = combo_rows.at[1, "forecast_horizons"]
         return fh1 if len(fh1) < len(fh2) else fh2
 
-    def get_continual_resolution(combo_rows):
-        cr1 = combo_rows.at[0, "continual_resolution"]
-        cr2 = combo_rows.at[1, "continual_resolution"]
-        return cr1 and cr2
-
     df = pd.DataFrame()
     for source, values in tqdm(questions.items(), "Processing questions"):
         df_source = values["dfq"]
@@ -227,16 +222,15 @@ def write_questions(questions, filename):
                         "combination_of": combo_rows.to_dict(orient="records"),
                         "question": question_prompts.combination,
                         "background": "N/A",
-                        "source_resolution_criteria": "N/A",
-                        "source_begin_datetime": "N/A",
-                        "source_close_datetime": "N/A",
+                        "market_info_resolution_criteria": "N/A",
+                        "market_info_open_datetime": "N/A",
+                        "market_info_close_datetime": "N/A",
                         "url": "N/A",
                         "resolution_criteria": "N/A",
-                        "value_at_freeze_datetime": "N/A",
-                        "value_at_freeze_datetime_explanation": "N/A",
+                        "freeze_datetime_value": "N/A",
+                        "freeze_datetime_value_explanation": "N/A",
                         "freeze_datetime": constants.FREEZE_DATETIME.isoformat(),
                         "human_prompt": question_prompts.combination,
-                        "continual_resolution": get_continual_resolution(combo_rows),
                         "forecast_horizons": get_forecast_horizon(combo_rows),
                     }
                 ]
@@ -302,7 +296,7 @@ def driver(_):
                 )
             dfq.drop(
                 [
-                    "source_resolution_datetime",
+                    "market_info_resolution_datetime",
                     "resolved",
                 ],
                 axis=1,

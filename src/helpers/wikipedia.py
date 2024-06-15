@@ -133,7 +133,7 @@ PAGES = [
             ("id",),
         ),
         "background": FIDE_BACKGROUND,
-        "value_at_freeze_datetime_explanation": (
+        "freeze_datetime_value_explanation": (
             "{id}'s ELO rating.",
             ("id",),
         ),
@@ -155,7 +155,7 @@ PAGES = [
             ("id",),
         ),
         "background": FIDE_BACKGROUND,
-        "value_at_freeze_datetime_explanation": (
+        "freeze_datetime_value_explanation": (
             "{id}'s FIDE ranking.",
             ("id",),
         ),
@@ -190,7 +190,7 @@ PAGES = [
             ),
             tuple(),
         ),
-        "value_at_freeze_datetime_explanation": (
+        "freeze_datetime_value_explanation": (
             "{id} is a record holder in the {value}.",
             (
                 "id",
@@ -229,7 +229,7 @@ PAGES = [
             ),
             ("id",),
         ),
-        "value_at_freeze_datetime_explanation": (
+        "freeze_datetime_value_explanation": (
             "Vaccine status for {id}. 'No' means that a vaccine has not yet been created. "
             "'Yes' means that it has.",
             ("id",),
