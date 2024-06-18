@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
+    acled,
     constants,
     data_utils,
     decorator,
@@ -27,6 +28,10 @@ from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Combination questions should comprise 50% of questions for each data source.
+COMBO_PCT = 0.5
+assert 0 <= COMBO_PCT <= 1
 
 
 def fill_questions(QUESTIONS, PROCESSED_QUESTIONS, num_found, num_questions_needed):
@@ -58,14 +63,11 @@ def process_questions(QUESTIONS, TO_QUESTIONS, single_generation_func, combo_gen
     num_found = 0
     PROCESSED_QUESTIONS = deepcopy(QUESTIONS)
     for source, values in PROCESSED_QUESTIONS.items():
-        num_single = math.ceil(TO_QUESTIONS[source]["num_questions_to_sample"] / 2)
-        num_combo = math.floor(TO_QUESTIONS[source]["num_questions_to_sample"] / 2)
+        num_single = math.ceil(TO_QUESTIONS[source]["num_questions_to_sample"] * (1 - COMBO_PCT))
+        num_combo = math.floor(TO_QUESTIONS[source]["num_questions_to_sample"] * COMBO_PCT)
         values["dfq"] = single_generation_func(values, num_single)
         values["combos"] = combo_generation_func(values, num_combo)
         num_found += len(values["dfq"]) + len(values["combos"])
-        logger.info(
-            f"Got {num_single} single questions and {num_combo} combo questions from {source}."
-        )
     logger.info(f"Found {num_found} questions.")
     return PROCESSED_QUESTIONS
 
@@ -152,7 +154,7 @@ def allocate_evenly(num_questions, QUESTIONS):
     """
     sources = deepcopy(QUESTIONS)
     allocation = {
-        key: min(num_questions // len(sources), source["num_questions_available"])
+        key: min(num_questions // len(sources), source["num_questions_incl_combo_available"])
         for key, source in sources.items()
     }
     allocated_num_questions = sum(allocation.values())
@@ -160,9 +162,9 @@ def allocate_evenly(num_questions, QUESTIONS):
     while allocated_num_questions < num_questions:
         remaining = num_questions - allocated_num_questions
         under_allocated = {
-            key: sources[key]["num_questions_available"] - allocation[key]
+            key: sources[key]["num_questions_incl_combo_available"] - allocation[key]
             for key in sources
-            if allocation[key] < sources[key]["num_questions_available"]
+            if allocation[key] < sources[key]["num_questions_incl_combo_available"]
         }
 
         if not under_allocated:
@@ -198,18 +200,16 @@ def allocate_evenly(num_questions, QUESTIONS):
 def write_questions(questions, filename):
     """Write single and combo questions to file and upload."""
 
-    def get_id(combo_rows):
-        id1 = combo_rows.at[0, "id"]
-        id2 = combo_rows.at[1, "id"]
-        return [id1, id2]
-
-    def get_forecast_horizon(combo_rows):
+    def get_forecast_horizon(source, combo_rows):
+        if source not in constants.DATA_SOURCES:
+            # We don't ask for forecasts at different horizons for market-based questions.
+            return None
         fh1 = combo_rows.at[0, "forecast_horizons"]
         fh2 = combo_rows.at[1, "forecast_horizons"]
-        return fh1 if len(fh1) < len(fh2) else fh2
+        return sorted(set(fh1) | set(fh2))
 
     df = pd.DataFrame()
-    for source, values in tqdm(questions.items(), "Processing questions"):
+    for source, values in tqdm(questions.items(), "Writing questions"):
         df_source = values["dfq"]
         df = pd.concat([df, df_source], ignore_index=True)
         for q1, q2 in values["combos"]:
@@ -217,7 +217,7 @@ def write_questions(questions, filename):
             df_combo = pd.DataFrame(
                 [
                     {
-                        "id": get_id(combo_rows),
+                        "id": combo_rows["id"].tolist(),
                         "source": source,
                         "combination_of": combo_rows.to_dict(orient="records"),
                         "question": question_prompts.combination,
@@ -231,7 +231,7 @@ def write_questions(questions, filename):
                         "freeze_datetime_value_explanation": "N/A",
                         "freeze_datetime": constants.FREEZE_DATETIME.isoformat(),
                         "human_prompt": question_prompts.combination,
-                        "forecast_horizons": get_forecast_horizon(combo_rows),
+                        "forecast_horizons": get_forecast_horizon(source, combo_rows),
                     }
                 ]
             )
@@ -310,10 +310,7 @@ def driver(_):
             if source == "acled":
                 # Drop Acled-specific columns
                 dfq.drop(
-                    list(
-                        set(constants.ACLED_QUESTION_FILE_COLUMNS)
-                        - set(constants.QUESTION_FILE_COLUMNS)
-                    ),
+                    list(set(acled.QUESTION_FILE_COLUMNS) - set(constants.QUESTION_FILE_COLUMNS)),
                     axis=1,
                     inplace=True,
                 )
@@ -325,10 +322,13 @@ def driver(_):
                 axis=1,
                 inplace=True,
             )
-            num_questions = len(dfq)
+            num_single_questions = len(dfq)
+            num_questions = num_single_questions // COMBO_PCT
             QUESTIONS[source]["dfq"] = dfq.reset_index(drop=True)
-            QUESTIONS[source]["num_questions_available"] = num_questions
-            logger.info(f"Found {num_questions} questions from {source}.")
+            QUESTIONS[source]["num_questions_incl_combo_available"] = num_questions
+            logger.info(
+                f"Found {num_questions} questions (of which {num_single_questions} single) from {source}."
+            )
 
     QUESTIONS = {key: value for key, value in QUESTIONS.items() if key not in sources_to_remove}
 
