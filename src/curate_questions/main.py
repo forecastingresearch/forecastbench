@@ -34,158 +34,165 @@ COMBO_PCT = 0.5
 assert 0 <= COMBO_PCT <= 1
 
 
-def fill_questions(QUESTIONS, PROCESSED_QUESTIONS, num_found, num_questions_needed):
-    """Ensure we select `num_questions_needed` questions.
-
-    If we were unable to get the number of questions the first time through in `process_questions`,
-    it means that some source does not have enough questions. This function will choose random
-    single questions from sources until it has obtained 'num_questions_needed`.
-    """
-    logger.error("Should not end up in this function.")
-    giveup_count = 0
-    keys = list(QUESTIONS.keys())
-    while num_found < num_questions_needed and giveup_count < 50:
-        giveup_count += 1
-        source = random.choice(keys)
-        if len(PROCESSED_QUESTIONS[source]["dfq"]) < len(QUESTIONS[source]["dfq"]):
-            df_tmp = QUESTIONS[source]["dfq"].drop(PROCESSED_QUESTIONS[source]["dfq"].index)
-            if not df_tmp.empty:
-                PROCESSED_QUESTIONS[source]["dfq"] = pd.concat(
-                    [PROCESSED_QUESTIONS[source]["dfq"], df_tmp.sample(1)]
-                )
-
-
-def process_questions(QUESTIONS, TO_QUESTIONS, single_generation_func, combo_generation_func):
-    """Sample from `QUESTIONS` to get the number of questions needed.
+def process_questions(questions, to_questions, single_generation_func, combo_generation_func=None):
+    """Sample from `questions` to get the number of questions needed.
 
     This function works for both the LLM question set and the human forecaster question set.
     """
     num_found = 0
-    PROCESSED_QUESTIONS = deepcopy(QUESTIONS)
-    for source, values in PROCESSED_QUESTIONS.items():
-        num_single = math.ceil(TO_QUESTIONS[source]["num_questions_to_sample"] * (1 - COMBO_PCT))
-        num_combo = math.floor(TO_QUESTIONS[source]["num_questions_to_sample"] * COMBO_PCT)
+    processed_questions = deepcopy(questions)
+    pct_of_combo_questions = 0 if combo_generation_func is None else COMBO_PCT
+    for source, values in processed_questions.items():
+        num_single = math.ceil(
+            to_questions[source]["num_questions_to_sample"] * (1 - pct_of_combo_questions)
+        )
         values["dfq"] = single_generation_func(values, num_single)
-        values["combos"] = combo_generation_func(values, num_combo)
+        if combo_generation_func is not None:
+            num_combo = math.floor(
+                to_questions[source]["num_questions_to_sample"] * pct_of_combo_questions
+            )
+            values["combos"] = combo_generation_func(values["dfq"], num_combo)
+        else:
+            num_combo = 0
+            values["combos"] = []
         num_found += len(values["dfq"]) + len(values["combos"])
     logger.info(f"Found {num_found} questions.")
-    return PROCESSED_QUESTIONS
+    return processed_questions
 
 
-def generate_N_combos(df, N, remove_combos=None):
+def sample_single_questions(values, n_single):
+    """Generate single questions for the LLM and Human question sets.
+
+    Sample evenly across categories.
+    """
+    dfq = values["dfq"]
+    allocation, underrepresented_categories = allocate_across_categories(
+        num_questions=n_single, dfq=dfq
+    )
+
+    df = pd.DataFrame()
+    for key, value in allocation.items():
+        df_tmp = dfq[dfq["category"] == key].sample(value)
+        df = pd.concat([df, df_tmp], ignore_index=True)
+
+    df["underrepresented_category"] = df["category"].apply(
+        lambda x: True if x in underrepresented_categories else False
+    )
+    return df
+
+
+def sample_combo_questions(df, N):
     """Generate `N` combinations of the indices in `df`."""
     indices = df.index.tolist()
-    possible_pairs = list(combinations(indices, 2))
-    if remove_combos:
-        possible_pairs = [tup for tup in possible_pairs if tup not in remove_combos]
-    if len(possible_pairs) < N:
+    all_possible_pairs = list(combinations(indices, 2))
+    random.shuffle(all_possible_pairs)
+
+    if len(all_possible_pairs) < N:
         logger.warning(
-            f"Not enough combinations available: Requested {N}, but only {len(possible_pairs)} are possible."
+            f"Not enough combinations available: Requested {N}, but only {len(all_possible_pairs)} "
+            "are possible."
         )
-        return possible_pairs
-    selected_pairs = np.random.choice(len(possible_pairs), size=N, replace=False)
-    return [possible_pairs[i] for i in selected_pairs]
+        return all_possible_pairs
 
-
-def llm_sample_single_questions(values, n_single):
-    """Generate single questions for the LLM question set."""
-    return values["dfq"].sample(n_single)
-
-
-def llm_sample_combo_questions(values, n_combo):
-    """Generate combination questions for the LLM question set."""
-    return generate_N_combos(values["dfq"], n_combo)
-
-
-def human_sample_single_questions(values, n_single):
-    """Get single questions for the human question set by sampling from the LLM combos question set.
-
-    Take indices from the combos question set first to allow us to get the same combos for humans
-    as we do llms.
-    """
-    indices = [num for tup in values["combos"] for num in tup]
-
-    seen = set()
-    unique_indices = []
-    for item in indices:
-        if item not in seen:
-            seen.add(item)
-            unique_indices.append(item)
-
-    # Instead of sampling from combos, take the first n_single unique combos. This ensures we can
-    # get combos that are seen by the LLM too.
-    indices = unique_indices[:n_single]
-    if len(unique_indices) < n_single:
-        remaining = n_single - len(indices)
-        all_indices = set(values["dfq"].index.tolist())
-        remaining_indices = list(all_indices - set(indices))
-        additional_indices = random.sample(
-            remaining_indices, min(remaining, len(remaining_indices))
-        )
-        indices.extend(additional_indices)
-
-    return values["dfq"].loc[indices]
-
-
-def human_sample_combo_questions(values, n_combo):
-    """Generate combination questions for the human question set by sampling from the LLM question set.
-
-    Ensure that the combos sampled are from questions that are in the human question set.
-    """
-    human_indices = values["dfq"].index.tolist()
-    combos = [
-        (q1, q2) for q1, q2 in values["combos"] if q1 in human_indices and q2 in human_indices
+    underrepresented_indices = df[df["underrepresented_category"]].index.tolist()
+    all_underrepresented_pairs = [
+        (i, j)
+        for i, j in all_possible_pairs
+        if i in underrepresented_indices or j in underrepresented_indices
     ]
-    if len(combos) >= n_combo:
-        return combos[:n_combo]
 
-    combos.extend(
-        generate_N_combos(df=values["dfq"], N=n_combo - len(combos), remove_combos=set(combos))
-    )
-    return combos
+    # Remove pairs with duplicates of underrepresented indices
+    seen = set()
+    underrepresented_pairs = []
+    for pair in all_underrepresented_pairs:
+        for i in underrepresented_indices:
+            if i in pair and i not in seen:
+                underrepresented_pairs.append(pair)
+                seen.add(i)
+                break
+
+    if N <= len(underrepresented_pairs):
+        logger.warning("Only returning combos that contain at least one underrepresented index.")
+        return underrepresented_pairs[:N]
+
+    # Sample all remaining combo questions
+    N -= len(underrepresented_pairs)
+    all_possible_pairs = [tup for tup in all_possible_pairs if tup not in underrepresented_pairs]
+    all_possible_pairs_indices = np.random.choice(len(all_possible_pairs), size=N, replace=False)
+    return underrepresented_pairs + [all_possible_pairs[i] for i in all_possible_pairs_indices]
 
 
-def allocate_evenly(num_questions, QUESTIONS):
-    """Allocates the number of questions evenly among sources.
+def allocate_evenly(data: dict, n: int):
+    """Allocates the number of questions evenly given `data`.
 
-    `num_questions` is divided evenly among the question sources. It handles remainders and the
-    constraint of trying to allocate too many questions to a source, by allocating what's leftover
-    to the other sources.
+    `n` is the total number of items we want to allocate.
+
+    `data` is a dict that has the items to allocate across as keys and the number of possible items
+    to allocate as values. So, if we're allocating across sources, it would look like:
+    {'source1': 30, 'source2': 50, ...} and if we're allocating across categories within a source
+    it would look like: {'category1': 30, 'category2': 50, ...}.
+
+    The function returns a dict with the same keys as `data` but with the allocation. The allocated
+    values are guaranteed to be <= the original values provided in `data`.
+
+    If `sum(data.values()) <= n` it returns `data`.
     """
-    sources = deepcopy(QUESTIONS)
-    allocation = {
-        key: min(num_questions // len(sources), source["num_questions_incl_combo_available"])
-        for key, source in sources.items()
-    }
-    allocated_num_questions = sum(allocation.values())
+    if sum(data.values()) <= n:
+        return data, sorted([key for key, value in data.items()])
 
-    while allocated_num_questions < num_questions:
-        remaining = num_questions - allocated_num_questions
+    # initial allocation
+    allocation = {key: min(n // len(data), value) for key, value in data.items()}
+    allocated_num = sum(allocation.values())
+    underrepresented_items = sorted(
+        [key for key, value in data.items() if allocation[key] == value]
+    )
+
+    while allocated_num < n:
+        remaining = n - allocated_num
         under_allocated = {
-            key: sources[key]["num_questions_incl_combo_available"] - allocation[key]
-            for key in sources
-            if allocation[key] < sources[key]["num_questions_incl_combo_available"]
+            key: value - allocation[key] for key, value in data.items() if allocation[key] < value
         }
 
         if not under_allocated:
-            # Break if no category can take more
+            # Break if nothing more to allocate
             break
 
         # Amount to add in this iteration
         to_allocate = max(remaining // len(under_allocated), 1)
-        additional_alloc = {}
         for key in under_allocated:
             if under_allocated[key] > 0:
                 add_amount = min(to_allocate, under_allocated[key], remaining)
-                additional_alloc[key] = add_amount
+                allocation[key] += add_amount
                 remaining -= add_amount
                 if remaining <= 0:
                     break
+        allocated_num = sum(allocation.values())
 
-        # Update allocation and num_questions
-        for key, value in additional_alloc.items():
-            allocation[key] += value
-        allocated_num_questions = sum(allocation.values())
+    num_allocated = sum(allocation.values())
+    if num_allocated != n:
+        logger.error(f"*** Problem allocating evenly... Allocated {num_allocated}/{n}. ***")
+    else:
+        logger.info(f"Successfully allocated {num_allocated}/{n}.")
+    return allocation, underrepresented_items
+
+
+def allocate_across_categories(num_questions, dfq):
+    """Allocates the number of questions evenly among categories."""
+    categories = dfq["category"].unique()
+    data = {category: sum(dfq["category"] == category) for category in categories}
+    return allocate_evenly(data=data, n=num_questions)
+
+
+def allocate_across_sources(for_humans, questions):
+    """Allocates the number of questions evenly among sources."""
+    num_questions = (
+        constants.FREEZE_NUM_HUMAN_QUESTIONS if for_humans else constants.FREEZE_NUM_LLM_QUESTIONS
+    )
+    sources = deepcopy(questions)
+    col = "num_single_questions_available" if for_humans else "num_questions_incl_combo_available"
+    data = {key: source[col] for key, source in sources.items()}
+
+    allocation, _ = allocate_evenly(data=data, n=num_questions)
 
     for source in sources:
         sources[source]["num_questions_to_sample"] = allocation[source]
@@ -295,6 +302,7 @@ def driver(_):
         else:
             dfq["source"] = source
             dfq = drop_invalid_questions(dfq=dfq, dfmeta=dfmeta)
+            dfq = dfq[dfq["category"] != "Other"]
             dfq = dfq[~dfq["resolved"]]
             dfq = dfq[dfq["forecast_horizons"].map(len) > 0]
             dfq["human_prompt"] = dfq.apply(
@@ -323,51 +331,89 @@ def driver(_):
                 inplace=True,
             )
             num_single_questions = len(dfq)
-            num_questions = num_single_questions // COMBO_PCT
+            num_questions = math.floor(num_single_questions / COMBO_PCT)
             QUESTIONS[source]["dfq"] = dfq.reset_index(drop=True)
+            QUESTIONS[source]["num_single_questions_available"] = num_single_questions
             QUESTIONS[source]["num_questions_incl_combo_available"] = num_questions
-            logger.info(
-                f"Found {num_questions} questions (of which {num_single_questions} single) from {source}."
-            )
+            logger.info(f"Found {num_single_questions} single questions from {source}.\n")
 
     QUESTIONS = {key: value for key, value in QUESTIONS.items() if key not in sources_to_remove}
 
     # Find allocations of questions
-    LLM_QUESTIONS = allocate_evenly(
-        constants.FREEZE_NUM_LLM_QUESTIONS,
-        QUESTIONS,
+    LLM_QUESTIONS = allocate_across_sources(
+        for_humans=False,
+        questions=QUESTIONS,
     )
-    HUMAN_QUESTIONS = allocate_evenly(
-        constants.FREEZE_NUM_HUMAN_QUESTIONS,
-        LLM_QUESTIONS,
+    HUMAN_QUESTIONS = allocate_across_sources(
+        for_humans=True,
+        questions=LLM_QUESTIONS,
     )
 
     # Sample questions
     LLM_QUESTIONS = process_questions(
-        QUESTIONS,
-        LLM_QUESTIONS,
-        llm_sample_single_questions,
-        llm_sample_combo_questions,
+        questions=QUESTIONS,
+        to_questions=LLM_QUESTIONS,
+        single_generation_func=sample_single_questions,
+        combo_generation_func=sample_combo_questions,
     )
     HUMAN_QUESTIONS = process_questions(
-        LLM_QUESTIONS,
-        HUMAN_QUESTIONS,
-        human_sample_single_questions,
-        human_sample_combo_questions,
+        questions=LLM_QUESTIONS,
+        to_questions=HUMAN_QUESTIONS,
+        single_generation_func=sample_single_questions,
     )
 
-    def _log_questions_found(questions, for_whom):
+    def _log_questions_found(questions, for_humans):
+        for_whom = "Humans" if for_humans else "LLMs"
         running_sum = 0
         for source, values in questions.items():
-            num_single = len(values["dfq"])
+            logger.info("\n")
+            # Overall
+            dfq = values["dfq"]
+            num_single = len(dfq)
             num_combo = len(values["combos"])
             num_total = num_single + num_combo
             running_sum += num_total
-            logger.info(f"* {source}: Single: {num_single}. Combo: {num_combo}. Total: {num_total}")
-        logger.info(f"Found {running_sum} questions total for {for_whom}.")
+            title = (
+                f"* {source}: Single: {num_single}."
+                if for_humans
+                else f"* {source}: Single: {num_single}. Combo: {num_combo}. Total: {num_total}"
+            )
+            logger.info(title)
 
-    _log_questions_found(LLM_QUESTIONS, "LLMs")
-    _log_questions_found(HUMAN_QUESTIONS, "Humans")
+            # Categories for standard and combo
+            category_counts = (
+                dfq.groupby("category")
+                .agg(
+                    count=("category", "size"),
+                    underrepresented=("underrepresented_category", "any"),
+                )
+                .reset_index()
+            )
+
+            combo_indices = set([num for tup in values["combos"] for num in tup])
+            dfq_combo = dfq[dfq.index.isin(combo_indices)]
+            category_counts_combo = (
+                dfq_combo.groupby("category").agg(count=("category", "size")).reset_index()
+            )
+            combo_dict = category_counts_combo.set_index("category").to_dict()["count"]
+
+            max_category_length = max(
+                len(row["category"]) + (4 if row["underrepresented"] else 0)
+                for index, row in category_counts.iterrows()
+            )
+            combo_header = "" if for_humans else "N_combo"
+            logger.info(f'    {"".ljust(max_category_length)}  N   {combo_header}')
+            for _, row in category_counts.iterrows():
+                category = row["category"]
+                count = row["count"]
+                combo_count = "" if for_humans else combo_dict.get(category, 0)
+                if row["underrepresented"]:
+                    category += " (*)"
+                logger.info(f"  - {category.ljust(max_category_length)}: {count}   {combo_count}")
+        logger.info(f"Found {running_sum} questions total for {for_whom}.\n")
+
+    _log_questions_found(LLM_QUESTIONS, for_humans=False)
+    _log_questions_found(HUMAN_QUESTIONS, for_humans=True)
 
     forecast_date_str = constants.FORECAST_DATE.isoformat()
     llm_filename = f"{forecast_date_str}-llm.jsonl"
