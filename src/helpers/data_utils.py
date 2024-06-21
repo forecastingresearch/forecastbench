@@ -187,18 +187,13 @@ def upload_questions_and_resolution(dfq, dfr, source):
     upload_resolutions(dfq, source)
 
 
-def get_horizons(dt):
-    """Return the valid forecast horizons for the question.
-
-    This returns the first forecast horizon >= the given datetime, `dt`. If no horizons satisfy this
-    request, it returns the empty list. The maximum horizons returned is
-    `constants.FORECAST_HORIZONS_IN_DAYS`.
+def market_resolves_before_forecast_due_date(dt):
+    """Determine whether or not the market resolves before the forecast due date.
 
     Parameters:
     - dt (datetime): a datetime that represents the market close time.
     """
-    human_forecast_release_datetime = constants.FREEZE_DATETIME
-    llm_forecast_release_datetime = human_forecast_release_datetime + timedelta(
+    llm_forecast_release_datetime = constants.FREEZE_DATETIME + timedelta(
         days=constants.FREEZE_WINDOW_IN_DAYS
     )
     all_forecasts_due = llm_forecast_release_datetime.replace(
@@ -206,10 +201,4 @@ def get_horizons(dt):
     )
     ndays = dt - all_forecasts_due
     ndays = ndays.days + (1 if ndays.total_seconds() > 0 else 0)
-    if ndays < 0:
-        return []
-    elif ndays >= max(constants.FORECAST_HORIZONS_IN_DAYS):
-        return constants.FORECAST_HORIZONS_IN_DAYS
-    horizons = [x for x in constants.FORECAST_HORIZONS_IN_DAYS if x <= ndays]
-    horizons += [next(x for x in constants.FORECAST_HORIZONS_IN_DAYS if x > ndays)]
-    return horizons
+    return ndays <= 0

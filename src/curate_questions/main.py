@@ -7,6 +7,7 @@ import os
 import random
 import sys
 from copy import deepcopy
+from datetime import datetime
 from itertools import combinations
 
 import numpy as np
@@ -278,6 +279,26 @@ def drop_missing_freeze_datetime(dfq):
     return dfq
 
 
+def drop_questions_that_resolve_too_soon(source, dfq):
+    """Drop questions that resolve too soon.
+
+    Given the freeze date:
+    * for market questions determine whether or not the market will close before at least the first
+      forecasting horizon. If it does, then do not use this question.
+    * for data questions if forecast_horizons is empty, don't use the question
+    """
+    if source in constants.DATA_SOURCES:
+        empty_horizons = dfq["forecast_horizons"].apply(lambda x: len(x) == 0)
+        mask = empty_horizons | dfq["forecast_horizons"] == "N/A"
+        return dfq.drop(labels=dfq[mask].index.tolist())
+
+    empty_horizons = dfq["market_info_close_datetime"].apply(
+        lambda x: data_utils.market_resolves_before_forecast_due_date(datetime.fromisoformat(x))
+    )
+    indices_to_drop = empty_horizons[empty_horizons].index.tolist()
+    return dfq.drop(labels=indices_to_drop)
+
+
 @decorator.log_runtime
 def driver(_):
     """Curate questions for forecasting."""
@@ -314,7 +335,7 @@ def driver(_):
             dfq = drop_missing_freeze_datetime(dfq)
             dfq = dfq[dfq["category"] != "Other"]
             dfq = dfq[~dfq["resolved"]]
-            dfq = dfq[dfq["forecast_horizons"].map(len) > 0]
+            dfq = drop_questions_that_resolve_too_soon(source=source, dfq=dfq)
             dfq["human_prompt"] = dfq.apply(
                 format_string_value,
                 args=(QUESTIONS[source]["human_prompt"], QUESTIONS[source]["name"]),
