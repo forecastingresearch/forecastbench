@@ -12,7 +12,7 @@ from py_clob_client.client import ClobClient
 from py_clob_client.constants import POLYGON
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator, env, keys  # noqa: E402
+from helpers import data_utils, dates, decorator, env, keys  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -185,13 +185,6 @@ def fetch_all_questions(dfq):
         current_prob = price_history[-1]["p"] if len(price_history) > 1 else 0
         resolved_date = dates.convert_zulu_to_iso(q["end_date_iso"]) if q["end_date_iso"] else "N/A"
 
-        # get horizons
-        forecast_horizons = constants.FORECAST_HORIZONS_IN_DAYS
-        if q["closed"]:
-            forecast_horizons = []
-        elif resolved_date != "N/A":
-            forecast_horizons = data_utils.get_horizons(datetime.fromisoformat(resolved_date))
-
         # Get the resolution if the question is closed
         if q["closed"]:
             current_prob = 1
@@ -232,7 +225,7 @@ def fetch_all_questions(dfq):
                 "market_info_resolution_datetime": resolved_date,
                 "fetch_datetime": dates.get_datetime_now(),
                 "probability": current_prob,
-                "forecast_horizons": forecast_horizons,
+                "forecast_horizons": "N/A",
                 "freeze_datetime_value": current_prob,
                 "freeze_datetime_value_explanation": "The market price.",
                 "historical_prices": final_resolutions_df.to_dict(orient="records"),

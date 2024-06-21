@@ -210,7 +210,7 @@ def write_questions(questions, filename):
     def get_forecast_horizon(source, combo_rows):
         if source not in constants.DATA_SOURCES:
             # We don't ask for forecasts at different horizons for market-based questions.
-            return None
+            return "N/A"
         fh1 = combo_rows.at[0, "forecast_horizons"]
         fh2 = combo_rows.at[1, "forecast_horizons"]
         return sorted(set(fh1) | set(fh2))

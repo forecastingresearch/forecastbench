@@ -4,14 +4,13 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
 
 import certifi
 import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator, env, keys  # noqa: E402
+from helpers import data_utils, dates, decorator, env, keys  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -175,13 +174,6 @@ def get_data(current_data):
             )
         )
 
-        # get horizons
-        forecast_horizons = constants.FORECAST_HORIZONS_IN_DAYS
-        if q.get("resolved?", False):
-            forecast_horizons = []
-        elif final_closed_at_str != "N/A":
-            forecast_horizons = data_utils.get_horizons(datetime.fromisoformat(final_closed_at_str))
-
         forecast_yes = "N/A"
         if len(q["answers"]) == 2:
             forecast_yes = q["answers"][0]
@@ -209,7 +201,7 @@ def get_data(current_data):
             ),
             "fetch_datetime": current_time,
             "probability": forecast_yes,
-            "forecast_horizons": forecast_horizons,
+            "forecast_horizons": "N/A",
             "freeze_datetime_value": forecast_yes,
             "freeze_datetime_value_explanation": "The aggregated community forecast.",
         }
