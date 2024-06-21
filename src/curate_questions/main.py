@@ -269,6 +269,15 @@ def drop_invalid_questions(dfq, dfmeta):
     return dfq[dfq["valid_question"]].drop(columns="valid_question")
 
 
+def drop_missing_freeze_datetime(dfq):
+    """Drop questions with missing values in the `freeze_datetime_value` column."""
+    col = "freeze_datetime_value"
+    dfq = dfq.dropna(subset=col, ignore_index=True)
+    dfq = dfq[dfq[col] != "N/A"]
+    dfq = dfq[dfq[col] != "nan"]
+    return dfq
+
+
 @decorator.log_runtime
 def driver(_):
     """Curate questions for forecasting."""
@@ -302,6 +311,7 @@ def driver(_):
         else:
             dfq["source"] = source
             dfq = drop_invalid_questions(dfq=dfq, dfmeta=dfmeta)
+            dfq = drop_missing_freeze_datetime(dfq)
             dfq = dfq[dfq["category"] != "Other"]
             dfq = dfq[~dfq["resolved"]]
             dfq = dfq[dfq["forecast_horizons"].map(len) > 0]
