@@ -22,9 +22,9 @@ def get_secret(secret_name, version_id="latest"):
 # LLM
 API_KEY_ANTHROPIC = get_secret("API_KEY_ANTHROPIC")
 API_KEY_OPENAI = get_secret("API_KEY_OPENAI")
+API_KEY_GOOGLE = get_secret("API_KEY_GEMINI")
 API_KEY_TOGETHERAI = get_secret("API_KEY_TOGETHERAI")
 API_KEY_NEWSCATCHER = get_secret("API_KEY_NEWSCATCHER")
-API_KEY_GOOGLE = get_secret("API_KEY_GEMINI")
 API_KEY_MISTRAL = get_secret("API_KEY_MISTRAL")
 
 # QUESTION DATASET SOURCES

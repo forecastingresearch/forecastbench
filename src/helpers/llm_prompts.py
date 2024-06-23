@@ -57,7 +57,7 @@ Answer: {{ Insert answer here }}
 
 """  # noqa: B950
 
-ZERO_SHOT_JOINT_QUESTION_PROMPT = """
+ZERO_SHOT_NON_MARKET_JOINT_QUESTION_PROMPT = """
 You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can't answer, pick the base rate, but return a number between 0 and 1.
 
 {human_prompt}
@@ -95,6 +95,37 @@ Question 2 Value Explanation:
 Question resolution date: {list_of_resolution_dates}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
+
+Do not output anything else.
+Answer: {{ Insert answer here }}
+"""  # noqa: B950
+
+ZERO_SHOT_MARKET_JOINT_QUESTION_PROMPT = """
+You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can't answer, pick the base rate, but return a number between 0 and 1.
+
+{human_prompt}
+
+Question 1:
+{question_1}
+
+Question 2:
+{question_2}
+
+Question 1 Background:
+{background_1}
+
+Question 2 Background:
+{background_2}
+
+Question 1 Resolution Criteria:
+{resolution_criteria_1}
+
+Question 2 Resolution Criteria:
+{resolution_criteria_2}
+
+Question resolution date: {close_date}
+
+Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. Do not output anything else.
 
 Do not output anything else.
 Answer: {{ Insert answer here }}
@@ -178,7 +209,7 @@ Instructions:
 {{ Insert your answer }}
 """  # noqa: B950
 
-SCRATCH_PAD_JOINT_QUESTION_PROMPT = """
+SCRATCH_PAD_NON_MARKET_JOINT_QUESTION_PROMPT = """
 {human_prompt} “at each of the resolution dates”.
 
 Question 1:
@@ -233,6 +264,52 @@ Instructions:
 {{ Insert your thoughts }}
 
 7. Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
+{{ Insert your answer }}
+"""  # noqa: B950
+
+SCRATCH_PAD_MARKET_JOINT_QUESTION_PROMPT = """
+{human_prompt}.
+
+Question 1:
+{question_1}
+
+Question 2:
+{question_2}
+
+Question 1 Background:
+{background_1}
+
+Question 2 Background:
+{background_2}
+
+Question 1 Resolution Criteria:
+{resolution_criteria_1}
+
+Question 2 Resolution Criteria:
+{resolution_criteria_2}
+
+Question resolution date: {close_date}
+
+Instructions:
+1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
+{{ Insert rephrased and expanded question.}}
+
+2. Provide a few reasons why the answer might be no. Rate the strength of each reason.
+{{ Insert your thoughts }}
+
+3. Provide a few reasons why the answer might be yes. Rate the strength of each reason.
+{{ Insert your thoughts }}
+
+4. Aggregate your considerations. Think like a superforecaster (e.g. Nate Silver).
+{{ Insert your aggregated considerations }}
+
+5. Output an initial probability (prediction) given steps 1-4.
+{{ Insert initial probability. }}
+
+6. Evaluate whether your calculated probability is excessively confident or not confident enough. Also, consider anything else that might affect the forecast that you did not before consider.
+{{ Insert your thoughts }}
+
+7. Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. Do not output anything else.
 {{ Insert your answer }}
 """  # noqa: B950
 

@@ -19,6 +19,8 @@ TOGETHER_AI_SOURCE = "TOGETHER"
 GOOGLE_SOURCE = "GOOGLE"
 MISTRAL_SOURCE = "MISTRAL"
 
+DATA_SOURCES = ["acled"]
+
 FORECAST_HORIZONS_IN_DAYS = [
     7,  # 1 week
     30,  # 1 month
@@ -82,6 +84,7 @@ MODEL_TOKEN_LIMITS = {
     "claude-3-opus-20240229": 200000,
     "claude-3-sonnet-20240229": 200000,
     "claude-3-haiku-20240307": 200000,
+    "claude-3-5-sonnet-20240620": 200000,
     "gpt-3.5-turbo-0125": 16385,
     "gpt_4": 8192,
     "gpt-4-turbo-2024-04-09": 128000,
@@ -100,6 +103,8 @@ MODEL_TOKEN_LIMITS = {
     "mistral-large-latest": 32000,
     "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": 32768,
     "Qwen/Qwen1.5-110B-Chat": 32768,
+    "gemini-1.5-flash": 8000,
+    "gemini-1.5-pro": 8000,
 }
 
 MODEL_NAME_TO_SOURCE = {
@@ -108,6 +113,7 @@ MODEL_NAME_TO_SOURCE = {
     "claude-3-opus-20240229": ANTHROPIC_SOURCE,
     "claude-3-sonnet-20240229": ANTHROPIC_SOURCE,
     "claude-3-haiku-20240307": ANTHROPIC_SOURCE,
+    "claude-3-5-sonnet-20240620": ANTHROPIC_SOURCE,
     "gpt-4": OAI_SOURCE,
     "gpt-3.5-turbo-0125": OAI_SOURCE,
     "gpt-4-turbo-2024-04-09": OAI_SOURCE,
@@ -115,6 +121,8 @@ MODEL_NAME_TO_SOURCE = {
     "gpt-4-0125-preview": OAI_SOURCE,
     "gpt-4o": OAI_SOURCE,
     "gemini-pro": GOOGLE_SOURCE,
+    "gemini-1.5-flash": GOOGLE_SOURCE,
+    "gemini-1.5-pro": GOOGLE_SOURCE,
     "meta-llama/Llama-2-7b-chat-hf": TOGETHER_AI_SOURCE,
     "meta-llama/Llama-2-13b-chat-hf": TOGETHER_AI_SOURCE,
     "meta-llama/Llama-2-70b-chat-hf": TOGETHER_AI_SOURCE,
@@ -126,4 +134,49 @@ MODEL_NAME_TO_SOURCE = {
     "mistral-large-latest": MISTRAL_SOURCE,
     "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": TOGETHER_AI_SOURCE,
     "Qwen/Qwen1.5-110B-Chat": TOGETHER_AI_SOURCE,
+    "Qwen/Qwen1.5-110B-Chat": TOGETHER_AI_SOURCE,
+}
+
+
+ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
+    "gpt_3p5_turbo_0125": {"source": "OAI", "full_name": "gpt-3.5-turbo-0125"},
+    # "gpt_4": {"source": "OAI", "full_name": "gpt-4"},
+    # "gpt_4_turbo_0409": {"source": "OAI", "full_name": "gpt-4-turbo-2024-04-09"},
+    # "gpt_4_1106_preview": {"source": "OAI", "full_name": "gpt-4-1106-preview"},
+    # "gpt_4_0125_preview": {"source": "OAI", "full_name": "gpt-4-0125-preview"},
+    # "gpt_4o": {"source": "OAI", "full_name": "gpt-4o"},
+    # "llama_2_70b": {
+    #     "source": "TOGETHER",
+    #     "full_name": "meta-llama/Llama-2-70b-chat-hf",
+    # },
+    # "llama_3_8b": {
+    #     "source": "TOGETHER",
+    #     "full_name": "meta-llama/Llama-3-8b-chat-hf",
+    # },
+    # "llama_3_70b": {
+    #     "source": "TOGETHER",
+    #     "full_name": "meta-llama/Llama-3-70b-chat-hf",
+    # },
+    # "mistral_8x7b_instruct": {
+    #     "source": "TOGETHER",
+    #     "full_name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    # },
+    # "mistral_8x22b_instruct": {
+    #     "source": "TOGETHER",
+    #     "full_name": "mistralai/Mixtral-8x22B-Instruct-v0.1",
+    # },
+    # "mistral_large": {
+    #     "source": "MISTRAL",
+    #     "full_name": "mistral-large-latest",
+    # },
+    # "qwen_1p5_110b": {
+    #     "source": "TOGETHER",
+    #     "full_name": "Qwen/Qwen1.5-110B-Chat",
+    # },
+    # "claude_2p1": {"source": "ANTHROPIC", "full_name": "claude-2.1"},
+    # "claude_3_opus": {"source": "ANTHROPIC", "full_name": "claude-3-opus-20240229"},
+    # "claude_3_haiku": {"source": "ANTHROPIC", "full_name": "claude-3-haiku-20240307"},
+    "claude_3p5_sonnet": {"source": "ANTHROPIC", "full_name": "claude-3-5-sonnet-20240620"},
+    # "gemini_1p5_flash": {"source": "GOOGLE", "full_name": "gemini-1.5-flash"},
+    "gemini_1p5_pro": {"source": "GOOGLE", "full_name": "gemini-1.5-pro"},
 }

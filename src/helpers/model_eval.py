@@ -1,9 +1,12 @@
 """LLM-related util."""
 
 import asyncio
+import json
 import logging
+import os
 import re
 import time
+from datetime import datetime
 
 import anthropic
 import google.generativeai as google_ai
@@ -12,7 +15,7 @@ import together
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 
-from . import constants, keys, llm_prompts
+from . import constants, data_utils, keys, llm_prompts
 
 anthropic_console = anthropic.Anthropic(api_key=keys.API_KEY_ANTHROPIC)
 anthropic_async_client = anthropic.AsyncAnthropic(api_key=keys.API_KEY_ANTHROPIC)
@@ -458,7 +461,7 @@ def reformat_answers(response, prompt="N/A", question="N/A", single=False):
             reformat_prompt = REFORMAT_PROMPT.format(
                 user_prompt=prompt,
                 model_response=response,
-                n_horizons=len(question["forecast_horizons"]),
+                n_horizons=len(question["resolution_dates"]),
             )
         raw_response = get_response_from_model(
             prompt=reformat_prompt,
@@ -491,3 +494,94 @@ def reformat_answers(response, prompt="N/A", question="N/A", single=False):
         return extract_probability(raw_response)
 
     return convert_string_to_list(raw_response)
+
+
+def capitalize_substrings(model_name):
+    """
+    Capitalize the first letter of each substring in a model name.
+
+    Args:
+        model_name (str): The model name to be capitalized.
+
+    Returns:
+        str: The capitalized model name.
+    """
+    model_name = model_name.replace("gpt", "GPT") if "gpt" in model_name else model_name
+    substrings = model_name.split("-")
+    capitalized_substrings = [
+        substr[0].upper() + substr[1:] if substr and not substr[0].isdigit() else substr
+        for substr in substrings
+    ]
+    return "-".join(capitalized_substrings)
+
+
+def generage_final_forecast_files(deadline, prompt_type, models):
+    """
+    Generate final forecast files for given models, merging individual forecasts into final files.
+
+    Args:
+        deadline (str): The deadline for the forecast.
+        prompt_type (str): The type of prompt used.
+        models (dict): A dictionary of models with their information.
+
+    Returns:
+        None
+    """
+    models_to_test = list(models.keys())
+
+    for model in models_to_test:
+        current_model_forecasts = []
+        for test_type in [
+            f"{prompt_type}/non_market",
+            f"{prompt_type}/market",
+            f"{prompt_type}/combo_non_market",
+            f"{prompt_type}/combo_market",
+        ]:
+            file_path = f"{test_type}/{model}.jsonl"
+            questions = data_utils.read_jsonl(file_path)
+            current_model_forecasts.extend(questions)
+
+        final_file_name = f"{prompt_type}/final/{model}"
+        os.makedirs(os.path.dirname(final_file_name), exist_ok=True)
+        with open(final_file_name, "w") as file:
+            for entry in current_model_forecasts:
+                json_line = json.dumps(entry)
+                file.write(json_line + "\n")
+
+    for model in models_to_test:
+        file_path = f"{prompt_type}/final/{model}"
+        questions = data_utils.read_jsonl(file_path)
+        if "gpt" in model:
+            org = "OpenAI"
+        elif "llama" in model:
+            org = "Meta"
+        elif "mistral" in model:
+            org = "Mistral AI"
+        elif "claude" in model:
+            org = "Anthropic"
+        elif "qwen" in model:
+            org = "Qwen"
+        elif "gemini" in model:
+            org = "Google"
+
+        directory = f"{prompt_type}/final_submit"
+        os.makedirs(directory, exist_ok=True)
+
+        new_file_name = f"{directory}/{deadline}.{org}.{model}_{prompt_type}.json"
+
+        model_name = (
+            models[model]["full_name"]
+            if "/" not in models[model]["full_name"]
+            else models[model]["full_name"].split("/")[1]
+        )
+
+        forecast_file = {
+            "organization": org,
+            "model": f"{capitalize_substrings(model_name)} ({prompt_type.replace('_', ' ')})",
+            "question_set": f"{deadline}-llm.jsonl",
+            "forecast_date": datetime.today().strftime("%Y-%m-%d"),
+            "forecasts": questions,
+        }
+
+        with open(new_file_name, "w") as f:
+            json.dump(forecast_file, f, indent=4)

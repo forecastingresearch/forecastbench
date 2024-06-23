@@ -1,8 +1,6 @@
 # Byte-compiled / optimized / DLL files
 *.mk
-upload/
-upload1/
-upload2/
+upload*
 plotly_charts
 *.html
 *.json
@@ -46,7 +44,8 @@ ENV/
 \#*\#
 .\#*
 
-*.ipynb
+# notebook checkpoints
+.ipynb_checkpoints/
 
 # isort
 *.py.isorted

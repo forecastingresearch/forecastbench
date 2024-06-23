@@ -1,0 +1,18 @@
+logsBucket: gs://forecastbench-llm-baseline-docker-custom-logs-bucket
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '--build-arg', 'FORECAST_SETS_BUCKET=$_FORECAST_SETS_BUCKET',
+    '--build-arg', 'QUESTION_SETS_BUCKET=$_QUESTION_SETS_BUCKET',
+    '--build-arg', 'CLOUD_PROJECT=$_CLOUD_PROJECT',
+    '-t', '$_CLOUD_DEPLOY_REGION-docker.pkg.dev/$_CLOUD_PROJECT/$_REPO_NAME/$_IMAGE_NAME:latest',
+    '.'
+  ]
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'push',
+    '$_CLOUD_DEPLOY_REGION-docker.pkg.dev/$_CLOUD_PROJECT/$_REPO_NAME/$_IMAGE_NAME:latest'
+  ]
+images:
+- '$_CLOUD_DEPLOY_REGION-docker.pkg.dev/$_CLOUD_PROJECT/$_REPO_NAME/$_IMAGE_NAME:latest'

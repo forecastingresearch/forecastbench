@@ -184,3 +184,72 @@ def upload_questions_and_resolution(dfq, dfr, source):
     """
     upload_questions(dfq, source)
     upload_resolutions(dfq, source)
+
+
+def read_jsonl(file_path):
+    """
+    Read a JSONL file and return its content as a list of dictionaries.
+
+    Args:
+        file_path (str): The path to the JSONL file.
+
+    Returns:
+        list: A list of dictionaries, each representing a JSON object from the file.
+    """
+    data = []
+    with open(file_path, "r", encoding="utf-8") as file:
+        for line in file:
+            if line.strip():
+                json_object = json.loads(line)
+                data.append(json_object)
+    return data
+
+
+def download_and_read_saved_forecasts(filename, base_file_path):
+    """Download saved forecasts from cloud storage."""
+    local_filename = filename.replace(base_file_path + "/", "")
+    gcp.storage.download_no_error_message_on_404(
+        bucket_name=env.FORECAST_SETS_BUCKET,
+        filename=filename,
+        local_filename=local_filename,
+    )
+    return read_jsonl(local_filename)
+
+
+def list_files(directory):
+    """List all filenames under a directory."""
+    filenames = []
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        if os.path.isfile(file_path):
+            filenames.append(filename)
+    return filenames
+
+
+def delete_and_upload_to_the_cloud(base_file_path, prompt_type, question_types):
+    """Upload local forecast files to GCP and then delete them."""
+    # submits the final forecasts to forecastbench-forecast-sets-dev
+    local_directory = f"{prompt_type}/final_submit"
+    forecast_filenames = list_files(local_directory)
+    for forecast_filename in forecast_filenames:
+        local_filename = local_directory + "/" + forecast_filename
+        gcp.storage.upload(
+            bucket_name=env.FORECAST_SETS_BUCKET,
+            local_filename=local_filename,
+            filename=forecast_filename,
+        )
+        os.remove(local_filename)
+
+    # save intermediate results to forecastbench-forecast-sets-dev/individual_forecast_records
+    # in case the notebook is interrupted, it would pick up where it left off and continue running.
+    for question_type in question_types:
+        local_directory = f"{prompt_type}/{question_type}"
+        forecast_filenames = list_files(local_directory)
+        for forecast_filename in forecast_filenames:
+            local_filename = local_directory + f"/{forecast_filename}"
+            gcp.storage.upload(
+                bucket_name=env.FORECAST_SETS_BUCKET,
+                local_filename=local_filename,
+                filename=f"{base_file_path}/{local_filename}",
+            )
+            os.remove(local_filename)
