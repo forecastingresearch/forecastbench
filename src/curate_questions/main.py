@@ -205,7 +205,7 @@ def allocate_across_sources(for_humans, questions):
     return sources
 
 
-def write_questions(questions, filename):
+def write_questions(questions, for_whom):
     """Write single and combo questions to file and upload."""
 
     def get_forecast_horizon(source, combo_rows):
@@ -219,6 +219,26 @@ def write_questions(questions, filename):
     df = pd.DataFrame()
     for source, values in tqdm(questions.items(), "Writing questions"):
         df_source = values["dfq"]
+        # Order columns consistently for writing
+        df_source = df_source[
+            [
+                "id",
+                "source",
+                "question",
+                "resolution_criteria",
+                "background",
+                "market_info_open_datetime",
+                "market_info_close_datetime",
+                "market_info_resolution_criteria",
+                "url",
+                "freeze_datetime",
+                "freeze_datetime_value",
+                "freeze_datetime_value_explanation",
+                "human_prompt",
+                "forecast_horizons",
+                "combination_of",
+            ]
+        ]
         df = pd.concat([df, df_source], ignore_index=True)
         for q1, q2 in values["combos"]:
             combo_rows = df_source.loc[[q1, q2]].reset_index(drop=True)
@@ -245,15 +265,30 @@ def write_questions(questions, filename):
             )
             df = pd.concat([df, df_combo], ignore_index=True)
 
+    forecast_date_str = constants.FORECAST_DATE.isoformat()
+    filename = f"{forecast_date_str}-{for_whom}.json"
+    latest_filename = f"latest-{for_whom}.json"
     local_filename = f"/tmp/{filename}"
-    with open(local_filename, "w", encoding="utf-8") as f:
-        for record in df.to_dict(orient="records"):
-            jsonl_str = json.dumps(record, ensure_ascii=False)
-            f.write(jsonl_str + "\n")
+
+    json_data = {
+        "forecast_due_date": forecast_date_str,
+        "question_set": filename,
+        "questions": df.to_dict(orient="records"),
+    }
+
+    with open(local_filename, "w") as json_file:
+        json.dump(json_data, json_file, indent=4)
 
     gcp.storage.upload(
         bucket_name=env.QUESTION_SETS_BUCKET,
         local_filename=local_filename,
+        filename=filename,
+    )
+
+    gcp.storage.upload(
+        bucket_name=env.QUESTION_SETS_BUCKET,
+        local_filename=local_filename,
+        filename=latest_filename,
     )
 
 
@@ -446,12 +481,8 @@ def driver(_):
     _log_questions_found(LLM_QUESTIONS, for_humans=False)
     _log_questions_found(HUMAN_QUESTIONS, for_humans=True)
 
-    forecast_date_str = constants.FORECAST_DATE.isoformat()
-    llm_filename = f"{forecast_date_str}-llm.jsonl"
-    human_filename = f"{forecast_date_str}-human.jsonl"
-
-    write_questions(LLM_QUESTIONS, llm_filename)
-    write_questions(HUMAN_QUESTIONS, human_filename)
+    write_questions(LLM_QUESTIONS, "llm")
+    write_questions(HUMAN_QUESTIONS, "human")
 
     logger.info("Done.")
 
