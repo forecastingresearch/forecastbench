@@ -8,7 +8,13 @@ import sys
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, decorator, env, resolution  # noqa: E402
+from helpers import (  # noqa: E402
+    constants,
+    decorator,
+    env,
+    question_curation,
+    resolution,
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -54,7 +60,7 @@ def download_human_question_set(forecast_date):
     # DROP COMBO QUESTIONS FOR MARKETS
     df = df[
         ~df.apply(
-            lambda x: resolution.is_combo(x) and x["source"] not in constants.DATA_SOURCES,
+            lambda x: resolution.is_combo(x) and x["source"] not in question_curation.DATA_SOURCES,
             axis=1,
         )
     ].reset_index(drop=True)
@@ -64,7 +70,7 @@ def download_human_question_set(forecast_date):
 def get_leaderboard_entry(df):
     """Create the leaderboard entry for the given dataframe."""
     # Masks
-    data_mask = df["source"].isin(constants.DATA_SOURCES)
+    data_mask = df["source"].isin(question_curation.DATA_SOURCES)
     market_mask = ~data_mask
 
     resolved_mask = df["resolved"].astype(bool)

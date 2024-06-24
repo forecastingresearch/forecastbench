@@ -203,7 +203,7 @@ def get_data(current_data):
             "probability": forecast_yes,
             "forecast_horizons": "N/A",
             "freeze_datetime_value": forecast_yes,
-            "freeze_datetime_value_explanation": "The aggregated community forecast.",
+            "freeze_datetime_value_explanation": "The crowd forecast.",
         }
 
     return pd.DataFrame(all_questions_to_add)

@@ -13,7 +13,14 @@ import pandas as pd
 import resolution_helpers
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import constants, data_utils, dates, decorator, env  # noqa: E402
+from helpers import (  # noqa: E402
+    constants,
+    data_utils,
+    dates,
+    decorator,
+    env,
+    question_curation,
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from utils import gcp  # noqa: E402
@@ -237,7 +244,7 @@ def driver(request):
     logger.info("Calculate base rate for all data sources.")
     dataset_base_rates = {}
     for source in df_question_resolutions["source"].unique():
-        if source in constants.DATA_SOURCES:
+        if source in question_curation.DATA_SOURCES:
             df_source = df_question_resolutions[df_question_resolutions["source"] == source]
             base_rate = df_source["resolved_to"].eq(1).sum() / len(df_source)
             dataset_base_rates = {source: base_rate}

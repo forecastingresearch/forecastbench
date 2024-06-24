@@ -61,7 +61,7 @@ def _generate_forecast_questions(dfq, dff):
     TODAY = dates.get_date_today()
 
     common_question_fields = {
-        "background": "N/A",
+        "background": acled.BACKGROUND,
         "market_info_resolution_criteria": "N/A",
         "market_info_open_datetime": "N/A",
         "market_info_close_datetime": "N/A",
@@ -74,19 +74,13 @@ def _generate_forecast_questions(dfq, dff):
     def _get_event_type_str(event_type):
         return event_type if event_type == "fatalities" else f"'{event_type}'"
 
-    def _acled_event_type_explanation(event_type):
-        if event_type in event_types_acled:
-            event_type_str = _get_event_type_str(event_type)
-            return f"{event_type_str} is a type of event determined by ACLED."
-        return ""
-
     def _create_question_0(country, event_type, dfr):
-        event_type_explanation = _acled_event_type_explanation(event_type)
         event_type_str = _get_event_type_str(event_type)
         question = (
-            f"According to ACLED, will there be more {event_type_str} in {country} for the 30 "
-            f"days before resolution than the 30-day average of {event_type_str} over the past 360 "
-            f"days? {event_type_explanation}"
+            f"Will there be more {event_type_str} in {country} for the 30 days before "
+            "{resolution_date} than the 30-day average of "
+            f"{event_type_str} over the 360 days preceding "
+            "{forecast_due_date}?"
         )
         return {
             "id": f"{country}.{event_type}.last30Days.gt.{event_type}.30DayAvgOverPast360Days",
@@ -115,12 +109,12 @@ def _generate_forecast_questions(dfq, dff):
         }
 
     def _create_question_1(country, event_type, dfr):
-        event_type_explanation = _acled_event_type_explanation(event_type)
         event_type_str = _get_event_type_str(event_type)
         question = (
-            f"According to ACLED, will there be more than ten times as many {event_type_str} in "
-            f"{country} for the 30 days before resolution than one plus the 30-day average of "
-            f"{event_type_str} over the past 360 days? {event_type_explanation}"
+            f"Will there be more than ten times as many {event_type_str} in {country} for the 30 days before "
+            "{resolution_date} than one plus the 30-day average of "
+            f"{event_type_str} over the 360 days preceding "
+            "{forecast_due_date}?"
         )
         return {
             "id": (

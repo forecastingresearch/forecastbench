@@ -8,7 +8,7 @@ from datetime import timedelta
 
 import pandas as pd
 
-from . import constants, env
+from . import constants, env, question_curation
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -193,8 +193,8 @@ def market_resolves_before_forecast_due_date(dt):
     Parameters:
     - dt (datetime): a datetime that represents the market close time.
     """
-    llm_forecast_release_datetime = constants.FREEZE_DATETIME + timedelta(
-        days=constants.FREEZE_WINDOW_IN_DAYS
+    llm_forecast_release_datetime = question_curation.FREEZE_DATETIME + timedelta(
+        days=question_curation.FREEZE_WINDOW_IN_DAYS
     )
     all_forecasts_due = llm_forecast_release_datetime.replace(
         hour=23, minute=59, second=59, microsecond=999999

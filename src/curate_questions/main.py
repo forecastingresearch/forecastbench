@@ -21,7 +21,7 @@ from helpers import (  # noqa: E402
     data_utils,
     decorator,
     env,
-    question_prompts,
+    question_curation,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
@@ -187,7 +187,9 @@ def allocate_across_categories(num_questions, dfq):
 def allocate_across_sources(for_humans, questions):
     """Allocates the number of questions evenly among sources."""
     num_questions = (
-        constants.FREEZE_NUM_HUMAN_QUESTIONS if for_humans else constants.FREEZE_NUM_LLM_QUESTIONS
+        question_curation.FREEZE_NUM_HUMAN_QUESTIONS
+        if for_humans
+        else question_curation.FREEZE_NUM_LLM_QUESTIONS
     )
     sources = deepcopy(questions)
     col = "num_single_questions_available" if for_humans else "num_questions_incl_combo_available"
@@ -208,47 +210,92 @@ def allocate_across_sources(for_humans, questions):
 def write_questions(questions, for_whom):
     """Write single and combo questions to file and upload."""
 
-    def get_forecast_horizon(source, combo_rows):
-        if source not in constants.DATA_SOURCES:
+    def get_resolution_dates(source, combo_rows):
+        if source not in question_curation.DATA_SOURCES:
             # We don't ask for forecasts at different horizons for market-based questions.
             return "N/A"
-        fh1 = combo_rows.at[0, "forecast_horizons"]
-        fh2 = combo_rows.at[1, "forecast_horizons"]
+        fh1 = combo_rows.at[0, "resolution_dates"]
+        fh2 = combo_rows.at[1, "resolution_dates"]
         return sorted(set(fh1) | set(fh2))
+
+    def create_question_expanded(question, resolution_dates):
+        if resolution_dates == "N/A":
+            return question
+        forecast_due_date = question_curation.FORECAST_DATE.isoformat()
+        return [
+            question.format(resolution_date=resolution_date, forecast_due_date=forecast_due_date)
+            for resolution_date in resolution_dates
+        ]
+
+    def forecast_horizons_to_resolution_dates(forecast_horizons):
+        return (
+            [
+                (question_curation.FORECAST_DATETIME + timedelta(days=day)).date().isoformat()
+                for day in forecast_horizons
+            ]
+            if forecast_horizons != "N/A"
+            else forecast_horizons
+        )
 
     df = pd.DataFrame()
     for source, values in tqdm(questions.items(), "Writing questions"):
         df_source = values["dfq"]
         # Order columns consistently for writing
-        df_source = df_source[
-            [
-                "id",
-                "source",
-                "question",
-                "resolution_criteria",
-                "background",
-                "market_info_open_datetime",
-                "market_info_close_datetime",
-                "market_info_resolution_criteria",
-                "url",
-                "freeze_datetime",
-                "freeze_datetime_value",
-                "freeze_datetime_value_explanation",
-                "human_prompt",
-                "combination_of",
-                "forecast_horizons",
+        df_source = deepcopy(
+            df_source[
+                [
+                    "id",
+                    "source",
+                    "question_template",
+                    "question_expanded",
+                    "resolution_criteria",
+                    "background",
+                    "market_info_open_datetime",
+                    "market_info_close_datetime",
+                    "market_info_resolution_criteria",
+                    "url",
+                    "freeze_datetime",
+                    "freeze_datetime_value",
+                    "freeze_datetime_value_explanation",
+                    "source_intro",
+                    "combination_of",
+                    "forecast_horizons",
+                ]
             ]
-        ]
-        df = pd.concat([df, df_source], ignore_index=True)
+        )
+        df_source["resolution_dates"] = df_source["forecast_horizons"].apply(
+            forecast_horizons_to_resolution_dates
+        )
+        df_source = df_source.drop(columns="forecast_horizons")
+        df_source["question_expanded"] = df_source.apply(
+            lambda row: create_question_expanded(row["question_expanded"], row["resolution_dates"]),
+            axis=1,
+        )
+
+        df_combo = pd.DataFrame()
         for q1, q2 in values["combos"]:
             combo_rows = df_source.loc[[q1, q2]].reset_index(drop=True)
-            df_combo = pd.DataFrame(
+            # Expand combo questions along the union of the resolution dates. Hence overwrite
+            # question_expanded for the combos with the template and re-expand after calculating the
+            # combined resolution_dates
+            combo_rows["question_expanded"] = combo_rows["question_template"]
+            combo_rows["resolution_dates"] = [get_resolution_dates(source, combo_rows)] * len(
+                combo_rows
+            )
+            combo_rows["question_expanded"] = combo_rows.apply(
+                lambda row: create_question_expanded(
+                    row["question_expanded"], row["resolution_dates"]
+                ),
+                axis=1,
+            )
+            df_combo_tmp = pd.DataFrame(
                 [
                     {
                         "id": combo_rows["id"].tolist(),
                         "source": source,
                         "combination_of": combo_rows.to_dict(orient="records"),
-                        "question": question_prompts.combination,
+                        "question_template": question_curation.COMBINATION_PROMPT,
+                        "question_expanded": question_curation.COMBINATION_PROMPT,
                         "background": "N/A",
                         "market_info_resolution_criteria": "N/A",
                         "market_info_open_datetime": "N/A",
@@ -257,28 +304,16 @@ def write_questions(questions, for_whom):
                         "resolution_criteria": "N/A",
                         "freeze_datetime_value": "N/A",
                         "freeze_datetime_value_explanation": "N/A",
-                        "freeze_datetime": constants.FREEZE_DATETIME.isoformat(),
-                        "human_prompt": question_prompts.combination,
-                        "forecast_horizons": get_forecast_horizon(source, combo_rows),
+                        "freeze_datetime": question_curation.FREEZE_DATETIME.isoformat(),
+                        "source_intro": question_curation.COMBINATION_PROMPT,
+                        "resolution_dates": combo_rows.loc[0, "resolution_dates"],
                     }
                 ]
             )
-            df = pd.concat([df, df_combo], ignore_index=True)
+            df_combo = pd.concat([df_combo, df_combo_tmp], ignore_index=True)
+        df = pd.concat([df, df_source, df_combo], ignore_index=True)
 
-    def forecast_horizons_to_resolution_dates(forecast_horizons):
-        return (
-            [
-                (constants.FORECAST_DATETIME + timedelta(days=day)).date().isoformat()
-                for day in forecast_horizons
-            ]
-            if forecast_horizons != "N/A"
-            else forecast_horizons
-        )
-
-    df["resolution_dates"] = df["forecast_horizons"].apply(forecast_horizons_to_resolution_dates)
-    df = df.drop(columns="forecast_horizons")
-
-    forecast_date_str = constants.FORECAST_DATE.isoformat()
+    forecast_date_str = question_curation.FORECAST_DATE.isoformat()
     filename = f"{forecast_date_str}-{for_whom}.json"
     latest_filename = f"latest-{for_whom}.json"
     local_filename = f"/tmp/{filename}"
@@ -335,7 +370,7 @@ def drop_questions_that_resolve_too_soon(source, dfq):
       forecasting horizon. If it does, then do not use this question.
     * for data questions if forecast_horizons is empty, don't use the question
     """
-    if source in constants.DATA_SOURCES:
+    if source in question_curation.DATA_SOURCES:
         empty_horizons = dfq["forecast_horizons"].apply(lambda x: len(x) == 0)
         mask = empty_horizons | dfq["forecast_horizons"] == "N/A"
         return dfq.drop(labels=dfq[mask].index.tolist())
@@ -367,9 +402,9 @@ def driver(_):
     )
 
     # Get the latest questions
-    QUESTIONS = constants.FREEZE_QUESTION_SOURCES
+    QUESTIONS = question_curation.FREEZE_QUESTION_SOURCES
     sources_to_remove = []
-    for source, _ in constants.FREEZE_QUESTION_SOURCES.items():
+    for source, _ in question_curation.FREEZE_QUESTION_SOURCES.items():
         dfq = data_utils.get_data_from_cloud_storage(
             source=source,
             return_question_data=True,
@@ -384,15 +419,15 @@ def driver(_):
             dfq = dfq[dfq["category"] != "Other"]
             dfq = dfq[~dfq["resolved"]]
             dfq = drop_questions_that_resolve_too_soon(source=source, dfq=dfq)
-            dfq["human_prompt"] = dfq.apply(
+            dfq["source_intro"] = dfq.apply(
                 format_string_value,
-                args=(QUESTIONS[source]["human_prompt"], QUESTIONS[source]["name"]),
+                args=(QUESTIONS[source]["source_intro"], QUESTIONS[source]["name"]),
                 axis=1,
             )
             dfq["resolution_criteria"] = dfq.apply(
                 format_string_field, args=(QUESTIONS[source]["resolution_criteria"], "url"), axis=1
             )
-            dfq["freeze_datetime"] = constants.FREEZE_DATETIME.isoformat()
+            dfq["freeze_datetime"] = question_curation.FREEZE_DATETIME.isoformat()
             dfq["combination_of"] = "N/A"
             if source == "acled":
                 # Drop Acled-specific columns
@@ -409,6 +444,12 @@ def driver(_):
                 axis=1,
                 inplace=True,
             )
+
+            # Add question template field
+            dfq["question_template"] = dfq["question"]
+            dfq["question_expanded"] = dfq["question"]
+            dfq = dfq.drop(columns="question")
+
             num_single_questions = len(dfq)
             num_questions = math.floor(num_single_questions / COMBO_PCT)
             QUESTIONS[source]["dfq"] = dfq.reset_index(drop=True)

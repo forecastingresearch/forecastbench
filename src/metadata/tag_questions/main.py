@@ -14,6 +14,7 @@ from helpers import (  # noqa: E402
     env,
     llm_prompts,
     model_eval,
+    question_curation,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
@@ -58,7 +59,7 @@ def driver(_):
     if "category" not in dfmeta.columns:
         dfmeta["category"] = ""
 
-    for source, _ in constants.FREEZE_QUESTION_SOURCES.items():
+    for source, _ in question_curation.FREEZE_QUESTION_SOURCES.items():
         logger.info(f"Getting categories for {source} questions.")
         dfq = data_utils.get_data_from_cloud_storage(
             source=source,

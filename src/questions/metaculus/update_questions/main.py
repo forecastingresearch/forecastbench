@@ -186,7 +186,7 @@ def _update_questions_and_resolved_values(dfq, dff):
         **{col: None for col in dfq.columns if col != "id"}
     )
     df_ids_to_append["resolved"] = False
-    df_ids_to_append["freeze_datetime_value_explanation"] = "The market value."
+    df_ids_to_append["freeze_datetime_value_explanation"] = "The community prediction."
     df_ids_to_append["market_info_resolution_datetime"] = "N/A"
 
     # Limit the number of new questions to avoid rate limit

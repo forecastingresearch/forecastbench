@@ -14,6 +14,7 @@ from helpers import (  # noqa: E402
     env,
     llm_prompts,
     model_eval,
+    question_curation,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
@@ -74,7 +75,7 @@ def driver(_):
         dfmeta["valid_question"] = ""
 
     n_total_invalid = 0
-    for source, _ in constants.FREEZE_QUESTION_SOURCES.items():
+    for source, _ in question_curation.FREEZE_QUESTION_SOURCES.items():
         logger.info(f"Validating {source} questions.")
         dfq = data_utils.get_data_from_cloud_storage(
             source=source,
@@ -85,7 +86,7 @@ def driver(_):
         dfq = dfq.merge(dfmeta, on=["source", "id"], how="left").fillna("")
         dfmeta = dfmeta[dfmeta["source"] != source]
 
-        if source in constants.DATA_SOURCES + [
+        if source in question_curation.DATA_SOURCES + [
             "infer",
             "metaculus",
         ]:

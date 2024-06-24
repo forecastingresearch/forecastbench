@@ -1,11 +1,10 @@
 """Constants."""
 
-import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 
-from . import dates, dbnomics, question_prompts, resolutions
+from . import dbnomics
 
 BENCHMARK_NAME = "ForecastBench"
 
@@ -23,50 +22,6 @@ ANTHROPIC_SOURCE = "ANTHROPIC"
 TOGETHER_AI_SOURCE = "TOGETHER"
 GOOGLE_SOURCE = "GOOGLE"
 MISTRAL_SOURCE = "MISTRAL"
-
-FREEZE_NUM_LLM_QUESTIONS = 1000
-
-FREEZE_NUM_HUMAN_QUESTIONS = 200
-
-# Assumed in the code
-assert FREEZE_NUM_LLM_QUESTIONS > FREEZE_NUM_HUMAN_QUESTIONS
-
-FREEZE_QUESTION_SOURCES = {
-    "manifold": {
-        "name": "Manifold",  # Name to use in the human prompt
-        "human_prompt": question_prompts.market,  # The human prompt to use
-        "resolution_criteria": resolutions.market,
-    },
-    "metaculus": {
-        "name": "Metaculus",
-        "human_prompt": question_prompts.market,
-        "resolution_criteria": resolutions.metaculus,
-    },
-    "acled": {
-        "name": "ACLED",
-        "human_prompt": question_prompts.acled,
-        "resolution_criteria": resolutions.acled,
-    },
-    "infer": {
-        "name": "INFER",
-        "human_prompt": question_prompts.market,
-        "resolution_criteria": resolutions.infer,
-    },
-}
-
-DATA_SOURCES = [
-    "acled",
-]
-
-FREEZE_WINDOW_IN_DAYS = 7
-
-FREEZE_DATETIME = os.environ.get("FREEZE_DATETIME", dates.get_datetime_today()).replace(
-    hour=0, minute=0, second=0, microsecond=0
-)
-
-FORECAST_DATETIME = FREEZE_DATETIME + timedelta(days=FREEZE_WINDOW_IN_DAYS)
-
-FORECAST_DATE = FORECAST_DATETIME.date()
 
 FORECAST_HORIZONS_IN_DAYS = [
     7,  # 1 week
