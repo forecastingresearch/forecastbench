@@ -7,7 +7,7 @@ import os
 import random
 import sys
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import combinations
 
 import numpy as np
@@ -235,8 +235,8 @@ def write_questions(questions, for_whom):
                 "freeze_datetime_value",
                 "freeze_datetime_value_explanation",
                 "human_prompt",
-                "forecast_horizons",
                 "combination_of",
+                "forecast_horizons",
             ]
         ]
         df = pd.concat([df, df_source], ignore_index=True)
@@ -264,6 +264,19 @@ def write_questions(questions, for_whom):
                 ]
             )
             df = pd.concat([df, df_combo], ignore_index=True)
+
+    def forecast_horizons_to_resolution_dates(forecast_horizons):
+        return (
+            [
+                (constants.FORECAST_DATETIME + timedelta(days=day)).date().isoformat()
+                for day in forecast_horizons
+            ]
+            if forecast_horizons != "N/A"
+            else forecast_horizons
+        )
+
+    df["resolution_dates"] = df["forecast_horizons"].apply(forecast_horizons_to_resolution_dates)
+    df = df.drop(columns="forecast_horizons")
 
     forecast_date_str = constants.FORECAST_DATE.isoformat()
     filename = f"{forecast_date_str}-{for_whom}.json"
