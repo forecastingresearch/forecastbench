@@ -53,7 +53,7 @@ def driver(_):
         df_tmp=pd.DataFrame(columns=constants.META_DATA_FILE_COLUMNS).astype(
             constants.META_DATA_FILE_COLUMN_DTYPE
         ),
-        dtype=constants.META_DATA_FILE_COLUMN_DTYPE,
+        dtype={},
     )
     if "category" not in dfmeta.columns:
         dfmeta["category"] = ""

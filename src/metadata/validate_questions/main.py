@@ -68,10 +68,11 @@ def driver(_):
         df_tmp=pd.DataFrame(columns=constants.META_DATA_FILE_COLUMNS).astype(
             constants.META_DATA_FILE_COLUMN_DTYPE
         ),
-        dtype=constants.META_DATA_FILE_COLUMN_DTYPE,
+        dtype={},
     )
     if "valid_question" not in dfmeta.columns:
         dfmeta["valid_question"] = ""
+
     n_total_invalid = 0
     for source, _ in constants.FREEZE_QUESTION_SOURCES.items():
         logger.info(f"Validating {source} questions.")
