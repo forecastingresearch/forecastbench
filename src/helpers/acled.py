@@ -50,8 +50,8 @@ https://acleddata.com/knowledge-base/codebook/#acled-events
 SOURCE_INTRO = (
     "The Armed Conflict Location & Event Data Project (ACLED) collects real-time data on the "
     "locations, dates, actors, fatalities, and types of all reported political violence and "
-    "protest events around the world. You’re going to predict the probability of the following "
-    "potential outcome we’ve come up with about some of the data ACLED tracks."
+    "protest events around the world. You're going to predict how questions based on this data "
+    "will resolve."
 )
 
 RESOLUTION_CRITERIA = (

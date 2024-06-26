@@ -138,7 +138,16 @@ def allocate_evenly(data: dict, n: int):
 
     If `sum(data.values()) <= n` it returns `data`.
     """
-    if sum(data.values()) <= n:
+
+    def print_info_message(num_allocated, n):
+        if num_allocated != n:
+            logger.error(f"*** Problem allocating evenly... Allocated {num_allocated}/{n}. ***")
+        else:
+            logger.info(f"Successfully allocated {num_allocated}/{n}.")
+
+    sum_n_items = sum(data.values())
+    if sum_n_items <= n:
+        print_info_message(sum_n_items, n)
         return data, sorted([key for key, value in data.items()])
 
     # initial allocation
@@ -170,10 +179,7 @@ def allocate_evenly(data: dict, n: int):
         allocated_num = sum(allocation.values())
 
     num_allocated = sum(allocation.values())
-    if num_allocated != n:
-        logger.error(f"*** Problem allocating evenly... Allocated {num_allocated}/{n}. ***")
-    else:
-        logger.info(f"Successfully allocated {num_allocated}/{n}.")
+    print_info_message(num_allocated, n)
     return allocation, underrepresented_items
 
 
