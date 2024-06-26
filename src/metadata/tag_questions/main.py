@@ -73,9 +73,11 @@ def driver(_):
         )
         dfmeta = dfmeta[dfmeta["source"] != source]
 
+        # Asign categories to some sources
         if source == "acled":
-            # Hard code ACLED categories
             dfq["category"] = "Security & Defense"
+        elif source == "yfinance":
+            dfq["category"] = "Economics & Business"
         else:
             dfq = get_categories_from_llm(dfq)
 

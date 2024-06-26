@@ -3,7 +3,7 @@
 import os
 from datetime import timedelta
 
-from . import acled, dates, infer, manifold, metaculus
+from . import acled, dates, infer, manifold, metaculus, yfinance
 
 FREEZE_NUM_LLM_QUESTIONS = 1000
 FREEZE_NUM_HUMAN_QUESTIONS = 200
@@ -11,7 +11,8 @@ FREEZE_NUM_HUMAN_QUESTIONS = 200
 # Assumed in the code
 assert FREEZE_NUM_LLM_QUESTIONS > FREEZE_NUM_HUMAN_QUESTIONS
 
-FREEZE_QUESTION_SOURCES = {
+
+FREEZE_QUESTION_MARKET_SOURCES = {
     "manifold": {
         "name": "Manifold",
         "source_intro": manifold.SOURCE_INTRO,
@@ -22,11 +23,6 @@ FREEZE_QUESTION_SOURCES = {
         "source_intro": metaculus.SOURCE_INTRO,
         "resolution_criteria": metaculus.RESOLUTION_CRITERIA,
     },
-    "acled": {
-        "name": "ACLED",
-        "source_intro": acled.SOURCE_INTRO,
-        "resolution_criteria": acled.RESOLUTION_CRITERIA,
-    },
     "infer": {
         "name": "INFER",
         "source_intro": infer.SOURCE_INTRO,
@@ -34,9 +30,23 @@ FREEZE_QUESTION_SOURCES = {
     },
 }
 
-DATA_SOURCES = [
-    "acled",
-]
+FREEZE_QUESTION_DATA_SOURCES = {
+    "acled": {
+        "name": "ACLED",
+        "source_intro": acled.SOURCE_INTRO,
+        "resolution_criteria": acled.RESOLUTION_CRITERIA,
+    },
+    "yfinance": {
+        "name": "Yahoo Finance",
+        "source_intro": yfinance.SOURCE_INTRO,
+        "resolution_criteria": yfinance.RESOLUTION_CRITERIA,
+    },
+}
+
+FREEZE_QUESTION_SOURCES = {**FREEZE_QUESTION_MARKET_SOURCES, **FREEZE_QUESTION_DATA_SOURCES}
+
+DATA_SOURCES = list(FREEZE_QUESTION_DATA_SOURCES.keys())
+MARKET_SOURCES = list(FREEZE_QUESTION_MARKET_SOURCES.keys())
 
 FREEZE_WINDOW_IN_DAYS = 7
 
