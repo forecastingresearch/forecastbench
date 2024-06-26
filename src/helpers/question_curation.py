@@ -3,7 +3,7 @@
 import os
 from datetime import timedelta
 
-from . import acled, dates, infer, manifold, metaculus, yfinance
+from . import acled, dates, infer, manifold, metaculus, polymarket, yfinance
 
 FREEZE_NUM_LLM_QUESTIONS = 1000
 FREEZE_NUM_HUMAN_QUESTIONS = 200
@@ -27,6 +27,11 @@ FREEZE_QUESTION_MARKET_SOURCES = {
         "name": "INFER",
         "source_intro": infer.SOURCE_INTRO,
         "resolution_criteria": infer.RESOLUTION_CRITERIA,
+    },
+    "polymarket": {
+        "name": "Polymarket",
+        "source_intro": polymarket.SOURCE_INTRO,
+        "resolution_criteria": polymarket.RESOLUTION_CRITERIA,
     },
 }
 
