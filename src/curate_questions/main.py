@@ -218,15 +218,6 @@ def write_questions(questions, for_whom):
         fh2 = combo_rows.at[1, "resolution_dates"]
         return sorted(set(fh1) | set(fh2))
 
-    def create_question_expanded(question, resolution_dates):
-        if resolution_dates == "N/A":
-            return question
-        forecast_due_date = question_curation.FORECAST_DATE.isoformat()
-        return [
-            question.format(resolution_date=resolution_date, forecast_due_date=forecast_due_date)
-            for resolution_date in resolution_dates
-        ]
-
     def forecast_horizons_to_resolution_dates(forecast_horizons):
         return (
             [
@@ -246,8 +237,7 @@ def write_questions(questions, for_whom):
                 [
                     "id",
                     "source",
-                    "question_template",
-                    "question_expanded",
+                    "question",
                     "resolution_criteria",
                     "background",
                     "market_info_open_datetime",
@@ -267,35 +257,22 @@ def write_questions(questions, for_whom):
             forecast_horizons_to_resolution_dates
         )
         df_source = df_source.drop(columns="forecast_horizons")
-        df_source["question_expanded"] = df_source.apply(
-            lambda row: create_question_expanded(row["question_expanded"], row["resolution_dates"]),
-            axis=1,
-        )
 
         df_combo = pd.DataFrame()
         for q1, q2 in values["combos"]:
             combo_rows = df_source.loc[[q1, q2]].reset_index(drop=True)
-            # Expand combo questions along the union of the resolution dates. Hence overwrite
-            # question_expanded for the combos with the template and re-expand after calculating the
-            # combined resolution_dates
-            combo_rows["question_expanded"] = combo_rows["question_template"]
-            combo_rows["resolution_dates"] = [get_resolution_dates(source, combo_rows)] * len(
-                combo_rows
-            )
-            combo_rows["question_expanded"] = combo_rows.apply(
-                lambda row: create_question_expanded(
-                    row["question_expanded"], row["resolution_dates"]
-                ),
-                axis=1,
-            )
+            resolution_dates = get_resolution_dates(source, combo_rows)
+            # N/A the resolution dates reported in `combination_of` to avoid confusion. Could also
+            # set equal to resolution_dates above this comment, but opting for the former for
+            # simplicity.
+            combo_rows["resolution_dates"] = combo_rows.apply(lambda x: "N/A", axis=1)
             df_combo_tmp = pd.DataFrame(
                 [
                     {
                         "id": combo_rows["id"].tolist(),
                         "source": source,
                         "combination_of": combo_rows.to_dict(orient="records"),
-                        "question_template": question_curation.COMBINATION_PROMPT,
-                        "question_expanded": question_curation.COMBINATION_PROMPT,
+                        "question": question_curation.COMBINATION_PROMPT,
                         "background": "N/A",
                         "market_info_resolution_criteria": "N/A",
                         "market_info_open_datetime": "N/A",
@@ -306,7 +283,7 @@ def write_questions(questions, for_whom):
                         "freeze_datetime_value_explanation": "N/A",
                         "freeze_datetime": question_curation.FREEZE_DATETIME.isoformat(),
                         "source_intro": question_curation.COMBINATION_PROMPT,
-                        "resolution_dates": combo_rows.loc[0, "resolution_dates"],
+                        "resolution_dates": resolution_dates,
                     }
                 ]
             )
@@ -442,11 +419,6 @@ def driver(_):
                 axis=1,
                 inplace=True,
             )
-
-            # Add question template field
-            dfq["question_template"] = dfq["question"]
-            dfq["question_expanded"] = dfq["question"]
-            dfq = dfq.drop(columns="question")
 
             num_single_questions = len(dfq)
             num_questions = math.floor(num_single_questions / COMBO_PCT)
