@@ -386,11 +386,8 @@ def drop_questions_that_resolve_too_soon(source, dfq):
 def driver(_):
     """Curate questions for forecasting."""
 
-    def format_string_field(row, template, field):
-        return template.format(f_string_value=row[field])
-
-    def format_string_value(row, template, value):
-        return template.format(f_string_value=value)
+    def format_resolution_criteria(row, template):
+        return template.format(url=row["url"])
 
     dfmeta = data_utils.download_and_read(
         filename=constants.META_DATA_FILENAME,
@@ -420,12 +417,13 @@ def driver(_):
             dfq = dfq[~dfq["resolved"]]
             dfq = drop_questions_that_resolve_too_soon(source=source, dfq=dfq)
             dfq["source_intro"] = dfq.apply(
-                format_string_value,
-                args=(QUESTIONS[source]["source_intro"], QUESTIONS[source]["name"]),
-                axis=1,
+                lambda row, source=source: QUESTIONS[source]["source_intro"], axis=1
             )
             dfq["resolution_criteria"] = dfq.apply(
-                format_string_field, args=(QUESTIONS[source]["resolution_criteria"], "url"), axis=1
+                lambda row, source=source: QUESTIONS[source]["resolution_criteria"].format(
+                    url=row["url"]
+                ),
+                axis=1,
             )
             dfq["freeze_datetime"] = question_curation.FREEZE_DATETIME.isoformat()
             dfq["combination_of"] = "N/A"

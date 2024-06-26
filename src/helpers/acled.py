@@ -55,5 +55,5 @@ SOURCE_INTRO = (
 )
 
 RESOLUTION_CRITERIA = (
-    "Resolves to the value calculated from the ACLED dataset once the data is " "published."
+    "Resolves to the value calculated from the ACLED dataset once the data is published."
 )
