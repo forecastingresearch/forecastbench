@@ -108,8 +108,8 @@ def driver(_):
     dff = data_utils.download_and_read(
         filename=filenames["jsonl_fetch"],
         local_filename=filenames["local_fetch"],
-        df_tmp=pd.DataFrame(columns=constants.DBNOMICS_FETCH_COLUMNS),
-        dtype=constants.DBNOMICS_FETCH_COLUMN_DTYPE,
+        df_tmp=pd.DataFrame(columns=dbnomics.FETCH_COLUMNS),
+        dtype=dbnomics.FETCH_COLUMN_DTYPE,
     )
     dfq = data_utils.download_and_read(
         filename=filenames["jsonl_question"],

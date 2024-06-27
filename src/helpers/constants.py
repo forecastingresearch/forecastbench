@@ -2,10 +2,6 @@
 
 from datetime import datetime
 
-import pandas as pd
-
-from . import dbnomics
-
 BENCHMARK_NAME = "ForecastBench"
 
 BENCHMARK_START_YEAR = 2024
@@ -131,14 +127,3 @@ MODEL_NAME_TO_SOURCE = {
     "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": TOGETHER_AI_SOURCE,
     "Qwen/Qwen1.5-110B-Chat": TOGETHER_AI_SOURCE,
 }
-
-DBNOMICS_DATA = pd.DataFrame(dbnomics.CONSTANTS)
-
-DBNOMICS_FETCH_COLUMN_DTYPE = {
-    "id": str,
-    "period": str,
-    "value": str,
-    "question_text": str,
-    "value_at_freeze_datetime_explanation": str,
-}
-DBNOMICS_FETCH_COLUMNS = list(DBNOMICS_FETCH_COLUMN_DTYPE.keys())
