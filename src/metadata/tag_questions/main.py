@@ -76,7 +76,7 @@ def driver(_):
         # Asign categories to some sources
         if source == "acled":
             dfq["category"] = "Security & Defense"
-        elif source == "yfinance":
+        elif source in ["yfinance", "fred"]:
             dfq["category"] = "Economics & Business"
         else:
             dfq = get_categories_from_llm(dfq)

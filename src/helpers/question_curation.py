@@ -3,7 +3,17 @@
 import os
 from datetime import timedelta
 
-from . import acled, dates, dbnomics, infer, manifold, metaculus, polymarket, yfinance
+from . import (
+    acled,
+    dates,
+    dbnomics,
+    fred,
+    infer,
+    manifold,
+    metaculus,
+    polymarket,
+    yfinance,
+)
 
 FREEZE_NUM_LLM_QUESTIONS = 1000
 FREEZE_NUM_HUMAN_QUESTIONS = 200
@@ -45,6 +55,11 @@ FREEZE_QUESTION_DATA_SOURCES = {
         "name": "DBnomics",
         "source_intro": dbnomics.SOURCE_INTRO,
         "resolution_criteria": dbnomics.RESOLUTION_CRITERIA,
+    },
+    "fred": {
+        "name": "FRED",
+        "source_intro": fred.SOURCE_INTRO,
+        "resolution_criteria": fred.RESOLUTION_CRITERIA,
     },
     "yfinance": {
         "name": "Yahoo Finance",

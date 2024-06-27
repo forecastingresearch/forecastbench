@@ -332,8 +332,8 @@ def fetch_all(dfq, FRED_QUESTIONS_NAMES):
         if "series_name" in combined_questions[series_id]:
             series_name = combined_questions[series_id]["series_name"]
             question = (
-                f"Will {series_name} have increased by the resolution date, "
-                "as compared to its value at the forecast due date?"
+                f"Will {series_name} have increased by "
+                "{resolution_date} as compared to its value on {forecast_due_date}?"
             )
         else:
             question = combined_questions[series_id]["question"]
