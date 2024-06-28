@@ -8,6 +8,13 @@ fetch_directory = "wikipedia/fetch"
 
 hash_mapping = {}
 
+SOURCE_INTRO = (
+    "Wikipedia is an online encyclopedia created and edited by volunteers. You're going to predict "
+    "how questions based on data sourced from Wikipedia will resolve."
+)
+
+RESOLUTION_CRITERIA = "Resolves to the value calculated from {url} on the resolution date."
+
 
 def get_fetch_filename(question_id_root: str) -> str:
     """Provide the name of the fetch file for the id_root."""
@@ -127,8 +134,8 @@ PAGES = [
         },
         "question": (
             (
-                "According to Wikipedia, on the resolution date will {id} have an Elo rating "
-                "that's at least 1% higher than it is today?"
+                "According to Wikipedia, will {id} have an Elo rating on {resolution_date} that's "
+                "at least 1% higher than on {forecast_due_date}?"
             ),
             ("id",),
         ),
@@ -149,8 +156,8 @@ PAGES = [
         },
         "question": (
             (
-                "According to Wikipedia, will {id} have a FIDE ranking at least as good as their "
-                "current ranking on the resolution date?"
+                "According to Wikipedia, will {id} have a FIDE ranking on {resolution_date} be as "
+                "high or higher than their ranking on {forecast_due_date}?"
             ),
             ("id",),
         ),
@@ -172,7 +179,7 @@ PAGES = [
         "question": (
             (
                 "According to Wikipedia, will {id} still hold the world record for {value} in "
-                "long course (50 metres) swimming pools on the resolution date?"
+                "long course (50 metres) swimming pools on {resolution_date}?"
             ),
             ("id", "value"),
         ),
@@ -210,8 +217,8 @@ PAGES = [
         },
         "question": (
             (
-                "According to Wikipedia, will a vaccine have been developed for {id} by the "
-                "resolution date?"
+                "According to Wikipedia, will a vaccine have been developed for {id} by "
+                "{resolution_date}?"
             ),
             ("id",),
         ),

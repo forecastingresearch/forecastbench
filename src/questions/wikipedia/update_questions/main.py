@@ -66,7 +66,13 @@ def add_to_dfq(dfq, dfr, page, wid, id_field_value):
 
     def fill_template(page, page_key, values):
         fill_values = {field: values[field] for field in page["question"][1]}
-        return page[page_key][0].format(**fill_values)
+        # Always maintain resolution_date and forecast_due_date when formatting the string
+        default_values = {
+            "resolution_date": "{resolution_date}",
+            "forecast_due_date": "{forecast_due_date}",
+        }
+        combined_fill_values = {**default_values, **fill_values}
+        return page[page_key][0].format(**combined_fill_values)
 
     dfr = dfr.sort_values(by="date")
     value = dfr.iloc[-1]["value"]
