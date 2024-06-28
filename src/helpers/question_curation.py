@@ -24,6 +24,8 @@ assert FREEZE_NUM_LLM_QUESTIONS > FREEZE_NUM_HUMAN_QUESTIONS
 
 
 FREEZE_QUESTION_MARKET_SOURCES = {
+    # If market sources are ever removed, the key must be added to MARKET_SOURCES in
+    # `helpers/resolution.py` as the resolution code needs all old market sources.
     "manifold": {
         "name": "Manifold",
         "source_intro": manifold.SOURCE_INTRO,
@@ -78,6 +80,7 @@ FREEZE_QUESTION_SOURCES = {**FREEZE_QUESTION_MARKET_SOURCES, **FREEZE_QUESTION_D
 
 DATA_SOURCES = list(FREEZE_QUESTION_DATA_SOURCES.keys())
 MARKET_SOURCES = list(FREEZE_QUESTION_MARKET_SOURCES.keys())
+ALL_SOURCES = DATA_SOURCES + MARKET_SOURCES
 
 FREEZE_WINDOW_IN_DAYS = 7
 

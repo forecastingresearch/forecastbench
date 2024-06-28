@@ -1,20 +1,23 @@
 """Resolve forecasting questions."""
 
+import argparse
 import itertools
 import json
 import logging
 import os
-import pickle
 import sys
+from datetime import timedelta
 from pprint import pprint
 
 import acled
+import data
 import markets
 import numpy as np
 import pandas as pd
+import wikipedia
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import data_utils, dates, decorator, env, resolution  # noqa: E402
+from helpers import constants, dates, decorator, env, resolution  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -22,21 +25,35 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+RUN_LOCALLY_WITH_MOCK_DATA = False
+
 required_forecast_file_keys = [
     "organization",
     "model",
     "question_set",
-    "forecast_date",
+    "forecast_due_date",
     "forecasts",
+]
+
+dummy_forecast_keys = [
+    "id",
+    "source",
+    "direction",
+    "forecast",
+    "resolution_date",
+]
+
+valid_forecast_keys = dummy_forecast_keys + [
+    "reasoning",
 ]
 
 QUESTION_SET_FIELDS = [
     "id",
     "source",
     "direction",
-    "forecast_submitted_date",
-    "market_value_at_submission",
-    "forecast_evaluation_date",
+    "forecast_due_date",
+    "market_value_on_due_date",
+    "resolution_date",
     "resolved_to",
     "resolved",
 ]
@@ -44,58 +61,58 @@ QUESTION_SET_FIELDS = [
 TODAY = dates.get_date_today()
 
 
-def upload_questions_and_resolutions_file(df, forecast_date):
+def upload_questions_and_resolutions_file(df, forecast_due_date):
     """Upload resolutions dataset."""
-    local_filename = f"/tmp/{forecast_date}_resolutions.jsonl"
+    local_filename = f"/tmp/{forecast_due_date}_resolutions.jsonl"
     df = df[
         [
             "id",
             "source",
             "direction",
-            "forecast_submitted_date",
-            "forecast_evaluation_date",
+            "forecast_due_date",
+            "resolution_date",
             "resolved_to",
             "resolved",
         ]
     ]
     df["direction"] = df["direction"].apply(lambda x: None if len(x) == 0 else x)
-    df["forecast_submitted_date"] = (
-        df["forecast_submitted_date"].dt.strftime("%Y-%m-%d").astype(str)
-    )
-    df["forecast_evaluation_date"] = (
-        df["forecast_evaluation_date"].dt.strftime("%Y-%m-%d").astype(str)
-    )
+    df["forecast_due_date"] = df["forecast_due_date"].dt.strftime("%Y-%m-%d").astype(str)
+    df["resolution_date"] = df["resolution_date"].dt.strftime("%Y-%m-%d").astype(str)
     df.to_json(local_filename, orient="records", lines=True)
-    gcp.storage.upload(
-        bucket_name=env.LEADERBOARD_BUCKET,
-        local_filename=local_filename,
-        destination_folder="supplementary_materials/datasets/question_and_resolution_sets",
-    )
+    if not RUN_LOCALLY_WITH_MOCK_DATA:
+        gcp.storage.upload(
+            bucket_name=env.LEADERBOARD_BUCKET,
+            local_filename=local_filename,
+            destination_folder="supplementary_materials/datasets/question_and_resolution_sets",
+        )
 
 
 def download_and_read_forecast_file(filename):
     """Download forecast file."""
-    local_filename = "/tmp/tmp.json"
-    gcp.storage.download(
-        bucket_name=env.FORECAST_SETS_BUCKET, filename=filename, local_filename=local_filename
-    )
+    local_filename = filename
+    if not RUN_LOCALLY_WITH_MOCK_DATA:
+        local_filename = "/tmp/tmp.json"
+        gcp.storage.download(
+            bucket_name=env.FORECAST_SETS_BUCKET, filename=filename, local_filename=local_filename
+        )
+
     with open(local_filename, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     return data if all(key in data for key in required_forecast_file_keys) else None
 
 
-def upload_processed_forecast_file(data, forecast_date, filename):
+def upload_processed_forecast_file(data, forecast_due_date, filename):
     """Upload processed forecast file."""
     local_filename = "/tmp/tmp.json"
     with open(local_filename, "w") as f:
         f.write(json.dumps(data, indent=4))
-    gcp.storage.upload(
-        bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
-        local_filename=local_filename,
-        destination_folder=forecast_date,
-        filename=filename,
-    )
+    if not RUN_LOCALLY_WITH_MOCK_DATA:
+        gcp.storage.upload(
+            bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
+            local_filename=local_filename,
+            filename=filename,
+        )
 
 
 def resolve_questions(df, resolution_values):
@@ -105,26 +122,66 @@ def resolve_questions(df, resolution_values):
     - df: the questions in the question set
     - resolution_values: all resolutions from data sources
     """
+    df = df.assign(
+        resolved=False,
+        resolved_to=np.nan,
+        market_value_on_due_date=np.nan,
+    )
+    err_msg_pre = "Error in `resolve_questions()`:"
     for source in df["source"].unique():
+        logger.info(f"Resolving {source}.")
         source_data = resolution_values.get(source, {})
-        dfq = source_data.get("dfq").copy()
-        dfr = source_data.get("dfr").copy()
-        if source in markets.MARKET_SOURCES:
+        dfq = source_data.get("dfq", {}).copy()
+        dfr = source_data.get("dfr", {}).copy()
+        if isinstance(dfq, dict) or isinstance(dfr, dict):
+            msg = (
+                f"{err_msg_pre} {source}: "
+                f"dfq empty: {isinstance(dfq, dict)}. "
+                f"dfr empty: {isinstance(dfr, dict)}."
+            )
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if source in resolution.MARKET_SOURCES:
             df = markets.resolve(source=source, df=df.copy(), dfq=dfq, dfr=dfr)
+        elif source in ["dbnomics", "fred", "yfinance"]:
+            df = data.resolve(source=source, df=df.copy(), dfq=dfq, dfr=dfr)
         elif source == "acled":
             df = acled.resolve(df=df.copy(), dfq=dfq, dfr=dfr)
+        elif source == "wikipedia":
+            df = wikipedia.resolve(df=df.copy(), dfq=dfq, dfr=dfr)
         else:
-            logger.warning(f"*** Not able to resolve {source} ***")
+            msg = f"{err_msg_pre} not able to resolve {source}."
+            logger.error(msg)
+            raise ValueError(msg)
+
+        df_tmp = df[df["source"] == source]
+        n_na = len(df_tmp[df_tmp["resolved_to"].isna()])
+        n_dates = len(df_tmp["resolution_date"].unique())
+        n_combo = int(len(df_tmp[df_tmp["id"].apply(resolution.is_combo)]) / n_dates)
+        n_single = int(len(df_tmp[~df_tmp["id"].apply(resolution.is_combo)]) / n_dates)
+        logger.info(
+            f"* Resolving {source}: #NaN {n_na}/{len(df_tmp)} Total for "
+            f"{n_dates} dates, {n_single} single & {n_combo} combo questions."
+        )
 
     # Remove all forecasts on dataset questions that have not resolved
     n_pre_drop = len(df)
-    df = df[~(~df["source"].isin(markets.MARKET_SOURCES) & ~df["resolved"])]
-    logger.info(f"Dropped {n_pre_drop - len(df)} dataset questions that have not yet resolved.")
+    df = df[~(df["source"].isin(resolution.DATA_SOURCES) & (~df["resolved"]))]
+    unresolved_dataset_drop_count = n_pre_drop - len(df)
+    if unresolved_dataset_drop_count > 0:
+        logger.info(
+            f"Dropped {unresolved_dataset_drop_count:,} dataset questions that have not yet resolved."
+        )
 
     # Remove all forecast questions that have resolved to np.nan
     n_pre_drop = len(df)
     df = df[~df["resolved_to"].isna()]
-    logger.info(f"Dropped {n_pre_drop - len(df)} questions that have resolved to NaN.")
+    na_drop_count = n_pre_drop - len(df)
+    if na_drop_count > 0:
+        logger.warning(
+            f"! WARNING ! Dropped {na_drop_count:,} questions that have resolved to NaN."
+        )
 
     return df.reset_index(drop=True)
 
@@ -149,101 +206,162 @@ def get_forecast_horizon(row, dfq):
         return matches.iloc[0]["forecast_horizons"] if not matches.empty else []
 
 
-def get_resolutions_for_llm_question_set(forecast_date, resolution_values):
+def get_resolutions_for_llm_question_set(forecast_due_date, resolution_values):
     """
-    Given a forecast date, find available resolution values for the associatdd llm question file.
+    Given a forecast date, find available resolution values for the associated llm question file.
+
+    * add resolution dates for market questions
+    * explode resolution dates
+    * add directions for combo questions
+    * get resolution for each entry, calling `resolve_questions()`
 
     Params:
-    - forecast-date: ISO date as string
+    - forecast_due_date: ISO date as string
     - resolution_values: dictionary of latest resolution values downloaded from storage bucket.
     """
-    filename = f"{forecast_date}-llm.jsonl"
+    filename = f"{forecast_due_date}-llm.json"
     logger.info(f"Getting resolutions for {filename}.")
-    df = pd.read_json(
-        f"gs://{env.QUESTION_SETS_BUCKET}/{filename}",
-        lines=True,
-        convert_dates=False,
+
+    df_orig_question_set = resolution.download_and_read_question_set_file(
+        filename, run_locally=RUN_LOCALLY_WITH_MOCK_DATA
     )
-    df = df[["id", "source", "forecast_horizons"]]
-    df = resolution.make_columns_hashable(df)
-    n_start = len(df)
-    logger.info(f"LM question set starting with {n_start} questions.")
+    df = df_orig_question_set[["id", "source", "resolution_dates"]].copy()
+    logger.info(f"LLM question set starting with {len(df):,} questions.")
 
-    # DROP COMBO QUESTIONS FOR MARKETS
-    df = df[
-        ~df.apply(
-            lambda x: resolution.is_combo(x) and x["source"] in markets.MARKET_SOURCES,
-            axis=1,
-        )
-    ].reset_index(drop=True)
+    df["forecast_due_date"] = pd.to_datetime(forecast_due_date)
 
-    # Expand horizons & get resolution_dates
-    df["forecast_submitted_date"] = pd.to_datetime(forecast_date)
-    df = df.explode("forecast_horizons", ignore_index=True)
-    df["forecast_evaluation_date"] = df["forecast_submitted_date"] + pd.to_timedelta(
-        df["forecast_horizons"], unit="D"
+    # Assign max resolution dates to all market sources, which will be trimmed in a few lines to
+    # only include resolution dates that occurred before a market question was resolved.
+    def get_all_resolution_dates(df):
+        all_resolution_dates = set()
+        for resolution_date in df["resolution_dates"]:
+            if resolution_date != "N/A" and isinstance(resolution_date, list):
+                all_resolution_dates.update(resolution_date)
+        return sorted(all_resolution_dates)
+
+    all_resolution_dates = get_all_resolution_dates(df)
+
+    # Fill resolution dates for market questions as forecasters only provide forecasts on the
+    # market outcome and we evaluate those forecasts at every horizion.
+    df["resolution_dates"] = df.apply(
+        lambda x: (
+            all_resolution_dates
+            if x["source"] in resolution.MARKET_SOURCES
+            else x["resolution_dates"]
+        ),
+        axis=1,
     )
-    df = df[df["forecast_evaluation_date"] < pd.Timestamp(TODAY)]
+    df = df.explode("resolution_dates", ignore_index=True)
+    df.rename(columns={"resolution_dates": "resolution_date"}, inplace=True)
+    df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
+    df = df[df["resolution_date"] < TODAY]
 
-    # For Market questions that have resolved early, keep only those forecast periods that are
-    # < resolution_date and the first period that is >= resolution_date
-    for source in markets.MARKET_SOURCES:
-        source_data = resolution_values.get(source, {})
-        dfq = source_data.get("dfq").copy()
-        dfq_resolved = dfq[dfq["resolved"]]
-        mask = (df["source"] == source) & df["id"].isin(dfq_resolved["id"])
-        df_common_resolved = df[mask]
-        for mid in df_common_resolved["id"]:
-            resolution_date = dfq_resolved.loc[
-                dfq_resolved["id"] == mid, "market_info_resolution_datetime"
-            ].iloc[0]
-            resolution_date = pd.to_datetime(resolution_date).date()
-            df_tmp = df[(df["id"] == mid) & (df["source"] == source)]
-            df_to_drop = df_tmp[
-                df_tmp["forecast_evaluation_date"].dt.date >= resolution_date
-            ].sort_values(by="forecast_evaluation_date", ascending=True)
-            if len(df_to_drop) > 1:
-                df_to_drop = df_to_drop.iloc[1:]
-                df = df.drop(df_to_drop.index)
+    # Expand combo question directions
+    df["direction"] = df.apply(
+        lambda x: (
+            list(itertools.product((1, -1), repeat=len(x["id"])))
+            if isinstance(x["id"], tuple)
+            else [()]
+        ),
+        axis=1,
+    )
+    df = df.explode("direction", ignore_index=True)
+    df = df.sort_values(by=["source", "resolution_date"], ignore_index=True)
 
-    # Expand combo question directions:
-    new_rows = []
-    indices_to_drop = []
-    df["direction"] = df.apply(lambda x: tuple(), axis=1)
-    for index, row in df.iterrows():
-        if resolution.is_combo(row):
-            indices_to_drop += [index]
-            for direction in itertools.product((1, -1), repeat=len(row["id"])):
-                new_row = row.copy()
-                new_row["direction"] = direction
-                new_rows.append(new_row)
-    df = df.drop(indices_to_drop)
-    df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
-    df = df.sort_values(by=["source", "forecast_evaluation_date"], ignore_index=True)
-
-    # Resolve all questions
-    df["resolved"] = False
-    df = df.assign(resolved_to=np.nan, market_value_at_submission=np.nan)
+    # Resolve all questions across horizons and directions in question set
+    df["resolution_date"] = pd.to_datetime(df["resolution_date"])
     df = resolve_questions(df, resolution_values)
-    logger.info(f"LM question set has {len(df)} questions.")
+    print_question_set_breakdown(
+        human_or_llm="LLM",
+        forecast_due_date=forecast_due_date,
+        df=df,
+        df_orig_question_set=df_orig_question_set,
+    )
     return df[QUESTION_SET_FIELDS]
 
 
-def get_resolutions_for_human_question_set(forecast_date, df_llm_resolutions):
+def get_resolutions_for_human_question_set(forecast_due_date, df_llm_resolutions):
     """Extract resolutions for human questions from llm resolutions.
 
     Assumes human questions are a subset of llm questions.
     """
-    df = pd.read_json(
-        f"gs://{env.QUESTION_SETS_BUCKET}/{forecast_date}-human.jsonl",
-        lines=True,
-        convert_dates=False,
+    filename = f"{forecast_due_date}-human.json"
+    df_orig_question_set = resolution.download_and_read_question_set_file(
+        filename, run_locally=RUN_LOCALLY_WITH_MOCK_DATA
     )
-    df = resolution.make_columns_hashable(df)
-    df = pd.merge(df_llm_resolutions, df, on=["id", "source"]).reset_index(drop=True)
+    df = pd.merge(df_llm_resolutions, df_orig_question_set, on=["id", "source"]).reset_index(
+        drop=True
+    )
+    df = df[QUESTION_SET_FIELDS]
 
-    logger.info(f"Human question set has {len(df)} questions expanded using llm_resolutions.")
+    print_question_set_breakdown(
+        human_or_llm="HUMAN",
+        forecast_due_date=forecast_due_date,
+        df=df,
+        df_orig_question_set=df_orig_question_set,
+    )
     return df[QUESTION_SET_FIELDS]
+
+
+def print_question_set_breakdown(human_or_llm, forecast_due_date, df, df_orig_question_set):
+    """Print info about question set, saying how many resolved to N/A.
+
+    This will let us know haw many questions to expect in the leaderboard tables. This is
+    approximate as it only does this for the first horizon, and some questions may not start
+    resolving until another horizon (e.g. some data questions). Also, some may resolve to NA for the
+    first period but not for others, e.g. sometimes weather data may not have been available.
+    """
+    logger.info("")
+    logger.info(f"{human_or_llm} QUESTION SET Breakdown {forecast_due_date}")
+
+    resolution_date = [df["resolution_date"].unique()[0]]
+
+    def get_df_len(df, single, sources):
+        combo_mask = df["id"].apply(resolution.is_combo)
+        df_tmp = df[~combo_mask] if single else df[combo_mask]
+        df_tmp = df_tmp[df_tmp["resolution_date"].isin(resolution_date)]
+        df_tmp = df_tmp[df_tmp["source"].isin(sources)]
+        return len(df_tmp) if single else int(len(df_tmp) / 4)
+
+    for source_type in ["data", "market"]:
+        sources = resolution.DATA_SOURCES if source_type == "data" else resolution.MARKET_SOURCES
+        for source in sources:
+            if source in df["source"].unique():
+                n_single_questions = get_df_len(df=df, single=True, sources=[source])
+                n_combo_questions = get_df_len(df=df, single=False, sources=[source])
+                n_orig_questions = len(
+                    df_orig_question_set[df_orig_question_set["source"] == source]
+                )
+                combo_info = (
+                    "."
+                    if n_combo_questions == 0
+                    else f", No. Combo Q's {n_combo_questions:,}/{n_orig_questions:,} Orig No. Q's."
+                )
+                logger.info(
+                    f" * {source} No. Single Q's: {n_single_questions:,}/{n_orig_questions:,} "
+                    f"Orig No. Q's{combo_info}"
+                )
+        n_single_questions = get_df_len(df=df, single=True, sources=sources)
+        n_combo_questions = get_df_len(df=df, single=False, sources=sources)
+        n_questions = n_single_questions + n_combo_questions
+        logger.info(f"TOTAL {source_type} questions: {n_questions:,}")
+
+    n_single_questions = get_df_len(
+        df=df, single=True, sources=resolution.MARKET_SOURCES + resolution.DATA_SOURCES
+    )
+    n_combo_questions = get_df_len(
+        df=df, single=False, sources=resolution.MARKET_SOURCES + resolution.DATA_SOURCES
+    )
+    n_questions = n_single_questions + n_combo_questions
+    logger.info(f"TOTAL questions: {n_questions:,}")
+
+    df_res_date = df[df["resolution_date"].isin(resolution_date)]
+    for _, row in df_orig_question_set.iterrows():
+        df_tmp = df_res_date[
+            (df_res_date["id"] == row["id"]) & (df_res_date["source"] == row["source"])
+        ]
+        if df_tmp.empty:
+            logger.warning(f" N/A resolution for {row['source']} {row['id']}")
 
 
 def impute_missing_forecasts(df):
@@ -253,22 +371,24 @@ def impute_missing_forecasts(df):
     Forecasters are expeceted to provide forecasts on all questions. If they have omitted
     forecasts, we impute the following values to their forecasts:
     * data questions: 0.5
-    * market questions: the market value at forecast_submitted_date (i.e. the naive forecast)
+    * market questions: the market value at forecast_due_date (i.e. the naive forecast)
     """
     df["forecast"] = df["forecast"].astype(float)
     n_orig = df["forecast"].isna().sum()
+    df["imputed"] = False
+    df.loc[df["forecast"].isna(), "imputed"] = True
     if n_orig == 0:
         logger.info("No missing values → nothing to impute.")
         return df
-    logger.info(f"Imputing {n_orig} missing values.")
+    logger.info(f"Imputing {n_orig:,} missing values.")
 
     # For data tasks, apply a forecast of 0.5 to missing forecasts
-    df.loc[(df["source"] == "acled") & (df["forecast"].isna()), "forecast"] = 0.5
+    df.loc[(df["source"].isin(resolution.DATA_SOURCES)) & (df["forecast"].isna()), "forecast"] = 0.5
 
-    # For market tasks, apply a forecast of the market value at forecast_submitted_date
-    df.loc[(df["source"].isin(markets.MARKET_SOURCES)) & (df["forecast"].isna()), "forecast"] = df[
-        "market_value_at_submission"
-    ]
+    # For market tasks, apply a forecast of the market value at forecast_due_date
+    df.loc[(df["source"].isin(resolution.MARKET_SOURCES)) & (df["forecast"].isna()), "forecast"] = (
+        df["market_value_on_due_date"]
+    )
 
     return df
 
@@ -278,70 +398,42 @@ def score_forecasts(df, df_question_resolutions):
     logger.info("Scoring forecasts.")
 
     # Split dataframe into market questions and non-market questions
-    df_markets, df_not_markets = (
-        df[df["source"].isin(markets.MARKET_SOURCES)].copy(),
-        df[~df["source"].isin(markets.MARKET_SOURCES)].copy(),
+    df_market_sources = df[df["source"].isin(resolution.MARKET_SOURCES)].copy()
+    df_data_sources = df[df["source"].isin(resolution.DATA_SOURCES)].copy()
+
+    # Add `resolution_date` to market questions; since there are no resolution dates for market
+    # questions and thus a forecast is valid at all resolution dates, simply drop the column and
+    # join on the existing resolution dates in df_question_resolutions.
+    df_market_sources = df_market_sources.drop(
+        columns=["resolution_date"] if "resolution_date" in df_market_sources.columns else []
     )
-
-    # Add `forecast_evaluation_date` to df_markets; drop `horizon`
-    df_markets = pd.merge(
-        df_question_resolutions,
-        df_markets,
-        on=[
-            "id",
-            "source",
-            "direction",
-            "forecast_submitted_date",
-        ],
-        suffixes=(None, "_df"),
-    )
-    df_markets = df_markets.drop(
-        columns=[
-            "horizon",
-            "horizon_df",
-            "resolved",
-            "resolved_to",
-            "market_value_at_submission",
-        ]
-    ).reset_index(drop=True)
-
-    # Add `forecast_evaluation_date` for non-market questions; join on `horizon` given
-    # forecasts are expected for all horizons; drop `horizon`.
-    df_not_markets = pd.merge(
-        df_question_resolutions,
-        df_not_markets,
-        on=[
-            "id",
-            "source",
-            "direction",
-            "forecast_submitted_date",
-            "horizon",
-        ],
-    )
-    df_not_markets = df_not_markets.drop(
-        columns=[
-            "horizon",
-            "resolved",
-            "resolved_to",
-            "market_value_at_submission",
-        ]
-    ).reset_index(drop=True)
-
-    df = pd.concat([df_markets, df_not_markets], ignore_index=True)
-
-    # Left merge on question_resolutions s.t. any missing forecasts appear as np.nan
-    df = pd.merge(
-        df_question_resolutions,
-        df,
-        on=[
-            "id",
-            "source",
-            "direction",
-            "forecast_submitted_date",
-            "forecast_evaluation_date",
-        ],
+    df_market_sources = pd.merge(
+        df_question_resolutions[df_question_resolutions["source"].isin(resolution.MARKET_SOURCES)],
+        df_market_sources,
         how="left",
-    ).reset_index(drop=True)
+        on=[
+            "id",
+            "source",
+            "direction",
+            "forecast_due_date",
+        ],
+    )
+
+    # For data questions, drop forecasts for periods that are not yet resolvable.
+    df_data_sources = pd.merge(
+        df_question_resolutions[df_question_resolutions["source"].isin(resolution.DATA_SOURCES)],
+        df_data_sources,
+        how="left",
+        on=[
+            "id",
+            "source",
+            "direction",
+            "forecast_due_date",
+            "resolution_date",
+        ],
+    )
+
+    df = pd.concat([df_market_sources, df_data_sources], ignore_index=True)
 
     df = impute_missing_forecasts(df)
 
@@ -388,79 +480,267 @@ def write_leaderboard_csv(leaderboard):
     df.to_csv("/tmp/leaderboard.csv", index=False)
 
 
-def get_resolution_values_for_forecast_date(
-    forecast_date, resolved_values_for_question_sources, resolution_values
+def get_resolution_values_for_forecast_due_date(
+    forecast_due_date,
+    resolved_values_for_question_sources,
+    resolution_values,
 ):
     """Get resolution values once for every question set."""
-    if forecast_date in resolved_values_for_question_sources.keys():
+    if forecast_due_date in resolved_values_for_question_sources.keys():
         return resolved_values_for_question_sources
 
-    logger.info(f"Found new question source: {forecast_date}. Downloading .jsonl and resolving...")
-    resolved_values_for_question_sources[forecast_date] = {
-        "llm": get_resolutions_for_llm_question_set(forecast_date, resolution_values)
+    logger.info(
+        f"Found new question source: {forecast_due_date}. Downloading .json and resolving..."
+    )
+    resolved_values_for_question_sources[forecast_due_date] = {
+        "llm": get_resolutions_for_llm_question_set(forecast_due_date, resolution_values)
     }
-    resolved_values_for_question_sources[forecast_date]["human"] = (
+
+    resolved_values_for_question_sources[forecast_due_date]["human"] = (
         get_resolutions_for_human_question_set(
-            forecast_date, resolved_values_for_question_sources[forecast_date]["llm"]
+            forecast_due_date,
+            resolved_values_for_question_sources[forecast_due_date]["llm"],
         )
     )
 
     upload_questions_and_resolutions_file(
-        df=resolved_values_for_question_sources[forecast_date]["llm"].copy(),
-        forecast_date=forecast_date,
+        df=resolved_values_for_question_sources[forecast_due_date]["llm"].copy(),
+        forecast_due_date=forecast_due_date,
     )
     return resolved_values_for_question_sources
 
 
-def prepare_forecast_file(df, forecast_date):
-    """Prepare the organization's forecast file."""
-    df = resolution.make_columns_hashable(df)
+def create_dummy_forecasts_for_forecast_due_date(
+    forecast_sets, forecast_due_date, resolved_values_for_question_sources
+):
+    """Create dummy files for the llm question set as it's a superset of the human question set.
+
+    If a particular dummy forecast file does not exist for the question set, upload it. Return the
+    list of added dummy forecast files.
+
+    Parameters:
+    forecast_sets (list): all files in env.FORECAST_SETS_BUCKET
+    forecast_due_date (str): the forecast due date
+    resolved_values_for_question_sources (dict): all resolved question sets
+
+    Return:
+    (list): uploaded dummy forecast files
+    """
+    uploaded_files = []
+    dummy_files_exist = resolved_values_for_question_sources.get(forecast_due_date, {}).get(
+        "dummy", False
+    )
+    if dummy_files_exist:
+        return uploaded_files, resolved_values_for_question_sources
+
+    logger.info(f"Creating dummy forecasts for {forecast_due_date}.")
+
+    def upload_dummy_forecast_file(destination_folder, filename, output):
+        """Upload dummy forecast files."""
+        local_filename = "/tmp/tmp.json"
+        with open(local_filename, "w", encoding="utf-8") as f:
+            json.dump(output, f)
+
+        if not RUN_LOCALLY_WITH_MOCK_DATA:
+            gcp.storage.upload(
+                bucket_name=env.FORECAST_SETS_BUCKET,
+                local_filename=local_filename,
+                destination_folder=destination_folder,
+                filename=filename,
+            )
+            return f"{destination_folder}/{filename}"
+
+    dummy_file_info = {
+        "always-0.5": {
+            "name": "Always 0.5",
+            "func": lambda df: 0.5,
+        },
+        "always-1": {
+            "name": "Always 1",
+            "func": lambda df: 1.0,
+        },
+        "always-0": {
+            "name": "Always 0",
+            "func": lambda df: 0.0,
+        },
+        "random-uniform": {
+            "name": "Random Uniform",
+            "func": lambda df: np.random.rand(len(df)),
+        },
+        "imputed-forecaster": {
+            "name": "Imputed Forecaster",
+            "func": lambda df: np.nan,
+        },
+    }
+
+    output = {
+        "organization": constants.BENCHMARK_NAME,
+        "question_set": f"{forecast_due_date}-llm.json",
+        "forecast_due_date": forecast_due_date,
+    }
+
+    df = resolved_values_for_question_sources[forecast_due_date]["llm"].copy()
+    destination_folder = forecast_due_date
+    for key, value in dummy_file_info.items():
+        # Check that file doesn't already exist
+        filename = f"{forecast_due_date}.{constants.BENCHMARK_NAME}.llm-{key}-forecast.json"
+        if f"{destination_folder}/{filename}" not in forecast_sets:
+            df_dummy = df.copy()
+            df_dummy["forecast"] = value["func"](df_dummy)
+            df_dummy = df_dummy[dummy_forecast_keys]
+            df_dummy["direction"] = df_dummy["direction"].apply(
+                lambda x: None if len(x) == 0 else x
+            )
+            df_dummy["resolution_date"] = (
+                df_dummy["resolution_date"].dt.strftime("%Y-%m-%d").astype(str)
+            )
+            df_dummy["reasoning"] = None
+            df_dummy = df_dummy[
+                ["id", "source", "forecast", "resolution_date", "reasoning", "direction"]
+            ]
+            output["forecasts"] = json.loads(df_dummy.to_json(orient="records"))
+            output["model"] = value["name"]
+            uploaded_files.append(
+                upload_dummy_forecast_file(
+                    destination_folder=destination_folder,
+                    filename=filename,
+                    output=output,
+                )
+            )
+
+    resolved_values_for_question_sources[forecast_due_date]["dummy"] = True
+    return uploaded_files, resolved_values_for_question_sources
+
+
+def check_and_prepare_forecast_file(df, forecast_due_date, organization):
+    """Check and prepare the organization's forecast file.
+
+    - Only keep columns needed for resolution
+    - Check values are within correct ranges
+    - Ensure dates are correct
+
+    Parameters:
+    * df (dataframe): organization's forecasts
+    * forecast_due_date (string): date as YYYY-MM-DD
+    * organization (string): the organization that created the forecasts
+
+    Returns:
+    * df (dataframe): Validated and ready for resolution
+    """
+    df = df.drop(columns=[col for col in df.columns if col not in valid_forecast_keys])
     if "reasoning" in df.columns:
         df = df.drop(columns=["reasoning"])
-    df["horizon"] = df["horizon"].apply(lambda x: "N/A" if pd.isna(x) else x)
 
-    # DROP COMBO QUESTIONS FOR MARKETS
-    df = df[
-        ~df.apply(
-            lambda x: resolution.is_combo(x) and x["source"] in markets.MARKET_SOURCES,
-            axis=1,
+    # Drop invalid sources
+    df_len = len(df)
+    df["source"] = df["source"].str.lower()
+    df = df[df["source"].isin(resolution.MARKET_SOURCES + resolution.DATA_SOURCES)]
+    if df_len != len(df):
+        logger.warning(
+            f"Preparing {organization} dataframe: Dropped {df_len-len(df)} rows because of invalid "
+            "data sources."
         )
-    ].reset_index(drop=True)
 
-    df["forecast_submitted_date"] = pd.to_datetime(dates.convert_iso_str_to_date(forecast_date))
+    # Drop invalid forecasts
+    df_len = len(df)
+    df = df[~df["forecast"].isna()]
+    df = df[(df["forecast"] >= 0) & (df["forecast"] <= 1)]
+    if df_len != len(df):
+        logger.warning(
+            f"Preparing {organization} dataframe: Dropped {df_len-len(df)} rows because of invalid "
+            "forecasts."
+        )
+
+    # Drop invalid resolution dates
+    df_len = len(df)
+    forecast_due_date_date = dates.convert_iso_str_to_date(forecast_due_date)
+    valid_resolution_dates = [
+        (forecast_due_date_date + timedelta(days=horizon)).strftime("%Y-%m-%d")
+        for horizon in constants.FORECAST_HORIZONS_IN_DAYS
+    ]
+    df.loc[df["source"].isin(resolution.MARKET_SOURCES), "resolution_date"] = None
+    df["resolution_date"] = df["resolution_date"].str.slice(0, 10)  # Remove timestamps if present
+    df = df[
+        df["source"].isin(resolution.MARKET_SOURCES)
+        | (
+            (df["source"].isin(resolution.DATA_SOURCES))
+            & (df["resolution_date"].isin(valid_resolution_dates))
+        )
+    ]
+    df["resolution_date"] = pd.to_datetime(df["resolution_date"])
+    if df_len != len(df):
+        logger.warning(
+            f"Preparing {organization} dataframe: Dropped {df_len-len(df)} rows because of invalid "
+            "dates."
+        )
+
+    # Add forecast due date
+    df["forecast_due_date"] = pd.to_datetime(forecast_due_date)
+
+    # Make columns hashable
+    df = resolution.make_columns_hashable(df)
+    df = df.drop_duplicates(
+        subset=["id", "source", "resolution_date", "direction"], keep="first", ignore_index=True
+    )
     return df
 
 
 @decorator.log_runtime
-def driver(_):
+def driver(request):
     """Resolve forecasts."""
-    forecast_sets = gcp.storage.list(env.FORECAST_SETS_BUCKET)
-    forecast_sets = [f for f in forecast_sets if "/" not in f]
+    if RUN_LOCALLY_WITH_MOCK_DATA:
+        # Only use the value in `request` when running locally
+        json_data = request.get_json()
+        forecast_sets = [json_data["mock_forecast_set"]]
+    else:
+        forecast_sets = gcp.storage.list(env.FORECAST_SETS_BUCKET)
+
     if not forecast_sets:
         logger.warning("No forecast sets to evaluate.")
         return "OK", 200
 
-    if os.path.exists("resolution_values.pkl"):
-        with open("resolution_values.pkl", "rb") as handle:
-            resolution_values = pickle.load(handle)
+    def get_and_pickle_resolution_values(filename, save_pickle_file=False, sources_to_get=None):
+        """Get and pickle dfr and dfq from GCP so that we can avoid doing this on every run.
+
+        If `sources_to_get` is passed, only get dfr and dfq for these sources. Update the existing .pkl
+        file. NB: this is only used if a resolution file already exists.
+        """
+        import pickle
+
+        resolution_values = None
+        if os.path.exists(filename):
+            with open(filename, "rb") as handle:
+                resolution_values = pickle.load(handle)
+
+            if sources_to_get:
+                resolution_values_tmp = resolution.get_resolution_values(
+                    sources_to_get=sources_to_get
+                )
+                if resolution_values is not None and isinstance(resolution_values, dict):
+                    resolution_values.update(resolution_values_tmp)
+                else:
+                    resolution_values = resolution_values_tmp
+
+                if save_pickle_file:
+                    with open(filename, "wb") as handle:
+                        pickle.dump(resolution_values, handle)
+        else:
+            resolution_values = resolution.get_resolution_values()
+            if save_pickle_file:
+                with open(filename, "wb") as handle:
+                    pickle.dump(resolution_values, handle)
+        return resolution_values
+
+    if RUN_LOCALLY_WITH_MOCK_DATA:
+        # Running locally, using mock data.
+        resolution_values = get_and_pickle_resolution_values(
+            filename="mock_resolution_values.pkl", save_pickle_file=True
+        )
     else:
-        resolution_values = {
-            "acled": {
-                "dfr": acled.make_resolution_df(),
-                "dfq": data_utils.get_data_from_cloud_storage(
-                    source="acled", return_question_data=True
-                ),
-            }
-        }
-        for source in markets.MARKET_SOURCES:
-            dfr = markets.make_resolution_df(source=source)
-            dfq = data_utils.get_data_from_cloud_storage(source=source, return_question_data=True)
-            resolution_values[source] = {
-                "dfr": dfr,
-                "dfq": dfq,
-            }
-        with open("resolution_values.pkl", "wb") as handle:
-            pickle.dump(resolution_values, handle)
+        resolution_values = get_and_pickle_resolution_values(
+            filename="resolution_values.pkl",
+            save_pickle_file=False,
+        )
 
     leaderboard = {}
     resolved_values_for_question_sources = {}
@@ -474,22 +754,29 @@ def driver(_):
         organization = data.get("organization")
         model = data.get("model")
         question_set_filename = data.get("question_set")
-        forecast_date = data.get("forecast_date")
+        forecast_due_date = data.get("forecast_due_date")
         forecasts = data.get("forecasts")
         if (
             not organization
             or not model
             or not question_set_filename
-            or not forecast_date
+            or not forecast_due_date
             or not forecasts
         ):
+            continue
+
+        if forecast_due_date != question_set_filename[:10]:
+            logger.error(
+                f"In {f}: forecast_due_date: {forecast_due_date}. "
+                f"question_set_filename: {question_set_filename}."
+            )
             continue
 
         team_forecast = {
             "organization": organization,
             "model": model,
             "question_set": question_set_filename,
-            "forecast_date": forecast_date,
+            "forecast_due_date": forecast_due_date,
         }
 
         is_human_question_set = "human" in question_set_filename
@@ -499,34 +786,44 @@ def driver(_):
         if df.empty:
             continue
 
-        resolved_values_for_question_sources = get_resolution_values_for_forecast_date(
-            forecast_date=forecast_date,
-            resolved_values_for_question_sources=resolved_values_for_question_sources,
-            resolution_values=resolution_values,
-        )
-        df_question_resolutions = resolved_values_for_question_sources[forecast_date][
+        try:
+            resolved_values_for_question_sources = get_resolution_values_for_forecast_due_date(
+                forecast_due_date=forecast_due_date,
+                resolved_values_for_question_sources=resolved_values_for_question_sources,
+                resolution_values=resolution_values,
+            )
+            add_to_forecast_sets, resolved_values_for_question_sources = (
+                create_dummy_forecasts_for_forecast_due_date(
+                    forecast_sets=forecast_sets,
+                    forecast_due_date=forecast_due_date,
+                    resolved_values_for_question_sources=resolved_values_for_question_sources,
+                )
+            )
+            forecast_sets += add_to_forecast_sets
+        except ValueError as e:
+            logger.error(f"EXCEPTION caught {str(e)}")
+            return f"Error: {str(e)}", 400
+
+        df_question_resolutions = resolved_values_for_question_sources[forecast_due_date][
             human_llm_key
         ].copy()
 
-        # Only for joining on horizon; drop when we no longer use horizon and join on resolution
-        # dates instead
-        df_question_resolutions["horizon"] = (
-            df_question_resolutions["forecast_evaluation_date"]
-            - df_question_resolutions["forecast_submitted_date"]
-        ).dt.days
-
-        df = prepare_forecast_file(df=df, forecast_date=forecast_date)
+        df = check_and_prepare_forecast_file(
+            df=df, forecast_due_date=forecast_due_date, organization=organization
+        )
 
         df = score_forecasts(df=df, df_question_resolutions=df_question_resolutions)
 
         leaderboard = update_leaderboard(
             leaderboard=leaderboard, organization=organization, model=model, df=df
         )
-        print("\n")
+
         # Convert to json then load to keep pandas json conversion
         # df.to_dict has different variable conversions and hence is undesireable
         team_forecast["forecasts"] = json.loads(df.to_json(orient="records", date_format="iso"))
-        upload_processed_forecast_file(data=team_forecast, forecast_date=forecast_date, filename=f)
+        upload_processed_forecast_file(
+            data=team_forecast, forecast_due_date=forecast_due_date, filename=f
+        )
 
     logger.info(leaderboard)
     pprint(leaderboard)
@@ -537,4 +834,35 @@ def driver(_):
 
 
 if __name__ == "__main__":
-    driver(None)
+    """Local dev."""
+    parser = argparse.ArgumentParser(description="Run the script with optional flags.")
+    parser.add_argument(
+        "--use-mock-data", action="store_true", help="Use mock data instead of GCP data."
+    )
+    args = parser.parse_args()
+
+    if not args.use_mock_data:
+        driver(None)
+    else:
+        mock_date = "2024-05-18"
+        RUN_LOCALLY_WITH_MOCK_DATA = True
+
+        class MockRequest:
+            """Class to mock requsets for local dev."""
+
+            def __init__(self, json_data):
+                """Mock __init__ from request class."""
+                self._json = json_data
+
+            def get_json(self, silent=False):
+                """Mock get_json from request class."""
+                return self._json
+
+        mock_request = MockRequest(
+            {
+                "mock_question_set": f"{mock_date}-llm-mock.json",
+                "mock_forecast_set": f"{mock_date}.ForecastBench.llm-random-forecast.json",
+            }
+        )
+
+        driver(mock_request)

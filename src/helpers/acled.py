@@ -135,6 +135,12 @@ def download_dff_and_prepare_dfr() -> tuple:
     )
 
 
+def make_resolution_df():
+    """Prepare data for resolution."""
+    dfr, _, _ = download_dff_and_prepare_dfr()
+    return dfr
+
+
 class QuestionType(Enum):
     """Types of questions.
 
@@ -154,23 +160,20 @@ def resolve(
     resolution_date,
 ):
     """Resolve given the QuestionType."""
+    lhs = sum_over_past_30_days(dfr=dfr, country=country, col=event_type, ref_date=resolution_date)
+
     if key == "last30Days.gt.30DayAvgOverPast360Days":
-        lhs = sum_over_past_30_days(
-            dfr=dfr, country=country, col=event_type, ref_date=resolution_date
-        )
         rhs = thirty_day_avg_over_past_360_days(
             dfr=dfr, country=country, col=event_type, ref_date=forecast_due_date
         )
-        return int(lhs > rhs)
-
-    if key == "last30DaysTimes10.gt.30DayAvgOverPast360DaysPlus1":
-        lhs = sum_over_past_30_days_times_10(
-            dfr=dfr, country=country, col=event_type, ref_date=resolution_date
-        )
-        rhs = thirty_day_avg_over_past_360_days_plus_1(
+    elif key == "last30DaysTimes10.gt.30DayAvgOverPast360DaysPlus1":
+        rhs = 10 * thirty_day_avg_over_past_360_days_plus_1(
             dfr=dfr, country=country, col=event_type, ref_date=forecast_due_date
         )
-        return int(lhs > rhs)
+    else:
+        raise ValueError("Invalid key passed to acled.resolve.")
+
+    return int(lhs > rhs)
 
 
 def get_freeze_value(key, dfr, country, event_type, today):
@@ -190,14 +193,9 @@ def sum_over_past_30_days(dfr, country, col, ref_date):
     if dfc.empty:
         return 0
 
-    start_date = ref_date - timedelta(days=29)  # 30 inlcusive
-    dfc = dfc[(dfc["event_date"].dt.date >= start_date) & (dfc["event_date"].dt.date <= ref_date)]
+    start_date = ref_date - timedelta(days=30)
+    dfc = dfc[(dfc["event_date"].dt.date >= start_date) & (dfc["event_date"].dt.date < ref_date)]
     return dfc[col].sum() if not dfc.empty else 0
-
-
-def sum_over_past_30_days_times_10(dfr, country, col, ref_date):
-    """Multiply 10 to function it wraps."""
-    return 10 * sum_over_past_30_days(dfr, country, col, ref_date)
 
 
 def thirty_day_avg_over_past_360_days(dfr, country, col, ref_date):
@@ -206,8 +204,8 @@ def thirty_day_avg_over_past_360_days(dfr, country, col, ref_date):
     if dfc.empty:
         return 0
 
-    start_date = ref_date - timedelta(days=359)  # 360 inclusive
-    dfc = dfc[(dfc["event_date"].dt.date >= start_date) & (dfc["event_date"].dt.date <= ref_date)]
+    start_date = ref_date - timedelta(days=360)
+    dfc = dfc[(dfc["event_date"].dt.date >= start_date) & (dfc["event_date"].dt.date < ref_date)]
     return dfc[col].sum() / 12 if not dfc.empty else 0
 
 

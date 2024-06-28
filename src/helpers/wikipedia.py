@@ -2,11 +2,31 @@
 
 import hashlib
 import json
+import logging
+import os
+import sys
 from enum import Enum
 
-fetch_directory = "wikipedia/fetch"
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
+from . import constants, env
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+from utils import gcp  # noqa: E402
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+source = "wikipedia"
+
+fetch_directory = f"{source}/fetch"
 
 hash_mapping = {}
+
+hash_filename = "hash_mapping.json"
+local_hash_filename = f"/tmp/{hash_filename}"
 
 SOURCE_INTRO = (
     "Wikipedia is an online encyclopedia created and edited by volunteers. You're going to predict "
@@ -14,6 +34,56 @@ SOURCE_INTRO = (
 )
 
 RESOLUTION_CRITERIA = "Resolves to the value calculated from {url} on the resolution date."
+
+
+def populate_hash_mapping():
+    """Download the hash_mapping from storage and load into global."""
+    global hash_mapping
+    remote_filename = f"{source}/{hash_filename}"
+    gcp.storage.download_no_error_message_on_404(
+        bucket_name=env.QUESTION_BANK_BUCKET,
+        filename=remote_filename,
+        local_filename=local_hash_filename,
+    )
+    if os.path.getsize(local_hash_filename) > 0:
+        with open(local_hash_filename, "r") as file:
+            hash_mapping = json.load(file)
+
+
+def upload_hash_mapping():
+    """Write and upload the hash_mapping to storage from global."""
+    with open(local_hash_filename, "w") as file:
+        json.dump(hash_mapping, file, indent=4)
+
+    gcp.storage.upload(
+        bucket_name=env.QUESTION_BANK_BUCKET,
+        local_filename=local_hash_filename,
+        destination_folder=source,
+    )
+
+
+def make_resolution_df():
+    """Prepare data for resolution."""
+    files = gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=source)
+    files = [f for f in files if f.endswith(".jsonl")]
+    df = pd.DataFrame()
+    for f in tqdm(files, f"downloading `{source}` resoultion files"):
+        if f.startswith(f"{source}/"):
+            df_tmp = pd.read_json(
+                f"gs://{env.QUESTION_BANK_BUCKET}/{f}",
+                lines=True,
+                dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
+                convert_dates=False,
+            )
+            # The Wikipedia folder contains files that aren't resolution files.
+            # That should be changed at some point. For now, test that it's a resolution file
+            # by checking the columns
+            if set(df_tmp.columns) == set(constants.RESOLUTION_FILE_COLUMNS):
+                df = pd.concat([df, df_tmp], ignore_index=True)
+
+    df["date"] = pd.to_datetime(df["date"])
+    df["id"] = df["id"].astype(str)
+    return df
 
 
 def get_fetch_filename(question_id_root: str) -> str:
@@ -43,13 +113,28 @@ class QuestionType(Enum):
     """Types of questions.
 
     These will determine how a given question is resolved.
+
+    When adding a new one, be sure to update `compare_values()`.
     """
 
     SAME = 0
     SAME_OR_MORE = 1
     MORE = 2
     ONE_PERCENT_MORE = 3
-    FIVE_PERCENT_MORE = 4
+
+
+def compare_values(question_type, resolution_date_value, forecast_due_date_value):
+    """Compare values given the QuestionType."""
+    if question_type == QuestionType.SAME:
+        return resolution_date_value == forecast_due_date_value
+    elif question_type == QuestionType.SAME_OR_MORE:
+        return resolution_date_value >= forecast_due_date_value
+    elif question_type == QuestionType.MORE:
+        return resolution_date_value > forecast_due_date_value
+    elif question_type == QuestionType.ONE_PERCENT_MORE:
+        return resolution_date_value >= forecast_due_date_value * 1.01
+    else:
+        raise ValueError("Invalid QuestionType")
 
 
 def clean_List_of_world_records_in_swimming(df):
@@ -88,6 +173,42 @@ def is_resolved_List_of_infectious_diseases(value):
 def get_value_List_of_infectious_diseases(value):
     """Return Yes/No instead of 1/0."""
     return "Yes" if value else "No"
+
+
+def resolve(mid, dfr, forecast_due_date, resolution_date):
+    """Resolve Wikipedia forecast questions."""
+    d = id_unhash(mid)
+    if d is None:
+        logger.warn(f"Wikipedia: could NOT unhash {mid}")
+        return np.nan
+
+    def get_value(dfr, mid, date):
+        value = dfr[(dfr["id"] == mid) & (dfr["date"].dt.date == date)]["value"]
+        return value.iloc[0] if not value.empty else None
+
+    forecast_due_date_value = get_value(dfr, mid, forecast_due_date)
+    resolution_date_value = get_value(dfr, mid, resolution_date)
+
+    if forecast_due_date_value is None:
+        logger.info(
+            f"Nullifying Wikipedia market {mid}. "
+            "The forecast question resolved between the freeze date and the forecast due date."
+        )
+        return np.nan
+
+    question_type = [q["question_type"] for q in PAGES if q["id_root"] == d["id_root"]]
+    if len(question_type) != 1:
+        logger.error(
+            f"Nullifying Wikipedia market {mid}. Couldn't find comparison type "
+            "(should not arrive here)."
+        )
+        return np.nan
+
+    return compare_values(
+        question_type=question_type[0],
+        resolution_date_value=resolution_date_value,
+        forecast_due_date_value=forecast_due_date_value,
+    )
 
 
 FIDE_BACKGROUND = (

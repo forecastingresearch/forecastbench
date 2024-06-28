@@ -28,6 +28,7 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+RUN_LOCALLY_WITH_MOCK_DATA = False
 
 QUESTION_SET_FIELDS = [
     "id",
@@ -292,7 +293,12 @@ def driver(request):
 
 
 if __name__ == "__main__":
-    """Local dev."""
+    """Local dev.
+
+    Before running this, run `make_dummy_forecasts_and_mock_data.py` and modify the mock_date.
+    """
+    mock_date = "2024-05-18"
+    RUN_LOCALLY_WITH_MOCK_DATA = True
 
     class MockRequest:
         """Class to mock requsets for local dev."""
@@ -305,5 +311,11 @@ if __name__ == "__main__":
             """Mock get_json from request class."""
             return self._json
 
-    mock_request = MockRequest({"filename": "2024-05-03-llm.jsonl"})
+    mock_request = MockRequest(
+        {
+            "mock_question_set": f"{mock_date}-llm-mock.json",
+            "mock_forecast_set": f"{mock_date}.ForecastBench.llm-random-forecast.json",
+        }
+    )
+
     driver(mock_request)

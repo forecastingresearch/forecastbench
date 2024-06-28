@@ -15,13 +15,7 @@ logger = logging.getLogger(__name__)
 SOURCE = "acled"
 
 
-def make_resolution_df():
-    """Prepare ACLED data for resolution."""
-    dfr, _, _ = acled.download_dff_and_prepare_dfr()
-    return dfr
-
-
-def resolve_question(mid, forecast_submitted_date, forecast_evaluation_date, dfq, dfr):
+def resolve_question(mid, forecast_due_date, resolution_date, dfq, dfr):
     """Resolve an individual ACLED question."""
     question = resolution.get_question(dfq, mid)
     if question is None:
@@ -33,8 +27,8 @@ def resolve_question(mid, forecast_submitted_date, forecast_evaluation_date, dfq
     return acled.resolve(
         **d,
         dfr=dfr,
-        forecast_due_date=forecast_submitted_date,
-        resolution_date=forecast_evaluation_date,
+        forecast_due_date=forecast_due_date,
+        resolution_date=resolution_date,
     )
 
 
@@ -43,30 +37,30 @@ def resolve(df, dfq, dfr):
     logger.info("Resolving ACLED questions.")
     acled.populate_hash_mapping()
     max_date = dfr["event_date"].max()
-    mask = (df["source"] == "acled") & (df["forecast_evaluation_date"] <= max_date)
+    mask = (df["source"] == "acled") & (df["resolution_date"] <= max_date)
     for index, row in df[mask].iterrows():
-        forecast_submitted_date = row["forecast_submitted_date"].date()
-        forecast_evaluation_date = row["forecast_evaluation_date"].date()
+        forecast_due_date = row["forecast_due_date"].date()
+        resolution_date = row["resolution_date"].date()
         if not resolution.is_combo(row):
             value = resolve_question(
                 mid=row["id"],
-                forecast_submitted_date=forecast_submitted_date,
-                forecast_evaluation_date=forecast_evaluation_date,
+                forecast_due_date=forecast_due_date,
+                resolution_date=resolution_date,
                 dfq=dfq,
                 dfr=dfr,
             )
         else:
             value1 = resolve_question(
                 mid=row["id"][0],
-                forecast_submitted_date=forecast_submitted_date,
-                forecast_evaluation_date=forecast_evaluation_date,
+                forecast_due_date=forecast_due_date,
+                resolution_date=resolution_date,
                 dfq=dfq,
                 dfr=dfr,
             )
             value2 = resolve_question(
                 mid=row["id"][1],
-                forecast_submitted_date=forecast_submitted_date,
-                forecast_evaluation_date=forecast_evaluation_date,
+                forecast_due_date=forecast_due_date,
+                resolution_date=resolution_date,
                 dfq=dfq,
                 dfr=dfr,
             )

@@ -178,17 +178,7 @@ def driver(_):
     # Download pertinent files from Cloud Storage
     logger.info("Downloading previously-fetched Wikipedia data from Cloud.")
 
-    hash_filename = "hash_mapping.json"
-    remote_filename = f"{source}/{hash_filename}"
-    local_hash_filename = f"/tmp/{hash_filename}"
-    gcp.storage.download_no_error_message_on_404(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        filename=remote_filename,
-        local_filename=local_hash_filename,
-    )
-    if os.path.getsize(local_hash_filename) > 0:
-        with open(local_hash_filename, "r") as file:
-            wikipedia.hash_mapping = json.load(file)
+    wikipedia.populate_hash_mapping()
 
     # We'll overwrite all questions for wikipedia.PAGES that we are still getting
     # Only pull this in to save pages we've stopped fetching for one reason or another.
@@ -212,14 +202,7 @@ def driver(_):
     )
 
     # Upload hash
-    with open(local_hash_filename, "w") as file:
-        json.dump(wikipedia.hash_mapping, file, indent=4)
-
-    gcp.storage.upload(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        local_filename=local_hash_filename,
-        destination_folder=source,
-    )
+    wikipedia.upload_hash_mapping()
 
     logger.info("Done.")
 

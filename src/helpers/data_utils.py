@@ -63,6 +63,17 @@ def download_and_read(filename, local_filename, df_tmp, dtype):
     return df.astype(dtype=dtype_modified) if dtype_modified else df
 
 
+def get_last_modified_time_of_dfq_from_cloud_storage(source):
+    """Return the last modified date of the dfq file for `source`.
+
+    To be removed once we update dfq to contain the last modified date.
+    """
+    filenames = generate_filenames(source)
+    return gcp.storage.get_last_modified_time(
+        bucket_name=env.QUESTION_BANK_BUCKET, filename=filenames["jsonl_question"]
+    )
+
+
 def get_data_from_cloud_storage(
     source, return_question_data=False, return_resolution_data=False, return_fetch_data=False
 ):
