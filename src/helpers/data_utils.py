@@ -4,11 +4,10 @@ import json
 import logging
 import os
 import sys
-from datetime import timedelta
 
 import pandas as pd
 
-from . import constants, env, question_curation
+from . import constants, env
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -185,20 +184,3 @@ def upload_questions_and_resolution(dfq, dfr, source):
     """
     upload_questions(dfq, source)
     upload_resolutions(dfq, source)
-
-
-def market_resolves_before_forecast_due_date(dt):
-    """Determine whether or not the market resolves before the forecast due date.
-
-    Parameters:
-    - dt (datetime): a datetime that represents the market close time.
-    """
-    llm_forecast_release_datetime = question_curation.FREEZE_DATETIME + timedelta(
-        days=question_curation.FREEZE_WINDOW_IN_DAYS
-    )
-    all_forecasts_due = llm_forecast_release_datetime.replace(
-        hour=23, minute=59, second=59, microsecond=999999
-    )
-    ndays = dt - all_forecasts_due
-    ndays = ndays.days + (1 if ndays.total_seconds() > 0 else 0)
-    return ndays <= 0

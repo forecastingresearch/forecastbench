@@ -16,7 +16,6 @@ from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
-    acled,
     constants,
     data_utils,
     decorator,
@@ -345,6 +344,23 @@ def drop_missing_freeze_datetime(dfq):
     return dfq
 
 
+def market_resolves_before_forecast_due_date(dt):
+    """Determine whether or not the market resolves before the forecast due date.
+
+    Parameters:
+    - dt (datetime): a datetime that represents the market close time.
+    """
+    llm_forecast_release_datetime = question_curation.FREEZE_DATETIME + timedelta(
+        days=question_curation.FREEZE_WINDOW_IN_DAYS
+    )
+    all_forecasts_due = llm_forecast_release_datetime.replace(
+        hour=23, minute=59, second=59, microsecond=999999
+    )
+    ndays = dt - all_forecasts_due
+    ndays = ndays.days + (1 if ndays.total_seconds() > 0 else 0)
+    return ndays <= 0
+
+
 def drop_questions_that_resolve_too_soon(source, dfq):
     """Drop questions that resolve too soon.
 
@@ -359,7 +375,7 @@ def drop_questions_that_resolve_too_soon(source, dfq):
         return dfq.drop(labels=dfq[mask].index.tolist())
 
     empty_horizons = dfq["market_info_close_datetime"].apply(
-        lambda x: data_utils.market_resolves_before_forecast_due_date(datetime.fromisoformat(x))
+        lambda x: market_resolves_before_forecast_due_date(datetime.fromisoformat(x))
     )
     indices_to_drop = empty_horizons[empty_horizons].index.tolist()
     return dfq.drop(labels=indices_to_drop)
@@ -410,13 +426,6 @@ def driver(_):
             )
             dfq["freeze_datetime"] = question_curation.FREEZE_DATETIME.isoformat()
             dfq["combination_of"] = "N/A"
-            if source == "acled":
-                # Drop Acled-specific columns
-                dfq.drop(
-                    list(set(acled.QUESTION_FILE_COLUMNS) - set(constants.QUESTION_FILE_COLUMNS)),
-                    axis=1,
-                    inplace=True,
-                )
             dfq.drop(
                 [
                     "market_info_resolution_datetime",

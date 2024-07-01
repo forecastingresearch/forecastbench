@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import sys
-from datetime import timedelta
 
 import pandas as pd
 from tqdm import tqdm
@@ -22,136 +21,79 @@ source = "acled"
 filenames = data_utils.generate_filenames(source=source)
 
 
-def _prep_dff(dff):
-    """Modify dff for resolution."""
-    dff = dff[["country", "event_date", "event_type", "fatalities"]].copy()
-    dff["event_date"] = pd.to_datetime(dff["event_date"])
-    return (
-        pd.get_dummies(dff, columns=["event_type"], prefix="", prefix_sep="")
-        .groupby(["country", "event_date"])
-        .sum()
-        .reset_index()
-    )
-
-
-def _30_day_avg_over_past_360_days(dfr, country, col, ref_date):
-    """Get the 30 day average over the 360 days before the ref_date."""
-    dfc = dfr[dfr["country"] == country].copy()
-    if dfc.empty:
-        return 0
-    start_date = ref_date - timedelta(days=360)
-    dfc = dfc[(dfc["event_date"].dt.date > start_date) & (dfc["event_date"].dt.date <= ref_date)]
-    dfc.set_index("event_date", inplace=True)
-    dfc_30d = dfc[col].resample("30D").mean()
-    return dfc_30d.mean()
-
-
-def _30_day_avg_over_past_360_days_plus_1(dfr, country, col, ref_date):
-    return 1 + _30_day_avg_over_past_360_days(dfr, country, col, ref_date)
-
-
-def _generate_forecast_questions(dfq, dff):
-    countries = dff["country"].unique()
-    event_types_acled = dff["event_type"].unique()
-    event_types = list(event_types_acled) + ["fatalities"]
-
+def generate_forecast_questions(dfq, dfr, countries, event_types):
+    """Generate forecast questions given fetch data."""
     logger.info(f"Found {len(countries)} countries.")
     logger.info(f"Found {len(event_types)} event_types.")
 
     TODAY = dates.get_date_today()
 
-    common_question_fields = {
-        "background": acled.BACKGROUND,
-        "market_info_resolution_criteria": "N/A",
-        "market_info_open_datetime": "N/A",
-        "market_info_close_datetime": "N/A",
-        "market_info_resolution_datetime": "N/A",
-        "url": "https://acleddata.com/",
-        "resolved": False,
-        "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
-    }
-
-    def _get_event_type_str(event_type):
-        return event_type if event_type == "fatalities" else f"'{event_type}'"
-
-    def _create_question_0(country, event_type, dfr):
-        event_type_str = _get_event_type_str(event_type)
-        question = (
-            f"Will there be more {event_type_str} in {country} for the 30 days before "
-            "{resolution_date} than the 30-day average of "
-            f"{event_type_str} over the 360 days preceding "
-            "{forecast_due_date}?"
-        )
-        return {
-            "id": f"{country}.{event_type}.last30Days.gt.{event_type}.30DayAvgOverPast360Days",
-            "question": question,
-            "lhs_func": "_sum_over_last_30_days",
-            "lhs_args": {
-                "country": country,
-                "col": event_type,
-                "ref_date": "get_resolution_date()",
-            },
-            "comparison_operator": ">",
-            "rhs_func": "_30_day_avg_over_past_360_days",
-            "rhs_args": {
-                "country": country,
-                "col": event_type,
-                "ref_date": "get_freeze_date()",
-            },
-            "freeze_datetime_value": _30_day_avg_over_past_360_days(
-                dfr, country, event_type, TODAY
-            ),
-            "freeze_datetime_value_explanation": (
-                f"The 30-day average of {event_type_str} over the past 360 days in {country}. "
-                "This reference value will potentially change as ACLED updates its dataset."
-            ),
-            **common_question_fields,
+    def fill_template(template, fields, values):
+        fill_values = {field: values[field] for field in fields}
+        # Always maintain resolution_date and forecast_due_date when formatting the string
+        default_values = {
+            "resolution_date": "{resolution_date}",
+            "forecast_due_date": "{forecast_due_date}",
         }
+        combined_fill_values = {**default_values, **fill_values}
+        return template.format(**combined_fill_values)
 
-    def _create_question_1(country, event_type, dfr):
-        event_type_str = _get_event_type_str(event_type)
-        question = (
-            f"Will there be more than ten times as many {event_type_str} in {country} for the 30 days before "
-            "{resolution_date} than one plus the 30-day average of "
-            f"{event_type_str} over the 360 days preceding "
-            "{forecast_due_date}?"
+    def create_question(question_key, country, event_type, dfr):
+        question, variables = acled.QUESTIONS.get(question_key).get("question")
+        event_type_quoted = event_type if event_type == "fatalities" else f"'{event_type}'"
+        question = fill_template(
+            template=question,
+            fields=variables,
+            values={"event_type": event_type_quoted, "country": country},
+        )
+        aid = acled.id_hash(
+            {"key": question_key, "event_type": event_type, "country": country},
+        )
+        freeze_datetime_value_explanation, variables = acled.QUESTIONS.get(question_key).get(
+            "freeze_datetime_value_explanation"
+        )
+        freeze_datetime_value_explanation = fill_template(
+            template=freeze_datetime_value_explanation,
+            fields=variables,
+            values={"event_type": event_type_quoted, "country": country},
+        )
+        freeze_datetime_value = acled.get_freeze_value(
+            key=question_key, dfr=dfr, country=country, event_type=event_type, today=TODAY
         )
         return {
-            "id": (
-                f"{country}.{event_type}.last30DaysTimes10.gt.{event_type}"
-                ".30DayAvgOverPast360DaysPlus1"
-            ),
+            "id": aid,
             "question": question,
-            "lhs_func": "_sum_over_last_30_days_times_10",
-            "lhs_args": {
-                "country": country,
-                "col": event_type,
-                "ref_date": "get_resolution_date()",
-            },
-            "comparison_operator": ">",
-            "rhs_func": "_30_day_avg_over_past_360_days_plus_1",
-            "rhs_args": {
-                "country": country,
-                "col": event_type,
-                "ref_date": "get_freeze_date()",
-            },
-            "freeze_datetime_value": _30_day_avg_over_past_360_days_plus_1(
-                dfr, country, event_type, TODAY
-            ),
-            "freeze_datetime_value_explanation": (
-                f"One plus the 30-day average of {event_type_str} over the past 360 days "
-                f"in {country}. "
-                "This reference value will potentially change as ACLED updates its dataset."
-            ),
-            **common_question_fields,
+            "background": acled.BACKGROUND,
+            "freeze_datetime_value": freeze_datetime_value,
+            "freeze_datetime_value_explanation": freeze_datetime_value_explanation,
+            "market_info_resolution_criteria": "N/A",
+            "market_info_open_datetime": "N/A",
+            "market_info_close_datetime": "N/A",
+            "market_info_resolution_datetime": "N/A",
+            "url": "https://acleddata.com/",
+            "resolved": False,
+            "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
         }
 
     questions = []
-    dfr = _prep_dff(dff)
     for country in tqdm(countries, "Creating questions"):
         for event_type in event_types:
-            questions.append(_create_question_0(country, event_type, dfr))
-            questions.append(_create_question_1(country, event_type, dfr))
+            questions.append(
+                create_question(
+                    question_key="last30Days.gt.30DayAvgOverPast360Days",
+                    country=country,
+                    event_type=event_type,
+                    dfr=dfr,
+                )
+            )
+            questions.append(
+                create_question(
+                    question_key="last30DaysTimes10.gt.30DayAvgOverPast360DaysPlus1",
+                    country=country,
+                    event_type=event_type,
+                    dfr=dfr,
+                )
+            )
 
     df = pd.DataFrame(questions)
 
@@ -169,22 +111,14 @@ def driver(_):
     """Pull in fetched data and update questions and resolved values in question bank."""
     # Download pertinent files from Cloud Storage
     logger.info("Downloading previously-fetched ACLED data from Cloud.")
-    dff = data_utils.download_and_read(
-        filename=filenames["jsonl_fetch"],
-        local_filename=filenames["local_fetch"],
-        df_tmp=pd.DataFrame(columns=acled.FETCH_COLUMNS),
-        dtype=acled.FETCH_COLUMN_DTYPE,
-    )
 
-    dfq = data_utils.download_and_read(
-        filename=filenames["jsonl_question"],
-        local_filename=filenames["local_question"],
-        df_tmp=pd.DataFrame(columns=acled.QUESTION_FILE_COLUMNS),
-        dtype=acled.QUESTION_FILE_COLUMN_DTYPE,
-    )
+    acled.populate_hash_mapping()
+    dfr, countries, event_types = acled.download_dff_and_prepare_dfr()
+    dfq = data_utils.get_data_from_cloud_storage(source="acled", return_question_data=True)
 
     # Update the existing questions
-    dfq = _generate_forecast_questions(dfq, dff)
+    dfq = generate_forecast_questions(dfq, dfr, countries, event_types)
+    dfq = dfq[constants.QUESTION_FILE_COLUMNS]
     logger.info(f"Found {len(dfq):,} questions.")
 
     # Save
@@ -198,6 +132,7 @@ def driver(_):
         bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=filenames["local_question"],
     )
+    acled.upload_hash_mapping()
 
     logger.info("Done.")
 
