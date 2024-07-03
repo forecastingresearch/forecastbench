@@ -23,7 +23,7 @@ deploy : main.py .gcloudignore requirements.txt
 		--runtime $(LATEST_PYTHON_RUNTIME) \
 		--memory 2GiB \
 		--max-instances 1 \
-		--timeout 60s \
+		--timeout 540s \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
 		--trigger-http \
 		--no-allow-unauthenticated \
