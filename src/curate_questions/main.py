@@ -60,8 +60,54 @@ def process_questions(questions, to_questions, single_generation_func, combo_gen
     return processed_questions
 
 
-def sample_single_questions(values, n_single):
-    """Generate single questions for the LLM and Human question sets.
+def human_sample_single_questions(values, n_single):
+    """Get single questions for the human question set by sampling from the LLM combos questions.
+
+    Take indices from the combos question first to allow us to get the same combos for humans
+    as we do llms.
+    """
+    dfq = values["dfq"].copy()
+    # NB: do *not* regenerate underrepresented categories because we want the same ones as the LLMs
+    # have.
+    underrepresented_indices = dfq[dfq["underrepresented_category"]].index.tolist()
+    underrepresented_combo_tuples = [
+        tup
+        for tup in values["combos"]
+        if tup[0] in underrepresented_indices or tup[1] in underrepresented_indices
+    ]
+    underrepresented_combo_indices = [
+        index for tup in underrepresented_combo_tuples for index in tup
+    ]
+
+    combos = [tup for tup in values["combos"] if tup not in underrepresented_combo_tuples]
+    indices = underrepresented_combo_indices + [index for tup in combos for index in tup]
+
+    # Get the unique indices from `indices` while preserving order (so underrepresented ones come
+    # first).
+    seen = set()
+    unique_indices = []
+    for index in indices:
+        if index not in seen:
+            seen.add(index)
+            unique_indices.append(index)
+
+    # Instead of sampling from combos, take the first n_single unique combos. This ensures we can
+    # get combos that are seen by LLMs too.
+    indices = unique_indices[:n_single]
+    if len(unique_indices) < n_single:
+        remaining = n_single - len(indices)
+        all_indices = set(dfq.index.tolist())
+        remaining_indices = list(all_indices - set(indices))
+        additional_indices = random.sample(
+            remaining_indices, min(remaining, len(remaining_indices))
+        )
+        indices.extend(additional_indices)
+
+    return dfq.loc[indices]
+
+
+def llm_sample_single_questions(values, n_single):
+    """Generate single questions for the LLM question set.
 
     Sample evenly across categories.
     """
@@ -458,13 +504,13 @@ def driver(_):
     LLM_QUESTIONS = process_questions(
         questions=QUESTIONS,
         to_questions=LLM_QUESTIONS,
-        single_generation_func=sample_single_questions,
+        single_generation_func=llm_sample_single_questions,
         combo_generation_func=sample_combo_questions,
     )
     HUMAN_QUESTIONS = process_questions(
         questions=LLM_QUESTIONS,
         to_questions=HUMAN_QUESTIONS,
-        single_generation_func=sample_single_questions,
+        single_generation_func=human_sample_single_questions,
     )
 
     def _log_questions_found(questions, for_humans):
