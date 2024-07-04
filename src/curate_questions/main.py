@@ -127,17 +127,24 @@ def llm_sample_single_questions(values, n_single):
     return df
 
 
-def sample_combo_questions(df, N):
-    """Generate `N` combinations of the indices in `df`."""
-    indices = df.index.tolist()
-    all_possible_pairs = list(combinations(indices, 2))
+def sample_within_category_combo_questions(df, N):
+    """Generate `N` combinations of the indices in `df`.
+
+    Combinations are generated within a category.
+    """
+    all_possible_pairs = [
+        pair
+        for category in df["category"].unique()
+        for pair in combinations(df[df["category"] == category].index, 2)
+    ]
     random.shuffle(all_possible_pairs)
 
-    if len(all_possible_pairs) < N:
-        logger.warning(
-            f"Not enough combinations available: Requested {N}, but only {len(all_possible_pairs)} "
-            "are possible."
-        )
+    if len(all_possible_pairs) <= N:
+        if len(all_possible_pairs) < N:
+            logger.warning(
+                f"Not enough combinations available: Requested {N}, but only "
+                f"{len(all_possible_pairs)} are possible."
+            )
         return all_possible_pairs
 
     underrepresented_indices = df[df["underrepresented_category"]].index.tolist()
@@ -158,7 +165,7 @@ def sample_combo_questions(df, N):
                 break
 
     if N <= len(underrepresented_pairs):
-        logger.warning("Only returning combos that contain at least one underrepresented index.")
+        logger.warning("Only returning combos that contain underrepresented indices.")
         return underrepresented_pairs[:N]
 
     # Sample all remaining combo questions
@@ -505,7 +512,7 @@ def driver(_):
         questions=QUESTIONS,
         to_questions=LLM_QUESTIONS,
         single_generation_func=llm_sample_single_questions,
-        combo_generation_func=sample_combo_questions,
+        combo_generation_func=sample_within_category_combo_questions,
     )
     HUMAN_QUESTIONS = process_questions(
         questions=LLM_QUESTIONS,
