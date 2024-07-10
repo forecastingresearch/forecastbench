@@ -81,7 +81,7 @@ def fetch_all_questions(dfq):
         new_questions = []
 
         for q in resp["data"]:
-            if not q["closed"] and not q["archived"]:
+            if not q["closed"] and not q["archived"] and q["active"]:
                 token_index = 0
                 if q["tokens"][0]["outcome"] != "Yes":
                     token_index = 1
@@ -93,8 +93,8 @@ def fetch_all_questions(dfq):
                 else:
                     drop_cnt += 1
 
-                if len(price_history) >= bet_cnt:
-                    # only save questions with at least 10 predictions
+                if price_history is not None and len(price_history) >= bet_cnt:
+                    # only save questions with at least `bet_cnt` predictions
                     q["price_history"] = price_history
                     new_questions.append(q)
                 else:
@@ -219,8 +219,7 @@ def fetch_all_questions(dfq):
                 "market_info_resolution_criteria": "N/A",
                 "market_info_open_datetime": "N/A",
                 "market_info_close_datetime": resolved_date,
-                "url": "https://polymarket.com/event/" + q["market_slug"],
-                # this url won't work if this question is a sub-question
+                "url": "https://polymarket.com/market/" + q["market_slug"],
                 "resolved": q["closed"],
                 "market_info_resolution_datetime": resolved_date,
                 "fetch_datetime": dates.get_datetime_now(),

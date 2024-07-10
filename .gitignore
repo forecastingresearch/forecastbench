@@ -37,7 +37,7 @@ pip-delete-this-directory.txt
 !.env.template
 
 # virtualenv
-.venv
+.venv*
 venv/
 ENV/
 
