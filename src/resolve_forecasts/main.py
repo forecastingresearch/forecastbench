@@ -434,6 +434,12 @@ def prepare_forecast_file(df, forecast_date):
 @decorator.log_runtime
 def driver(_):
     """Resolve forecasts."""
+    forecast_sets = gcp.storage.list(env.FORECAST_SETS_BUCKET)
+    forecast_sets = [f for f in forecast_sets if "/" not in f]
+    if not forecast_sets:
+        logger.warning("No forecast sets to evaluate.")
+        return "OK", 200
+
     if os.path.exists("resolution_values.pkl"):
         with open("resolution_values.pkl", "rb") as handle:
             resolution_values = pickle.load(handle)
@@ -458,9 +464,7 @@ def driver(_):
 
     leaderboard = {}
     resolved_values_for_question_sources = {}
-    files = gcp.storage.list(env.FORECAST_SETS_BUCKET)
-    files = [f for f in files if "/" not in f]
-    for f in files:
+    for f in forecast_sets:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
         data = download_and_read_forecast_file(filename=f)
