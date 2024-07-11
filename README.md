@@ -11,6 +11,8 @@ A forecasting benchmark for LLMs.
 1. Setup your Python virtual environment
    1. `make setup-python-env`
    1. `source .venv/bin/activate`
+1. Install Docker
+1. Run `gcloud auth configure-docker $(CLOUD_DEPLOY_REGION)-docker.pkg.dev`
 
 #### Run GCP Cloud Functions locally
 1. `cd directory/containing/cloud/function`

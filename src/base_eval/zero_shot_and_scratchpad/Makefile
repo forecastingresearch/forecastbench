@@ -13,15 +13,19 @@ UPLOAD_DIR = upload
 # Deploy Docker image and Cloud Function
 deploy: deploy-image deploy-function
 
-# Build and push Docker image with Cloud Build
-deploy-image: Dockerfile run_notebook.py notebook.ipynb .gcloudignore requirements.txt cloudbuild.yaml
+# Build and push Docker image
+deploy-image: Dockerfile run_notebook.py notebook.ipynb .gcloudignore requirements.txt
 	mkdir -p $(UPLOAD_DIR_DOCKER)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR_DOCKER)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR_DOCKER)/
 	cp $^ $(UPLOAD_DIR_DOCKER)/
 
-	gcloud builds submit $(UPLOAD_DIR_DOCKER) --config=$(UPLOAD_DIR_DOCKER)/cloudbuild.yaml \
-        --substitutions=_FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),_QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),_CLOUD_PROJECT=$(CLOUD_PROJECT),_CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION),_REPO_NAME=$(LLM_BASELINE_DOCKER_REPO_NAME),_IMAGE_NAME=$(LLM_BASELINE_DOCKER_IMAGE_NAME)
+	docker build \
+		--build-arg FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET) \
+		--build-arg QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET) \
+		--build-arg CLOUD_PROJECT=$(CLOUD_PROJECT) \
+		-t $(CLOUD_DEPLOY_REGION)-docker.pkg.dev/$(CLOUD_PROJECT)/$(LLM_BASELINE_DOCKER_REPO_NAME)/$(LLM_BASELINE_DOCKER_IMAGE_NAME):latest $(UPLOAD_DIR_DOCKER)
+	docker push $(CLOUD_DEPLOY_REGION)-docker.pkg.dev/$(CLOUD_PROJECT)/$(LLM_BASELINE_DOCKER_REPO_NAME)/$(LLM_BASELINE_DOCKER_IMAGE_NAME):latest
 
 # Deploy the Cloud Function
 deploy-function: main.py run_notebook.py notebook.ipynb .gcloudignore requirements.txt
