@@ -4,7 +4,7 @@ matplotlib
 anthropic
 openai
 together
-mistralai 
+mistralai
 papermill
 google-generativeai
 google-cloud-storage
