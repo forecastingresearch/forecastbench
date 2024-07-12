@@ -21,13 +21,13 @@ deploy : main.py .gcloudignore requirements.txt
 		--region $(CLOUD_DEPLOY_REGION) \
 		--entry-point driver \
 		--runtime $(LATEST_PYTHON_RUNTIME) \
-		--memory 512MB \
+		--memory 1GiB \
 		--max-instances 1 \
-		--timeout 540s \
+		--timeout 1800s \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
 		--trigger-http \
 		--no-allow-unauthenticated \
-		--no-gen2 \
+		--gen2 \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
 		--source $(UPLOAD_DIR)
 
