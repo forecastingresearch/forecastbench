@@ -156,7 +156,7 @@ PAGES = [
         },
         "question": (
             (
-                "According to Wikipedia, will {id} have a FIDE ranking on {resolution_date} be as "
+                "According to Wikipedia, will {id} have a FIDE ranking on {resolution_date} as "
                 "high or higher than their ranking on {forecast_due_date}?"
             ),
             ("id",),
