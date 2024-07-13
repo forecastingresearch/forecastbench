@@ -14,7 +14,7 @@ UPLOAD_DIR = upload
 deploy: deploy-image deploy-function
 
 # Build and push Docker image
-deploy-image: Dockerfile run_notebook.py notebook.ipynb .gcloudignore requirements.txt
+deploy-image: Dockerfile run_eval.py .gcloudignore requirements.txt
 	mkdir -p $(UPLOAD_DIR_DOCKER)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR_DOCKER)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR_DOCKER)/
@@ -28,7 +28,7 @@ deploy-image: Dockerfile run_notebook.py notebook.ipynb .gcloudignore requiremen
 	docker push $(CLOUD_DEPLOY_REGION)-docker.pkg.dev/$(CLOUD_PROJECT)/$(LLM_BASELINE_DOCKER_REPO_NAME)/$(LLM_BASELINE_DOCKER_IMAGE_NAME):latest
 
 # Deploy the Cloud Function
-deploy-function: main.py run_notebook.py notebook.ipynb .gcloudignore requirements.txt
+deploy-function: main.py run_eval.py .gcloudignore requirements.txt
 	$(eval LATEST_PYTHON_RUNTIME := $(shell gcloud functions runtimes list --format="value(name)" --filter="python" --region $(CLOUD_DEPLOY_REGION) | tail -n 1))
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)/src/helpers $(UPLOAD_DIR)/

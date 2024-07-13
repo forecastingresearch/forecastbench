@@ -175,6 +175,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # "claude_3_opus": {"source": "ANTHROPIC", "full_name": "claude-3-opus-20240229"},
     # "claude_3_haiku": {"source": "ANTHROPIC", "full_name": "claude-3-haiku-20240307"},
     "claude_3p5_sonnet": {"source": "ANTHROPIC", "full_name": "claude-3-5-sonnet-20240620"},
-    # "gemini_1p5_flash": {"source": "GOOGLE", "full_name": "gemini-1.5-flash"},
-    "gemini_1p5_pro": {"source": "GOOGLE", "full_name": "gemini-1.5-pro"},
+    "gemini_1p5_flash": {"source": "GOOGLE", "full_name": "gemini-1.5-flash"},
+    # "gemini_1p5_pro": {"source": "GOOGLE", "full_name": "gemini-1.5-pro"},
 }

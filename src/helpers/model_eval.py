@@ -5,8 +5,11 @@ import json
 import logging
 import os
 import re
+import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from functools import partial
 
 import anthropic
 import google.generativeai as google_ai
@@ -15,7 +18,10 @@ import together
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 
-from . import constants, data_utils, keys, llm_prompts
+from . import constants, data_utils, env, keys, llm_prompts, question_curation
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
+from utils import gcp  # noqa: E402
 
 anthropic_console = anthropic.Anthropic(api_key=keys.API_KEY_ANTHROPIC)
 anthropic_async_client = anthropic.AsyncAnthropic(api_key=keys.API_KEY_ANTHROPIC)
@@ -28,7 +34,12 @@ client = openai.OpenAI(
     base_url="https://api.together.xyz/v1",
 )
 mistral_client = MistralClient(api_key=keys.API_KEY_MISTRAL)
-
+HUMAN_JOINT_PROMPTS = [
+    llm_prompts.HUMAN_JOINT_PROMPT_1,
+    llm_prompts.HUMAN_JOINT_PROMPT_2,
+    llm_prompts.HUMAN_JOINT_PROMPT_3,
+    llm_prompts.HUMAN_JOINT_PROMPT_4,
+]
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -585,3 +596,427 @@ def generage_final_forecast_files(deadline, prompt_type, models):
 
         with open(new_file_name, "w") as f:
             json.dump(forecast_file, f, indent=4)
+
+
+def worker(
+    index,
+    model_name,
+    save_dict,
+    questions_to_eval,
+    forecast_due_date,
+    mode="zero_shot",
+    rate_limit=False,
+):
+    """Worker function for question evaluation."""
+    if save_dict[index] != "":
+        return
+
+    logger.info(f"Starting {model_name} - {index}")
+
+    if rate_limit:
+        start_time = datetime.now()
+
+    question = questions_to_eval[index]
+    is_market_question = question["source"] not in question_curation.DATA_SOURCES
+    is_joint_question = question["combination_of"] != "N/A"
+
+    if is_market_question:
+        if is_joint_question:
+            prompt = (
+                llm_prompts.ZERO_SHOT_MARKET_JOINT_QUESTION_PROMPT
+                if mode == "zero_shot"
+                else llm_prompts.SCRATCH_PAD_MARKET_JOINT_QUESTION_PROMPT
+            )
+        else:
+            prompt = (
+                llm_prompts.ZERO_SHOT_MARKET_PROMPT
+                if mode == "zero_shot"
+                else llm_prompts.SCRATCH_PAD_MARKET_PROMPT
+            )
+    else:
+        if is_joint_question:
+            prompt = (
+                llm_prompts.ZERO_SHOT_NON_MARKET_JOINT_QUESTION_PROMPT
+                if mode == "zero_shot"
+                else llm_prompts.SCRATCH_PAD_NON_MARKET_JOINT_QUESTION_PROMPT
+            )
+        else:
+            prompt = (
+                llm_prompts.ZERO_SHOT_NON_MARKET_PROMPT
+                if mode == "zero_shot"
+                else llm_prompts.SCRATCH_PAD_NON_MARKET_PROMPT
+            )
+
+    prompt = prompt.format(
+        **get_prompt_params(question, is_market_question, is_joint_question, forecast_due_date)
+    )
+
+    try:
+        response = get_response_from_model(
+            prompt=prompt,
+            max_tokens=100 if mode == "zero_shot" else (1300 if is_market_question else 2000),
+            model_name=model_name,
+            temperature=0,
+            wait_time=30,
+        )
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        response = None
+
+    if mode == "zero_shot":
+        if is_market_question:
+            save_dict[index] = extract_probability(response)
+        else:
+            save_dict[index] = reformat_answers(response=response, prompt=prompt, question=question)
+    else:  # scratchpad mode
+        if is_market_question:
+            save_dict[index] = (reformat_answers(response=response, single=True), response)
+        else:
+            save_dict[index] = (
+                reformat_answers(response=response, prompt=prompt, question=question),
+                response,
+            )
+
+    logger.info(
+        f"Model: {model_name} | Answer: {save_dict[index] if mode == 'zero_shot' else save_dict[index][0]}"
+    )
+
+    if rate_limit:
+        end_time = datetime.now()
+        elapsed_time = (end_time - start_time).total_seconds()
+        if elapsed_time < 1:
+            time.sleep(1 - elapsed_time)
+
+    return None
+
+
+def executor(
+    max_workers, model_name, save_dict, questions_to_eval, forecast_due_date, mode="zero_shot"
+):
+    """Executor function."""
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        worker_with_args = partial(
+            worker,
+            model_name=model_name,
+            save_dict=save_dict,
+            questions_to_eval=questions_to_eval,
+            forecast_due_date=forecast_due_date,
+            mode=mode,
+        )
+        return list(executor.map(worker_with_args, range(len(questions_to_eval))))
+
+
+def get_prompt_params(question, is_market_question, is_joint_question, forecast_due_date):
+    """Get prompt parameters."""
+    base_params = {
+        "question": question["question"].replace("{forecast_due_date}", forecast_due_date),
+        "background": question["background"] + "\n" + question["market_info_resolution_criteria"],
+        "resolution_criteria": question["resolution_criteria"],
+    }
+
+    if is_market_question:
+        base_params["resolution_date"] = question["market_info_close_datetime"]
+    else:
+        base_params.update(
+            {
+                "freeze_datetime": question["freeze_datetime"],
+                "freeze_datetime_value": question["freeze_datetime_value"],
+                "freeze_datetime_value_explanation": question["freeze_datetime_value_explanation"],
+                "list_of_resolution_dates": question["resolution_dates"],
+            }
+        )
+
+    if is_joint_question:
+        joint_params = {
+            "human_prompt": HUMAN_JOINT_PROMPTS[question["combo_index"]],
+            "question_1": question["combination_of"][0]["question"].replace(
+                "{forecast_due_date}", forecast_due_date
+            ),
+            "question_2": question["combination_of"][1]["question"].replace(
+                "{forecast_due_date}", forecast_due_date
+            ),
+            "background_1": question["combination_of"][0]["background"]
+            + "\n"
+            + question["combination_of"][0]["market_info_resolution_criteria"],
+            "background_2": question["combination_of"][1]["background"]
+            + "\n"
+            + question["combination_of"][1]["market_info_resolution_criteria"],
+            "resolution_criteria_1": question["combination_of"][0]["resolution_criteria"],
+            "resolution_criteria_2": question["combination_of"][1]["resolution_criteria"],
+        }
+        if is_market_question:
+            joint_params["resolution_date"] = max(
+                question["combination_of"][0]["market_info_close_datetime"],
+                question["combination_of"][1]["market_info_close_datetime"],
+            )
+        else:
+            joint_params.update(
+                {
+                    "freeze_datetime_1": question["combination_of"][0]["freeze_datetime"],
+                    "freeze_datetime_2": question["combination_of"][1]["freeze_datetime"],
+                    "freeze_datetime_value_1": question["combination_of"][0][
+                        "freeze_datetime_value"
+                    ],
+                    "freeze_datetime_value_2": question["combination_of"][1][
+                        "freeze_datetime_value"
+                    ],
+                    "freeze_datetime_value_explanation_1": question["combination_of"][0][
+                        "freeze_datetime_value_explanation"
+                    ],
+                    "freeze_datetime_value_explanation_2": question["combination_of"][1][
+                        "freeze_datetime_value_explanation"
+                    ],
+                    "list_of_resolution_dates": question["resolution_dates"],
+                }
+            )
+        return joint_params
+    else:
+        return base_params
+
+
+def process_questions_and_models(questions, models, prompt_type, base_file_path, forecast_due_date):
+    """
+    Process questions for different models and prompt types.
+
+    Args:
+    questions (list): List of question sets to evaluate.
+    models (dict): Dictionary containing model information.
+    prompt_type (str): Type of prompt ('zero_shot' or 'scratchpad').
+    base_file_path (str): Base path for file storage.
+    forecast_due_date (str): Due date for forecasts.
+
+    Steps:
+    1. Determine test type for each question set.
+    2. Load existing results or initialize new ones.
+    3. Process each model for each question set.
+    4. Save and upload results.
+    """
+    results = {}
+    models_to_test = list(models.keys())
+    model_result_loaded = {model: False for model in models_to_test}
+
+    for question_set in questions:
+        test_type = determine_test_type(question_set, prompt_type)
+        questions_to_eval = question_set
+
+        for model in models_to_test:
+            gcp_file_path = f"{base_file_path}/{test_type}/{model}.jsonl"
+
+            results[model] = data_utils.download_and_read_saved_forecasts(
+                gcp_file_path, base_file_path
+            )
+
+            if results[model]:
+                model_result_loaded[model] = True
+                logger.info(f"Downloaded {gcp_file_path}.")
+            else:
+                logger.info(f"No results loaded for {gcp_file_path}.")
+                model_result_loaded[model] = False
+                results[model] = {i: "" for i in range(len(questions_to_eval))}
+
+        for model in models_to_test:
+            if not model_result_loaded[model]:
+                logger.info(f"{model} is running inference...")
+                process_model(
+                    model,
+                    models,
+                    test_type,
+                    results,
+                    questions_to_eval,
+                    forecast_due_date,
+                    prompt_type,
+                    base_file_path,
+                )
+
+
+def process_model(
+    model,
+    models,
+    test_type,
+    results,
+    questions_to_eval,
+    forecast_due_date,
+    prompt_type,
+    base_file_path,
+):
+    """Process a single model for the given questions."""
+    executor_count = get_executor_count(model, models)
+    logger.info(f"{model} is using {executor_count} workers.")
+    executor(
+        executor_count,
+        models[model]["full_name"],
+        results[model],
+        questions_to_eval,
+        forecast_due_date,
+        mode=prompt_type,
+    )
+
+    current_model_forecasts = generate_forecasts(model, results, questions_to_eval, prompt_type)
+    save_and_upload_results(current_model_forecasts, test_type, model, base_file_path)
+
+
+def get_executor_count(model, models):
+    """Get the executor count based on the model source."""
+    if models[model]["source"] == "ANTHROPIC":
+        return 30
+    elif models[model]["source"] == "GOOGLE":
+        return 10
+    return 50
+
+
+def determine_test_type(question_set, prompt_type):
+    """Determine the test type based on the question set and prompt type."""
+    if question_set[0]["source"] not in question_curation.DATA_SOURCES:
+        base_type = "market" if question_set[0]["combination_of"] == "N/A" else "combo_market"
+    else:
+        base_type = (
+            "non_market" if question_set[0]["combination_of"] == "N/A" else "combo_non_market"
+        )
+    return f"{prompt_type}/{base_type}"
+
+
+def generate_forecasts(model, results, questions_to_eval, prompt_type):
+    """Generate forecasts for the current model."""
+    forecasts = []
+    for index, question in enumerate(questions_to_eval):
+        if question["source"] in question_curation.DATA_SOURCES:
+            forecasts.extend(
+                generate_data_source_forecasts(model, results, question, index, prompt_type)
+            )
+        else:
+            forecasts.append(
+                generate_non_data_source_forecast(model, results, question, index, prompt_type)
+            )
+    return forecasts
+
+
+def generate_data_source_forecasts(model, results, question, index, prompt_type):
+    """Generate forecasts for questions from data sources."""
+    forecasts = []
+    model_results = (
+        results[model][index] if prompt_type == "zero_shot" else results[model][index][0]
+    )
+    for forecast, resolution_date in zip(model_results, question["resolution_dates"]):
+        forecast_data = {
+            "id": question["id"],
+            "source": question["source"],
+            "forecast": forecast,
+            "resolution_date": resolution_date,
+            "reasoning": None if prompt_type == "zero_shot" else results[model][index][1],
+        }
+        if question["combination_of"] != "N/A":
+            forecast_data["direction"] = get_direction(question["combo_index"])
+        forecasts.append(forecast_data)
+    return forecasts
+
+
+def generate_non_data_source_forecast(model, results, question, index, prompt_type):
+    """Generate a forecast for questions not from data sources."""
+    return {
+        "id": question["id"],
+        "source": question["source"],
+        "forecast": (
+            results[model][index] if prompt_type == "zero_shot" else results[model][index][0]
+        ),
+        "reasoning": None if prompt_type == "zero_shot" else results[model][index][1],
+    }
+
+
+def get_direction(combo_index):
+    """Get the direction based on the combo index."""
+    directions = {0: [1, 1], 1: [1, -1], 2: [-1, 1], 3: [-1, -1]}
+    return directions.get(combo_index, [0, 0])
+
+
+def save_and_upload_results(forecasts, test_type, model, base_file_path):
+    """Save results locally and upload to GCP."""
+    local_filename = f"{test_type}/{model}.jsonl"
+    os.makedirs(os.path.dirname(local_filename), exist_ok=True)
+    with open(local_filename, "w") as file:
+        for entry in forecasts:
+            json_line = json.dumps(entry)
+            file.write(json_line + "\n")
+
+    gcp.storage.upload(
+        bucket_name=env.FORECAST_SETS_BUCKET,
+        local_filename=local_filename,
+        filename=f"{base_file_path}/{local_filename}",
+    )
+
+
+def process_questions(questions_file, num_per_source=None):
+    """
+    Process questions from a JSON file and categorize them.
+
+    Load questions from the specified JSON file. Categorize them into single and combo
+    questions for both market and non-market sources. Unroll combo questions.
+    Optionally limit the number of questions per source.
+
+    Args:
+        questions_file (str): Path to the JSON file containing questions.
+        num_per_source (int, optional): Number of questions to return per source.
+                                        If None, return all questions.
+
+    Returns:
+        tuple: Contains four lists in the following order:
+               1. Single market questions
+               2. Single non-market questions
+               3. Unrolled combo market questions
+               4. Unrolled combo non-market questions
+
+    Raises:
+        FileNotFoundError: If the specified questions_file does not exist.
+        json.JSONDecodeError: If the JSON file is not properly formatted.
+    """
+    with open(questions_file, "r") as file:
+        questions_data = json.load(file)
+
+    questions = questions_data["questions"]
+
+    single_market_questions = [
+        q
+        for q in questions
+        if q["combination_of"] == "N/A" and q["source"] not in question_curation.DATA_SOURCES
+    ]
+    single_non_market_questions = [
+        q
+        for q in questions
+        if q["combination_of"] == "N/A" and q["source"] in question_curation.DATA_SOURCES
+    ]
+
+    combo_market_questions = [
+        q
+        for q in questions
+        if q["combination_of"] != "N/A" and q["source"] not in question_curation.DATA_SOURCES
+    ]
+    combo_non_market_questions = [
+        q
+        for q in questions
+        if q["combination_of"] != "N/A" and q["source"] in question_curation.DATA_SOURCES
+    ]
+
+    def unroll(combo_questions):
+        """Unroll combo questions by directions."""
+        combo_questions_unrolled = []
+        for q in combo_questions:
+            for i in range(4):
+                new_q = q.copy()
+                new_q["combo_index"] = i
+                combo_questions_unrolled.append(new_q)
+        return combo_questions_unrolled
+
+    combo_market_questions_unrolled = unroll(combo_market_questions)
+    combo_non_market_questions_unrolled = unroll(combo_non_market_questions)
+
+    if num_per_source is not None:
+        single_market_questions = single_market_questions[:num_per_source]
+        single_non_market_questions = single_non_market_questions[:num_per_source]
+        combo_market_questions_unrolled = combo_market_questions_unrolled[:num_per_source]
+        combo_non_market_questions_unrolled = combo_non_market_questions_unrolled[:num_per_source]
+
+    return (
+        single_market_questions,
+        single_non_market_questions,
+        combo_market_questions_unrolled,
+        combo_non_market_questions_unrolled,
+    )

@@ -23,7 +23,7 @@ Question Background:
 Resolution Criteria:
 {resolution_criteria}
 
-Question close date: {close_date}
+Question resolution date: {resolution_date}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal.
 Do not output anything else.
@@ -50,7 +50,7 @@ Current value on {freeze_datetime}:
 Value Explanation:
 {freeze_datetime_value_explanation}
 
-Question resolution date: {list_of_resolution_dates}
+Question resolution dates: {list_of_resolution_dates}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
 Answer: {{ Insert answer here }}
@@ -92,7 +92,7 @@ Question 2 Current value on {freeze_datetime_1}:
 Question 2 Value Explanation:
 {freeze_datetime_value_explanation_2}
 
-Question resolution date: {list_of_resolution_dates}
+Question resolution dates: {list_of_resolution_dates}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
 
@@ -123,7 +123,7 @@ Question 1 Resolution Criteria:
 Question 2 Resolution Criteria:
 {resolution_criteria_2}
 
-Question resolution date: {close_date}
+Question resolution dates: {resolution_date}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. Do not output anything else.
 
@@ -141,7 +141,7 @@ Question Background:
 Resolution Criteria:
 {resolution_criteria}
 
-Question close date: {close_date}
+Question resolution date: {resolution_date}
 
 Instructions:
 1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
@@ -184,7 +184,7 @@ Current value on {freeze_datetime}:
 Value Explanation:
 {freeze_datetime_value_explanation}
 
-Question resolution date: {list_of_resolution_dates}
+Question resolution dates: {list_of_resolution_dates}
 
 Instructions:
 1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
@@ -242,7 +242,7 @@ Question 2 Current value on {freeze_datetime_1}:
 Question 2 Value Explanation:
 {freeze_datetime_value_explanation_2}
 
-Question resolution date: {list_of_resolution_dates}
+Question resolution dates: {list_of_resolution_dates}
 
 Instructions:
 1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
@@ -288,7 +288,7 @@ Question 1 Resolution Criteria:
 Question 2 Resolution Criteria:
 {resolution_criteria_2}
 
-Question resolution date: {close_date}
+Question resolution dates: {resolution_date}
 
 Instructions:
 1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
@@ -323,7 +323,7 @@ Question Background:
 Resolution Criteria:
 {resolution_criteria}
 
-Question close date: {close_date}
+Question resolution date: {resolution_date}
 
 We have retrieved the following information for this question:
 {retrieved_info}
@@ -372,7 +372,7 @@ Value Explanation:
 We have retrieved the following information for this question:
 {retrieved_info}
 
-Question resolution date: {list_of_resolution_dates}
+Question resolution dates: {list_of_resolution_dates}
 
 Instructions:
 1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
@@ -436,7 +436,7 @@ We have retrieved the following information for Question 1:
 We have retrieved the following information for Question 2:
 {retrieved_info_2}
 
-Question resolution date: {list_of_resolution_dates}
+Question resolution dates: {list_of_resolution_dates}
 
 Instructions:
 1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.

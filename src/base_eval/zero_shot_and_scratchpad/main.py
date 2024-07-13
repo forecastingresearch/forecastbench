@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Initializing variables and AI Platform
 project_id = env.PROJECT_ID
 region = env.CLOUD_DEPLOY_REGION
-job_display_name = "vertex-ai-notebook-job"
+job_display_name = "zero-shot-and-scratchpad-eval"
 image_name = env.LLM_BASELINE_DOCKER_IMAGE_NAME
 repo_name = env.LLM_BASELINE_DOCKER_REPO_NAME
 staging_bucket = env.LLM_BASELINE_STAGING_BUCKET
@@ -45,8 +45,11 @@ def trigger_vertex_ai(event, context):
                     "replica_count": 1,
                     "container_spec": {
                         "image_uri": container_uri,
-                        "command": ["python3.12", "run_notebook.py"],
-                        "args": ["notebook.ipynb"],
+                        "command": [
+                            "python3.12",
+                            "run_eval.py",
+                            "TEST",
+                        ],  # Remove the TEST command when we wanna start running it regularly
                     },
                 }
             ],

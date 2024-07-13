@@ -208,6 +208,10 @@ def read_jsonl(file_path):
 def download_and_read_saved_forecasts(filename, base_file_path):
     """Download saved forecasts from cloud storage."""
     local_filename = filename.replace(base_file_path + "/", "")
+
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(local_filename), exist_ok=True)
+
     gcp.storage.download_no_error_message_on_404(
         bucket_name=env.FORECAST_SETS_BUCKET,
         filename=filename,
