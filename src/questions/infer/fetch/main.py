@@ -109,12 +109,7 @@ def get_data(current_data):
     all_binary_questions = [
         q
         for q in all_active_questions
-        if q["state"] == "active"
-        and (
-            len(q["answers"]) == 2
-            and {q["answers"][0]["name"], q["answers"][1]["name"]} == {"No", "Yes"}
-        )
-        or (len(q["answers"]) == 1 and q["answers"][0]["name"] == "Yes")
+        if q["state"] == "active" and q["type"] == "Forecast::YesNoQuestion"
     ]
 
     # Convert all_new_questions to a set of IDs for faster lookup
