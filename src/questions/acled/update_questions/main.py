@@ -64,7 +64,7 @@ def generate_forecast_questions(dfq, dfr, countries, event_types):
             "id": aid,
             "question": question,
             "background": acled.BACKGROUND,
-            "freeze_datetime_value": freeze_datetime_value,
+            "freeze_datetime_value": str(freeze_datetime_value),
             "freeze_datetime_value_explanation": freeze_datetime_value_explanation,
             "market_info_resolution_criteria": "N/A",
             "market_info_open_datetime": "N/A",
@@ -103,6 +103,16 @@ def generate_forecast_questions(dfq, dfr, countries, event_types):
     dfq = pd.concat([dfq, rows_to_append], ignore_index=True).sort_values(
         by="id", ignore_index=True
     )
+    rows_to_update = df[df["id"].isin(dfq["id"])]
+    fields_to_update = [
+        "question",
+        "background",
+        "freeze_datetime_value",
+        "freeze_datetime_value_explanation",
+    ]
+    for aid in rows_to_update["id"].unique():
+        for field in fields_to_update:
+            dfq.loc[dfq["id"] == aid, field] = df.loc[df["id"] == aid, field].iloc[0]
     return dfq
 
 

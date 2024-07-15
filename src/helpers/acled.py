@@ -208,14 +208,7 @@ def thirty_day_avg_over_past_360_days(dfr, country, col, ref_date):
 
     start_date = ref_date - timedelta(days=359)  # 360 inclusive
     dfc = dfc[(dfc["event_date"].dt.date >= start_date) & (dfc["event_date"].dt.date <= ref_date)]
-    if dfc.empty:
-        return 0
-
-    dfc.set_index("event_date", inplace=True)
-    all_dates = pd.date_range(start=start_date, end=ref_date, freq="D")
-    dfc = dfc[col].reindex(all_dates, fill_value=0)
-    dfc = dfc.resample("30D").mean()
-    return dfc.mean()
+    return dfc[col].sum() / 12 if not dfc.empty else 0
 
 
 def thirty_day_avg_over_past_360_days_plus_1(dfr, country, col, ref_date):
@@ -231,6 +224,15 @@ QUESTIONS = {
                 "Will there be more {event_type} in {country} for the 30 days before "
                 "{resolution_date} compared to the 30-day average of {event_type} over the 360 "
                 "days preceding {forecast_due_date}?"
+                "\n\n"
+                "e.g. If the forecast due date is 2024-01-01 and we have the following data:\n"
+                "Date,{event_type}\n"
+                "2023-11-11,1\n"
+                "2023-10-10,2\n"
+                "to calculate the 30-day average of {event_type} over the preceding 360 "
+                "days, we’d have: (1+2)/12=0.25.\n\n"
+                "In this example, for the question to resolve positively, 1 or more "
+                "{event_type} would need to occur in the 30 days leading up to the resolution."
             ),
             ("event_type", "country"),
         ),
@@ -249,12 +251,21 @@ QUESTIONS = {
                 "Will there be more than ten times as many {event_type} in {country} for the 30 "
                 "days before {resolution_date} compared to one plus the 30-day average of "
                 "{event_type} over the 360 days preceding {forecast_due_date}?"
+                "\n\n"
+                "e.g. If the forecast due date is 2024-01-01 and we have the following data:\n"
+                "Date,{event_type}\n"
+                "2023-11-11,1\n"
+                "2023-10-10,2\n"
+                "to calculate one plus the 30-day average of {event_type} over the preceding 360 "
+                "days, we’d have: 1+(1+2)/12=1.25.\n\n"
+                "In this example, for the question to resolve positively, 13 (10 x 1.25) or more "
+                "{event_type} would need to occur in the 30 days leading up to the resolution."
             ),
             ("event_type", "country"),
         ),
         "freeze_datetime_value_explanation": (
             (
-                "The 30-day average of {event_type} over the past 360 days in {country}. "
+                "One plus the 30-day average of {event_type} over the past 360 days in {country}. "
                 "This reference value will potentially change as ACLED updates its dataset."
             ),
             ("event_type", "country"),
