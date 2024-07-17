@@ -120,7 +120,11 @@ def fetch_all_stock(dfq):
                     "id": ticker,
                     "question": (
                         f"Will {ticker}'s market close price on "
-                        "{resolution_date} be higher than its market close price on {forecast_due_date}?"
+                        "{resolution_date} be higher than its market close price on "
+                        "{forecast_due_date}?\n\n"
+                        "Stock splits and reverse splits will be accounted for in resolving this "
+                        "question. Forecasts on questions about companies that have been delisted "
+                        "(through mergers or bankruptcy) will resolve to their final close price."
                     ),
                     "background": background,
                     "market_info_resolution_criteria": "N/A",
