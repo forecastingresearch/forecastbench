@@ -644,6 +644,11 @@ def worker(
     is_market_question = question["source"] not in question_curation.DATA_SOURCES
     is_joint_question = question["combination_of"] != "N/A"
 
+    if not is_market_question and market_use_freeze_value:
+        # Don't run for data source questions when market_use_freeze_value is True
+        # because we will have already run these requests when it was False.
+        return
+
     if is_market_question:
         if is_joint_question:
             if market_use_freeze_value:
