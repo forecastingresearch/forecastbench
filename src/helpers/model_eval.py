@@ -540,27 +540,41 @@ def generate_final_forecast_files(deadline, prompt_type, models):
     """
     models_to_test = list(models.keys())
 
-    for model in models_to_test:
+    def get_final_dir(with_freeze_values):
+        return "final_with_freeze" if with_freeze_values else "final"
+
+    def write_file(model, with_freeze_values):
         current_model_forecasts = []
-        for test_type in [
-            f"{prompt_type}/non_market",
-            f"{prompt_type}/market",
-            f"{prompt_type}/combo_non_market",
-            f"{prompt_type}/combo_market",
-        ]:
+        if with_freeze_values:
+            dirs = [
+                f"{prompt_type}/non_market",
+                f"{prompt_type}/market/with_freeze_values",
+                f"{prompt_type}/combo_non_market",
+                f"{prompt_type}/combo_market/with_freeze_values",
+            ]
+        else:
+            dirs = [
+                f"{prompt_type}/non_market",
+                f"{prompt_type}/market",
+                f"{prompt_type}/combo_non_market",
+                f"{prompt_type}/combo_market",
+            ]
+        for test_type in dirs:
             file_path = f"{test_type}/{model}.jsonl"
             questions = data_utils.read_jsonl(file_path)
             current_model_forecasts.extend(questions)
 
-        final_file_name = f"{prompt_type}/final/{model}"
+        final_dir = get_final_dir(with_freeze_values)
+        final_file_name = f"{prompt_type}/{final_dir}/{model}"
         os.makedirs(os.path.dirname(final_file_name), exist_ok=True)
         with open(final_file_name, "w") as file:
             for entry in current_model_forecasts:
                 json_line = json.dumps(entry)
                 file.write(json_line + "\n")
 
-    for model in models_to_test:
-        file_path = f"{prompt_type}/final/{model}"
+    def create_final_file(model, with_freeze_values):
+        final_dir = get_final_dir(with_freeze_values)
+        file_path = f"{prompt_type}/{final_dir}/{model}"
         questions = data_utils.read_jsonl(file_path)
         if "gpt" in model:
             org = "OpenAI"
@@ -578,7 +592,10 @@ def generate_final_forecast_files(deadline, prompt_type, models):
         directory = f"{prompt_type}/final_submit"
         os.makedirs(directory, exist_ok=True)
 
-        new_file_name = f"{directory}/{deadline}.{org}.{model}_{prompt_type}.json"
+        file_prompt_type = prompt_type
+        if with_freeze_values:
+            file_prompt_type += "_with_freeze_values"
+        new_file_name = f"{directory}/{deadline}.{org}.{model}_{file_prompt_type}.json"
 
         model_name = (
             models[model]["full_name"]
@@ -588,7 +605,7 @@ def generate_final_forecast_files(deadline, prompt_type, models):
 
         forecast_file = {
             "organization": org,
-            "model": f"{capitalize_substrings(model_name)} ({prompt_type.replace('_', ' ')})",
+            "model": f"{capitalize_substrings(model_name)} ({file_prompt_type.replace('_', ' ')})",
             "question_set": f"{deadline}-llm.jsonl",
             "forecast_date": datetime.today().strftime("%Y-%m-%d"),
             "forecasts": questions,
@@ -596,6 +613,12 @@ def generate_final_forecast_files(deadline, prompt_type, models):
 
         with open(new_file_name, "w") as f:
             json.dump(forecast_file, f, indent=4)
+
+    for model in models_to_test:
+        write_file(model=model, with_freeze_values=False)
+        write_file(model=model, with_freeze_values=True)
+        create_final_file(model=model, with_freeze_values=False)
+        create_final_file(model=model, with_freeze_values=True)
 
 
 def worker(
@@ -606,6 +629,7 @@ def worker(
     forecast_due_date,
     mode="zero_shot",
     rate_limit=False,
+    market_use_freeze_value=False,
 ):
     """Worker function for question evaluation."""
     if save_dict[index] != "":
@@ -622,17 +646,31 @@ def worker(
 
     if is_market_question:
         if is_joint_question:
-            prompt = (
-                llm_prompts.ZERO_SHOT_MARKET_JOINT_QUESTION_PROMPT
-                if mode == "zero_shot"
-                else llm_prompts.SCRATCH_PAD_MARKET_JOINT_QUESTION_PROMPT
-            )
+            if market_use_freeze_value:
+                prompt = (
+                    llm_prompts.ZERO_SHOT_MARKET_JOINT_QUESTION_WITH_FREEZE_VALUE_PROMPT
+                    if mode == "zero_shot"
+                    else llm_prompts.SCRATCH_PAD_MARKET_JOINT_QUESTION_WITH_FREEZE_VALUE_PROMPT
+                )
+            else:
+                prompt = (
+                    llm_prompts.ZERO_SHOT_MARKET_JOINT_QUESTION_PROMPT
+                    if mode == "zero_shot"
+                    else llm_prompts.SCRATCH_PAD_MARKET_JOINT_QUESTION_PROMPT
+                )
         else:
-            prompt = (
-                llm_prompts.ZERO_SHOT_MARKET_PROMPT
-                if mode == "zero_shot"
-                else llm_prompts.SCRATCH_PAD_MARKET_PROMPT
-            )
+            if market_use_freeze_value:
+                prompt = (
+                    llm_prompts.ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT
+                    if mode == "zero_shot"
+                    else llm_prompts.SCRATCH_PAD_MARKET_WITH_FREEZE_VALUE_PROMPT
+                )
+            else:
+                prompt = (
+                    llm_prompts.ZERO_SHOT_MARKET_PROMPT
+                    if mode == "zero_shot"
+                    else llm_prompts.SCRATCH_PAD_MARKET_PROMPT
+                )
     else:
         if is_joint_question:
             prompt = (
@@ -648,7 +686,13 @@ def worker(
             )
 
     prompt = prompt.format(
-        **get_prompt_params(question, is_market_question, is_joint_question, forecast_due_date)
+        **get_prompt_params(
+            question,
+            is_market_question,
+            is_joint_question,
+            forecast_due_date,
+            market_use_freeze_value,
+        )
     )
 
     try:
@@ -691,7 +735,13 @@ def worker(
 
 
 def executor(
-    max_workers, model_name, save_dict, questions_to_eval, forecast_due_date, mode="zero_shot"
+    max_workers,
+    model_name,
+    save_dict,
+    questions_to_eval,
+    forecast_due_date,
+    mode="zero_shot",
+    market_use_freeze_value=False,
 ):
     """Executor function."""
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -702,11 +752,14 @@ def executor(
             questions_to_eval=questions_to_eval,
             forecast_due_date=forecast_due_date,
             mode=mode,
+            market_use_freeze_value=market_use_freeze_value,
         )
         return list(executor.map(worker_with_args, range(len(questions_to_eval))))
 
 
-def get_prompt_params(question, is_market_question, is_joint_question, forecast_due_date):
+def get_prompt_params(
+    question, is_market_question, is_joint_question, forecast_due_date, market_use_freeze_value
+):
     """Get prompt parameters."""
     base_params = {
         "question": question["question"].replace("{forecast_due_date}", forecast_due_date),
@@ -716,6 +769,13 @@ def get_prompt_params(question, is_market_question, is_joint_question, forecast_
 
     if is_market_question:
         base_params["resolution_date"] = question["market_info_close_datetime"]
+        if market_use_freeze_value:
+            base_params.update(
+                {
+                    "freeze_datetime": question["freeze_datetime"],
+                    "freeze_datetime_value": question["freeze_datetime_value"],
+                }
+            )
     else:
         base_params.update(
             {
@@ -749,6 +809,19 @@ def get_prompt_params(question, is_market_question, is_joint_question, forecast_
                 question["combination_of"][0]["market_info_close_datetime"],
                 question["combination_of"][1]["market_info_close_datetime"],
             )
+            if market_use_freeze_value:
+                joint_params.update(
+                    {
+                        "freeze_datetime_1": question["combination_of"][0]["freeze_datetime"],
+                        "freeze_datetime_2": question["combination_of"][1]["freeze_datetime"],
+                        "freeze_datetime_value_1": question["combination_of"][0][
+                            "freeze_datetime_value"
+                        ],
+                        "freeze_datetime_value_2": question["combination_of"][1][
+                            "freeze_datetime_value"
+                        ],
+                    }
+                )
         else:
             joint_params.update(
                 {
@@ -774,7 +847,9 @@ def get_prompt_params(question, is_market_question, is_joint_question, forecast_
         return base_params
 
 
-def process_questions_and_models(questions, models, prompt_type, base_file_path, forecast_due_date):
+def process_questions_and_models(
+    questions, models, prompt_type, base_file_path, forecast_due_date, market_use_freeze_value
+):
     """
     Process questions for different models and prompt types.
 
@@ -784,6 +859,7 @@ def process_questions_and_models(questions, models, prompt_type, base_file_path,
     prompt_type (str): Type of prompt ('zero_shot' or 'scratchpad').
     base_file_path (str): Base path for file storage.
     forecast_due_date (str): Due date for forecasts.
+    market_use_freeze_value (bool): Whether or not to use free values in market prompts.
 
     Steps:
     1. Determine test type for each question set.
@@ -796,7 +872,7 @@ def process_questions_and_models(questions, models, prompt_type, base_file_path,
     model_result_loaded = {model: False for model in models_to_test}
 
     for question_set in questions:
-        test_type = determine_test_type(question_set, prompt_type)
+        test_type = determine_test_type(question_set, prompt_type, market_use_freeze_value)
         questions_to_eval = question_set
 
         for model in models_to_test:
@@ -825,6 +901,7 @@ def process_questions_and_models(questions, models, prompt_type, base_file_path,
                     questions_to_eval,
                     forecast_due_date,
                     prompt_type,
+                    market_use_freeze_value,
                     base_file_path,
                 )
 
@@ -837,6 +914,7 @@ def process_model(
     questions_to_eval,
     forecast_due_date,
     prompt_type,
+    market_use_freeze_value,
     base_file_path,
 ):
     """Process a single model for the given questions."""
@@ -849,6 +927,7 @@ def process_model(
         questions_to_eval,
         forecast_due_date,
         mode=prompt_type,
+        market_use_freeze_value=market_use_freeze_value,
     )
 
     current_model_forecasts = generate_forecasts(model, results, questions_to_eval, prompt_type)
@@ -864,10 +943,12 @@ def get_executor_count(model, models):
     return 50
 
 
-def determine_test_type(question_set, prompt_type):
+def determine_test_type(question_set, prompt_type, market_use_freeze_value):
     """Determine the test type based on the question set and prompt type."""
     if question_set[0]["source"] not in question_curation.DATA_SOURCES:
         base_type = "market" if question_set[0]["combination_of"] == "N/A" else "combo_market"
+        if market_use_freeze_value:
+            base_type += "/with_freeze_values"
     else:
         base_type = (
             "non_market" if question_set[0]["combination_of"] == "N/A" else "combo_non_market"

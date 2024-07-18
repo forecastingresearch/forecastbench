@@ -83,7 +83,20 @@ def run_evaluations(questions, models, forecast_due_date):
 
     for prompt_type in ["zero_shot", "scratchpad"]:
         model_eval.process_questions_and_models(
-            questions, models, prompt_type, base_file_path, forecast_due_date=forecast_due_date
+            questions,
+            models,
+            prompt_type,
+            base_file_path,
+            forecast_due_date=forecast_due_date,
+            market_use_freeze_value=False,
+        )
+        model_eval.process_questions_and_models(
+            questions,
+            models,
+            prompt_type,
+            base_file_path,
+            forecast_due_date=forecast_due_date,
+            market_use_freeze_value=True,
         )
         model_eval.generate_final_forecast_files(
             deadline=forecast_due_date, prompt_type=prompt_type, models=models
