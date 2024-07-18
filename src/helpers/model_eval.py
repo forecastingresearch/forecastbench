@@ -526,7 +526,7 @@ def capitalize_substrings(model_name):
     return "-".join(capitalized_substrings)
 
 
-def generage_final_forecast_files(deadline, prompt_type, models):
+def generate_final_forecast_files(deadline, prompt_type, models):
     """
     Generate final forecast files for given models, merging individual forecasts into final files.
 

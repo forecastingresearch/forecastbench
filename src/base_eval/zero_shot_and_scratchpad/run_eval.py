@@ -85,7 +85,7 @@ def run_evaluations(questions, models, forecast_due_date):
         model_eval.process_questions_and_models(
             questions, models, prompt_type, base_file_path, forecast_due_date=forecast_due_date
         )
-        model_eval.generage_final_forecast_files(
+        model_eval.generate_final_forecast_files(
             deadline=forecast_due_date, prompt_type=prompt_type, models=models
         )
         data_utils.delete_and_upload_to_the_cloud(base_file_path, prompt_type, question_types)
