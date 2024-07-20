@@ -3,11 +3,13 @@ FROM gcr.io/deeplearning-platform-release/base-cpu
 # Define build-time variables
 ARG FORECAST_SETS_BUCKET
 ARG QUESTION_SETS_BUCKET
+ARG LLM_BASELINE_NEWS_BUCKET
 ARG CLOUD_PROJECT
 
 # Set environment variables from build-time arguments
 ENV FORECAST_SETS_BUCKET=${FORECAST_SETS_BUCKET}
 ENV QUESTION_SETS_BUCKET=${QUESTION_SETS_BUCKET}
+ENV LLM_BASELINE_NEWS_BUCKET=${LLM_BASELINE_NEWS_BUCKET}
 ENV CLOUD_PROJECT=${CLOUD_PROJECT}
 
 # Install dependencies for building Python
@@ -57,4 +59,4 @@ COPY . /app
 WORKDIR /app
 
 # Set the entrypoint to use the specific Python version
-ENTRYPOINT ["python3.12", "run_notebook.py"]
+ENTRYPOINT ["python3.12", "run_eval.py"]

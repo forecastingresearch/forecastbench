@@ -23,6 +23,7 @@ deploy-image: Dockerfile run_eval.py .gcloudignore requirements.txt
 	docker build \
 		--build-arg FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET) \
 		--build-arg QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET) \
+		--build-arg LLM_BASELINE_NEWS_BUCKET=$(LLM_BASELINE_NEWS_BUCKET) \
 		--build-arg CLOUD_PROJECT=$(CLOUD_PROJECT) \
 		-t $(CLOUD_DEPLOY_REGION)-docker.pkg.dev/$(CLOUD_PROJECT)/$(LLM_BASELINE_DOCKER_REPO_NAME)/$(LLM_BASELINE_DOCKER_IMAGE_NAME):latest $(UPLOAD_DIR_DOCKER)
 	docker push $(CLOUD_DEPLOY_REGION)-docker.pkg.dev/$(CLOUD_PROJECT)/$(LLM_BASELINE_DOCKER_REPO_NAME)/$(LLM_BASELINE_DOCKER_IMAGE_NAME):latest

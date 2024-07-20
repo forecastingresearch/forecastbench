@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Initializing variables and AI Platform
 project_id = env.PROJECT_ID
 region = env.CLOUD_DEPLOY_REGION
-job_display_name = "zero-shot-and-scratchpad-eval"
+job_display_name = "all-recurrent-llm-baselines"
 image_name = env.LLM_BASELINE_DOCKER_IMAGE_NAME
 repo_name = env.LLM_BASELINE_DOCKER_REPO_NAME
 staging_bucket = env.LLM_BASELINE_STAGING_BUCKET

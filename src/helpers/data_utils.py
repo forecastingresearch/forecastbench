@@ -230,10 +230,13 @@ def list_files(directory):
     return filenames
 
 
-def delete_and_upload_to_the_cloud(base_file_path, prompt_type, question_types):
+def delete_and_upload_to_the_cloud(base_file_path, prompt_type, question_types, test_or_prod):
     """Upload local forecast files to GCP and then delete them."""
     # submits the final forecasts to forecastbench-forecast-sets-dev
     local_directory = f"{prompt_type}/final_submit"
+    if test_or_prod == "TEST":
+        local_directory += "_test"
+
     forecast_filenames = list_files(local_directory)
     for forecast_filename in forecast_filenames:
         local_filename = local_directory + "/" + forecast_filename
@@ -243,17 +246,44 @@ def delete_and_upload_to_the_cloud(base_file_path, prompt_type, question_types):
             filename=forecast_filename,
         )
         os.remove(local_filename)
+        print(f"deleted... {local_filename}")
 
     # save intermediate results to forecastbench-forecast-sets-dev/individual_forecast_records
     # in case the notebook is interrupted, it would pick up where it left off and continue running.
     for question_type in question_types:
         local_directory = f"{prompt_type}/{question_type}"
-        forecast_filenames = list_files(local_directory)
-        for forecast_filename in forecast_filenames:
-            local_filename = local_directory + f"/{forecast_filename}"
-            gcp.storage.upload(
-                bucket_name=env.FORECAST_SETS_BUCKET,
-                local_filename=local_filename,
-                filename=f"{base_file_path}/{local_filename}",
-            )
-            os.remove(local_filename)
+        if test_or_prod == "TEST":
+            local_directory += "_test"
+        if os.path.exists(local_directory):
+            forecast_filenames = list_files(local_directory)
+            for forecast_filename in forecast_filenames:
+                local_filename = local_directory + f"/{forecast_filename}"
+                gcp.storage.upload(
+                    bucket_name=env.FORECAST_SETS_BUCKET,
+                    local_filename=local_filename,
+                    filename=f"{base_file_path}/{local_filename}",
+                )
+
+                os.remove(local_filename)
+                print(f"{local_filename} is deleted.")
+
+        # delete freeze values files in local location
+        if "non_market" not in question_type and question_type not in [
+            "final",
+            "final_with_freeze",
+        ]:
+            local_directory = f"{prompt_type}/{question_type}/with_freeze_values"
+            if test_or_prod == "TEST":
+                local_directory += "_test"
+
+            if os.path.exists(local_directory):
+                forecast_filenames = list_files(local_directory)
+                for forecast_filename in forecast_filenames:
+                    local_filename = os.path.join(local_directory, forecast_filename)
+                    if os.path.exists(local_filename):
+                        os.remove(local_filename)
+                        print(f"{local_filename} is deleted.")
+                    else:
+                        print(f"Warning: {local_filename} does not exist.")
+            else:
+                print(f"Directory {local_directory} does not exist. Skipping deletion.")

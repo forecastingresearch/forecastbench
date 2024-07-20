@@ -23,6 +23,8 @@ Question Background:
 Resolution Criteria:
 {resolution_criteria}
 
+Today's Date: {today_date}
+
 Question resolution date: {resolution_date}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal.
@@ -44,6 +46,8 @@ Resolution Criteria:
 
 Market value on {freeze_datetime}:
 {freeze_datetime_value}
+
+Today's Date: {today_date}
 
 Question resolution date: {resolution_date}
 
@@ -72,6 +76,8 @@ Current value on {freeze_datetime}:
 
 Value Explanation:
 {freeze_datetime_value_explanation}
+
+Today's Date: {today_date}
 
 Question resolution dates: {list_of_resolution_dates}
 
@@ -115,6 +121,8 @@ Question 2 Current value on {freeze_datetime_1}:
 Question 2 Value Explanation:
 {freeze_datetime_value_explanation_2}
 
+Today's Date: {today_date}
+
 Question resolution dates: {list_of_resolution_dates}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
@@ -145,6 +153,8 @@ Question 1 Resolution Criteria:
 
 Question 2 Resolution Criteria:
 {resolution_criteria_2}
+
+Today's Date: {today_date}
 
 Question resolution dates: {resolution_date}
 
@@ -184,6 +194,8 @@ Question 1 Market value on {freeze_datetime_1}:
 Question 2 Market value on {freeze_datetime_1}:
 {freeze_datetime_value_2}
 
+Today's Date: {today_date}
+
 Question resolution dates: {resolution_date}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. Do not output anything else.
@@ -202,6 +214,8 @@ Question Background:
 
 Resolution Criteria:
 {resolution_criteria}
+
+Today's Date: {today_date}
 
 Question resolution date: {resolution_date}
 
@@ -240,6 +254,8 @@ Resolution Criteria:
 
 Market value on {freeze_datetime}:
 {freeze_datetime_value}
+
+Today's Date: {today_date}
 
 Question resolution date: {resolution_date}
 
@@ -284,6 +300,8 @@ Current value on {freeze_datetime}:
 
 Value Explanation:
 {freeze_datetime_value_explanation}
+
+Today's Date: {today_date}
 
 Question resolution dates: {list_of_resolution_dates}
 
@@ -343,6 +361,8 @@ Question 2 Current value on {freeze_datetime_1}:
 Question 2 Value Explanation:
 {freeze_datetime_value_explanation_2}
 
+Today's Date: {today_date}
+
 Question resolution dates: {list_of_resolution_dates}
 
 Instructions:
@@ -388,6 +408,8 @@ Question 1 Resolution Criteria:
 
 Question 2 Resolution Criteria:
 {resolution_criteria_2}
+
+Today's Date: {today_date}
 
 Question resolution dates: {resolution_date}
 
@@ -442,6 +464,8 @@ Question 1 Market value on {freeze_datetime_1}:
 Question 2 Market value on {freeze_datetime_1}:
 {freeze_datetime_value_2}
 
+Today's Date: {today_date}
+
 Question resolution dates: {resolution_date}
 
 Instructions:
@@ -477,6 +501,51 @@ Question Background:
 
 Resolution Criteria:
 {resolution_criteria}
+
+Today's Date: {today_date}
+
+Question resolution date: {resolution_date}
+
+We have retrieved the following information for this question:
+{retrieved_info}
+
+Instructions:
+1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
+{{ Insert rephrased and expanded question.}}
+
+2. Provide a few reasons why the answer might be no. Rate the strength of each reason.
+{{ Insert your thoughts }}
+
+3. Provide a few reasons why the answer might be yes. Rate the strength of each reason.
+{{ Insert your thoughts }}
+
+4. Aggregate your considerations. Think like a superforecaster (e.g. Nate Silver).
+{{ Insert your aggregated considerations }}
+
+5. Output an initial probability (prediction) given steps 1-4.
+{{ Insert initial probability. }}
+
+6. Evaluate whether your calculated probability is excessively confident or not confident enough. Also, consider anything else that might affect the forecast that you did not before consider.
+{{ Insert your thoughts }}
+
+7. Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
+{{ Insert your answer }}
+"""  # noqa: B950
+
+SCRATCH_PAD_WITH_SUMMARIES_MARKET_WITH_FREEZE_VALUE_PROMPT = """
+Question:
+{question}
+
+Question Background:
+{background}
+
+Resolution Criteria:
+{resolution_criteria}
+
+Market value on {freeze_datetime}:
+{freeze_datetime_value}
+
+Today's Date: {today_date}
 
 Question resolution date: {resolution_date}
 
@@ -527,6 +596,8 @@ Value Explanation:
 We have retrieved the following information for this question:
 {retrieved_info}
 
+Today's Date: {today_date}
+
 Question resolution dates: {list_of_resolution_dates}
 
 Instructions:
@@ -552,7 +623,121 @@ Instructions:
 {{ Insert your answer }}
 """  # noqa: B950
 
-SCRATCH_PAD_WITH_SUMMARIES_JOINT_QUESTION_PROMPT = """
+SCRATCH_PAD_WITH_SUMMARIES_MARKET_JOINT_QUESTION_PROMPT = """
+{human_prompt} “at each of the resolution dates”.
+
+Question 1:
+{question_1}
+
+Question 2:
+{question_2}
+
+Question 1 Background:
+{background_1}
+
+Question 2 Background:
+{background_2}
+
+Question 1 Resolution Criteria:
+{resolution_criteria_1}
+
+Question 2 Resolution Criteria:
+{resolution_criteria_2}
+
+We have retrieved the following information for Question 1:
+{retrieved_info_1}
+
+We have retrieved the following information for Question 2:
+{retrieved_info_2}
+
+Today's Date: {today_date}
+
+Question resolution dates: {resolution_date}
+
+Instructions:
+1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
+{{ Insert rephrased and expanded question.}}
+
+2. Provide a few reasons why the answer might be no. Rate the strength of each reason.
+{{ Insert your thoughts }}
+
+3. Provide a few reasons why the answer might be yes. Rate the strength of each reason.
+{{ Insert your thoughts }}
+
+4. Aggregate your considerations. Think like a superforecaster (e.g. Nate Silver).
+{{ Insert your aggregated considerations }}
+
+5. Output an initial probability (prediction) given steps 1-4.
+{{ Insert initial probability. }}
+
+6. Evaluate whether your calculated probability is excessively confident or not confident enough. Also, consider anything else that might affect the forecast that you did not before consider.
+{{ Insert your thoughts }}
+
+7. Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
+{{ Insert your answer }}
+"""  # noqa: B950
+
+SCRATCH_PAD_WITH_SUMMARIES_MARKET_JOINT_QUESTION_WITH_FREEZE_VALUE_PROMPT = """
+{human_prompt} “at each of the resolution dates”.
+
+Question 1:
+{question_1}
+
+Question 2:
+{question_2}
+
+Question 1 Background:
+{background_1}
+
+Question 2 Background:
+{background_2}
+
+Question 1 Resolution Criteria:
+{resolution_criteria_1}
+
+Question 2 Resolution Criteria:
+{resolution_criteria_2}
+
+Question 1 Market value on {freeze_datetime_1}:
+{freeze_datetime_value_1}
+
+Question 2 Market value on {freeze_datetime_1}:
+{freeze_datetime_value_2}
+
+We have retrieved the following information for Question 1:
+{retrieved_info_1}
+
+We have retrieved the following information for Question 2:
+{retrieved_info_2}
+
+Today's Date: {today_date}
+
+Question resolution dates: {resolution_date}
+
+Instructions:
+1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
+{{ Insert rephrased and expanded question.}}
+
+2. Provide a few reasons why the answer might be no. Rate the strength of each reason.
+{{ Insert your thoughts }}
+
+3. Provide a few reasons why the answer might be yes. Rate the strength of each reason.
+{{ Insert your thoughts }}
+
+4. Aggregate your considerations. Think like a superforecaster (e.g. Nate Silver).
+{{ Insert your aggregated considerations }}
+
+5. Output an initial probability (prediction) given steps 1-4.
+{{ Insert initial probability. }}
+
+6. Evaluate whether your calculated probability is excessively confident or not confident enough. Also, consider anything else that might affect the forecast that you did not before consider.
+{{ Insert your thoughts }}
+
+7. Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
+{{ Insert your answer }}
+"""  # noqa: B950
+
+SCRATCH_PAD_WITH_SUMMARIES_NON_MARKET_JOINT_QUESTION_PROMPT = """
 {human_prompt} “at each of the resolution dates”.
 
 Question 1:
@@ -590,6 +775,8 @@ We have retrieved the following information for Question 1:
 
 We have retrieved the following information for Question 2:
 {retrieved_info_2}
+
+Today's Date: {today_date}
 
 Question resolution dates: {list_of_resolution_dates}
 
