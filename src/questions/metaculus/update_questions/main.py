@@ -34,6 +34,7 @@ filenames = data_utils.generate_filenames(source=source)
 # The Metaculus rate limit is 1,000 queries per hour, so we limit the number of questions we use
 # to 1,000 - number of queries executed by the `fetch` function.
 QUESTION_LIMIT = 1000 - (len(metaculus.CATEGORIES) + 1)
+N_API_CALLS = 0
 
 
 @backoff.on_exception(
@@ -44,7 +45,9 @@ QUESTION_LIMIT = 1000 - (len(metaculus.CATEGORIES) + 1)
 )
 def _get_market(market_id):
     """Get the market description and resolution criteria for the specified market."""
-    logger.info(f"Calling market endpoint for {market_id}")
+    global N_API_CALLS
+    N_API_CALLS += 1
+    logger.info(f"Calling market endpoint for {market_id}. This is API call number {N_API_CALLS}.")
     endpoint = f"https://www.metaculus.com/api2/questions/{market_id}"
     headers = {"Authorization": f"Token {keys.API_KEY_METACULUS}"}
     response = requests.get(endpoint, headers=headers, verify=certifi.where())
