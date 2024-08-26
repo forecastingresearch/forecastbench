@@ -3,7 +3,7 @@
 import logging
 import os
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pandas as pd
 import yfinance as yf
@@ -19,18 +19,49 @@ logger = logging.getLogger(__name__)
 
 SOURCE = "yfinance"
 
+benchmark_start_date = datetime.strptime(constants.BENCHMARK_START_DATE, "%Y-%m-%d").date()
 
-def fetch_one_stock(ticker, day_diff):
+
+def select_time_range(days_difference):
     """
-    Fetch historical stock price data for a given ticker over a specified number of days.
+    Select the appropriate time range based on days_difference.
 
-    Retrieve the closing prices of a stock from the Yahoo Finance API, spanning the number of days
-    specified by 'day_diff' counting backwards from today. The function handles any exceptions
-    during the data retrieval process and returns an empty DataFrame if the data fetch fails.
+    Possible time ranges in:
+    ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max']
+    """
+    if days_difference <= 1:
+        return "1d"
+    elif days_difference <= 5:
+        return "5d"
+    elif days_difference <= 30:
+        return "1mo"
+    elif days_difference <= 90:
+        return "3mo"
+    elif days_difference <= 180:
+        return "6mo"
+    elif days_difference <= 365:
+        return "1y"
+    elif days_difference <= 365 * 2:
+        return "2y"
+    elif days_difference <= 365 * 5:
+        return "5y"
+    elif days_difference <= 365 * 10:
+        return "10y"
+    else:
+        return "max"
+
+
+def fetch_one_stock(ticker, period):
+    """
+    Fetch historical stock price data for a given ticker.
+
+    Retrieve the closing prices of a stock from the Yahoo Finance API. The function handles any
+    exceptions during the data retrieval process and returns an empty DataFrame if the data fetch
+    fails.
 
     Parameters:
     - ticker (str): The stock symbol for which to retrieve price data.
-    - day_diff (int): The number of days from today for which to retrieve historical data.
+    - period (str): One of: '1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'
 
     Returns:
     - DataFrame: A pandas DataFrame containing the historical closing prices of the stock with
@@ -39,14 +70,14 @@ def fetch_one_stock(ticker, day_diff):
     """
     try:
         ticker = yf.Ticker(ticker)
-        hist = ticker.history(period=f"{day_diff}d")
+        hist = ticker.history(period=period)
         return hist[["Close"]].reset_index().rename(columns={"Date": "date", "Close": "value"})
     except Exception as e:
-        print(f"Failed to fetch data for {ticker}: {e}")
+        logger.error(f"Failed to fetch data for {ticker}: {e}")
         return pd.DataFrame()
 
 
-def get_historical_prices(current_df, ticker):
+def get_historical_prices(current_df, ticker, period):
     """
     Update a DataFrame with the latest historical stock prices for a given ticker.
 
@@ -61,78 +92,47 @@ def get_historical_prices(current_df, ticker):
     - current_df (DataFrame): A pandas DataFrame containing columns ['id', 'date', 'value'],
       where 'id' is the stock ticker, 'date' is the date, and 'value' is the stock price.
     - ticker (str): The stock symbol for which to retrieve and update prices.
+    - period (str): One of: '1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'
 
     Returns:
     - DataFrame: A pandas DataFrame updated with daily historical stock prices from the most recent
       date in 'current_df' to the present day. The DataFrame is sorted by 'date' and includes
       the columns ['id', 'date', 'value'].
     """
-    current_time = dates.get_date_today()
-    yesterday = current_time - timedelta(days=1)
     if current_df.empty:
-        # If the dataframe is empty, only fetch last date's stock price
-        current_df = pd.DataFrame(columns=["id", "date", "value"])
-        hist_data = fetch_one_stock(ticker, 5).reset_index()
-        hist_data["date"] = pd.to_datetime(hist_data["date"])
-        hist_data = hist_data[hist_data["date"].dt.date <= yesterday].tail(1)
-    else:
-        # If not empty, fetch all stock prices up until yesterday's
-        last_date = pd.to_datetime(current_df["date"]).max().date()
-        day_diff = (current_time - last_date).days
-        hist_data = fetch_one_stock(ticker, day_diff)
+        current_df = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
 
-    hist_data["date"] = pd.to_datetime(hist_data["date"]).dt.date
-    if not current_df.empty:
-        current_df["date"] = pd.to_datetime(current_df["date"]).dt.date
+    df = fetch_one_stock(ticker, period)
+    if df.empty:
+        return current_df
 
-    # Check if there is any data to process
-    if not current_df.empty or (not hist_data.empty and hist_data["date"].iloc[0] < yesterday):
-        # Concatenate and handle duplicates based on 'date' only if there's current data to add
-        if not current_df.empty:
-            all_data = pd.concat([current_df, hist_data])
-        else:
-            all_data = hist_data.copy()
+    yesterday = dates.get_date_today() - timedelta(days=1)
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+    df = df[(df["date"] >= benchmark_start_date) & (df["date"] <= yesterday)]
 
-        # Sort and remove duplicates to keep the latest entry per date
-        all_data.sort_values(by="date", inplace=True)
-        all_data.drop_duplicates(subset=["date"], keep="last", inplace=True)
-
-        # Reindex to fill in missing dates including weekends
-        all_dates = pd.date_range(start=all_data["date"].min(), end=yesterday, freq="D")
-        all_data = all_data.set_index("date").reindex(all_dates, method="ffill").reset_index()
-
-        # Ensure the reset index is named 'date' and convert to datetime.date if not already
-        if current_df.empty:
-            all_data.rename(columns={"level_0": "date"}, inplace=True)
-        else:
-            all_data.rename(columns={"index": "date"}, inplace=True)
-            all_data["date"] = all_data["date"].dt.date
-    else:
-        all_data = hist_data.copy()
-
-    all_data["id"] = ticker
-    all_data.drop_duplicates(subset=["date"], keep="last", inplace=True)
-
-    return all_data[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+    # forward fill for weekends
+    full_date_range = pd.date_range(start=df["date"].min(), end=yesterday)
+    df = df.set_index("date").reindex(full_date_range).ffill().rename_axis("date").reset_index()
+    df["id"] = ticker
+    return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
 
-def create_resolution_file(question, get_historical_forecasts_func, source):
+def create_resolution_file(question, period):
     """
     Create or update a resolution file based on the question ID provided. Download the existing file, if any.
 
     Check the last entry date, and update with new data if there's no entry for today. Upload the updated file
     back to the specified Google Cloud Platform bucket.
-    Args:
+    Parameters:
     - question (dict): A dictionary containing at least the 'id' of the question.
-    - get_historical_forecasts_func (function, optional): A function to retrieve historical forecasts.
-      Defaults to `get_historical_prices`.
-    - source (str): The source directory path within the bucket where files are stored.
+    - period (str): One of: '1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'
+
     Returns:
     - DataFrame: Return the current state of the resolution file as a DataFrame if no update is needed.
       If an update occurs, the function returns None after uploading the updated file.
     """
     basename = f"{question['id']}.jsonl"
-    remote_filename = f"{source}/{basename}"
+    remote_filename = f"{SOURCE}/{basename}"
     local_filename = "/tmp/tmp.jsonl"
 
     gcp.storage.download_no_error_message_on_404(
@@ -148,21 +148,22 @@ def create_resolution_file(question, get_historical_forecasts_func, source):
     )
 
     yesterday = dates.get_date_today() - timedelta(days=1)
-
     if not df.empty and pd.to_datetime(df["date"].iloc[-1]).date() >= yesterday:
         logger.info(f"{question['id']} is skipped because it's already up-to-date!")
         # Check last date to see if we've already gotten the resolution value for today
-        # If we have it alreeady, return to avoid unnecessary API calls
-        return df
+        # If we have it already, return to avoid unnecessary API calls
+        return
 
-    df = get_historical_forecasts_func(df, question["id"])
-
-    df.to_json(local_filename, orient="records", lines=True, date_format="iso")
-    gcp.storage.upload(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        local_filename=local_filename,
-        filename=remote_filename,
-    )
+    df_new = get_historical_prices(df, question["id"], period)
+    if not df.equals(df_new):
+        # Only upload dataframes that changed.
+        logger.info(f"Uploading resolution file for {question['id']}")
+        df_new.to_json(local_filename, orient="records", lines=True, date_format="iso")
+        gcp.storage.upload(
+            bucket_name=env.QUESTION_BANK_BUCKET,
+            local_filename=local_filename,
+            filename=remote_filename,
+        )
 
 
 def update_questions(dfq, dff):
@@ -171,14 +172,17 @@ def update_questions(dfq, dff):
 
     Parameters:
     - dfq (pd.DataFrame): DataFrame containing all existing questions.
-    - dff  (pd.DataFrame): DataFrame containing all newly fetched questions.
+    - dff (pd.DataFrame): DataFrame containing all newly fetched questions.
 
     The function updates dfq by either replacing existing questions with new data or adding new questions.
     It also appends new community predictions to dfr for each question in all_questions_to_add.
     """
     dff_list = dff.to_dict("records")
+    day_diff = (dates.get_date_today() - benchmark_start_date).days
+    period = select_time_range(day_diff)
+
     for question in dff_list:
-        create_resolution_file(question, get_historical_prices, SOURCE)
+        create_resolution_file(question, period)
 
         del question["fetch_datetime"]
         del question["probability"]
