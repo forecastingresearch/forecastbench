@@ -83,6 +83,13 @@ def convert_zulu_to_iso(time_str: str) -> str:
     return convert_zulu_to_datetime(time_str).isoformat(timespec="seconds")
 
 
+def convert_iso_date_to_epoch_time(date_obj):
+    """Convert a date object to epoch time in seconds using min.time()."""
+    # Convert the date object to a datetime object at midnight in UTC
+    datetime_obj = datetime.combine(date_obj, datetime.min.time(), timezone.utc)
+    return int(datetime_obj.timestamp())
+
+
 def change_timezone_to_utc(datetime_str: str) -> str:
     """Change a date with timezone to UTC.
 

@@ -5,3 +5,4 @@ google-cloud-secret-manager
 pandas
 py_clob_client
 backoff
+tqdm

@@ -134,7 +134,7 @@ fred-fetch:
 
 fred-update-questions:
 	make -C src/questions/fred/update_questions
-	
+
 dbnomics: dbnomics-fetch dbnomics-update-questions
 
 dbnomics-fetch:

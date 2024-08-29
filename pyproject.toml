@@ -2,7 +2,7 @@
 line-length = 100
 force-exclude = '''
 (
-    ^/.venv/
+    ^/.venv.*
     | ^/utils/
 )
 '''
