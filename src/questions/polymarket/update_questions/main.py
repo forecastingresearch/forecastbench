@@ -31,6 +31,7 @@ def create_resolution_file(question):
     - None.
     """
     df = pd.DataFrame(question["historical_prices"])
+    df["id"] = question["id"]
     df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
     basename = f"{question['id']}.jsonl"
