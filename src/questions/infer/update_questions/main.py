@@ -4,8 +4,10 @@ import logging
 import os
 import sys
 import time
-from datetime import timedelta
+from datetime import timedelta, timezone
 
+import certifi
+import numpy as np
 import pandas as pd
 import requests
 
@@ -17,7 +19,7 @@ from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+endpoint = "https://www.infer-pub.com/api/v1/prediction_sets"
 SOURCE = "infer"
 
 
@@ -36,45 +38,43 @@ def get_historical_forecasts(current_df, id):
     Returns:
         pd.DataFrame: A DataFrame containing combined old and new forecast data, sorted.
     """
-    params = {"question_id": id}
+    params = {"question_id": id, "page": 0}
     headers = {"Authorization": f"Bearer {keys.API_KEY_INFER}"}
-    endpoint = "https://www.infer-pub.com/api/v1/prediction_sets"
     all_responses = []
-    page_count = 1
-    last_date = None
     current_time = dates.get_datetime_today_midnight()
 
     # Check if 'current_df' is not empty and contains the 'datetime' column
-    if not current_df.empty and "date" in current_df.columns:
-        last_date = pd.to_datetime(current_df["date"].iloc[-1]).tz_localize("UTC")
+    last_date = (
+        pd.to_datetime(current_df["date"].iloc[-1]).tz_localize("UTC")
+        if not current_df.empty and "date" in current_df.columns
+        else constants.BENCHMARK_START_DATE_DATETIME.replace(tzinfo=timezone.utc)
+    )
 
     while True:
         try:
-            logger.info(f"Fetched page: {page_count}, for question ID: {id}")
-            url = f"{endpoint}?page={page_count}"
-            response = requests.get(url, params=params, headers=headers)
+            logger.info(f"Fetched page: {params['page']}, for question ID: {id}")
+            response = requests.get(
+                endpoint, params=params, headers=headers, verify=certifi.where()
+            )
             response.raise_for_status()
             new_responses = response.json().get("prediction_sets", [])
             all_responses.extend(new_responses)
-            if not new_responses or (
-                last_date and pd.to_datetime(new_responses[-1]["created_at"], utc=True) <= last_date
+            if (
+                not new_responses
+                or pd.to_datetime(new_responses[-1]["created_at"], utc=True) <= last_date
             ):
                 break
 
-            page_count += 1
+            params["page"] += 1
         except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:
-                print("Rate limit reached, waiting 10s before retrying...")
-                time.sleep(10)  # Wait longer if rate limited
-            else:
-                raise  # Re-raise the exception if it's not a rate limit issue
+            if e.response.status_code != 429:
+                raise
+            logger.error("Rate limit reached, waiting 10s before retrying...")
+            time.sleep(10)
 
     all_forecasts = []
-
     for forecast in all_responses:
-        if current_df.empty or (
-            last_date and pd.to_datetime(forecast["created_at"], utc=True) > last_date
-        ):
+        if current_df.empty or pd.to_datetime(forecast["created_at"], utc=True) > last_date:
             if len(forecast["predictions"]) == 2:
                 forecast_yes = forecast["predictions"][0]
                 if forecast_yes["answer_name"] == "No":
@@ -137,10 +137,10 @@ def get_historical_forecasts(current_df, id):
     result_df.reset_index(inplace=True)
     result_df.rename(columns={"index": "date"}, inplace=True)
 
-    return result_df
+    return result_df[["id", "date", "value"]]
 
 
-def create_resolution_file(question, resolved, get_historical_forecasts_func, source):
+def create_resolution_file(question, resolved):
     """
     Create or update a resolution file based on the question ID provided. Download the existing file, if any.
 
@@ -149,17 +149,26 @@ def create_resolution_file(question, resolved, get_historical_forecasts_func, so
 
     Args:
     - question (dict): A dictionary containing at least the 'id' of the question.
-    - get_historical_forecasts_func (function, optional): A function to retrieve historical forecasts.
-      Defaults to `get_historical_forecasts`.
-    - source (str): The source directory path within the bucket where files are stored.
 
     Returns:
     - DataFrame: Return the current state of the resolution file as a DataFrame if no update is needed.
       If an update occurs, the function returns None after uploading the updated file.
     """
     basename = f"{question['id']}.jsonl"
-    remote_filename = f"{source}/{basename}"
+    remote_filename = f"{SOURCE}/{basename}"
     local_filename = "/tmp/tmp.jsonl"
+    yesterday = dates.get_datetime_today_midnight() - timedelta(days=1)
+
+    def write_and_upload(df):
+        df["date"] = pd.to_datetime(df["date"])
+        df = df[df["date"].dt.date >= constants.BENCHMARK_START_DATE_DATETIME_DATE]
+        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+        df.to_json(local_filename, orient="records", lines=True, date_format="iso")
+        gcp.storage.upload(
+            bucket_name=env.QUESTION_BANK_BUCKET,
+            local_filename=local_filename,
+            filename=remote_filename,
+        )
 
     gcp.storage.download_no_error_message_on_404(
         bucket_name=env.QUESTION_BANK_BUCKET,
@@ -173,14 +182,26 @@ def create_resolution_file(question, resolved, get_historical_forecasts_func, so
         convert_dates=False,
     )
 
-    yesterday = dates.get_datetime_today_midnight() - timedelta(days=1)
+    if question["nullify_question"]:
+        logger.warning(
+            f"Nullifying question {question['id']}. Pushing np.nan values to resolution file."
+        )
+        if df.empty:
+            df = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
+            df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+            df.loc[0] = [question["id"], yesterday.date(), np.nan]
+        else:
+            df["value"] = np.nan
+
+        write_and_upload(df)
+        return df
 
     if not df.empty and pd.to_datetime(df["date"].iloc[-1]).tz_localize("UTC") >= yesterday:
         logger.info(f"{question['id']} is skipped because it's already up-to-date!")
         # Check last date to see if we've already gotten the resolution value for today
         return df
 
-    df = get_historical_forecasts_func(df, question["id"])
+    df = get_historical_forecasts(df, question["id"])
     df.date = df["date"].dt.date
 
     if resolved:
@@ -194,14 +215,7 @@ def create_resolution_file(question, resolved, get_historical_forecasts_func, so
         )
         df = pd.concat([df, resolution_row], ignore_index=True)
 
-    df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
-
-    df.to_json(local_filename, orient="records", lines=True, date_format="iso")
-    gcp.storage.upload(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        local_filename=local_filename,
-        filename=remote_filename,
-    )
+    write_and_upload(df)
 
 
 def update_questions(dfq, dff):
@@ -209,19 +223,25 @@ def update_questions(dfq, dff):
     Update the dataframes with new or modified question data and new community predictions.
 
     Parameters:
-    - dfq (pd.DataFrame): DataFrame containing all existing questions.
-    - dfr (pd.DataFrame): DataFrame containing all historical community predictions.
-    - dff  (pd.DataFrame): DataFrame containing all newly fetched questions.
+    - dfq (pd.DataFrame): DataFrame containing existing questions.
+    - dff (pd.DataFrame): DataFrame containing newly fetched questions.
+
+    Returns:
+    - dfq (pd.DataFrame): DataFrame containing updated questions.
 
     The function updates dfq by either replacing existing questions with new data or adding new questions.
     It also appends new community predictions to dfr for each question in all_questions_to_add.
     """
-    dff_list = dff.to_dict("records")
-    for question in dff_list:
-        create_resolution_file(question, question["resolved"], get_historical_forecasts, SOURCE)
+    for question in dff.to_dict("records"):
+        create_resolution_file(question, question["resolved"])
+
+        # Marke nullified questions as resolved so they're not selected for the question set.
+        if question["nullify_question"]:
+            question["resolved"] = True
 
         del question["fetch_datetime"]
         del question["probability"]
+        del question["nullify_question"]
 
         # Check if the question exists in dfq
         if question["id"] in dfq["id"].values:
@@ -249,6 +269,7 @@ def driver(_):
     dfq = update_questions(dfq, dff)
 
     logger.info("Uploading to GCP...")
+
     # Save and upload
     data_utils.upload_questions(dfq, SOURCE)
     logger.info("Done.")

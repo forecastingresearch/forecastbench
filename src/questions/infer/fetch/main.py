@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 
+import backoff
 import certifi
 import pandas as pd
 import requests
@@ -22,7 +23,13 @@ SOURCE = "infer"
 INFER_URL = "https://www.infer-pub.com"
 
 
-def fetch_questions(base_url, params, headers):
+@backoff.on_exception(
+    backoff.expo,
+    requests.exceptions.RequestException,
+    max_time=300,
+    on_backoff=data_utils.print_error_info_handler,
+)
+def fetch_questions(potentially_closed_ids=None):
     """
     Fetch all questions from a specified API endpoint.
 
@@ -31,28 +38,48 @@ def fetch_questions(base_url, params, headers):
     available.
 
     Parameters:
-    - base_url (str): The base URL for the questions API endpoint.
-    - params (dict): parameters for the API request.
-    - headers (dict): Authentication headers for the API request.
+    - potentially_closed_ids (dict): ids for questions that may or may not have been closed.
 
     Returns:
     - list: A list of all questions fetched from the API.
     """
-    all_questions = []
-    page_count = 1
+    endpoint = INFER_URL + "/api/v1/questions"
+    headers = {"Authorization": f"Bearer {keys.API_KEY_INFER}"}
+    params = {
+        "page": 0,
+        "status": "active",
+    }
+    if potentially_closed_ids is not None:
+        params.update(
+            {
+                "status": "all",
+                "ids": ",".join(sorted(potentially_closed_ids)),
+            }
+        )
+
+    questions = []
+    seen_ids = set()
     while True:
-        url = f"{base_url}?page={page_count}"
-        response = requests.get(url, params=params, headers=headers, verify=certifi.where())
-        response.raise_for_status()  # Proper error handling
+        response = requests.get(endpoint, params=params, headers=headers, verify=certifi.where())
+        if not response.ok:
+            logger.error(f"Request to Infer questions endpoint failed with params: {params}")
+            response.raise_for_status()
+
         new_questions = response.json().get("questions", [])
         if not new_questions:
             break
-        all_questions.extend(new_questions)
-        page_count += 1
-    return all_questions
+
+        for q in new_questions:
+            if q["id"] not in seen_ids:
+                questions.append(q)
+                seen_ids.add(q["id"])
+
+        params["page"] += 1
+
+    return questions
 
 
-def get_data(current_data):
+def get_data(dfq):
     """
     Fetch and prepare question data for processing.
 
@@ -64,7 +91,7 @@ def get_data(current_data):
     - Augments and restructures question data for further processing.
 
     Parameters:
-    - current_data (list of dict): A list of dictionaries containing data on questions,
+    - dfq (list of dict): A list of dictionaries containing data on questions,
       where each dictionary represents a question and must have keys 'id' and 'resolved'.
 
     Returns:
@@ -72,63 +99,55 @@ def get_data(current_data):
       This includes a mix of newly fetched binary questions and existing unresolved questions,
       with additional metadata and reformatted fields for consistency.
     """
-    HEADERS = {"Authorization": f"Bearer {keys.API_KEY_INFER}"}
+    resolved_ids = dfq[dfq["resolved"]]["id"].tolist() if not dfq.empty else []
+    unresolved_ids = dfq[~dfq["resolved"]]["id"].tolist() if not dfq.empty else []
+    logger.info(f"Number resolved_ids: {len(resolved_ids)}")
+    logger.info(f"Number unresolved_ids: {len(unresolved_ids)}")
 
-    unresolved_ids = (
-        current_data[~current_data["resolved"]]["id"].tolist() if not current_data.empty else []
-    )
-    logger.info(f"unresolved_ids: {unresolved_ids}")
-
-    resolved_ids = (
-        current_data[current_data["resolved"]]["id"].tolist() if not current_data.empty else []
-    )
-
-    resolved_files = gcp.storage.list_with_prefix(
+    files_in_storage = gcp.storage.list_with_prefix(
         bucket_name=env.QUESTION_BANK_BUCKET, prefix=SOURCE
     )
 
-    resolved_ids_without_resolution_files = [
-        id for id in resolved_ids if f"{SOURCE}/{id}.jsonl" not in resolved_files
+    resolved_ids_without_files_in_storage = [
+        id for id in resolved_ids if f"{SOURCE}/{id}.jsonl" not in files_in_storage
     ]
+    logger.info(f"resolved_ids_without_resolution_files: {resolved_ids_without_files_in_storage}")
 
-    logger.info(f"resolved_ids_without_resolution_files: {resolved_ids_without_resolution_files}")
-
-    all_existing_ids_to_fetch = unresolved_ids + resolved_ids_without_resolution_files
-
-    if all_existing_ids_to_fetch:
-        params = {"status": "closed", "ids": ", ".join(all_existing_ids_to_fetch)}
-        all_existing_questions = fetch_questions(
-            INFER_URL + "/api/v1/questions", params=params, headers=HEADERS
-        )
-    else:
-        all_existing_questions = []
-
-    all_active_questions = fetch_questions(
-        INFER_URL + "/api/v1/questions", params=None, headers=HEADERS
+    all_existing_ids_to_fetch = unresolved_ids + resolved_ids_without_files_in_storage
+    all_existing_questions = (
+        fetch_questions(potentially_closed_ids=all_existing_ids_to_fetch)
+        if all_existing_ids_to_fetch
+        else []
     )
-    all_binary_questions = [
+
+    all_active_binary_questions = [
         q
-        for q in all_active_questions
+        for q in fetch_questions()
         if q["state"] == "active" and q["type"] == "Forecast::YesNoQuestion"
     ]
 
     # Convert all_new_questions to a set of IDs for faster lookup
-    all_binary_questions_ids = set(q["id"] for q in all_binary_questions)
+    all_active_binary_question_ids = set(q["id"] for q in all_active_binary_questions)
 
     # Filter out questions from all_existing_questions if their IDs are in all_new_questions_ids
     all_existing_questions = [
-        q for q in all_existing_questions if q["id"] not in all_binary_questions_ids
+        q for q in all_existing_questions if q["id"] not in all_active_binary_question_ids
     ]
 
-    all_questions_to_add = all_binary_questions + all_existing_questions
+    all_questions_to_add = all_active_binary_questions + all_existing_questions
 
     logger.info(f"Number of questions fetched: {len(all_questions_to_add)}")
     current_time = dates.get_datetime_now()
-    for i in range(len(all_questions_to_add)):
-        q = all_questions_to_add[i]
+    questions_to_add = []
+    for q in all_questions_to_add:
+        # There was a bug that pulled questions that we do not want to include in the question set.
+        # This field nullifies those questions and ensures the questions will not be resolved, even though
+        # they were included in the 2024-07-21 question set.
+        nullify_question = q["type"] != "Forecast::YesNoQuestion"
+
         # We use 'scoring_end_time_str' to ensure the closure time reflects when forecasts were
         # actually scored. This is crucial because sometimes an administrator may resolve
-        # questions after the actuall resolution is happened.
+        # questions after the actual resolution is happened.
         scoring_end_time_str = (
             dates.convert_datetime_str_to_iso_utc(q["scoring_end_time"])
             if q["scoring_end_time"]
@@ -170,38 +189,37 @@ def get_data(current_data):
         )
 
         forecast_yes = "N/A"
-        if len(q["answers"]) == 2:
-            forecast_yes = q["answers"][0]
-            if forecast_yes["name"] == "No":
-                forecast_yes = q["answers"][1]
-            forecast_yes = forecast_yes["probability"]
-        elif len(q["answers"]) == 1:
-            forecast_yes = q["answers"][0]["probability"]
+        if len(q["answers"]) == 2 and not nullify_question:
+            yes_index = 0 if q["answers"][0]["name"].lower() == "yes" else 1
+            forecast_yes = q["answers"][yes_index]["probability"]
 
-        all_questions_to_add[i] = {
-            "id": str(q["id"]),
-            "question": q["name"],
-            "background": q["description"],
-            "market_info_resolution_criteria": (
-                " ".join([content["content"] for content in q["clarifications"]])
-                if q["clarifications"]
-                else "N/A"
-            ),
-            "market_info_open_datetime": scoring_start_time_str,
-            "market_info_close_datetime": final_closed_at_str,
-            "url": f"{INFER_URL}/questions/{q['id']}",
-            "resolved": q.get("resolved?", False),
-            "market_info_resolution_datetime": (
-                "N/A" if not q.get("resolved?", False) else final_resolved_str
-            ),
-            "fetch_datetime": current_time,
-            "probability": forecast_yes,
-            "forecast_horizons": "N/A",
-            "freeze_datetime_value": forecast_yes,
-            "freeze_datetime_value_explanation": "The crowd forecast.",
-        }
+        questions_to_add.append(
+            {
+                "id": str(q["id"]),
+                "question": q["name"],
+                "background": q["description"],
+                "market_info_resolution_criteria": (
+                    " ".join([content["content"] for content in q["clarifications"]])
+                    if q["clarifications"]
+                    else "N/A"
+                ),
+                "market_info_open_datetime": scoring_start_time_str,
+                "market_info_close_datetime": final_closed_at_str,
+                "url": f"{INFER_URL}/questions/{q['id']}",
+                "resolved": q.get("resolved?", False),
+                "market_info_resolution_datetime": (
+                    "N/A" if not q.get("resolved?", False) else final_resolved_str
+                ),
+                "fetch_datetime": current_time,
+                "probability": forecast_yes,
+                "forecast_horizons": "N/A",
+                "freeze_datetime_value": forecast_yes,
+                "freeze_datetime_value_explanation": "The crowd forecast.",
+                "nullify_question": nullify_question,
+            }
+        )
 
-    return pd.DataFrame(all_questions_to_add)
+    return pd.DataFrame(questions_to_add)
 
 
 @decorator.log_runtime
