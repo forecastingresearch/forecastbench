@@ -19,7 +19,7 @@ from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-endpoint = "https://www.infer-pub.com/api/v1/prediction_sets"
+endpoint = "https://www.randforecastinginitiative.org/api/v1/prediction_sets"
 SOURCE = "infer"
 
 

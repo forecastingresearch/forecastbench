@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SOURCE = "infer"
-INFER_URL = "https://www.infer-pub.com"
+INFER_URL = "https://www.randforecastinginitiative.org"
 
 
 @backoff.on_exception(
