@@ -51,8 +51,10 @@ def _get_market_forecasts(market_id):
     """Get the market description and close time for the specified market."""
     logger.info(f"Calling bets endpoint for {market_id}")
     endpoint = "https://api.manifold.markets/v0/bets"
+    max_bets_to_return = 1000
     params = {
         "contractId": market_id,
+        "limit": max_bets_to_return,
     }
 
     all_bets = []
@@ -67,8 +69,13 @@ def _get_market_forecasts(market_id):
             response.raise_for_status()
         if len(response.json()) == 0:
             break
-        all_bets += [m for m in response.json()]
-        if all_bets[-1]["createdTime"] < constants.BENCHMARK_START_DATE_EPOCHTIME_MS:
+        new_bets = [m for m in response.json()]
+
+        all_bets += new_bets
+        if (
+            all_bets[-1]["createdTime"] < constants.BENCHMARK_START_DATE_EPOCHTIME_MS
+            or len(new_bets) < max_bets_to_return
+        ):
             break
         params["before"] = all_bets[-1]["id"]
     return all_bets
