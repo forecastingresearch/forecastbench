@@ -88,16 +88,18 @@ def download_and_map_news(
 
         # Ensure the directory exists
         os.makedirs(os.path.dirname(local_news_filname), exist_ok=True)
-
-        gcp.storage.download_no_error_message_on_404(
-            bucket_name=LLM_BASELINE_NEWS_BUCKET,
-            filename=news_filename,
-            local_filename=local_news_filname,
-        )
-
         if not os.path.exists(local_news_filname):
-            logger.info(f"Warning: News file not found for question ID {question_id}")
-            return {}
+            gcp.storage.download_no_error_message_on_404(
+                bucket_name=LLM_BASELINE_NEWS_BUCKET,
+                filename=news_filename,
+                local_filename=local_news_filname,
+            )
+
+            if not os.path.exists(local_news_filname):
+                logger.info(f"Warning: News file not found for question ID {question_id}")
+                return {}
+        else:
+            logger.info(f"Local news exist for {question_id}")
 
         try:
             with open(local_news_filname, "rb") as file:
