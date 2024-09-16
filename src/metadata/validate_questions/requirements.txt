@@ -5,4 +5,4 @@ anthropic
 google-generativeai
 openai
 together
-mistralai
+mistralai==0.4.2
