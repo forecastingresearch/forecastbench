@@ -1,10 +1,12 @@
 """Create leaderboard."""
 
+import itertools
 import json
 import logging
 import os
 import sys
 
+import numpy as np
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -78,9 +80,13 @@ def get_leaderboard_entry(df):
     market_unresolved_score, n_market_unresolved = get_scores(df, market_mask & unresolved_mask)
     market_overall_score, n_market_overall = get_scores(df, market_mask)
 
+    # Overall Resolved
+    overall_resolved_score = (data_resolved_score + market_resolved_score) / 2
+    n_overall_resolved = n_data_resolved + n_market_resolved
+
     # Overall
     overall_score = (data_resolved_score + market_overall_score) / 2
-    overall_std_dev = df["score"].mean()  # DELETE
+    overall_std_dev = df["score"].std()
     n_overall = len(df)
 
     # % imputed
@@ -95,10 +101,12 @@ def get_leaderboard_entry(df):
         "n_market_unresolved": n_market_unresolved,
         "market_overall": market_overall_score,
         "n_market_overall": n_market_overall,
+        "overall_resolved": overall_resolved_score,
+        "n_overall_resolved": n_overall_resolved,
         "overall": overall_score,
         "n_overall": n_overall,
         "pct_imputed": pct_imputed,
-        "std_dev": overall_std_dev,
+        #        "std_dev": overall_std_dev,
     }
 
 
@@ -118,26 +126,165 @@ def add_to_leaderboard(leaderboard, org_and_model, df, forecast_due_date):
     leaderboard_entry = [org_and_model | get_leaderboard_entry(df)]
     leaderboard["overall"] = leaderboard.get("overall", []) + leaderboard_entry
 
-    return leaderboard
-
 
 def add_to_llm_leaderboard(*args, **kwargs):
     """Wrap `add_to_leaderboard` for easy reading of driver."""
-    return add_to_leaderboard(*args, **kwargs)
+    add_to_leaderboard(*args, **kwargs)
 
 
-def add_to_llm_and_human_leaderboard(leaderboard, org_and_model, df, forecast_due_date):
+def download_question_set_save_in_cache(forecast_due_date, cache):
+    """Time-saving function to only download files once per run.
+
+    Save question files in cache.
+    """
+    if forecast_due_date not in cache:
+        cache[forecast_due_date] = {}
+
+    for human_or_llm in ["human", "llm"]:
+        if human_or_llm not in cache[forecast_due_date]:
+            cache[forecast_due_date][human_or_llm] = resolution.download_and_read_question_set_file(
+                filename=f"{forecast_due_date}-{human_or_llm}.json"
+            )
+
+
+def add_to_llm_and_human_leaderboard(leaderboard, org_and_model, df, forecast_due_date, cache):
     """Parse the forecasts to include only those questions that were in the human question set."""
-    df_human_question_set = resolution.download_and_read_question_set_file(
-        filename=f"{forecast_due_date}-human.json"
-    )
+    download_question_set_save_in_cache(forecast_due_date, cache)
+    df_human_question_set = cache[forecast_due_date]["human"].copy()
     df_only_human_question_set = pd.merge(
         df,
         df_human_question_set[["id", "source"]],
         on=["id", "source"],
     ).reset_index(drop=True)
-    return add_to_leaderboard(
+    add_to_leaderboard(
         leaderboard=leaderboard,
+        org_and_model=org_and_model,
+        df=df_only_human_question_set,
+        forecast_due_date=forecast_due_date,
+    )
+
+
+def add_to_llm_and_human_combo_leaderboards(
+    leaderboard_combo, leaderboard_combo_generated, org_and_model, df, forecast_due_date, cache
+):
+    """Parse the forecasts to include only those questions that were in the human question set."""
+    download_question_set_save_in_cache(forecast_due_date, cache)
+    df_human_question_set = cache[forecast_due_date]["human"].copy()
+    df_llm_question_set = cache[forecast_due_date]["llm"].copy()
+    if "combos" not in cache[forecast_due_date]:
+        human_possible_combos = []
+        for _, row in df_llm_question_set[
+            df_llm_question_set["id"].apply(resolution.is_combo)
+        ].iterrows():
+            id0, id1 = row["id"]
+            source = row["source"]
+            df_source = df_human_question_set[df_human_question_set["source"] == source]
+            if {id0, id1}.issubset(df_source["id"]):
+                human_possible_combos.append({"source": source, "id": row["id"]})
+            cache[forecast_due_date]["combos"] = human_possible_combos
+    human_combos = cache[forecast_due_date]["combos"].copy()
+
+    df_only_human_question_set = pd.merge(
+        df,
+        df_human_question_set[["id", "source"]],
+        on=["id", "source"],
+    ).reset_index(drop=True)
+
+    # Is this a human forecast set or an llm set (human sets don't have any combo forecasts)
+    df_from_llm = df["id"].apply(resolution.is_combo).any()
+
+    # Add pertinent combos from llm forecast file to llm df
+    if df_from_llm:
+        df_llm_combos = df[
+            df.apply(
+                lambda row: (row["id"], row["source"])
+                in [(combo["id"], combo["source"]) for combo in human_combos],
+                axis=1,
+            )
+        ]
+        df_only_human_question_set = pd.concat(
+            [df_only_human_question_set, df_llm_combos], ignore_index=True
+        )
+
+    def generate_combo_forecasts(df, forecast_due_date):
+        """Generate combo forecasts."""
+        # Remove combos in df, if any
+        df = df[~df["id"].apply(resolution.is_combo)]
+
+        # Generate combos from the df
+        for combo in human_combos:
+            source = combo["source"]
+            id0, id1 = combo["id"]
+            df_source = df[df["source"] == source]
+            df_forecast0 = df_source[df_source["id"] == id0]
+            df_forecast1 = df_source[df_source["id"] == id1]
+            if df_forecast0.empty or df_forecast1.empty:
+                # If either forecast set is empty, it means one of the questions was dropped as N/A
+                # and hence is not in the processed forecast file.
+                continue
+            resolution_dates = set(df_forecast0["resolution_date"]).intersection(
+                set(df_forecast1["resolution_date"])
+            )
+            for resolution_date in resolution_dates:
+                df_forecast0_tmp = df_forecast0[df_forecast0["resolution_date"] == resolution_date]
+                df_forecast1_tmp = df_forecast1[df_forecast1["resolution_date"] == resolution_date]
+                if len(df_forecast0_tmp) != 1 or len(df_forecast1_tmp) != 1:
+                    raise ValueError("`generate_combo_forecasts`: should not arrive here.")
+
+                for dir0, dir1 in list(itertools.product([1, -1], repeat=2)):
+                    forecast = resolution.combo_change_sign(
+                        df_forecast0_tmp["forecast"].iloc[0], dir0
+                    ) * resolution.combo_change_sign(df_forecast1["forecast"].iloc[0], dir1)
+                    resolved_to = resolution.combo_change_sign(
+                        df_forecast0_tmp["resolved_to"].iloc[0], dir0
+                    ) * resolution.combo_change_sign(df_forecast1["resolved_to"].iloc[0], dir1)
+                    resolved = (
+                        df_forecast0_tmp["resolved"].iloc[0]
+                        and df_forecast1_tmp["resolved"].iloc[0]
+                    )
+                    imputed = (
+                        df_forecast0_tmp["imputed"].iloc[0] or df_forecast1_tmp["imputed"].iloc[0]
+                    )
+                    score = (forecast - resolved_to) ** 2
+                    new_row = {
+                        "id": (id0, id1),
+                        "source": source,
+                        "direction": (dir0, dir1),
+                        "forecast_due_date": df_forecast0_tmp["forecast_due_date"].iloc[0],
+                        "market_value_on_due_date": np.nan,
+                        "resolution_date": resolution_date,
+                        "resolved_to": resolved_to,
+                        "resolved": resolved,
+                        "forecast": forecast,
+                        "imputed": imputed,
+                        "score": score,
+                    }
+                    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        return df
+
+    if not df_from_llm:
+        # This is a human forecast set. Hence combos need to be generated for both leaderboard_
+        # combo and leaderboard_combo_generated.
+        df_only_human_question_set = generate_combo_forecasts(
+            df_only_human_question_set, forecast_due_date
+        )
+
+    leaderboard_combo = add_to_leaderboard(
+        leaderboard=leaderboard_combo,
+        org_and_model=org_and_model,
+        df=df_only_human_question_set,
+        forecast_due_date=forecast_due_date,
+    )
+
+    if df_from_llm:
+        # This is an LLM set, so only generate combos for leaderboard_combo_generated.
+        # This means the LLMs combo forecasts were used for leaderboard_combo.
+        df_only_human_question_set = generate_combo_forecasts(
+            df_only_human_question_set, forecast_due_date
+        )
+
+    leaderboard_combo_generated = add_to_leaderboard(
+        leaderboard=leaderboard_combo_generated,
         org_and_model=org_and_model,
         df=df_only_human_question_set,
         forecast_due_date=forecast_due_date,
@@ -147,7 +294,7 @@ def add_to_llm_and_human_leaderboard(leaderboard, org_and_model, df, forecast_du
 def make_html_table(df, title, basename):
     """Make and upload HTLM leaderboard."""
     # Replace NaN with empty strings for display
-    logger.info(f"Maknig leaderboard table: {title} {basename}.")
+    logger.info(f"Making leaderboard table: {title} {basename}.")
     df = df.fillna("")
 
     # Add ranking
@@ -170,6 +317,7 @@ def make_html_table(df, title, basename):
     n_market_unresolved = df["n_market_unresolved"].max()
     n_market_overall = df["n_market_overall"].max()
     n_overall = df["n_overall"].max()
+    n_overall_resolved = df["n_overall_resolved"].max()
 
     df["pct_imputed"] = df["pct_imputed"].astype(str) + "%"
 
@@ -181,9 +329,10 @@ def make_html_table(df, title, basename):
             "market_resolved": f"Market Score (resolved) (N={n_market_resolved:,})",
             "market_unresolved": f"Market Score (unresolved) (N={n_market_unresolved:,})",
             "market_overall": f"Market Score (overall) (N={n_market_overall:,})",
+            "overall_resolved": f"Overall Resolved Score (N={n_overall_resolved:,})",
             "overall": f"Overall Score (N={n_overall:,})",
             "pct_imputed": "Pct. Imputed",
-            "std_dev": "Old Mean",  # Std. Dev.", # DELETE
+            #            "std_dev": "Old Mean",  # Std. Dev.", # DELETE
             #            "z_score_wrt_naive_mean": "Z-score",
         }
     )
@@ -256,7 +405,7 @@ def make_html_table(df, title, basename):
             $('#myTable').DataTable({
                 "pageLength": -1,
                 "lengthMenu": [[-1], ["All"]],
-                "order": [[7, 'asc']],
+                "order": [[8, 'asc']],
                 "paging": false,
                 "info": false,
                 "search": {
@@ -289,11 +438,17 @@ def make_html_table(df, title, basename):
 @decorator.log_runtime
 def driver(_):
     """Create new leaderboard."""
+    cache = {}
     llm_leaderboard = {}
     llm_and_human_leaderboard = {}
+    llm_and_human_combo_leaderboard = {}
+    llm_and_human_combo_all_generated_leaderboard = {}
     files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
     files = [file for file in files if file.endswith(".json")]
-    # files = files[0:2]  # DELETE THIS
+    files = [
+        "2024-07-21/2024-07-21.ForecastBench.human_super.json",
+        "2024-07-21/2024-07-21.ForecastBench.human_public.json",
+    ]
     for f in files:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
@@ -321,6 +476,13 @@ def driver(_):
         if df.empty:
             logger.warning(f"Problem processing {f}. Third `continue`.")
             continue
+
+        sanity_check = df["score"] - ((df["forecast"] - df["resolved_to"]) ** 2)
+        if sanity_check.sum() > 1e-5:
+            raise ValueError(
+                f"Sanity Check failed. Should be close to 0. Instead value is {sanity_check.sum()}."
+            )
+
         df = resolution.make_columns_hashable(df)
         df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
         df["forecast_due_date"] = pd.to_datetime(df["forecast_due_date"]).dt.date
@@ -328,11 +490,22 @@ def driver(_):
         is_human_question_set = "human" in question_set_filename
         org_and_model = {"organization": organization, "model": model}
         if not is_human_question_set:
-            llm_leaderboard = add_to_llm_leaderboard(
-                llm_leaderboard, org_and_model, df, forecast_due_date
-            )
-        llm_and_human_leaderboard = add_to_llm_and_human_leaderboard(
-            llm_and_human_leaderboard, org_and_model, df, forecast_due_date
+            add_to_llm_leaderboard(llm_leaderboard, org_and_model, df, forecast_due_date)
+        add_to_llm_and_human_leaderboard(
+            llm_and_human_leaderboard,
+            org_and_model,
+            df,
+            forecast_due_date,
+            cache,
+        )
+
+        add_to_llm_and_human_combo_leaderboards(
+            llm_and_human_combo_leaderboard,
+            llm_and_human_combo_all_generated_leaderboard,
+            org_and_model,
+            df,
+            forecast_due_date,
+            cache,
         )
 
     def get_z_score(df):
@@ -351,27 +524,34 @@ def driver(_):
         except ValueError:
             return False
 
+    def make_leaderboard(d, title, basename):
+        df = pd.DataFrame(d)
+        upload_leaderboard(df=df, basename=basename)
+        make_html_table(
+            df=df,
+            title=title,
+            basename=basename,
+        )
+
     for key in llm_leaderboard:
         title = "Leaderboard: " + (f"{key} day" if is_numeric(key) else "overall")
-        df_llm = pd.DataFrame(llm_leaderboard[key])
-        # df_llm = get_z_score(df_llm).sort_values(
-        #     by=["overall", "z_score_wrt_naive_mean"], ignore_index=True
-        # )
-
-        upload_leaderboard(df=df_llm, basename=f"leaderboard_{key}")
-        make_html_table(df=df_llm, title=title, basename=f"leaderboard_{key}")
+        make_leaderboard(d=llm_leaderboard[key], title=title, basename=f"leaderboard_{key}")
 
         if key in llm_and_human_leaderboard:
-            df_llm_human = pd.DataFrame(llm_and_human_leaderboard[key])
-            # df_llm_human = get_z_score(df_llm_human).sort_values(
-            #     by=["overall", "z_score_wrt_naive_mean"], ignore_index=True
-            # )
-
-            upload_leaderboard(df=df_llm_human, basename=f"human_leaderboard_{key}")
-            make_html_table(
-                df=df_llm_human,
+            make_leaderboard(
+                d=llm_and_human_leaderboard[key],
                 title=f"Human {title}",
                 basename=f"human_leaderboard_{key}",
+            )
+            make_leaderboard(
+                d=llm_and_human_combo_leaderboard[key],
+                title=f"Human Combo {title}",
+                basename=f"human_combo_leaderboard_{key}",
+            )
+            make_leaderboard(
+                d=llm_and_human_combo_all_generated_leaderboard[key],
+                title=f"Human Combo Generated {title}",
+                basename=f"human_combo_generated_leaderboard_{key}",
             )
 
     logger.info("Done.")
