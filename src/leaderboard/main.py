@@ -8,6 +8,8 @@ import sys
 
 import numpy as np
 import pandas as pd
+from scipy import stats
+from termcolor import colored
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
@@ -27,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 BASELINE_ORG_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Naive Forecast"}
 
+CONFIDENCE_LEVEL = 0.95
+LEADERBOARD_DECIMAL_PLACES = 3
+
 
 def download_and_read_forecast_file(filename):
     """Download forecast file."""
@@ -44,6 +49,7 @@ def download_and_read_forecast_file(filename):
 
 def upload_leaderboard(df, basename):
     """Upload leaderboard."""
+    logger.info(f"Uploading leaderboard {basename}")
     local_filename = f"/tmp/{basename}.csv"
     df.to_csv(local_filename, index=False)
     gcp.storage.upload(
@@ -74,11 +80,15 @@ def get_leaderboard_entry(df):
 
     # Datasets
     data_resolved_score, n_data_resolved = get_scores(df, data_mask & resolved_mask)
+    data_resolved_std_dev = df[data_mask & resolved_mask]["score"].std(ddof=1)
+    data_resolved_se = data_resolved_std_dev / np.sqrt(n_data_resolved)
 
     # Markets
     market_resolved_score, n_market_resolved = get_scores(df, market_mask & resolved_mask)
     market_unresolved_score, n_market_unresolved = get_scores(df, market_mask & unresolved_mask)
     market_overall_score, n_market_overall = get_scores(df, market_mask)
+    market_overall_std_dev = df[market_mask]["score"].std(ddof=1)
+    market_overall_se = market_overall_std_dev / np.sqrt(n_market_overall)
 
     # Overall Resolved
     overall_resolved_score = (data_resolved_score + market_resolved_score) / 2
@@ -86,8 +96,17 @@ def get_leaderboard_entry(df):
 
     # Overall
     overall_score = (data_resolved_score + market_overall_score) / 2
-    overall_std_dev = df["score"].std()
-    n_overall = len(df)
+    n_overall = n_data_resolved + n_market_overall
+    overall_se = np.sqrt(data_resolved_se**2 + market_overall_se**2) / 2
+
+    # Overall CI
+    conservative_dof = min(n_data_resolved, n_market_overall) - 1
+    confidence_interval = np.round(
+        stats.t.interval(
+            confidence=CONFIDENCE_LEVEL, df=conservative_dof, loc=overall_score, scale=overall_se
+        ),
+        LEADERBOARD_DECIMAL_PLACES,
+    )
 
     # % imputed
     pct_imputed = int(df["imputed"].sum() / len(df) * 100)
@@ -104,10 +123,283 @@ def get_leaderboard_entry(df):
         "overall_resolved": overall_resolved_score,
         "n_overall_resolved": n_overall_resolved,
         "overall": overall_score,
+        "confidence_interval_overall": confidence_interval,
         "n_overall": n_overall,
         "pct_imputed": pct_imputed,
-        #        "std_dev": overall_std_dev,
+        "df": df.copy(),
     }
+
+
+def get_permutation_p_value(
+    df_data,
+    n_best_data,
+    n_comparison_data,
+    df_market,
+    n_best_market,
+    n_comparison_market,
+    observed_difference,
+    n_replications,
+):
+    """Get the p-value comparing comparison to best using the Permutation Test."""
+    permutation_differences = []
+    for _ in range(n_replications):
+        permuted_data_scores = np.random.permutation(df_data["score"])
+        comparison_data_sample = permuted_data_scores[:n_comparison_data]
+        best_data_sample = permuted_data_scores[n_comparison_data:]
+
+        permuted_market_scores = np.random.permutation(df_market["score"])
+        comparison_market_sample = permuted_market_scores[:n_comparison_market]
+        best_market_sample = permuted_market_scores[n_comparison_market:]
+
+        comparison_overall_mean = (
+            np.mean(comparison_data_sample) + np.mean(comparison_market_sample)
+        ) / 2
+        best_overall_mean = (np.mean(best_data_sample) + np.mean(best_market_sample)) / 2
+        permutation_differences.append(comparison_overall_mean - best_overall_mean)
+
+    permutation_differences = np.array(permutation_differences)
+    return np.round(
+        np.mean(permutation_differences > observed_difference), LEADERBOARD_DECIMAL_PLACES
+    )
+
+
+def get_bootstrap_p_value(
+    df_data,
+    n_best_data,
+    n_comparison_data,
+    df_market,
+    n_best_market,
+    n_comparison_market,
+    observed_difference,
+    n_replications,
+):
+    """Get the p-value comparing comparison to best by Bootstrapping."""
+    bootstrap_differences = []
+    for _ in range(n_replications):
+        df_best_data_resample = df_data["score"].sample(
+            n=n_best_data, replace=True, ignore_index=True
+        )
+        df_best_market_resample = df_market["score"].sample(
+            n=n_best_market, replace=True, ignore_index=True
+        )
+
+        df_comparison_data_resample = df_data["score"].sample(
+            n=n_comparison_data, replace=True, ignore_index=True
+        )
+        df_comparison_market_resample = df_market["score"].sample(
+            n=n_comparison_market, replace=True, ignore_index=True
+        )
+
+        comparison_overall_mean = (
+            df_comparison_data_resample.mean() + df_comparison_market_resample.mean()
+        ) / 2
+        best_overall_mean = (df_best_data_resample.mean() + df_best_market_resample.mean()) / 2
+        bootstrap_differences.append(comparison_overall_mean - best_overall_mean)
+
+    bootstrap_differences = np.array(bootstrap_differences)
+    return np.round(
+        np.mean(bootstrap_differences > observed_difference),
+        LEADERBOARD_DECIMAL_PLACES,
+    )
+
+
+def get_p_values(d):
+    """Get p values comparing comparison to best to see if they're significantly different."""
+    n_replications = 10000
+    df = pd.DataFrame(d)
+    df = df.sort_values(by=["overall"], ignore_index=True)
+
+    # Only get pairwise p-values for now, skip treating questions as indpendent.
+    # Keeping the code because it may come in handy when we run a new round with a different
+    # question set.
+    df = get_pairwise_p_values(df, n_replications)
+    df.drop(columns="df", inplace=True)
+    return df
+
+    p_val_bootstrap_col_name = "p-value_bootstrap"
+    p_val_permutation_col_name = "p-value_permutation"
+    df[p_val_bootstrap_col_name] = None
+    df[p_val_permutation_col_name] = None
+
+    # Get best performer
+    best_organization = df.at[0, "organization"]
+    best_model = df.at[0, "model"]
+    logger.info(f"p-value comparison best performer is: {best_organization} {best_model}.")
+
+    df_best = pd.DataFrame(df.at[0, "df"])
+    observed_overall_score_best = df.at[0, "overall"]
+
+    df_best_data = df_best[
+        (df_best["source"].isin(resolution.DATA_SOURCES)) & df_best["resolved"].astype(bool)
+    ]
+    df_best_market = df_best[df_best["source"].isin(resolution.MARKET_SOURCES)]
+
+    n_best_data = len(df_best_data)
+    n_best_market = len(df_best_market)
+
+    for index in range(1, len(df)):
+        df_comparison = pd.DataFrame(df.at[index, "df"])
+        observed_overall_score_comparison = df.at[index, "overall"]
+
+        df_comparison_data = df_comparison[
+            (df_comparison["source"].isin(resolution.DATA_SOURCES))
+            & df_comparison["resolved"].astype(bool)
+        ]
+        df_comparison_market = df_comparison[
+            df_comparison["source"].isin(resolution.MARKET_SOURCES)
+        ]
+
+        n_comparison_data = len(df_comparison_data)
+        n_comparison_market = len(df_comparison_market)
+
+        df_data = pd.concat([df_best_data, df_comparison_data], ignore_index=True)
+        df_market = pd.concat([df_best_market, df_comparison_market], ignore_index=True)
+
+        observed_difference = observed_overall_score_comparison - observed_overall_score_best
+
+        df.at[index, p_val_bootstrap_col_name] = get_bootstrap_p_value(
+            df_data=df_data,
+            n_best_data=n_best_data,
+            n_comparison_data=n_comparison_data,
+            df_market=df_market,
+            n_best_market=n_best_market,
+            n_comparison_market=n_comparison_market,
+            observed_difference=observed_difference,
+            n_replications=n_replications,
+        )
+        df.at[index, p_val_permutation_col_name] = get_permutation_p_value(
+            df_data=df_data,
+            n_best_data=n_best_data,
+            n_comparison_data=n_comparison_data,
+            df_market=df_market,
+            n_best_market=n_best_market,
+            n_comparison_market=n_comparison_market,
+            observed_difference=observed_difference,
+            n_replications=n_replications,
+        )
+
+    df.drop(columns="df", inplace=True)
+    return df
+
+
+def get_pairwise_p_values(df, n_replications):
+    """Calculate p-values on Brier differences on individual questions.
+
+    From Ezra: this improves precision because, for any two groups, forecasting accuracy is very
+    correlated on the set of questions. Treating them as independent overstates
+    imprecision. Instead, we can bootstrap the questions by focusing on the difference in scores on
+    a question-by-question basis.
+
+    A nice example of this is that if group A is always epsilon more accurate than group B on every
+    question, we can be quite confident A is a better forecaster, even if epsilon is arbitrarily
+    small and even if the standard deviation of accuracy for group A's forecasts is high.
+    """
+    p_val_bootstrap_col_name = "p-value_pairwise_bootstrap"
+    df[p_val_bootstrap_col_name] = None
+    better_than_super_col_name = "pct_better_than_no1"
+    df[better_than_super_col_name] = 0.0
+
+    # Get best performer
+    best_organization = df.at[0, "organization"]
+    best_model = df.at[0, "model"]
+    logger.info(f"p-value comparison best performer is: {best_organization} {best_model}.")
+
+    df_best = pd.DataFrame(df.at[0, "df"])
+    observed_overall_score_best = df.at[0, "overall"]
+
+    for index in range(1, len(df)):
+        df_comparison = pd.DataFrame(df.at[index, "df"])
+        observed_overall_score_comparison = df.at[index, "overall"]
+
+        # first merge on the questions to then get the diff between the scores
+        df_merged = pd.merge(
+            df_best.copy(),
+            df_comparison,
+            on=[
+                "id",
+                "source",
+                "direction",
+                "forecast_due_date",
+                "resolved",
+                "resolution_date",
+            ],
+            how="inner",
+            suffixes=[
+                "_best",
+                "_comparison",
+            ],
+        )
+        df_merged = df_merged[["id", "source", "resolved", "score_comparison", "score_best"]]
+
+        assert len(df_best) == len(df_comparison) and len(df_best) == len(df_merged), (
+            "Problem with merge in `get_pairwise_p_values()`. Comparing org: "
+            f"{df.at[index, 'organization']}, model: {df.at[index, 'model']} "
+            f"n_best: {len(df_best)}, n_comparison: {len(df_comparison)}, "
+            f"n_merged: {len(df_merged)}"
+        )
+
+        df_merged_data = df_merged[
+            (df_merged["source"].isin(resolution.DATA_SOURCES)) & df_merged["resolved"].astype(bool)
+        ].reset_index(drop=True)
+        df_merged_market = df_merged[
+            df_merged["source"].isin(resolution.MARKET_SOURCES)
+        ].reset_index(drop=True)
+
+        df_merged_data_diff = df_merged_data["score_comparison"] - df_merged_data["score_best"]
+        df_merged_market_diff = (
+            df_merged_market["score_comparison"] - df_merged_market["score_best"]
+        )
+
+        observed_difference = observed_overall_score_comparison - observed_overall_score_best
+        assert (
+            abs(
+                observed_difference
+                - ((df_merged_data_diff.mean() + df_merged_market_diff.mean()) / 2)
+            )
+            < 1e-15
+        ), "Observed difference in scores is incorrect in `get_pairwise_p_values()`."
+
+        # Shift mean of scores to 0 for the null hypothesis that comparison and best scores are
+        # identical and hence their difference is 0
+        df_merged_data_diff -= df_merged_data_diff.mean()
+        df_merged_market_diff -= df_merged_market_diff.mean()
+
+        assert (
+            (df_merged_data_diff.mean() + df_merged_market_diff.mean()) / 2
+        ) < 1e-15, "Observed difference in scores is incorrect in `get_pairwise_p_values()`."
+
+        n_data = len(df_merged_data_diff)
+        n_market = len(df_merged_market_diff)
+
+        # Bootstrap p-value
+        overall_diff = []
+        for _ in range(n_replications):
+            df_data_diff_bootstrapped = df_merged_data_diff.sample(
+                n=n_data, replace=True, ignore_index=True
+            )
+            df_market_diff_bootstrapped = df_merged_market_diff.sample(
+                n=n_market, replace=True, ignore_index=True
+            )
+            overall_diff.append(
+                (df_data_diff_bootstrapped.mean() + df_market_diff_bootstrapped.mean()) / 2
+            )
+        overall_diff = np.array(overall_diff)
+
+        df.at[index, p_val_bootstrap_col_name] = np.round(
+            np.mean(overall_diff >= observed_difference), LEADERBOARD_DECIMAL_PLACES
+        )
+
+        # Percent better than supers
+        df_combo = pd.concat([df_merged_data, df_merged_market], ignore_index=True)
+        df.at[index, better_than_super_col_name] = (
+            np.round(
+                np.mean(df_combo["score_comparison"] < df_combo["score_best"]),
+                LEADERBOARD_DECIMAL_PLACES,
+            )
+            * 100
+        )
+
+    return df
 
 
 def add_to_leaderboard(leaderboard, org_and_model, df, forecast_due_date):
@@ -294,7 +586,7 @@ def add_to_llm_and_human_combo_leaderboards(
 def make_html_table(df, title, basename):
     """Make and upload HTLM leaderboard."""
     # Replace NaN with empty strings for display
-    logger.info(f"Making leaderboard table: {title} {basename}.")
+    logger.info(f"Making HTML leaderboard file: {title} {basename}.")
     df = df.fillna("")
 
     # Add ranking
@@ -319,8 +611,31 @@ def make_html_table(df, title, basename):
     n_overall = df["n_overall"].max()
     n_overall_resolved = df["n_overall_resolved"].max()
 
-    df["pct_imputed"] = df["pct_imputed"].astype(str) + "%"
+    df["pct_imputed"] = df["pct_imputed"].round(0).astype(int).astype(str) + "%"
+    df["pct_better_than_no1"] = df["pct_better_than_no1"].round(0).astype(int).astype(str) + "%"
 
+    # For small p-values, only show <0.001
+    df["p-value_pairwise_bootstrap"] = df["p-value_pairwise_bootstrap"].apply(
+        lambda x: ("<0.001" if isinstance(x, (float, int)) and x < 0.001 else x)
+    )
+
+    df = df[
+        [
+            "Ranking",
+            "organization",
+            "model",
+            "data",
+            "market_resolved",
+            "market_unresolved",
+            "market_overall",
+            "overall_resolved",
+            "overall",
+            "confidence_interval_overall",
+            "p-value_pairwise_bootstrap",
+            "pct_better_than_no1",
+            "pct_imputed",
+        ]
+    ]
     df = df.rename(
         columns={
             "organization": "Organization",
@@ -331,11 +646,88 @@ def make_html_table(df, title, basename):
             "market_overall": f"Market Score (overall) (N={n_market_overall:,})",
             "overall_resolved": f"Overall Resolved Score (N={n_overall_resolved:,})",
             "overall": f"Overall Score (N={n_overall:,})",
+            "confidence_interval_overall": "Overall Score 95% CI",
+            "p-value_pairwise_bootstrap": "Pairwise p-value comparing to No. 1 (bootstrapped)",
+            "pct_better_than_no1": "Pct. more accurate than No. 1",
             "pct_imputed": "Pct. Imputed",
-            #            "std_dev": "Old Mean",  # Std. Dev.", # DELETE
-            #            "z_score_wrt_naive_mean": "Z-score",
+            # "std_dev": Std. Dev.", # DELETE
+            # "z_score_wrt_naive_mean": "Z-score",
         }
     )
+
+    column_descriptions = """
+        <div style="display: flex; align-items: center;">
+          <a data-bs-toggle="collapse" data-bs-target="#descriptionCollapse" aria-expanded="false"
+             aria-controls="descriptionCollapse" style="text-decoration: none; color: inherit;
+             display: flex; align-items: center; cursor: pointer;">
+            <i class="bi bi-chevron-right rotate" id="toggleArrow" style="margin-left: 5px;"></i>
+            <span>Column descriptions</span>
+          </a>
+        </div>
+        <div class="collapse mt-3" id="descriptionCollapse" style="padding: 0px;">
+          <div class="card card-body">
+            <ul>
+              <li><b>Ranking</b>: The position of the model in the leaderboard as ordered by
+                                  Overall Score</li>
+              <li><b>Organization</b>: The group responsible for the model or forecasts</li>
+              <li><b>Model</b>: The LLM model & prompt info or the human group and forecast
+                                aggregation method
+                  <ul>
+                    <li>zero shot: used a zero-shot prompt</li>
+                    <li>scratchpad: used a scratchpad prompt with instructions that outline a
+                                    procedure the model should use to reason about the question</li>
+                    <li>with freeze values: means that, for questions from market sources, the prompt
+                                            was supplemented with the aggregate human forecast from
+                                            the relevant platform on the day the question set was
+                                            generated</li>
+                    <li>with news: means that the prompt was supplemented with relevant news
+                                   summaries obtained through an automated process</li>
+                  </ul>
+              <li><b>Dataset Score</b>: The average Brier score across all questions sourced from
+                                        datasets</li>
+              <li><b>Market Score (resolved)</b>: The average Brier score across all resolved
+                                                  questions sourced from prediction markets and
+                                                  forecast aggregation platforms</li>
+              <li><b>Market Score (unresolved)</b>: The average Brier score across all unresolved
+                                                    questions sourced from prediction markets and
+                                                    forecast aggregation platforms</li>
+              <li><b>Market Score (overall)</b>: The average Brier score across all questions
+                                                 sourced from prediction markets and forecast
+                                                 aggregation platforms</li>
+              <li><b>Overall Resolved Score</b>: The average of the Dataset Score and the Market
+                                                 Score (resolved) columns</li>
+              <li><b>Overall Score</b>: The average of the Dataset Score and the Market Score
+                                        (overall) columns</li>
+              <li><b>Overall Score 95% CI</b>: The 95% confidence interval for the Overall
+                                               Score</li>
+              <li><b>Pairwise p-value comparing to No. 1 (bootstrapped)</b>: The p-value calculated
+                              by bootstrapping the differences in overall score between each model
+                              and the best forecaster (the group with rank 1) under the null
+                              hypothesis that there's no difference.</li>
+              <li><b>Pct. more accurate than No. 1</b>: The percent of questions where this
+                              forecaster had a better overall score than the best forecaster (with
+                              rank 1)</li>
+              <li><b>Pct. imputed</b>: The percent of questions for which this forecaster did not
+                              provide a forecast and hence had a forecast value imputed (0.5 for
+                              dataset questions and the aggregate human forecast on the forecast
+                              due date for questions sourced from prediction markets or forecast
+                              aggregation platforms)</li>
+            </ul>
+          </div>
+        </div>
+        <script>
+        var toggleArrow = document.getElementById('toggleArrow');
+        var toggleLink = document.querySelector('[data-bs-toggle="collapse"]');
+
+        toggleLink.addEventListener('click', function () {
+          if (toggleArrow.classList.contains('rotate-down')) {
+            toggleArrow.classList.remove('rotate-down');
+          } else {
+            toggleArrow.classList.add('rotate-down');
+          }
+        });
+        </script>
+    """
 
     # Remove lengths from df
     df = df[[c for c in df.columns if not c.startswith("n_")]]
@@ -355,9 +747,11 @@ def make_html_table(df, title, basename):
               crossorigin="anonymous">
         <link rel="stylesheet" type="text/css"
               href="https://cdn.datatables.net/2.1.6/css/dataTables.jqueryui.min.css">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
         <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
         <script type="text/javascript" charset="utf8"
                 src="https://cdn.datatables.net/2.1.6/js/dataTables.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
         <style>
             body {
               font-size: 10px;
@@ -383,11 +777,23 @@ def make_html_table(df, title, basename):
             .dataTables_wrapper {
               margin-bottom: 20px; /* Add bottom margin */
             }
+            .highlight {
+              background-color: #eeebe0 !important;
+            }
             h1 {
               text-align: center;
               margin-top: 10px;
               font-family: 'Arial', sans-serif;
               font-size: 16px;
+           }
+           .rotate {
+             transition: transform 0.3s ease;
+           }
+           .rotate-down {
+             transform: rotate(90deg);
+           }
+           .right-align {
+             text-align: right;
            }
         </style>
     </head>
@@ -397,12 +803,13 @@ def make_html_table(df, title, basename):
         + "<h1>"
         + title
         + "</h1>"
+        + column_descriptions
         + html_code
         + """
         </div>
         <script>
         $(document).ready(function() {
-            $('#myTable').DataTable({
+            var table = $('#myTable').DataTable({
                 "pageLength": -1,
                 "lengthMenu": [[-1], ["All"]],
                 "order": [[8, 'asc']],
@@ -414,11 +821,16 @@ def make_html_table(df, title, basename):
                 },
                 "columnDefs": [
                     {
+                        "targets": 10,
+                        "className": "right-align"
+                    },
+                    {
                         "targets": '_all',
                         "searchable": true
                     }
                 ]
             });
+        table.column(8).nodes().to$().addClass('highlight');
         });
         </script>
     </body>
@@ -445,10 +857,6 @@ def driver(_):
     llm_and_human_combo_all_generated_leaderboard = {}
     files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
     files = [file for file in files if file.endswith(".json")]
-    files = [
-        "2024-07-21/2024-07-21.ForecastBench.human_super.json",
-        "2024-07-21/2024-07-21.ForecastBench.human_public.json",
-    ]
     for f in files:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
@@ -525,13 +933,15 @@ def driver(_):
             return False
 
     def make_leaderboard(d, title, basename):
-        df = pd.DataFrame(d)
+        logger.info(colored(f"Making leaderboard: {title}", "red"))
+        df = get_p_values(d)
         upload_leaderboard(df=df, basename=basename)
         make_html_table(
             df=df,
             title=title,
             basename=basename,
         )
+        logger.info(colored("Done.", "red"))
 
     for key in llm_leaderboard:
         title = "Leaderboard: " + (f"{key} day" if is_numeric(key) else "overall")
@@ -553,8 +963,6 @@ def driver(_):
                 title=f"Human Combo Generated {title}",
                 basename=f"human_combo_generated_leaderboard_{key}",
             )
-
-    logger.info("Done.")
 
     return "OK", 200
 
