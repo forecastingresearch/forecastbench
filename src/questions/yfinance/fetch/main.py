@@ -141,7 +141,7 @@ def fetch_all_stock(dfq):
                 }
             )
 
-            logger.info(stock_list)
+            logger.info(company_name)
 
     return pd.DataFrame(stock_list)
 
