@@ -22,7 +22,7 @@ A forecasting benchmark for LLMs. Leaderboards and datasets available at
 Before creating a pull request:
 * run `make lint` and fix any errors and warnings
 * ensure code has been deployed to Google Cloud Platform and tested (only for our devs, for others,
-  we're happy your contributing and we'll test this on our end).
+  we're happy you're contributing and we'll test this on our end).
 * fork the repo
 * reference the issue number (if one exists) in the commit message
 * push to the fork on a branch other than `main`
