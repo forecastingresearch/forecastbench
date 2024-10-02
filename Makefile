@@ -58,7 +58,7 @@ deploy: questions workflows metadata curate-questions resolve naive-forecaster l
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
-workflows: main-workflow
+workflows: main-workflow setup-workflow-crons
 
 metadata: tag-questions validate-questions
 
@@ -69,6 +69,9 @@ curate-questions:
 
 main-workflow:
 	make -C src/workflow
+
+setup-workflow-crons:
+	make -C src/workflow setup-crons
 
 manifold: manifold-fetch manifold-update-questions
 

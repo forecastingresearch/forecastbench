@@ -12,7 +12,6 @@ main:
           for:
             value: data_source
             in:
-              - acled
               - manifold
               - metaculus
               - infer
