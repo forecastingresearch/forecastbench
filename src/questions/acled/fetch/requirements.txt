@@ -3,3 +3,4 @@ google-cloud-secret-manager
 backoff
 certifi
 pandas
+requests
