@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -27,6 +28,7 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %d, %Y")
 BASELINE_ORG_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Naive Forecast"}
 
 CONFIDENCE_LEVEL = 0.95
@@ -736,9 +738,8 @@ def make_html_table(df, title, basename):
         classes="table table-striped table-bordered", index=False, table_id="myTable"
     )
     html_code = (
-        """
-    <!DOCTYPE html>
-    <html>
+        """<!DOCTYPE html>
+<html>
     <head>
         <meta charset="UTF-8">
         <title>LLM Data Table</title>
@@ -795,6 +796,12 @@ def make_html_table(df, title, basename):
            .right-align {
              text-align: right;
            }
+          .updated-date {
+               font-size: 10px;
+               text-align: center;
+               color: #6c757d; /* Bootstrap muted text color */
+               margin-top: -10px;
+           }
         </style>
     </head>
     <body>
@@ -803,6 +810,9 @@ def make_html_table(df, title, basename):
         + "<h1>"
         + title
         + "</h1>"
+        + '<p class="updated-date">'
+        + LEADERBOARD_UPDATED_DATE_STR
+        + "</p>"
         + column_descriptions
         + html_code
         + """
@@ -834,8 +844,7 @@ def make_html_table(df, title, basename):
         });
         </script>
     </body>
-    </html>
-    """
+</html>"""
     )
 
     local_filename = f"/tmp/{basename}.html"
