@@ -58,7 +58,7 @@ deploy: questions workflows metadata curate-questions resolve naive-forecaster l
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
-workflows: main-workflow setup-workflow-crons
+workflows: main-workflow
 
 metadata: tag-questions validate-questions
 
@@ -70,6 +70,7 @@ curate-questions:
 main-workflow:
 	make -C src/workflow
 
+# Don't include in workflows because the scheduler should not be deployed on dev project
 setup-workflow-crons:
 	make -C src/workflow setup-crons
 
