@@ -7,7 +7,6 @@ import logging
 import os
 import sys
 from datetime import timedelta
-from pprint import pprint
 
 import acled
 import data
@@ -441,45 +440,6 @@ def score_forecasts(df, df_question_resolutions):
     return df
 
 
-def update_leaderboard(leaderboard, organization, model, df):
-    """Update leaderboard dict."""
-    if organization not in leaderboard:
-        leaderboard[organization] = {}
-    if model not in leaderboard[organization]:
-        leaderboard[organization][model] = {}
-
-    df_resolved = df[df["resolved"]].reset_index(drop=True)
-    df_unresolved = df[~df["resolved"]].reset_index(drop=True)
-    resolved_score = df_resolved["score"].mean()
-    unresolved_score = df_unresolved["score"].mean()
-    leaderboard[organization][model] = {
-        "resolved": resolved_score,
-        "n_resolved": len(df_resolved),
-        "unresolved": unresolved_score,
-        "n_unresolved": len(df_unresolved),
-    }
-    return leaderboard
-
-
-def write_leaderboard_csv(leaderboard):
-    """Write the leaderboard dict as a csv. Don't upload."""
-    flattened_data = []
-    for organization, models in leaderboard.items():
-        for model_name, attributes in models.items():
-            row = {
-                "Organization": organization,
-                "Model Name": model_name,
-                "Number Resolved": attributes.get("n_resolved", None),
-                "Number Unresolved": attributes.get("n_unresolved", None),
-                "Resolved": attributes.get("resolved", None),
-                "Unresolved": attributes.get("unresolved", None),
-            }
-            flattened_data.append(row)
-
-    df = pd.DataFrame(flattened_data).sort_values(by=["Resolved", "Unresolved"])
-    df.to_csv("/tmp/leaderboard.csv", index=False)
-
-
 def get_resolution_values_for_forecast_due_date(
     forecast_due_date,
     resolved_values_for_question_sources,
@@ -742,7 +702,6 @@ def driver(request):
             save_pickle_file=False,
         )
 
-    leaderboard = {}
     resolved_values_for_question_sources = {}
     for f in forecast_sets:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
@@ -814,10 +773,6 @@ def driver(request):
 
         df = score_forecasts(df=df, df_question_resolutions=df_question_resolutions)
 
-        leaderboard = update_leaderboard(
-            leaderboard=leaderboard, organization=organization, model=model, df=df
-        )
-
         # Convert to json then load to keep pandas json conversion
         # df.to_dict has different variable conversions and hence is undesireable
         team_forecast["forecasts"] = json.loads(df.to_json(orient="records", date_format="iso"))
@@ -825,9 +780,6 @@ def driver(request):
             data=team_forecast, forecast_due_date=forecast_due_date, filename=f
         )
 
-    logger.info(leaderboard)
-    pprint(leaderboard)
-    write_leaderboard_csv(leaderboard)
     logger.info("Done.")
 
     return "OK", 200
