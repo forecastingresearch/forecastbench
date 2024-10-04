@@ -55,8 +55,9 @@ def upload_leaderboard_csv(df, basename):
     local_filename = f"/tmp/{basename}.csv"
     df.to_csv(local_filename, index=False)
     gcp.storage.upload(
-        bucket_name=env.LEADERBOARD_BUCKET,
+        bucket_name=env.PUBLIC_RELEASE_BUCKET,
         local_filename=local_filename,
+        destination_folder="leaderboards/csv",
     )
 
 
@@ -851,8 +852,9 @@ def make_and_upload_html_table(df, title, basename):
     with open(local_filename, "w") as file:
         file.write(html_code)
     gcp.storage.upload(
-        bucket_name=env.LEADERBOARD_BUCKET,
+        bucket_name=env.PUBLIC_RELEASE_BUCKET,
         local_filename=local_filename,
+        destination_folder="leaderboards",
     )
 
 

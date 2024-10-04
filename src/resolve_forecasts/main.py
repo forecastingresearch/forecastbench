@@ -80,9 +80,9 @@ def upload_resolution_set(df, forecast_due_date):
     df.to_json(local_filename, orient="records")
     if not RUN_LOCALLY_WITH_MOCK_DATA:
         gcp.storage.upload(
-            bucket_name=env.LEADERBOARD_BUCKET,
+            bucket_name=env.PUBLIC_RELEASE_BUCKET,
             local_filename=local_filename,
-            destination_folder="datasets/resolution_set",
+            destination_folder="datasets/resolution_sets",
         )
 
 
