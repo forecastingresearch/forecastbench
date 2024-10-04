@@ -49,13 +49,13 @@ def download_and_read_forecast_file(filename):
     return data
 
 
-def upload_leaderboard(df, basename):
+def upload_leaderboard_csv(df, basename):
     """Upload leaderboard."""
     logger.info(f"Uploading leaderboard {basename}")
     local_filename = f"/tmp/{basename}.csv"
     df.to_csv(local_filename, index=False)
     gcp.storage.upload(
-        bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
+        bucket_name=env.LEADERBOARD_BUCKET,
         local_filename=local_filename,
     )
 
@@ -585,7 +585,7 @@ def add_to_llm_and_human_combo_leaderboards(
     )
 
 
-def make_html_table(df, title, basename):
+def make_and_upload_html_table(df, title, basename):
     """Make and upload HTLM leaderboard."""
     # Replace NaN with empty strings for display
     logger.info(f"Making HTML leaderboard file: {title} {basename}.")
@@ -944,8 +944,8 @@ def driver(_):
     def make_leaderboard(d, title, basename):
         logger.info(colored(f"Making leaderboard: {title}", "red"))
         df = get_p_values(d)
-        upload_leaderboard(df=df, basename=basename)
-        make_html_table(
+        upload_leaderboard_csv(df=df, basename=basename)
+        make_and_upload_html_table(
             df=df,
             title=title,
             basename=basename,
