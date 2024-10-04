@@ -54,7 +54,7 @@ setup-python-env: .venv install-requirements
 
 all: deploy
 
-deploy: questions workflows metadata curate-questions resolve naive-forecaster leaderboard
+deploy: questions workflows metadata curate-questions resolve leaderboard
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
