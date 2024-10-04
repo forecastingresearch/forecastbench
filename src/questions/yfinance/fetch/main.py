@@ -113,7 +113,7 @@ def fetch_all_stock(dfq):
 
         if company_name and not hist.empty:
             current_price = round(hist["Close"].iloc[-1], 2)
-            background = yf.Ticker(ticker).info["longBusinessSummary"]
+            background = yf.Ticker(ticker).info.get("longBusinessSummary", "N/A")
 
             stock_list.append(
                 {
