@@ -138,7 +138,7 @@ def get_resolution_values(sources_to_get=question_curation.ALL_SOURCES):
             last_updated = data_utils.get_last_modified_time_of_dfq_from_cloud_storage(
                 source=source
             )
-            if last_updated.date() < today:
+            if last_updated is None or last_updated.date() < today:
                 logger.error(
                     f"ERROR: dfq for `{source}` is out of date. "
                     f"dfq was last updated {last_updated.date()} but today is {today}. "
