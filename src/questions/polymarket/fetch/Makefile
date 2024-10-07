@@ -26,7 +26,7 @@ deploy : main.py .gcloudignore requirements.txt
 		--region $(CLOUD_DEPLOY_REGION) \
 		--entry-point driver \
 		--runtime python39 \
-		--memory 2GiB \
+		--memory 8GiB \
 		--max-instances 1 \
 		--timeout 3000s \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
