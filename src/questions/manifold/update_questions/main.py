@@ -27,7 +27,10 @@ filenames = data_utils.generate_filenames(source=source)
 @backoff.on_exception(
     backoff.expo,
     requests.exceptions.RequestException,
-    max_time=70,
+    max_time=200,
+    max_tries=10,
+    factor=2,
+    base=2,
     on_backoff=data_utils.print_error_info_handler,
 )
 def _get_market(market_id):
@@ -44,7 +47,10 @@ def _get_market(market_id):
 @backoff.on_exception(
     backoff.expo,
     requests.exceptions.RequestException,
-    max_time=70,
+    max_time=200,
+    max_tries=10,
+    factor=2,
+    base=2,
     on_backoff=data_utils.print_error_info_handler,
 )
 def _get_market_forecasts(market_id):
@@ -259,8 +265,6 @@ def driver(_):
     _update_questions_and_resolved_values(dfq, dff)
 
     logger.info("Done.")
-
-    return "OK", 200
 
 
 if __name__ == "__main__":

@@ -12,8 +12,9 @@ export PROCESSED_FORECAST_SETS_BUCKET
 export PUBLIC_RELEASE_BUCKET
 
 export CLOUD_DEPLOY_REGION := us-central1
+export POLYMARKET_ARTIFACT_REPOSITORY := python39-repo
 
-export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET)
+export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET),CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION)
 
 .PHONY: all clean lint deploy
 
@@ -54,11 +55,11 @@ setup-python-env: .venv install-requirements
 
 all: deploy
 
-deploy: questions workflows metadata curate-questions resolve leaderboard
+deploy: orchestration questions metadata resolve leaderboard curate-questions
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
-workflows: main-workflow
+orchestration: nightly-worker-job nightly-manager-job
 
 metadata: tag-questions validate-questions
 
@@ -66,13 +67,6 @@ resolve: resolve-forecasts
 
 curate-questions:
 	make -C src/curate_questions
-
-main-workflow:
-	make -C src/workflow
-
-# Don't include in workflows because the scheduler should not be deployed on dev project
-setup-workflow-crons:
-	make -C src/workflow setup-crons
 
 manifold: manifold-fetch manifold-update-questions
 
@@ -161,3 +155,9 @@ naive-forecaster:
 
 leaderboard:
 	make -C src/leaderboard
+
+nightly-worker-job:
+	make -C src/nightly_update_workflow/worker
+
+nightly-manager-job:
+	make -C src/nightly_update_workflow/manager

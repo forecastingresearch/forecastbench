@@ -665,7 +665,7 @@ def driver(request):
 
     if not forecast_sets:
         logger.warning("No forecast sets to evaluate.")
-        return "OK", 200
+        return
 
     def get_and_pickle_resolution_values(filename, save_pickle_file=False, sources_to_get=None):
         """Get and pickle dfr and dfq from GCP so that we can avoid doing this on every run.
@@ -790,8 +790,6 @@ def driver(request):
         )
 
     logger.info("Done.")
-
-    return "OK", 200
 
 
 if __name__ == "__main__":

@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 
 import backoff
 import certifi
-import functions_framework
 import numpy as np
 import pandas as pd
 import requests
@@ -357,7 +356,6 @@ def fetch_all_questions(dfq):
     return pd.DataFrame(all_complete_questions)
 
 
-@functions_framework.http
 @decorator.log_runtime
 def driver(_):
     """Execute the main workflow of fetching, processing, and uploading questions."""
@@ -383,7 +381,6 @@ def driver(_):
     )
 
     logger.info("Done.")
-    return "OK", 200
 
 
 if __name__ == "__main__":

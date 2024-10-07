@@ -18,6 +18,7 @@ __pycache__/
 
 .gcloudignore
 tmp.yaml
+Procfile
 
 # Installer logs
 pip-log.txt

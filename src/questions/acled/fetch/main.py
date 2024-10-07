@@ -86,8 +86,6 @@ def driver(_):
 
     logger.info("Done.")
 
-    return "OK", 200
-
 
 if __name__ == "__main__":
     driver(None)

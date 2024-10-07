@@ -9,27 +9,40 @@ UPLOAD_DIR = upload
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
 
-deploy : main.py .gcloudignore requirements.txt
-	$(eval LATEST_PYTHON_RUNTIME := $(shell gcloud functions runtimes list --format="value(name)" --filter="python" --region $(CLOUD_DEPLOY_REGION) | tail -n 1))
+Procfile:
+	cp -r $(ROOT_DIR)src/helpers/Procfile .
+
+export IMAGE_NAME=$(CLOUD_DEPLOY_REGION)-docker.pkg.dev/$(CLOUD_PROJECT)/$(POLYMARKET_ARTIFACT_REPOSITORY)/polymarket-update-questions
+
+deploy : main.py .gcloudignore requirements.txt Procfile
+	@echo "Checking if repository '$(POLYMARKET_ARTIFACT_REPOSITORY)' exists..."
+	@if gcloud artifacts repositories describe $(POLYMARKET_ARTIFACT_REPOSITORY) --location $(CLOUD_DEPLOY_REGION) --project $(CLOUD_PROJECT) > /dev/null 2>&1; then \
+		echo "Repository '$(POLYMARKET_ARTIFACT_REPOSITORY)' exists."; \
+	else \
+		gcloud artifacts repositories create $(POLYMARKET_ARTIFACT_REPOSITORY) \
+			--project $(CLOUD_PROJECT) \
+			--location $(CLOUD_DEPLOY_REGION) \
+			--repository-format=docker \
+		@echo "Created repository '$(POLYMARKET_ARTIFACT_REPOSITORY)'."; \
+	fi
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
-	gcloud functions deploy \
-		polymarket_update_questions \
+	gcloud builds submit $(UPLOAD_DIR) \
+		--pack builder=gcr.io/buildpacks/builder,env=GOOGLE_PYTHON_VERSION="3.9.x",image=$(IMAGE_NAME)
+	gcloud run jobs deploy \
+		func-data-polymarket-update-questions \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
-		--entry-point driver \
-		--runtime $(LATEST_PYTHON_RUNTIME) \
-		--memory 512MB \
-		--max-instances 1 \
-		--timeout 540s \
+		--tasks 1 \
+		--parallelism 1 \
+		--task-timeout 540s \
+		--memory 512Mi \
+		--max-retries 0 \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
-		--trigger-http \
-		--no-allow-unauthenticated \
-		--no-gen2 \
-		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
-		--source $(UPLOAD_DIR)
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),GOOGLE_PYTHON_VERSION="3.9.x" \
+	 	--image $(IMAGE_NAME)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore
+	rm -rf $(UPLOAD_DIR) .gcloudignore Polymarket

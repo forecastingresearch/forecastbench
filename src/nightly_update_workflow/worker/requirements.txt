@@ -1,0 +1,3 @@
+google-cloud-run
+google-cloud-secret-manager
+slack_sdk

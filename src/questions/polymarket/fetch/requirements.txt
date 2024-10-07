@@ -6,4 +6,3 @@ pandas
 py_clob_client
 backoff
 tqdm
-functions-framework==3.*

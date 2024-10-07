@@ -955,27 +955,27 @@ def driver(_):
         logger.info(colored("Done.", "red"))
 
     for key in llm_leaderboard:
-        title = "Leaderboard: " + (f"{key} day" if is_numeric(key) else "overall")
-        make_leaderboard(d=llm_leaderboard[key], title=title, basename=f"leaderboard_{key}")
+        if not is_numeric(key):
+            # Only make overall tables for now
+            title = "Leaderboard: " + (f"{key} day" if is_numeric(key) else "overall")
+            make_leaderboard(d=llm_leaderboard[key], title=title, basename=f"leaderboard_{key}")
 
-        if key in llm_and_human_leaderboard:
-            make_leaderboard(
-                d=llm_and_human_leaderboard[key],
-                title=f"Human {title}",
-                basename=f"human_leaderboard_{key}",
-            )
-            make_leaderboard(
-                d=llm_and_human_combo_leaderboard[key],
-                title=f"Human Combo {title}",
-                basename=f"human_combo_leaderboard_{key}",
-            )
-            make_leaderboard(
-                d=llm_and_human_combo_all_generated_leaderboard[key],
-                title=f"Human Combo Generated {title}",
-                basename=f"human_combo_generated_leaderboard_{key}",
-            )
-
-    return "OK", 200
+            if key in llm_and_human_leaderboard:
+                make_leaderboard(
+                    d=llm_and_human_leaderboard[key],
+                    title=f"Human {title}",
+                    basename=f"human_leaderboard_{key}",
+                )
+                make_leaderboard(
+                    d=llm_and_human_combo_leaderboard[key],
+                    title=f"Human Combo {title}",
+                    basename=f"human_combo_leaderboard_{key}",
+                )
+                # make_leaderboard(
+                #     d=llm_and_human_combo_all_generated_leaderboard[key],
+                #     title=f"Human Combo Generated {title}",
+                #     basename=f"human_combo_generated_leaderboard_{key}",
+                # )
 
 
 if __name__ == "__main__":

@@ -9,27 +9,26 @@ UPLOAD_DIR = upload
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
 
-deploy : main.py .gcloudignore requirements.txt
-	$(eval LATEST_PYTHON_RUNTIME := $(shell gcloud functions runtimes list --format="value(name)" --filter="python" --region $(CLOUD_DEPLOY_REGION) | tail -n 1))
+Procfile:
+	cp -r $(ROOT_DIR)src/helpers/Procfile .
+
+deploy : main.py .gcloudignore requirements.txt Procfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
-	gcloud functions deploy \
-		acled_fetch \
+	gcloud run jobs deploy \
+		func-data-acled-fetch \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
-		--entry-point driver \
-		--runtime $(LATEST_PYTHON_RUNTIME) \
-		--memory 8GiB \
-		--max-instances 1 \
-		--timeout 3600s \
+		--tasks 1 \
+		--parallelism 1 \
+		--task-timeout 3600s \
+		--memory 4Gi \
+		--max-retries 0 \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
-		--trigger-http \
-		--no-allow-unauthenticated \
-		--gen2 \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR)
+	rm -rf $(UPLOAD_DIR) .gcloudignore Procfile

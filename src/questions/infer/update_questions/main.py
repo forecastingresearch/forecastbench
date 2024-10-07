@@ -274,8 +274,6 @@ def driver(_):
     data_utils.upload_questions(dfq, SOURCE)
     logger.info("Done.")
 
-    return "OK", 200
-
 
 if __name__ == "__main__":
     driver(None)

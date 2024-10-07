@@ -106,11 +106,9 @@ def driver(_):
         # Sleep to avoid cloud storage 429 rate limit error
         # Rate is 1 write/second to the same object
         # https://cloud.google.com/storage/quotas
-        time.sleep(1)
+        time.sleep(2)
 
     logger.info("Done.")
-
-    return "OK", 200
 
 
 if __name__ == "__main__":
