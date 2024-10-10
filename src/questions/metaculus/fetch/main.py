@@ -64,6 +64,9 @@ def _get_data(topics):
 @decorator.log_runtime
 def driver(_):
     """Fetch Metaculus data and update fetch file in GCP Cloud Storage."""
+    # Don't fetch new questions until API docs are out.
+    return
+
     # Get the latest Manifold data
     ids = _get_data(metaculus.CATEGORIES)
 

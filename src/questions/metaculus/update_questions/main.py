@@ -3,7 +3,6 @@
 import logging
 import os
 import sys
-from datetime import timedelta
 
 import backoff
 import certifi
@@ -66,8 +65,6 @@ def _update_questions_and_resolved_values(dfq, dff):
     dfq: Metaculus questions in the question bank
     dff: Today's fetched markets
     """
-    # Use yesterday because we run at midnight UTC so have complete info for yesterday.
-    YESTERDAY = dates.get_date_today() - timedelta(days=1)
 
     def _get_resolution_entry(market_id, utc_datetime_str, value):
         return {
@@ -100,58 +97,120 @@ def _update_questions_and_resolved_values(dfq, dff):
 
         A market that hasn't resolved returns the current market probability. This includes closed markets.
         """
-        return int(market["resolution"]) if int(market["resolution"]) >= 0 else np.nan
+        resolution = market["question"]["resolution"].lower()
+        assert resolution in {
+            "yes",
+            "no",
+            "ambiguous",
+            "annulled",
+        }, f"Assertion failed: Problem getting resolution value for market {market['id']}"
+
+        if resolution in ["yes", "no"]:
+            return 1 if market["question"]["resolution"].lower() == "yes" else 0
+        return np.nan
 
     def _create_resolution_file(dfq, index, market):
+        """Write the resolution file for the market.
 
-        basename = f"{market['id']}.jsonl"
-        remote_filename = f"{source}/{basename}"
-        local_filename = "/tmp/tmp.jsonl"
+        Overwrite the resolution file entirely every day.
+        """
         df = pd.DataFrame(
             [
                 {
-                    "datetime": dates.convert_zulu_to_iso(forecast["time"]),
-                    "value": forecast["raw"],
+                    "start_datetime": dates.convert_epoch_time_in_sec_to_datetime(
+                        forecast["start_time"]
+                    ),
+                    "end_datetime": (
+                        dates.convert_epoch_time_in_sec_to_datetime(forecast["end_time"])
+                        if forecast["end_time"] is not None
+                        else dates.get_datetime_today()
+                    ),
+                    "value": forecast["centers"][0],
                 }
-                for forecast in market.get("simplified_history", {}).get("community_prediction", {})
+                for forecast in market.get("question", {})
+                .get("aggregations", {})
+                .get("recency_weighted", {})
+                .get("history", {})
             ]
         )
+
         if df.empty:
-            # No one has forecast on the market yet.
+            # No one has forecast on the market yet
             return None
 
-        df["datetime"] = pd.to_datetime(df["datetime"])
-        df = df.sort_values(by="datetime")
-        df["date"] = df["datetime"].dt.date
-        df = df[df["date"] <= YESTERDAY]
+        # Remove all rows where the start date is the same as the end date, except when the end date is
+        # the last millisecond of the day (in which case the value is the valid last value of the day).
+        # This effectively removes all dates where this is the first day of forecasting since the start
+        # date and end date would be the same.
+        def is_last_millisecond_of_day(dt):
+            return (
+                dt.time()
+                == pd.Timestamp(dt.date())
+                .replace(hour=23, minute=59, second=59, microsecond=999999)
+                .time()
+            )
+
+        df = df[
+            ~(
+                (df["start_datetime"].dt.date == df["end_datetime"].dt.date)
+                & ~df["end_datetime"].apply(is_last_millisecond_of_day)
+            )
+        ]
+
         if df.empty:
-            # empty if this market only has forecasts from today
+            # All forecasts are from today
             return None
 
-        df = df.groupby(by="date").last().reset_index()
-        df = df[["date", "value"]]
+        # It should already be sorted but it doesn't hurt to ensure that's the case
+        df = df.sort_values(by="end_datetime", ignore_index=True)
 
-        date_range = pd.date_range(start=df["date"].min(), end=YESTERDAY, freq="D")
+        # Set the date to be the end_datetime as a date - 1 day, as we're capturing the last value
+        # of the day. Do NOT subtract a day if the end_datetime is the last millisecond of the day
+        # (low probability but need to check), as then that's the last value of the day.
+        def set_date(end_datetime):
+            end_date = end_datetime.date()
+            return (
+                end_date
+                if end_datetime.time()
+                == pd.Timestamp(end_date)
+                .replace(hour=23, minute=59, second=59, microsecond=999999)
+                .time()
+                else end_date - pd.Timedelta(days=1)
+            )
+
+        df["date"] = df["end_datetime"].apply(set_date)
+
+        # There shouldn't be any duplicates; just doing this in case
+        df = df.drop_duplicates(subset="date", keep="last", ignore_index=True)
+
+        # Backfill values. Get every day from the first date to the last and backfill the values.
+        date_range = pd.date_range(
+            start=df["start_datetime"].min().date(), end=df["date"].max(), freq="D"
+        )
+        df_dates = pd.DataFrame(date_range, columns=["date"])
+        df_dates["date"] = df_dates["date"].dt.date
+        df = pd.merge(df_dates, df[["date", "value"]], on="date", how="left")
+        df["value"] = df["value"].bfill()
+
+        # If the market has resolved, add the market value and resolution datetime
         if dfq.at[index, "resolved"]:
-            # If the market has been resolved, add the market value and resolution datetime
             resolved_date = pd.Timestamp(dfq.at[index, "market_info_resolution_datetime"]).date()
             df = df[df["date"] < resolved_date]
             df.loc[len(df)] = {
                 "date": resolved_date,
                 "value": _get_resolved_market_value(market),
             }
-            date_range = pd.date_range(start=df["date"].min(), end=resolved_date, freq="D")
 
-        df_dates = pd.DataFrame(date_range, columns=["date"])
-        df_dates["date"] = df_dates["date"].dt.date
-        df = pd.merge(left=df_dates, right=df, on="date", how="left")
-        df = df.ffill()
-
+        # Prepare for writing
         df["id"] = market["id"]
         df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
-        # Save and Upload
+        basename = f"{market['id']}.jsonl"
+        remote_filename = f"{source}/{basename}"
+        local_filename = f"/tmp/{market['id']}.jsonl"
         df.to_json(local_filename, orient="records", lines=True, date_format="iso")
+
+        # Upload
         gcp.storage.upload(
             bucket_name=env.QUESTION_BANK_BUCKET,
             local_filename=local_filename,
@@ -162,21 +221,23 @@ def _update_questions_and_resolved_values(dfq, dff):
         return df["value"].iloc[-1]
 
     def _assign_market_values_to_df(df, index, market):
-        url = "https://www.metaculus.com" + market["page_url"]
-        df.at[index, "question"] = market["title"] if "title" in market else market["title_short"]
+        df.at[index, "question"] = market["title"]
         df.at[index, "background"] = market.get("description", "N/A")
-        df.at[index, "market_info_resolution_criteria"] = market.get("resolution_criteria", "N/A")
-        df.at[index, "market_info_open_datetime"] = (
-            dates.convert_zulu_to_iso(market["publish_time"]) if "publish_time" in market else "N/A"
+        df.at[index, "market_info_resolution_criteria"] = market["question"].get(
+            "resolution_criteria", "N/A"
         )
-        df.at[index, "market_info_close_datetime"] = (
-            dates.convert_zulu_to_iso(market["close_time"]) if "close_time" in market else "N/A"
+        df.at[index, "market_info_open_datetime"] = dates.convert_zulu_to_iso(market["open_time"])
+        df.at[index, "market_info_close_datetime"] = dates.convert_zulu_to_iso(
+            market["question"]["actual_close_time"]
         )
-        df.at[index, "url"] = url
-        if market["active_state"] == "RESOLVED":
+        df.at[index, "url"] = f"https://www.metaculus.com/questions/{market['id']}"
+        if market["resolved"]:
             df.at[index, "resolved"] = True
-            df.at[index, "market_info_resolution_datetime"] = dates.convert_zulu_to_iso(
-                market["resolve_time"]
+            df.at[index, "market_info_resolution_datetime"] = dates.convert_datetime_to_iso(
+                min(
+                    dates.convert_zulu_to_datetime(market["question"]["actual_close_time"]),
+                    dates.convert_zulu_to_datetime(market["question"]["actual_resolve_time"]),
+                )
             )
         df.at[index, "forecast_horizons"] = "N/A"
         return df

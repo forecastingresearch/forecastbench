@@ -83,6 +83,14 @@ def convert_zulu_to_iso(time_str: str) -> str:
     return convert_zulu_to_datetime(time_str).isoformat(timespec="seconds")
 
 
+def convert_datetime_to_iso(dt) -> str:
+    """Convert from datetime to ISO 8601.
+
+    e.g. datetime.datetime(2023, 5, 6, 14, 0) -> "2023-05-06T14:00:00+00:00"
+    """
+    return dt.isoformat(timespec="seconds")
+
+
 def convert_iso_date_to_epoch_time(date_obj):
     """Convert a date object to epoch time in seconds using min.time()."""
     # Convert the date object to a datetime object at midnight in UTC
