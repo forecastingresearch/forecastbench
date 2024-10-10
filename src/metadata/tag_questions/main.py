@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 
+import functions_framework
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
@@ -44,6 +45,7 @@ def get_categories_from_llm(dfq):
     return dfq
 
 
+@functions_framework.http
 @decorator.log_runtime
 def driver(_):
     """Pull in fetched data and update questions and resolved values in question bank."""

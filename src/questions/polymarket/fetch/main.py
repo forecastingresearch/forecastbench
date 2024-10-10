@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 import backoff
 import certifi
+import functions_framework
 import numpy as np
 import pandas as pd
 import requests
@@ -47,7 +48,8 @@ def fetch_price_history(market_id):
     list: A list of dictionaries containing the price history data, or an empty list
           if the data retrieval fails.
     """
-    time.sleep(0.2)
+    time.sleep(0.1)
+    logger.info(f"Getting price history for {market_id}...")
 
     endpoint = "https://clob.polymarket.com/prices-history"
 
@@ -123,7 +125,7 @@ def fetch_all_questions(dfq):
         "https://clob.polymarket.com", key=keys.API_KEY_POLYMARKET, chain_id=POLYGON
     )
     while True:
-        time.sleep(0.2)
+        time.sleep(0.1)
         resp = client.get_markets(next_cursor=next_cursor) if next_cursor else client.get_markets()
         new_questions = []
         for q in resp["data"]:
@@ -167,7 +169,6 @@ def fetch_all_questions(dfq):
             + f" Current drop count is {drop_cnt:,}."
             + f" Current closed market count is {closed_cnt:,}."
         )
-
         page_cnt += 1
 
     resolved_ids = set(dfq.loc[dfq["resolved"], "id"]) if not dfq.empty else set()
@@ -203,7 +204,7 @@ def fetch_all_questions(dfq):
 
     all_existing_unresolved_questions = []
     invalid_question_ids = set()
-    for id_ in tqdm(unresolved_ids, "Getting info for questions already in dfq."):
+    for id_ in unresolved_ids:
         time.sleep(0.1)
         q = client.get_market(condition_id=id_)
         outcomes = {token["outcome"] for token in q["tokens"]}
@@ -356,6 +357,7 @@ def fetch_all_questions(dfq):
     return pd.DataFrame(all_complete_questions)
 
 
+@functions_framework.http
 @decorator.log_runtime
 def driver(_):
     """Execute the main workflow of fetching, processing, and uploading questions."""
