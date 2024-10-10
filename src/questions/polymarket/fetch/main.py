@@ -26,7 +26,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SOURCE = "polymarket"
-client = ClobClient("https://clob.polymarket.com", key=keys.API_KEY_POLYMARKET, chain_id=POLYGON)
 
 
 @backoff.on_exception(
@@ -120,6 +119,9 @@ def fetch_all_questions(dfq):
     drop_cnt = 0
     bet_cnt = 725
     closed_cnt = 0
+    client = ClobClient(
+        "https://clob.polymarket.com", key=keys.API_KEY_POLYMARKET, chain_id=POLYGON
+    )
     while True:
         time.sleep(0.2)
         resp = client.get_markets(next_cursor=next_cursor) if next_cursor else client.get_markets()
