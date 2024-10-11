@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+import time
 
 import pandas as pd
 
@@ -115,6 +116,11 @@ def driver(_):
             bucket_name=env.QUESTION_BANK_BUCKET,
             local_filename=local_filename,
         )
+        # Sleep to avoid cloud storage 429 rate limit error
+        # Rate is 1 write/second to the same object
+        # https://cloud.google.com/storage/quotas
+        time.sleep(1)
+
     logger.info(f"Total of {n_total_invalid} invalid questions.")
     logger.info("Done.")
 
