@@ -36,6 +36,7 @@ def get_categories_from_llm(dfq):
                 model_name="gpt-3.5-turbo-0125", prompt=prompt, max_tokens=50, temperature=0
             )
             category = response.strip('"').strip("'").strip(" ").strip(".")
+            logger.info(f"Got category for {row['source']}: {row['id']} --> {category}")
             dfq.at[index, "category"] = (
                 category if category in constants.QUESTION_CATEGORIES else "Other"
             )
