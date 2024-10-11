@@ -57,8 +57,6 @@ QUESTION_SET_FIELDS = [
     "resolved",
 ]
 
-TODAY = dates.get_date_today()
-
 
 def upload_resolution_set(df, forecast_due_date):
     """Upload resolutions dataset."""
@@ -253,7 +251,7 @@ def get_resolutions_for_llm_question_set(forecast_due_date, resolution_values):
     df = df.explode("resolution_dates", ignore_index=True)
     df.rename(columns={"resolution_dates": "resolution_date"}, inplace=True)
     df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
-    df = df[df["resolution_date"] < TODAY]
+    df = df[df["resolution_date"] < dates.get_date_today()]
 
     # Expand combo question directions
     df["direction"] = df.apply(
