@@ -58,7 +58,7 @@ QUESTION_SET_FIELDS = [
 ]
 
 
-def upload_resolution_set(df, forecast_due_date):
+def upload_resolution_set(df, forecast_due_date, question_set_filename):
     """Upload resolutions dataset."""
     local_filename = f"/tmp/{forecast_due_date}_resolution_set.json"
     df = df[
@@ -66,22 +66,30 @@ def upload_resolution_set(df, forecast_due_date):
             "id",
             "source",
             "direction",
-            "forecast_due_date",
             "resolution_date",
             "resolved_to",
             "resolved",
         ]
     ]
     df["direction"] = df["direction"].apply(lambda x: None if len(x) == 0 else x)
-    df["forecast_due_date"] = df["forecast_due_date"].dt.strftime("%Y-%m-%d").astype(str)
     df["resolution_date"] = df["resolution_date"].dt.strftime("%Y-%m-%d").astype(str)
-    df.to_json(local_filename, orient="records")
+    json_data = {
+        "forecast_due_date": forecast_due_date,
+        "question_set": question_set_filename,
+        "resolutions": df.to_dict(orient="records"),
+    }
+    with open(local_filename, "w") as json_file:
+        json.dump(json_data, json_file, indent=4)
+    logger.info(f"Wrote Resolution File {local_filename}.")
+
     if not RUN_LOCALLY_WITH_MOCK_DATA:
+        upload_folder = "datasets/resolution_sets"
         gcp.storage.upload(
             bucket_name=env.PUBLIC_RELEASE_BUCKET,
             local_filename=local_filename,
-            destination_folder="datasets/resolution_sets",
+            destination_folder=upload_folder,
         )
+        logger.info(f"Uploaded Resolution File {local_filename} to {upload_folder}.")
 
 
 def download_and_read_forecast_file(filename):
@@ -439,6 +447,7 @@ def score_forecasts(df, df_question_resolutions):
 
 
 def get_resolution_values_for_forecast_due_date(
+    question_set_filename,
     forecast_due_date,
     resolved_values_for_question_sources,
     resolution_values,
@@ -464,6 +473,7 @@ def get_resolution_values_for_forecast_due_date(
     upload_resolution_set(
         df=resolved_values_for_question_sources[forecast_due_date]["llm"].copy(),
         forecast_due_date=forecast_due_date,
+        question_set_filename=question_set_filename,
     )
     return resolved_values_for_question_sources
 
@@ -745,6 +755,7 @@ def driver(request):
 
         try:
             resolved_values_for_question_sources = get_resolution_values_for_forecast_due_date(
+                question_set_filename=question_set_filename,
                 forecast_due_date=forecast_due_date,
                 resolved_values_for_question_sources=resolved_values_for_question_sources,
                 resolution_values=resolution_values,
