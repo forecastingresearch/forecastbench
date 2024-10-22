@@ -82,7 +82,7 @@ DATA_SOURCES = list(FREEZE_QUESTION_DATA_SOURCES.keys())
 MARKET_SOURCES = list(FREEZE_QUESTION_MARKET_SOURCES.keys())
 ALL_SOURCES = DATA_SOURCES + MARKET_SOURCES
 
-FREEZE_WINDOW_IN_DAYS = 7
+FREEZE_WINDOW_IN_DAYS = 10
 
 FREEZE_DATETIME = os.environ.get("FREEZE_DATETIME", dates.get_datetime_today()).replace(
     hour=0, minute=0, second=0, microsecond=0

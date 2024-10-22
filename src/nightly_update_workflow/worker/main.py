@@ -2,12 +2,13 @@
 
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-
 import nightly_update_workflow_helper as nightly_update  # noqa: E402
+
+from helpers import constants, dates, question_curation  # noqa: E402
 
 metadata = [
     [
@@ -21,6 +22,23 @@ resolve_and_leaderboard = [
         ("func-leaderboard", True),
     ]
 ]
+
+
+def get_curate_questions():
+    """Create question set if it's the right day to do so.
+
+    If today is a multiple of 2 weeks after the original freeze date, create a question set.
+    """
+    original_freeze_date = constants.BENCHMARK_TOURNAMENT_START_DATE_DATETIME_DATE - timedelta(
+        days=question_curation.FREEZE_WINDOW_IN_DAYS
+    )
+    n_days_since_original_freeze_date = (dates.get_date_today() - original_freeze_date).days
+    if n_days_since_original_freeze_date % 14 == 0:
+        return [
+            [
+                ("func-curate-questions", True),
+            ],
+        ]
 
 
 def get_fetch_and_update():
@@ -79,6 +97,7 @@ def main():
     dict_mapping = {
         "fetch_and_update": get_fetch_and_update(),
         "metadata": metadata,
+        "curate_questions": get_curate_questions(),
         "resolve_and_leaderboard": resolve_and_leaderboard,
     }
 
@@ -90,11 +109,16 @@ def main():
         print(e)
         sys.exit(1)
 
-    dict_to_use = dict_mapping.get(os.getenv("DICT_TO_USE"))
-    if not dict_to_use:
+    dict_key = os.getenv("DICT_TO_USE")
+    if not dict_key or dict_key not in dict_mapping.keys():
         print("ERROR: `DICT_TO_USE` env variable not set or set incorrectly")
         print(os.getenv("DICT_TO_USE"))
         sys.exit(1)
+
+    dict_to_use = dict_mapping.get(dict_key)
+    if not dict_to_use:
+        print(f"Nothing to be done for `{dict_key}` task.")
+        sys.exit(0)
 
     if task_num >= len(dict_to_use):
         print(f"task number {task_num} not needed, winding down.")

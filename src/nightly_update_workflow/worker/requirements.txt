@@ -1,3 +1,7 @@
 google-cloud-run
+google-cloud-storage
 google-cloud-secret-manager
 slack_sdk
+pytz
+tqdm
+pandas >= 2.2.2

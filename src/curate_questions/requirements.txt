@@ -1,4 +1,3 @@
 google-cloud-storage
-google-cloud-secret-manager
 pandas
 tqdm

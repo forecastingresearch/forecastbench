@@ -56,7 +56,7 @@ def process_questions(questions, to_questions, single_generation_func, combo_gen
             num_combo = 0
             values["combos"] = []
         num_found += len(values["dfq"]) + len(values["combos"])
-    logger.info(f"Found {num_found} questions.")
+    logger.info(f"Found {num_found:,} questions.")
     return processed_questions
 
 
@@ -111,7 +111,7 @@ def llm_sample_single_questions(values, n_single):
 
     Sample evenly across categories.
     """
-    dfq = values["dfq"]
+    dfq = values["dfq"].copy()
     allocation, underrepresented_categories = allocate_across_categories(
         num_questions=n_single, dfq=dfq
     )
@@ -193,9 +193,10 @@ def allocate_evenly(data: dict, n: int):
 
     def print_info_message(num_allocated, n):
         if num_allocated != n:
-            logger.error(f"*** Problem allocating evenly... Allocated {num_allocated}/{n}. ***")
+            logger.error(f"*** Problem allocating evenly... Allocated {num_allocated:,}/{n}. ***")
+            sys.exit()
         else:
-            logger.info(f"Successfully allocated {num_allocated}/{n}.")
+            logger.info(f"Successfully allocated {num_allocated:,}/{n}.")
 
     sum_n_items = sum(data.values())
     if sum_n_items <= n:
@@ -261,7 +262,9 @@ def allocate_across_sources(for_humans, questions):
     num_allocated = sum(allocation.values())
     if num_allocated != num_questions:
         logger.error("*** Problem allocating questions. ***")
-    logger.info(f"Allocated {num_allocated}/{num_questions}.")
+        sys.exit(1)
+
+    logger.info(f"Allocated {num_allocated:,}/{num_questions:,}.")
     return sources
 
 
@@ -436,11 +439,7 @@ def drop_questions_that_resolve_too_soon(source, dfq):
 
 @decorator.log_runtime
 def driver(_):
-    """Curate questions for forecasting."""
-
-    def format_resolution_criteria(row, template):
-        return template.format(url=row["url"])
-
+    """Create question set."""
     dfmeta = data_utils.download_and_read(
         filename=constants.META_DATA_FILENAME,
         local_filename=f"/tmp/{constants.META_DATA_FILENAME}",
@@ -493,7 +492,7 @@ def driver(_):
             QUESTIONS[source]["dfq"] = dfq.reset_index(drop=True)
             QUESTIONS[source]["num_single_questions_available"] = num_single_questions
             QUESTIONS[source]["num_questions_incl_combo_available"] = num_questions
-            logger.info(f"Found {num_single_questions} single questions from {source}.\n")
+            logger.info(f"Found {num_single_questions:,} single questions from {source}.\n")
 
     QUESTIONS = {key: value for key, value in QUESTIONS.items() if key not in sources_to_remove}
 
@@ -568,6 +567,12 @@ def driver(_):
                 if row["underrepresented"]:
                     category += " (*)"
                 logger.info(f"  - {category.ljust(max_category_length)}: {count}   {combo_count}")
+
+        logger.info("")
+        logger.info("Quick summary...")
+        for source, values in questions.items():
+            logger.info(f"* {source}: {len(values['dfq'])}")
+
         logger.info(f"Found {running_sum} questions total for {for_whom}.\n")
 
     _log_questions_found(LLM_QUESTIONS, for_humans=False)
@@ -577,8 +582,6 @@ def driver(_):
     write_questions(HUMAN_QUESTIONS, "human")
 
     logger.info("Done.")
-
-    return "OK", 200
 
 
 if __name__ == "__main__":

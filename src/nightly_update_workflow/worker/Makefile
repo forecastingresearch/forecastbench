@@ -11,6 +11,7 @@ Procfile:
 
 deploy : main.py requirements.txt ../nightly_update_workflow_helper.py Procfile
 	mkdir -p $(UPLOAD_DIR)
+	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud run jobs deploy \
