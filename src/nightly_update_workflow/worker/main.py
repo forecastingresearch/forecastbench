@@ -2,7 +2,7 @@
 
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
@@ -53,7 +53,7 @@ def get_fetch_and_update():
         "wikipedia",
         "yfinance",
     ]
-    day_of_week = datetime.now(timezone.utc).strftime("%A")
+    day_of_week = dates.get_datetime_today().strftime("%A")
     if day_of_week in ["Tuesday", "Wednesday"]:
         # Add acled to sources to fetch if it's Tuesday or Wednesday.
         # See Issue #115.
