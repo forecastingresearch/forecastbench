@@ -56,10 +56,9 @@ def cloud_run_job(job_name, env_vars=None, task_count=1, timeout=timeout_1h):
 def send_slack_message(message=""):
     """Send a slack message."""
     client = WebClient(token=keys.API_SLACK_BOT_NOTIFICATION)
-    channel_name = "#forecastbench-nightly-update-status"
 
     try:
-        client.chat_postMessage(channel=channel_name, text=message)
+        client.chat_postMessage(channel=keys.API_SLACK_BOT_CHANNEL, text=message)
         logger.info("Slack message sent successfully!")
     except SlackApiError as e:
         logger.info(f"Got an error: {e.response['error']}")
