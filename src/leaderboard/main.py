@@ -856,6 +856,13 @@ def make_and_upload_html_table(df, title, basename):
         local_filename=local_filename,
         destination_folder="leaderboards",
     )
+    dt_as_str = dates.convert_datetime_to_iso(dates.get_datetime_today())
+    gcp.storage.upload(
+        bucket_name=env.PUBLIC_RELEASE_BUCKET,
+        local_filename=local_filename,
+        destination_folder="leaderboards",
+        filename=f"{dt_as_str}.{basename}.html",
+    )
 
 
 @decorator.log_runtime
