@@ -22,15 +22,17 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 		gcloud artifacts repositories create $(POLYMARKET_ARTIFACT_REPOSITORY) \
 			--project $(CLOUD_PROJECT) \
 			--location $(CLOUD_DEPLOY_REGION) \
-			--repository-format=docker \
-		@echo "Created repository '$(POLYMARKET_ARTIFACT_REPOSITORY)'."; \
+			--repository-format=docker; \
+		echo "Created repository '$(POLYMARKET_ARTIFACT_REPOSITORY)'."; \
 	fi
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud builds submit $(UPLOAD_DIR) \
-		--pack builder=gcr.io/buildpacks/builder,env=GOOGLE_PYTHON_VERSION="3.9.x",image=$(IMAGE_NAME)
+		--pack builder=gcr.io/buildpacks/builder,env=GOOGLE_PYTHON_VERSION="3.9.x",image=$(IMAGE_NAME) \
+		--project $(CLOUD_PROJECT) \
+		--region $(CLOUD_DEPLOY_REGION)
 	gcloud run jobs deploy \
 		func-data-polymarket-update-questions \
 		--project $(CLOUD_PROJECT) \
