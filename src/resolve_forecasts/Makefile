@@ -9,10 +9,10 @@ UPLOAD_DIR = upload
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
 
-Procfile:
-	cp -r $(ROOT_DIR)src/helpers/Procfile .
+Dockerfile:
+	sed 's/REGION/$(CLOUD_DEPLOY_REGION)/g' $(ROOT_DIR)src/helpers/Dockerfile > Dockerfile
 
-deploy : main.py .gcloudignore requirements.txt data.py markets.py acled.py wikipedia.py Procfile
+deploy : main.py .gcloudignore requirements.txt data.py markets.py acled.py wikipedia.py Dockerfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
@@ -31,4 +31,4 @@ deploy : main.py .gcloudignore requirements.txt data.py markets.py acled.py wiki
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore Procfile
+	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile

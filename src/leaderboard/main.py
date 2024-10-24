@@ -18,6 +18,8 @@ from helpers import (  # noqa: E402
     dates,
     decorator,
     env,
+    git,
+    keys,
     question_curation,
     resolution,
 )
@@ -54,10 +56,18 @@ def upload_leaderboard_csv(df, basename):
     logger.info(f"Uploading leaderboard {basename}")
     local_filename = f"/tmp/{basename}.csv"
     df.to_csv(local_filename, index=False)
+    destination_folder = "leaderboards"
     gcp.storage.upload(
         bucket_name=env.PUBLIC_RELEASE_BUCKET,
         local_filename=local_filename,
-        destination_folder="leaderboards/csv",
+        destination_folder=f"{destination_folder}/csv",
+    )
+    git.clone_and_push_files(
+        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
+        files={
+            local_filename: f"{destination_folder}/csv/{basename}.csv",
+        },
+        commit_message=f"automatic update of {basename}.csv.",
     )
 
 
@@ -851,17 +861,18 @@ def make_and_upload_html_table(df, title, basename):
     local_filename = f"/tmp/{basename}.html"
     with open(local_filename, "w") as file:
         file.write(html_code)
+    destination_folder = "leaderboards"
     gcp.storage.upload(
         bucket_name=env.PUBLIC_RELEASE_BUCKET,
         local_filename=local_filename,
-        destination_folder="leaderboards",
+        destination_folder=destination_folder,
     )
-    dt_as_str = dates.convert_datetime_to_iso(dates.get_datetime_today())
-    gcp.storage.upload(
-        bucket_name=env.PUBLIC_RELEASE_BUCKET,
-        local_filename=local_filename,
-        destination_folder="leaderboards",
-        filename=f"{dt_as_str}.{basename}.html",
+    git.clone_and_push_files(
+        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
+        files={
+            local_filename: f"{destination_folder}/html/{basename}.html",
+        },
+        commit_message=f"automatic update of {title}.",
     )
 
 
