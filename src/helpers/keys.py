@@ -19,6 +19,14 @@ def get_secret(secret_name, version_id="latest"):
     return response.payload.data.decode("UTF-8")
 
 
+def get_secret_that_may_not_exist(secret_name, version_id="latest"):
+    """Get a secret from Secret Manager but don't fail if it doesn't exist."""
+    try:
+        return get_secret(secret_name, version_id)
+    except Exception:
+        return None
+
+
 # LLM
 API_KEY_ANTHROPIC = get_secret("API_KEY_ANTHROPIC")
 API_KEY_OPENAI = get_secret("API_KEY_OPENAI")
@@ -40,3 +48,6 @@ API_KEY_INFER = get_secret("API_KEY_INFER")
 # WORKFLOW BOT
 API_SLACK_BOT_NOTIFICATION = get_secret(secret_name="API_SLACK_BOT_NOTIFICATION")
 API_SLACK_BOT_CHANNEL = get_secret(secret_name="API_SLACK_BOT_CHANNEL")
+
+# GITHUB
+API_GITHUB_DATASET_REPO_URL = get_secret(secret_name="API_GITHUB_DATASET_REPO_URL")

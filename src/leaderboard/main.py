@@ -18,6 +18,8 @@ from helpers import (  # noqa: E402
     dates,
     decorator,
     env,
+    git,
+    keys,
     question_curation,
     resolution,
 )
@@ -47,18 +49,6 @@ def download_and_read_forecast_file(filename):
         data = json.load(f)
 
     return data
-
-
-def upload_leaderboard_csv(df, basename):
-    """Upload leaderboard."""
-    logger.info(f"Uploading leaderboard {basename}")
-    local_filename = f"/tmp/{basename}.csv"
-    df.to_csv(local_filename, index=False)
-    gcp.storage.upload(
-        bucket_name=env.PUBLIC_RELEASE_BUCKET,
-        local_filename=local_filename,
-        destination_folder="leaderboards/csv",
-    )
 
 
 def get_leaderboard_entry(df):
@@ -848,21 +838,32 @@ def make_and_upload_html_table(df, title, basename):
 </html>"""
     )
 
-    local_filename = f"/tmp/{basename}.html"
-    with open(local_filename, "w") as file:
+    # Create HTML file
+    local_filename_html = f"/tmp/{basename}.html"
+    with open(local_filename_html, "w") as file:
         file.write(html_code)
+
+    # Create CSV file
+    local_filename_csv = f"/tmp/{basename}.csv"
+    df.to_csv(local_filename_csv, index=False)
+
+    # Upload files to Cloud
+    destination_folder = "leaderboards"
     gcp.storage.upload(
         bucket_name=env.PUBLIC_RELEASE_BUCKET,
-        local_filename=local_filename,
-        destination_folder="leaderboards",
+        local_filename=local_filename_html,
+        destination_folder=f"{destination_folder}/html",
     )
-    dt_as_str = dates.convert_datetime_to_iso(dates.get_datetime_today())
     gcp.storage.upload(
         bucket_name=env.PUBLIC_RELEASE_BUCKET,
-        local_filename=local_filename,
-        destination_folder="leaderboards",
-        filename=f"{dt_as_str}.{basename}.html",
+        local_filename=local_filename_csv,
+        destination_folder=f"{destination_folder}/csv",
     )
+
+    return {
+        local_filename_html: f"{destination_folder}/html/{basename}.html",
+        local_filename_csv: f"{destination_folder}/csv/{basename}.csv",
+    }
 
 
 @decorator.log_runtime
@@ -950,39 +951,56 @@ def driver(_):
         except ValueError:
             return False
 
-    def make_leaderboard(d, title, basename):
+    def make_leaderboard(d, title, basename, files_to_push_to_git):
         logger.info(colored(f"Making leaderboard: {title}", "red"))
         df = get_p_values(d)
-        upload_leaderboard_csv(df=df, basename=basename)
-        make_and_upload_html_table(
-            df=df,
-            title=title,
-            basename=basename,
+        files_to_push_to_git.update(
+            make_and_upload_html_table(
+                df=df,
+                title=title,
+                basename=basename,
+            )
         )
         logger.info(colored("Done.", "red"))
+        return files_to_push_to_git
 
+    files = {}
     for key in llm_leaderboard:
         if not is_numeric(key):
             # Only make overall tables for now
             title = "Leaderboard: " + (f"{key} day" if is_numeric(key) else "overall")
-            make_leaderboard(d=llm_leaderboard[key], title=title, basename=f"leaderboard_{key}")
+            files = make_leaderboard(
+                d=llm_leaderboard[key],
+                title=title,
+                basename=f"leaderboard_{key}",
+                files_to_push_to_git=files,
+            )
 
             if key in llm_and_human_leaderboard:
-                make_leaderboard(
+                files = make_leaderboard(
                     d=llm_and_human_leaderboard[key],
                     title=f"Human {title}",
                     basename=f"human_leaderboard_{key}",
+                    files_to_push_to_git=files,
                 )
-                make_leaderboard(
+                files = make_leaderboard(
                     d=llm_and_human_combo_leaderboard[key],
                     title=f"Human Combo {title}",
                     basename=f"human_combo_leaderboard_{key}",
+                    files_to_push_to_git=files,
                 )
+
                 # make_leaderboard(
                 #     d=llm_and_human_combo_all_generated_leaderboard[key],
                 #     title=f"Human Combo Generated {title}",
                 #     basename=f"human_combo_generated_leaderboard_{key}",
                 # )
+
+    git.clone_and_push_files(
+        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
+        files=files,
+        commit_message="leaderboard: automatic update html & csv files.",
+    )
 
 
 if __name__ == "__main__":

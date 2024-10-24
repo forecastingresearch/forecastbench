@@ -16,7 +16,15 @@ import pandas as pd
 import wikipedia
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import constants, dates, decorator, env, resolution  # noqa: E402
+from helpers import (  # noqa: E402
+    constants,
+    dates,
+    decorator,
+    env,
+    git,
+    keys,
+    resolution,
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -60,7 +68,8 @@ QUESTION_SET_FIELDS = [
 
 def upload_resolution_set(df, forecast_due_date, question_set_filename):
     """Upload resolutions dataset."""
-    local_filename = f"/tmp/{forecast_due_date}_resolution_set.json"
+    basename = f"{forecast_due_date}_resolution_set.json"
+    local_filename = f"/tmp/{basename}"
     df = df[
         [
             "id",
@@ -90,6 +99,13 @@ def upload_resolution_set(df, forecast_due_date, question_set_filename):
             destination_folder=upload_folder,
         )
         logger.info(f"Uploaded Resolution File {local_filename} to {upload_folder}.")
+        git.clone_and_push_files(
+            repo_url=keys.API_GITHUB_DATASET_REPO_URL,
+            files={
+                local_filename: f"{upload_folder}/{basename}",
+            },
+            commit_message=f"resolution set: automatic update for {question_set_filename}.",
+        )
 
 
 def download_and_read_forecast_file(filename):
