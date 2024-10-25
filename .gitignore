@@ -16,6 +16,7 @@ __pycache__/
 .vscode
 .history
 
+src/questions/polymarket/fetch/Dockerfile
 src/leaderboard/Dockerfile
 src/resolve_forecasts/Dockerfile
 .gcloudignore

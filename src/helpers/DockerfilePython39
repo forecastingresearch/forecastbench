@@ -1,0 +1,9 @@
+FROM REGION-docker.pkg.dev/serverless-runtimes/google-18-full/runtimes/python39
+
+COPY . /app
+
+WORKDIR /app
+
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+CMD ["python3", "main.py"]
