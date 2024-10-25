@@ -15,8 +15,16 @@ def log_runtime(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)
-        end_time = time.time()
-        logger.info(f"Runtime of {func.__name__}: {int(end_time - start_time)} seconds")
+        elapsed_time = int(time.time() - start_time)
+
+        minutes = elapsed_time // 60
+        seconds = elapsed_time % 60
+
+        logger.info(
+            f"Runtime of {func.__name__}: "
+            + (f"{minutes}m" if minutes > 0 else "")
+            + f"{seconds}s."
+        )
         return result
 
     return wrapper
