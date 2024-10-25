@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 from datetime import datetime
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -866,6 +867,32 @@ def make_and_upload_html_table(df, title, basename):
     }
 
 
+def make_leaderboard(d, title, basename):
+    """Get p-values and make leaderboard."""
+    logger.info(colored(f"Making leaderboard: {title}", "red"))
+    df = get_p_values(d)
+    files = make_and_upload_html_table(
+        df=df,
+        title=title,
+        basename=basename,
+    )
+    logger.info(colored("Done.", "red"))
+    return files
+
+
+def worker(task):
+    """Pool worker for leaderboard creation."""
+    try:
+        return make_leaderboard(
+            d=task["d"],
+            title=task["title"],
+            basename=task["basename"],
+        )
+    except Exception as e:
+        logger.error(f"Error processing task {task['title']}: {e}")
+        return {}
+
+
 @decorator.log_runtime
 def driver(_):
     """Create new leaderboard."""
@@ -876,6 +903,8 @@ def driver(_):
     llm_and_human_combo_all_generated_leaderboard = {}
     files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
     files = [file for file in files if file.endswith(".json")]
+    num_cpus = int(os.environ.get("NUM_CPUS", 1))
+    print(f"Have access to {num_cpus}")
     for f in files:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
@@ -951,50 +980,41 @@ def driver(_):
         except ValueError:
             return False
 
-    def make_leaderboard(d, title, basename, files_to_push_to_git):
-        logger.info(colored(f"Making leaderboard: {title}", "red"))
-        df = get_p_values(d)
-        files_to_push_to_git.update(
-            make_and_upload_html_table(
-                df=df,
-                title=title,
-                basename=basename,
-            )
-        )
-        logger.info(colored("Done.", "red"))
-        return files_to_push_to_git
-
-    files = {}
+    tasks = []
     for key in llm_leaderboard:
         if not is_numeric(key):
             # Only make overall tables for now
             title = "Leaderboard: " + (f"{key} day" if is_numeric(key) else "overall")
-            files = make_leaderboard(
-                d=llm_leaderboard[key],
-                title=title,
-                basename=f"leaderboard_{key}",
-                files_to_push_to_git=files,
+            tasks.append(
+                {
+                    "d": llm_leaderboard[key],
+                    "title": title,
+                    "basename": f"leaderboard_{key}",
+                }
             )
-
             if key in llm_and_human_leaderboard:
-                files = make_leaderboard(
-                    d=llm_and_human_leaderboard[key],
-                    title=f"Human {title}",
-                    basename=f"human_leaderboard_{key}",
-                    files_to_push_to_git=files,
+                tasks.append(
+                    {
+                        "d": llm_and_human_leaderboard[key],
+                        "title": f"Human {title}",
+                        "basename": f"human_leaderboard_{key}",
+                    }
                 )
-                files = make_leaderboard(
-                    d=llm_and_human_combo_leaderboard[key],
-                    title=f"Human Combo {title}",
-                    basename=f"human_combo_leaderboard_{key}",
-                    files_to_push_to_git=files,
+                tasks.append(
+                    {
+                        "d": llm_and_human_combo_leaderboard[key],
+                        "title": f"Human Combo {title}",
+                        "basename": f"human_combo_leaderboard_{key}",
+                    }
                 )
 
-                # make_leaderboard(
-                #     d=llm_and_human_combo_all_generated_leaderboard[key],
-                #     title=f"Human Combo Generated {title}",
-                #     basename=f"human_combo_generated_leaderboard_{key}",
-                # )
+    logger.info(f"Using {num_cpus} cpus for worker pool.")
+    with Pool(processes=num_cpus) as pool:
+        results = pool.map(worker, tasks)
+
+    files = {}
+    for res in results:
+        files.update(res)
 
     git.clone_and_push_files(
         repo_url=keys.API_GITHUB_DATASET_REPO_URL,
