@@ -600,7 +600,7 @@ def generate_final_forecast_files(deadline, prompt_type, models, test_or_prod):
             dirs = [dir_ + "_test" for dir_ in dirs]
 
         for test_type in dirs:
-            file_path = f"{test_type}/{model}.jsonl"
+            file_path = f"/tmp/{test_type}/{model}.jsonl"
             questions = data_utils.read_jsonl(file_path)
             current_model_forecasts.extend(questions)
 
@@ -608,7 +608,7 @@ def generate_final_forecast_files(deadline, prompt_type, models, test_or_prod):
         if test_or_prod == "TEST":
             final_dir += "_test"
 
-        final_file_name = f"{prompt_type}/{final_dir}/{model}"
+        final_file_name = f"/tmp/{prompt_type}/{final_dir}/{model}"
         os.makedirs(os.path.dirname(final_file_name), exist_ok=True)
         with open(final_file_name, "w") as file:
             for entry in current_model_forecasts:
@@ -619,7 +619,7 @@ def generate_final_forecast_files(deadline, prompt_type, models, test_or_prod):
         final_dir = get_final_dir(with_freeze_values)
         if test_or_prod == "TEST":
             final_dir += "_test"
-        file_path = f"{prompt_type}/{final_dir}/{model}"
+        file_path = f"/tmp/{prompt_type}/{final_dir}/{model}"
         questions = data_utils.read_jsonl(file_path)
         if "gpt" in model:
             org = "OpenAI"
@@ -634,7 +634,7 @@ def generate_final_forecast_files(deadline, prompt_type, models, test_or_prod):
         elif "gemini" in model:
             org = "Google"
 
-        directory = f"{prompt_type}/final_submit"
+        directory = f"/tmp/{prompt_type}/final_submit"
         if test_or_prod == "TEST":
             directory += "_test"
         os.makedirs(directory, exist_ok=True)
@@ -692,7 +692,7 @@ def worker(
         start_time = datetime.now()
 
     question = questions_to_eval[index]
-    is_market_question = question["source"] not in question_curation.DATA_SOURCES
+    is_market_question = question["source"] in question_curation.MARKET_SOURCES
     is_joint_question = question["combination_of"] != "N/A"
 
     question_type = determine_type(is_market_question, is_joint_question, market_use_freeze_value)
@@ -832,6 +832,7 @@ def worker(
             )
 
     use_news = True if "with_news" in prompt_type else False
+    assert not use_news, "`use_news` should always be False"
 
     prompt = prompt.format(
         **get_prompt_params(
@@ -855,9 +856,10 @@ def worker(
             wait_time=30,
         )
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"Error in worker: {e}")
         response = None
 
+    logger.info(f" IN WORKER: ... {prompt_type} {is_market_question}")
     if prompt_type == "zero_shot":
         if is_market_question:
             save_dict[index] = {"forecast": extract_probability(response)}
@@ -877,9 +879,9 @@ def worker(
                 "reasoning": response,
             }
 
-    if "with_news" not in prompt_type:
-        # not saving prompts with news because it's too large
-        save_dict[index]["prompt"] = prompt
+    # if "with_news" not in prompt_type:
+    #     # not saving prompts with news because it's too large
+    #     save_dict[index]["prompt"] = prompt
 
     logger.info(
         f"Model: {model_name} | Prompt: {prompt_type} | Question Type: {question_type} | "
@@ -1068,6 +1070,21 @@ def get_prompt_params(
         return base_params
 
 
+def download_and_read_saved_forecasts(filename, base_file_path):
+    """Download saved forecasts from cloud storage."""
+    local_filename = "/tmp/" + filename.replace(base_file_path + "/", "")
+
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(local_filename), exist_ok=True)
+
+    gcp.storage.download_no_error_message_on_404(
+        bucket_name=env.FORECAST_SETS_BUCKET,
+        filename=filename,
+        local_filename=local_filename,
+    )
+    return data_utils.read_jsonl(local_filename)
+
+
 def process_questions_and_models(
     questions,
     models,
@@ -1099,9 +1116,7 @@ def process_questions_and_models(
         for model in models_to_test:
             gcp_file_path = f"{base_file_path}/{test_type}/{model}.jsonl"
 
-            results[model] = data_utils.download_and_read_saved_forecasts(
-                gcp_file_path, base_file_path
-            )
+            results[model] = download_and_read_saved_forecasts(gcp_file_path, base_file_path)
 
             if results[model]:
                 model_result_loaded[model] = True
@@ -1166,7 +1181,7 @@ def get_executor_count(model, models):
 
 def determine_test_type(question_set, prompt_type, market_use_freeze_value):
     """Determine the test type based on the question set and prompt type."""
-    if question_set[0]["source"] not in question_curation.DATA_SOURCES:
+    if question_set[0]["source"] in question_curation.MARKET_SOURCES:
         base_type = "market" if question_set[0]["combination_of"] == "N/A" else "combo_market"
         if market_use_freeze_value:
             base_type += "/with_freeze_values"
@@ -1204,8 +1219,8 @@ def generate_data_source_forecasts(model, results, question, index, prompt_type)
             "resolution_date": resolution_date,
             "reasoning": None if prompt_type == "zero_shot" else results[model][index]["reasoning"],
         }
-        if "with_news" not in prompt_type:
-            forecast_data["prompt"] = results[model][index]["prompt"]
+        # if "with_news" not in prompt_type:
+        #     forecast_data["prompt"] = results[model][index]["prompt"]
         forecast_data["direction"] = None
         if question["combination_of"] != "N/A":
             forecast_data["direction"] = get_direction(question["combo_index"])
@@ -1229,8 +1244,8 @@ def generate_non_data_source_forecast(model, results, question, index, prompt_ty
         "resolution_date": resolution_date,
         "reasoning": None if prompt_type == "zero_shot" else results[model][index]["reasoning"],
     }
-    if "with_news" not in prompt_type:
-        forecast_data["prompt"] = results[model][index]["prompt"]
+    # if "with_news" not in prompt_type:
+    #     forecast_data["prompt"] = results[model][index]["prompt"]
     forecast_data["direction"] = None
     if question["combination_of"] != "N/A":
         forecast_data["direction"] = get_direction(question["combo_index"])
@@ -1246,17 +1261,18 @@ def get_direction(combo_index):
 
 def save_and_upload_results(forecasts, test_type, model, base_file_path):
     """Save results locally and upload to GCP."""
-    local_filename = f"{test_type}/{model}.jsonl"
+    local_filename = f"/tmp/{test_type}/{model}.jsonl"
     os.makedirs(os.path.dirname(local_filename), exist_ok=True)
     with open(local_filename, "w") as file:
         for entry in forecasts:
             json_line = json.dumps(entry)
             file.write(json_line + "\n")
 
+    remote_filename = local_filename.replace("/tmp/", "")
     gcp.storage.upload(
         bucket_name=env.FORECAST_SETS_BUCKET,
         local_filename=local_filename,
-        filename=f"{base_file_path}/{local_filename}",
+        filename=f"{base_file_path}/{remote_filename}",
     )
 
 
@@ -1276,7 +1292,7 @@ def process_questions(questions_file, num_per_source=None):
     single_market_questions = [
         q
         for q in questions
-        if q["combination_of"] == "N/A" and q["source"] not in question_curation.DATA_SOURCES
+        if q["combination_of"] == "N/A" and q["source"] in question_curation.MARKET_SOURCES
     ]
     single_non_market_questions = [
         q
@@ -1287,7 +1303,7 @@ def process_questions(questions_file, num_per_source=None):
     combo_market_questions = [
         q
         for q in questions
-        if q["combination_of"] != "N/A" and q["source"] not in question_curation.DATA_SOURCES
+        if q["combination_of"] != "N/A" and q["source"] in question_curation.MARKET_SOURCES
     ]
     combo_non_market_questions = [
         q
