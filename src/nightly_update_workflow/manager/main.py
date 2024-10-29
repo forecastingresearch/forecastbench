@@ -24,6 +24,11 @@ def call_worker(dict_to_use, task_count):
 
 def main():
     """Manage nightly run."""
+    dict_to_use_publish_question_set = "publish_question_set"
+    operation_publish_question_set = call_worker(
+        dict_to_use=dict_to_use_publish_question_set, task_count=1
+    )
+
     dict_to_use = "fetch_and_update"
     operation = call_worker(dict_to_use=dict_to_use, task_count=9)
     nightly_update.block_and_check_job_result(
@@ -45,8 +50,10 @@ def main():
         exit_on_error=False,
     )
 
-    dict_to_use_curate_questions = "curate_questions"
-    call_worker(dict_to_use=dict_to_use_curate_questions, task_count=1)
+    dict_to_use_create_question_set = "create_question_set"
+    operation_create_question_set = call_worker(
+        dict_to_use=dict_to_use_create_question_set, task_count=1
+    )
 
     nightly_update.block_and_check_job_result(
         operation=operation_resolve_and_leaderboard,
@@ -55,8 +62,14 @@ def main():
     )
 
     nightly_update.block_and_check_job_result(
-        operation=operation_resolve_and_leaderboard,
-        name=dict_to_use_curate_questions,
+        operation=operation_create_question_set,
+        name=dict_to_use_create_question_set,
+        exit_on_error=True,
+    )
+
+    nightly_update.block_and_check_job_result(
+        operation=operation_publish_question_set,
+        name=dict_to_use_publish_question_set,
         exit_on_error=True,
     )
     nightly_update.send_slack_message(message="Nightly update succeeded.")

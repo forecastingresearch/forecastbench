@@ -2,13 +2,12 @@
 
 import os
 import sys
-from datetime import timedelta
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 import nightly_update_workflow_helper as nightly_update  # noqa: E402
 
-from helpers import constants, dates, question_curation  # noqa: E402
+from helpers import dates, question_curation  # noqa: E402
 
 metadata = [
     [
@@ -24,21 +23,37 @@ resolve_and_leaderboard = [
 ]
 
 
-def get_curate_questions():
+def get_create_question_set():
     """Create question set if it's the right day to do so.
 
     If today is a multiple of 2 weeks after the original freeze date, create a question set.
     """
-    original_freeze_date = constants.BENCHMARK_TOURNAMENT_START_DATE_DATETIME_DATE - timedelta(
-        days=question_curation.FREEZE_WINDOW_IN_DAYS
-    )
-    n_days_since_original_freeze_date = (dates.get_date_today() - original_freeze_date).days
-    if n_days_since_original_freeze_date % 14 == 0:
-        return [
+    return (
+        [
             [
-                ("func-curate-questions", True),
+                ("func-question-set-create", True),
             ],
         ]
+        if question_curation.is_today_question_curation_date()
+        else None
+    )
+
+
+def get_publish_question_set():
+    """Publish the question set if it's the right day to do so.
+
+    If today is a multiple of 2 weeks after the original forecast due date, publish the question
+    set.
+    """
+    return (
+        [
+            [
+                ("func-question-set-publish", True),
+            ],
+        ]
+        if question_curation.is_today_question_set_publication_date()
+        else None
+    )
 
 
 def get_fetch_and_update():
@@ -97,7 +112,8 @@ def main():
     dict_mapping = {
         "fetch_and_update": get_fetch_and_update(),
         "metadata": metadata,
-        "curate_questions": get_curate_questions(),
+        "create_question_set": get_create_question_set(),
+        "publish_question_set": get_publish_question_set(),
         "resolve_and_leaderboard": resolve_and_leaderboard,
     }
 
@@ -123,11 +139,6 @@ def main():
     if task_num >= len(dict_to_use):
         print(f"task number {task_num} not needed, winding down.")
         sys.exit(0)
-
-    if len(dict_to_use[task_num]) != 2:
-        print("ERROR: Dictionary incorrectly defined, should not arrive here.")
-        print(dict_to_use[task_num])
-        sys.exit(1)
 
     sequential_cloud_run_jobs(functions_to_call=dict_to_use[task_num])
 

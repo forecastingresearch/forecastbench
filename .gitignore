@@ -17,6 +17,7 @@ __pycache__/
 .history
 
 src/questions/polymarket/fetch/Dockerfile
+src/curate_questions/publish_question_set/Dockerfile
 src/leaderboard/Dockerfile
 src/resolve_forecasts/Dockerfile
 .gcloudignore

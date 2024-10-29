@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import (  # noqa: E402
     constants,
     data_utils,
@@ -23,7 +23,7 @@ from helpers import (  # noqa: E402
     question_curation,
 )
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
@@ -440,6 +440,10 @@ def drop_questions_that_resolve_too_soon(source, dfq):
 @decorator.log_runtime
 def driver(_):
     """Create question set."""
+    if not question_curation.is_today_question_curation_date():
+        logger.info("Today is NOT the question set creation date.")
+        return
+
     dfmeta = data_utils.download_and_read(
         filename=constants.META_DATA_FILENAME,
         local_filename=f"/tmp/{constants.META_DATA_FILENAME}",

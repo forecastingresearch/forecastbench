@@ -64,8 +64,13 @@ metadata: tag-questions validate-questions
 
 resolve: resolve-forecasts
 
-curate-questions:
-	make -C src/curate_questions
+curate-questions: create-question-set publish-question-set
+
+create-question-set:
+	make -C src/curate_questions/create_question_set
+
+publish-question-set:
+	make -C src/curate_questions/publish_question_set
 
 manifold: manifold-fetch manifold-update-questions
 

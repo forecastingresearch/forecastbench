@@ -1,0 +1,5 @@
+google-cloud-storage
+google-cloud-secret-manager
+GitPython
+pandas
+tqdm

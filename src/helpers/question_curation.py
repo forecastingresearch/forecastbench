@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from . import (
     acled,
+    constants,
     dates,
     dbnomics,
     fred,
@@ -97,3 +98,28 @@ COMBINATION_PROMPT = (
     "will happen, that one will happen but not the other, and that neither will happen. In other "
     "words, for each resolution date please provide 4 predictions."
 )
+
+
+def get_num_days_since_original_forecast_due_date():
+    """Return the number of days since the original forecast due date.
+
+    The original forecast due date is the day the original question set was published.
+    """
+    return (dates.get_date_today() - constants.BENCHMARK_TOURNAMENT_START_DATE_DATETIME_DATE).days
+
+
+def is_today_question_set_publication_date():
+    """Return true if today is the day to publish the question set.
+
+    This is done every 2 weeks since the original benchamrk question set was published.
+    """
+    return get_num_days_since_original_forecast_due_date() % 14 == 0
+
+
+def is_today_question_curation_date():
+    """Return true if today is the day to curate questions.
+
+    This is done every 2 weeks - FREEZE_WINDOW_IN_DAYS since the original benchamrk question set was
+    created.
+    """
+    return get_num_days_since_original_forecast_due_date() % 14 == 14 - FREEZE_WINDOW_IN_DAYS

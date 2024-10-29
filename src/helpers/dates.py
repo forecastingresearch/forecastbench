@@ -24,6 +24,11 @@ def get_date_today():
     return get_datetime_today().date()
 
 
+def get_date_today_as_iso():
+    """Get today's date as an ISO string."""
+    return get_date_today().isoformat()
+
+
 def get_datetime_today_midnight():
     """Get datetime.now in UTC at midnight."""
     return get_datetime_today().replace(hour=0, minute=0, second=0, microsecond=0)
