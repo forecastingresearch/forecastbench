@@ -1,4 +1,10 @@
-FROM REGION-docker.pkg.dev/serverless-runtimes/STACK/runtimes/PYTHON_VERSION
+FROM REGION-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/python312
+
+RUN whoami || echo "whoami not found"
+
+USER root
+RUN apt-get update && apt-get install -y git openssh-client
+USER www-data
 
 COPY . /app
 

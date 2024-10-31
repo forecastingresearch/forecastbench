@@ -9,7 +9,7 @@ UPLOAD_DIR = upload
 Procfile:
 	cp -r $(ROOT_DIR)src/helpers/Procfile .
 
-deploy : main.py requirements.txt ../nightly_update_workflow_helper.py Procfile
+deploy : main.py requirements.txt  Procfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/

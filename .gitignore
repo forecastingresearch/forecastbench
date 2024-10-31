@@ -14,7 +14,8 @@ __pycache__/
 .vscode
 .history
 
-src/base_eval/llm_baselines/Dockerfile
+src/base_eval/llm_baselines/manager/Dockerfile
+src/base_eval/llm_baselines/worker/Dockerfile
 src/questions/polymarket/fetch/Dockerfile
 src/curate_questions/publish_question_set/Dockerfile
 src/leaderboard/Dockerfile

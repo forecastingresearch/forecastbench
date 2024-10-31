@@ -1,8 +1,8 @@
-all :
+all:
 	$(MAKE) clean
 	$(MAKE) deploy
 
-.PHONY : all clean deploy
+.PHONY: all clean deploy
 
 UPLOAD_DIR = upload
 
@@ -14,28 +14,26 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
 		-e 's/STACK/google-22-full/g' \
 		-e 's/PYTHON_VERSION/python312/g' \
+		-e 's/"main.py"/"main.py", "$(if $(filter $(BUILD_ENV),prod),PROD,TEST)"/g' \
 		$< > Dockerfile
 
-NUM_CPUS = 4
-
-deploy : main.py requirements.txt Dockerfile
+deploy : main.py .gcloudignore requirements.txt Dockerfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud run jobs deploy \
-		func-leaderboard \
+		func-baseline-llm-forecasts-manager \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 1h \
-		--memory 8Gi \
-		--cpu $(NUM_CPUS) \
+		--task-timeout 3h \
+		--memory 2Gi \
 		--max-retries 0 \
-		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
-		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS) \
+		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
 		--source $(UPLOAD_DIR)
 
-clean :
+clean:
 	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile

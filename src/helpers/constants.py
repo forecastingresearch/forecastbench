@@ -1,5 +1,6 @@
 """Constants."""
 
+from collections import defaultdict
 from datetime import datetime
 
 BENCHMARK_NAME = "ForecastBench"
@@ -189,6 +190,12 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     "gemini_1p5_flash": {"source": "GOOGLE", "full_name": "gemini-1.5-flash"},
     "gemini_1p5_pro": {"source": "GOOGLE", "full_name": "gemini-1.5-pro"},
 }
+
+ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE = defaultdict(dict)
+for key, value in ZERO_SHOT_AND_SCRATCHPAD_MODELS.items():
+    source = value["source"]
+    ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE[source][key] = value
+
 
 # remove models with less than ~17000 token limits
 SUPERFORECASTER_WITH_NEWS_MODELS = SCRATCHPAD_WITH_NEWS_MODELS = {
