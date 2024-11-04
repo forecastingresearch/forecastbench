@@ -29,12 +29,6 @@ parsed_date = datetime.strptime(BENCHMARK_START_DATE + " 00:00", "%Y-%m-%d %H:%M
 BENCHMARK_START_DATE_EPOCHTIME = int(parsed_date.timestamp())
 BENCHMARK_START_DATE_EPOCHTIME_MS = BENCHMARK_START_DATE_EPOCHTIME * 1000
 
-OAI_SOURCE = "OAI"
-ANTHROPIC_SOURCE = "ANTHROPIC"
-TOGETHER_AI_SOURCE = "TOGETHER"
-GOOGLE_SOURCE = "GOOGLE"
-MISTRAL_SOURCE = "MISTRAL"
-
 FORECAST_HORIZONS_IN_DAYS = [
     7,  # 1 week
     30,  # 1 month
@@ -91,136 +85,144 @@ QUESTION_CATEGORIES = [
     "Other",
 ]
 
-
-MODEL_TOKEN_LIMITS = {
-    "claude-2.1": 200000,
-    "claude-2": 100000,
-    "claude-3-opus-20240229": 200000,
-    "claude-3-sonnet-20240229": 200000,
-    "claude-3-haiku-20240307": 200000,
-    "claude-3-5-sonnet-20240620": 200000,
-    "gpt-3.5-turbo-0125": 16385,
-    "gpt_4": 8192,
-    "gpt-4-turbo-2024-04-09": 128000,
-    "gpt-4o": 128000,
-    "gpt-4o-mini": 128000,
-    "gemini-pro": 30720,
-    "meta-llama/Llama-2-7b-chat-hf": 4096,
-    "meta-llama/Llama-2-13b-chat-hf": 4096,
-    "meta-llama/Llama-2-70b-chat-hf": 4096,
-    "meta-llama/Llama-3-8b-chat-hf": 8000,
-    "meta-llama/Llama-3-70b-chat-hf": 8000,
-    "mistralai/Mistral-7B-Instruct-v0.2": 32768,
-    "mistralai/Mixtral-8x7B-Instruct-v0.1": 32768,
-    "mistralai/Mixtral-8x22B-Instruct-v0.1": 65536,
-    "mistral-large-latest": 32000,
-    "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": 32768,
-    "Qwen/Qwen1.5-110B-Chat": 32768,
-    "gemini-1.5-flash": 1000000,
-    "gemini-1.5-pro": 128000,
-}
-
-MODEL_NAME_TO_SOURCE = {
-    "claude-2.1": ANTHROPIC_SOURCE,
-    "claude-2": ANTHROPIC_SOURCE,
-    "claude-3-opus-20240229": ANTHROPIC_SOURCE,
-    "claude-3-sonnet-20240229": ANTHROPIC_SOURCE,
-    "claude-3-haiku-20240307": ANTHROPIC_SOURCE,
-    "claude-3-5-sonnet-20240620": ANTHROPIC_SOURCE,
-    "gpt-4": OAI_SOURCE,
-    "gpt-3.5-turbo-0125": OAI_SOURCE,
-    "gpt-4-turbo-2024-04-09": OAI_SOURCE,
-    "gpt-4o": OAI_SOURCE,
-    "gpt-4o-mini": OAI_SOURCE,
-    "gemini-pro": GOOGLE_SOURCE,
-    "gemini-1.5-flash": GOOGLE_SOURCE,
-    "gemini-1.5-pro": GOOGLE_SOURCE,
-    "meta-llama/Llama-2-7b-chat-hf": TOGETHER_AI_SOURCE,
-    "meta-llama/Llama-2-13b-chat-hf": TOGETHER_AI_SOURCE,
-    "meta-llama/Llama-2-70b-chat-hf": TOGETHER_AI_SOURCE,
-    "meta-llama/Llama-3-8b-chat-hf": TOGETHER_AI_SOURCE,
-    "meta-llama/Llama-3-70b-chat-hf": TOGETHER_AI_SOURCE,
-    "mistralai/Mistral-7B-Instruct-v0.2": TOGETHER_AI_SOURCE,
-    "mistralai/Mixtral-8x7B-Instruct-v0.1": TOGETHER_AI_SOURCE,
-    "mistralai/Mixtral-8x22B-Instruct-v0.1": TOGETHER_AI_SOURCE,
-    "mistral-large-latest": MISTRAL_SOURCE,
-    "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": TOGETHER_AI_SOURCE,
-    "Qwen/Qwen1.5-110B-Chat": TOGETHER_AI_SOURCE,
-    "Qwen/Qwen1.5-110B-Chat": TOGETHER_AI_SOURCE,
-}
-
+OAI_SOURCE = "OAI"
+ANTHROPIC_SOURCE = "ANTHROPIC"
+TOGETHER_AI_SOURCE = "TOGETHER"
+GOOGLE_SOURCE = "GOOGLE"
+MISTRAL_SOURCE = "MISTRAL"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
-    "gpt_3p5_turbo_0125": {"source": "OAI", "full_name": "gpt-3.5-turbo-0125"},
-    "gpt_4": {"source": "OAI", "full_name": "gpt-4"},
-    "gpt_4_turbo_0409": {"source": "OAI", "full_name": "gpt-4-turbo-2024-04-09"},
-    "gpt_4o": {"source": "OAI", "full_name": "gpt-4o"},
-    "llama_2_70b": {
-        "source": "TOGETHER",
-        "full_name": "meta-llama/Llama-2-70b-chat-hf",
+    # oai context window from: https://platform.openai.com/docs/models/
+    "gpt_3p5_turbo_0125": {
+        "source": OAI_SOURCE,
+        "full_name": "gpt-3.5-turbo-0125",
+        "token_limit": 16385,
     },
-    "llama_3_8b": {
-        "source": "TOGETHER",
-        "full_name": "meta-llama/Llama-3-8b-chat-hf",
+    "gpt_4": {
+        "source": OAI_SOURCE,
+        "full_name": "gpt-4-0613",
+        "token_limit": 8192,
     },
-    "llama_3_70b": {
-        "source": "TOGETHER",
-        "full_name": "meta-llama/Llama-3-70b-chat-hf",
+    "gpt_4_turbo_0409": {
+        "source": OAI_SOURCE,
+        "full_name": "gpt-4-turbo-2024-04-09",
+        "token_limit": 128000,
+    },
+    "gpt_4o_2024-05-13": {
+        "source": OAI_SOURCE,
+        "full_name": "gpt-4o-2024-05-13",
+        "token_limit": 128000,
+    },
+    "gpt_4o_2024-08-06": {
+        "source": OAI_SOURCE,
+        "full_name": "gpt-4o-2024-08-06",
+        "token_limit": 128000,
+    },
+    "o1-preview-2024-09-12": {
+        "source": OAI_SOURCE,
+        "full_name": "o1-preview-2024-09-12",
+        "token_limit": 128000,
+    },
+    "o1-mini-2024-09-12": {
+        "source": OAI_SOURCE,
+        "full_name": "o1-mini-2024-09-12",
+        "token_limit": 128000,
+    },
+    # together.ai context window from: https://docs.together.ai/docs/serverless-models
+    "llama-3p1-405B-Instruct-Turbo": {
+        "source": TOGETHER_AI_SOURCE,
+        "full_name": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+        "token_limit": 130815,
+    },
+    "llama-3p2-3B-Instruct-Turbo": {
+        "source": TOGETHER_AI_SOURCE,
+        "full_name": "meta-llama/Llama-3.2-3B-Instruct-Turbo",
+        "token_limit": 131072,
     },
     "mistral_8x7b_instruct": {
-        "source": "TOGETHER",
+        "source": TOGETHER_AI_SOURCE,
         "full_name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "token_limit": 32768,
     },
     "mistral_8x22b_instruct": {
-        "source": "TOGETHER",
+        "source": TOGETHER_AI_SOURCE,
         "full_name": "mistralai/Mixtral-8x22B-Instruct-v0.1",
+        "token_limit": 65536,
     },
-    "mistral_large": {
-        "source": "MISTRAL",
-        "full_name": "mistral-large-latest",
+    "qwen_2p5_72b": {
+        "source": TOGETHER_AI_SOURCE,
+        "full_name": "Qwen/Qwen2.5-72B-Instruct-Turbo",
+        "token_limit": 32768,
     },
-    "qwen_1p5_110b": {
-        "source": "TOGETHER",
-        "full_name": "Qwen/Qwen1.5-110B-Chat",
+    # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
+    "claude_2p1": {
+        "source": ANTHROPIC_SOURCE,
+        "full_name": "claude-2.1",
+        "token_limit": 200000,
     },
-    "claude_2p1": {"source": "ANTHROPIC", "full_name": "claude-2.1"},
-    "claude_3_opus": {"source": "ANTHROPIC", "full_name": "claude-3-opus-20240229"},
-    "claude_3_haiku": {"source": "ANTHROPIC", "full_name": "claude-3-haiku-20240307"},
-    "claude_3p5_sonnet": {"source": "ANTHROPIC", "full_name": "claude-3-5-sonnet-20240620"},
-    "gemini_1p5_flash": {"source": "GOOGLE", "full_name": "gemini-1.5-flash"},
-    "gemini_1p5_pro": {"source": "GOOGLE", "full_name": "gemini-1.5-pro"},
+    "claude_3_opus": {
+        "source": ANTHROPIC_SOURCE,
+        "full_name": "claude-3-opus-20240229",
+        "token_limit": 200000,
+    },
+    "claude_3_haiku": {
+        "source": ANTHROPIC_SOURCE,
+        "full_name": "claude-3-haiku-20240307",
+        "token_limit": 200000,
+    },
+    "claude_3p5_sonnet": {
+        "source": ANTHROPIC_SOURCE,
+        "full_name": "claude-3-5-sonnet-20240620",
+        "token_limit": 200000,
+    },
+    # google context window from: https://ai.google.dev/gemini-api/docs/models/gemini
+    "gemini_1p5_flash": {
+        "source": GOOGLE_SOURCE,
+        "full_name": "gemini-1.5-flash",
+        "token_limit": 1048576,
+    },
+    "gemini_1p5_pro": {
+        "source": GOOGLE_SOURCE,
+        "full_name": "gemini-1.5-pro",
+        "token_limit": 2097152,
+    },
 }
 
+MODEL_TOKEN_LIMITS = dict()
+MODEL_NAME_TO_SOURCE = dict()
 ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE = defaultdict(dict)
 for key, value in ZERO_SHOT_AND_SCRATCHPAD_MODELS.items():
-    source = value["source"]
-    ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE[source][key] = value
+    MODEL_TOKEN_LIMITS[value["full_name"]] = value["token_limit"]
+    MODEL_NAME_TO_SOURCE[value["full_name"]] = value["source"]
+    ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE[value["source"]][key] = value
 
+MODEL_TOKEN_LIMITS["gpt-4o-mini"] = 128000
+MODEL_NAME_TO_SOURCE["gpt-4o-mini"] = OAI_SOURCE
 
 # remove models with less than ~17000 token limits
 SUPERFORECASTER_WITH_NEWS_MODELS = SCRATCHPAD_WITH_NEWS_MODELS = {
-    "gpt_4_turbo_0409": {"source": "OAI", "full_name": "gpt-4-turbo-2024-04-09"},
-    "gpt_4o": {"source": "OAI", "full_name": "gpt-4o"},
+    "gpt_4_turbo_0409": {"source": OAI_SOURCE, "full_name": "gpt-4-turbo-2024-04-09"},
+    "gpt_4o": {"source": OAI_SOURCE, "full_name": "gpt-4o"},
     "mistral_8x7b_instruct": {
-        "source": "TOGETHER",
+        "source": TOGETHER_AI_SOURCE,
         "full_name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
     },
     "mistral_8x22b_instruct": {
-        "source": "TOGETHER",
+        "source": TOGETHER_AI_SOURCE,
         "full_name": "mistralai/Mixtral-8x22B-Instruct-v0.1",
     },
     "mistral_large": {
-        "source": "MISTRAL",
+        "source": TOGETHER_AI_SOURCE,
         "full_name": "mistral-large-latest",
     },
     "qwen_1p5_110b": {
-        "source": "TOGETHER",
+        "source": TOGETHER_AI_SOURCE,
         "full_name": "Qwen/Qwen1.5-110B-Chat",
     },
-    "claude_2p1": {"source": "ANTHROPIC", "full_name": "claude-2.1"},
-    "claude_3_opus": {"source": "ANTHROPIC", "full_name": "claude-3-opus-20240229"},
-    "claude_3_haiku": {"source": "ANTHROPIC", "full_name": "claude-3-haiku-20240307"},
-    "claude_3p5_sonnet": {"source": "ANTHROPIC", "full_name": "claude-3-5-sonnet-20240620"},
-    "gemini_1p5_flash": {"source": "GOOGLE", "full_name": "gemini-1.5-flash"},
-    "gemini_1p5_pro": {"source": "GOOGLE", "full_name": "gemini-1.5-pro"},
+    "claude_2p1": {"source": ANTHROPIC_SOURCE, "full_name": "claude-2.1"},
+    "claude_3_opus": {"source": ANTHROPIC_SOURCE, "full_name": "claude-3-opus-20240229"},
+    "claude_3_haiku": {"source": ANTHROPIC_SOURCE, "full_name": "claude-3-haiku-20240307"},
+    "claude_3p5_sonnet": {"source": ANTHROPIC_SOURCE, "full_name": "claude-3-5-sonnet-20240620"},
+    "gemini_1p5_flash": {"source": GOOGLE_SOURCE, "full_name": "gemini-1.5-flash"},
+    "gemini_1p5_pro": {"source": GOOGLE_SOURCE, "full_name": "gemini-1.5-pro"},
 }
