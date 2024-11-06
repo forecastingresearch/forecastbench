@@ -9,8 +9,8 @@ UPLOAD_DIR = upload
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
 
-Dockerfile:
-	sed 's/REGION/$(CLOUD_DEPLOY_REGION)/g' $(ROOT_DIR)src/helpers/Dockerfile > Dockerfile
+Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.with_git.template
+	sed 's/REGION/$(CLOUD_DEPLOY_REGION)/g' $< > Dockerfile
 
 deploy : main.py .gcloudignore requirements.txt Dockerfile
 	mkdir -p $(UPLOAD_DIR)

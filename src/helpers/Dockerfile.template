@@ -1,4 +1,4 @@
-FROM REGION-docker.pkg.dev/serverless-runtimes/google-18-full/runtimes/python39
+FROM REGION-docker.pkg.dev/serverless-runtimes/STACK/runtimes/PYTHON_VERSION
 
 COPY . /app
 

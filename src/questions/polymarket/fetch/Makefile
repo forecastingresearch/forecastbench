@@ -14,8 +14,12 @@ GCLOUDIGNORE_ADDITIONAL = $(ROOT_DIR)src/questions/polymarket/.gcloudignore.add
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
 	cat $^ >> .gcloudignore
 
-Dockerfile:
-	sed 's/REGION/$(CLOUD_DEPLOY_REGION)/g' $(ROOT_DIR)src/helpers/DockerfilePython39 > Dockerfile
+Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
+	sed \
+		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
+		-e 's/STACK/google-18-full/g' \
+		-e 's/PYTHON_VERSION/python39/g' \
+		$< > Dockerfile
 
 # Python 3.9 runtime required for `py_clob_client` library
 deploy : main.py .gcloudignore requirements.txt Dockerfile
