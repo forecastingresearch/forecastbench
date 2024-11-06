@@ -35,10 +35,6 @@ lint:
 	black $(BLACK_FLAGS) .
 	flake8 .
 	pydocstyle .
-	nbqa isort $(ISORT_FLAGS) .
-	nbqa black $(BLACK_FLAGS) .
-	nbqa flake8 .
-	nbqa pydocstyle .
 
 clean:
 	@find src -type d -mindepth 1 | while read dir; do \
