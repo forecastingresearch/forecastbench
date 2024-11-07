@@ -22,6 +22,12 @@ resolve_and_leaderboard = [
     ]
 ]
 
+website = [
+    [
+        ("func-website", True),
+    ]
+]
+
 
 def get_create_question_set():
     """Create question set if it's the right day to do so.
@@ -115,6 +121,7 @@ def main():
         "create_question_set": get_create_question_set(),
         "publish_question_set": get_publish_question_set(),
         "resolve_and_leaderboard": resolve_and_leaderboard,
+        "website": website,
     }
 
     task_num = None

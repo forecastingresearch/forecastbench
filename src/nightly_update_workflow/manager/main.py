@@ -72,6 +72,15 @@ def main():
         name=dict_to_use_publish_question_set,
         exit_on_error=True,
     )
+
+    dict_to_use_website = "website"
+    operation_website = call_worker(dict_to_use=dict_to_use_website, task_count=1)
+    nightly_update.block_and_check_job_result(
+        operation=operation_website,
+        name=dict_to_use_website,
+        exit_on_error=True,
+    )
+
     nightly_update.send_slack_message(message="Nightly update succeeded.")
 
 

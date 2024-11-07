@@ -10,10 +10,11 @@ export WORKFLOW_SERVICE_ACCOUNT
 export FORECAST_SETS_BUCKET
 export PROCESSED_FORECAST_SETS_BUCKET
 export PUBLIC_RELEASE_BUCKET
+export WEBSITE_BUCKET
 
 export CLOUD_DEPLOY_REGION := us-central1
 
-export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET),CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION)
+export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET),WEBSITE_BUCKET=$(WEBSITE_BUCKET),CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION)
 
 .PHONY: all clean lint deploy
 
@@ -54,7 +55,7 @@ setup-python-env: .venv install-requirements
 
 all: deploy
 
-deploy: orchestration questions metadata resolve leaderboard curate-questions
+deploy: orchestration questions metadata resolve leaderboard curate-questions website
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
@@ -65,6 +66,9 @@ metadata: tag-questions validate-questions
 resolve: resolve-forecasts
 
 curate-questions: create-question-set publish-question-set
+
+website:
+	make -C src/www.forecastbench.org
 
 create-question-set:
 	make -C src/curate_questions/create_question_set
