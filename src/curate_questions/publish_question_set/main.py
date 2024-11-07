@@ -38,10 +38,16 @@ def driver(_):
                 filename=question_set,
                 local_filename=local_filename,
             )
+
+            # Create latest-llm.json soft link
+            soft_link_filename = f"{local_folder}/latest-llm.json'"
+            os.symlink(question_set, soft_link_filename)
+
             git.clone_and_push_files(
                 repo_url=keys.API_GITHUB_DATASET_REPO_URL,
                 files={
                     local_filename: f"{remote_folder}/{question_set}",
+                    soft_link_filename: f"{remote_folder}/latest-llm.json",
                 },
                 commit_message=f"publish {question_set}.",
             )

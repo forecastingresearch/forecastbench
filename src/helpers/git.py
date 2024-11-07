@@ -46,7 +46,7 @@ def clone_and_push_files(repo_url, files, commit_message):
     for source, destination in files.items():
         full_destination_path = f"{local_repo_dir}/{destination}"
         os.makedirs(os.path.dirname(full_destination_path), exist_ok=True)
-        shutil.copy(source, full_destination_path)
+        shutil.copy(source, full_destination_path, follow_symlinks=False)
         repo.index.add([destination])
 
     error_encountered = False
