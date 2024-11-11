@@ -108,6 +108,25 @@ def write(content, filename, ignore_header_footer=False):
         file.write(entire_page)
 
 
+def get_latest_leaderboards():
+    """Copy latest leaderboards from private bucket to website bucket."""
+    files = [
+        "leaderboard_overall.html",
+        "human_leaderboard_overall.html",
+        "human_combo_leaderboard_overall.html",
+    ]
+    for f in files:
+        local_filename = gcp.storage.download(
+            bucket_name=env.PUBLIC_RELEASE_BUCKET,
+            filename=f"leaderboards/html/{f}",
+        )
+        gcp.storage.upload(
+            bucket_name=env.WEBSITE_BUCKET,
+            local_filename=local_filename,
+            destination_folder="leaderboards",
+        )
+
+
 def make_index():
     """Make index.html."""
     content = """
@@ -130,11 +149,16 @@ def make_index():
       <div class="intro-section">
         <h1>Benchmark your model</h1>
         <p>Would you like to benchmark your model's forecasting capabilities on ForecastBench?</p>
+        <p> </p>
         <p>Find out how by following the
            <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench">
            instructions on how to submit</a>.
       </div>
-      <div class="center-content">
+      <div class="intro-section">
+        <h1>Leaderboards</h1>
+        <p>The leaderboard is updated on a nightly basis. To see past leaderboards, see the
+           <a href="https://github.com/forecastingresearch/forecastbench-datasets">
+             datasets repository</a>.
         <div class="leaderboard-links">
           <a href="leaderboards/leaderboard_overall.html">LLM Leaderboard</a>
           <a href="leaderboards/human_leaderboard_overall.html">LLM / Human Leaderboard</a>
@@ -328,6 +352,7 @@ def main():
     top = top.replace("ROOT_REPLACEMENT", root_replacement)
     nav = nav.replace("ROOT_REPLACEMENT", root_replacement)
 
+    get_latest_leaderboards()
     make_index()
     make_404()
     make_datasets()
