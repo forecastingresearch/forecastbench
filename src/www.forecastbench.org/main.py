@@ -156,8 +156,39 @@ def make_404():
     write(content=content, filename="404.html")
 
 
+def make_forecast_sets_index():
+    """Create index for forecast sets located in the `datasets/forecast_sets` directory."""
+    prefix = "datasets/forecast_sets"
+    files = gcp.storage.list_with_prefix(bucket_name=env.WEBSITE_BUCKET, prefix=prefix)
+
+    content = """
+    <main>
+      <div class="intro-section">
+        <h1>Forecast Sets</h1>
+        Forecast sets are submitted by each team for a given question set. They follow this
+        <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench#4-submitted-forecast-set-data-dictionary">
+        data dictionary</a>.
+        <ul>"""  # noqa: B950
+    count = 0
+    for f in files:
+        if f.endswith(".json"):
+            count += 1
+            file_name = f.split("/")[-1]
+            file_url = f"https://storage.googleapis.com/{env.WEBSITE_BUCKET}/{f}"
+            content += f'\n        <li><a href="{file_url}">{file_name}</a></li>'
+    content += """
+         </ul>
+      </div>
+    </main>"""
+
+    logger.info(f"There are {count} files.")
+
+    write(content=content, filename="datasets_forecast_sets_index.html")
+
+
 def make_datasets():
     """Make datasets.html."""
+    make_forecast_sets_index()
     today_iso = dates.get_date_today_as_iso().replace("-", "--")
     dataset_link = "https://github.com/forecastingresearch/forecastbench-datasets"
     content = f"""
@@ -173,7 +204,7 @@ def make_datasets():
     <h2>Forecast Sets</h2>
       <p>Superforecaster Forecasts (forthcoming)</p>
       <p>General Public Forecasts (forthcoming)</p>
-      <p>LLM and Aggregated Human Forecasts</p>
+      <p><a href="datasets_forecast_sets_index.html">LLM and Aggregated Human Forecasts</a></p>
     </main>
 """
     write(content=content, filename="datasets.html")

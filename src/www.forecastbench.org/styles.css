@@ -38,6 +38,13 @@ main a {
 main a:hover {
   color: #e8541a;
 }
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+li {
+    margin: 5px 0;
+}
 .leaderboard-links {
   display: flex;
   justify-content: center;
