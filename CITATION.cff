@@ -1,0 +1,78 @@
+cff-version: 1.2.0
+title: "ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities"
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Karger
+    given-names: Ezra
+  - family-names: Bastani
+    given-names: Houtan
+  - family-names: Yueh-Han
+    given-names: Chen
+  - family-names: Jacobs
+    given-names: Zachary
+  - family-names: Halawi
+    given-names: Danny
+  - family-names: Zhang
+    given-names: Fred
+  - family-names: Tetlock
+    given-names: Philip E.
+identifiers:
+  - type: url
+    value: https://arxiv.org/abs/2409.19839
+    description: arXiv preprint
+repository-code: https://github.com/forecastingresearch/forecastbench
+url: https://www.forecastbench.org/
+repository: https://github.com/forecastingresearch/forecastbench-datasets
+abstract: >-
+  Forecasts of future events are essential inputs into
+  informed decision-making. Machine learning (ML) systems
+  have the potential to deliver forecasts at scale, but
+  there is no framework for evaluating the accuracy of ML
+  systems on a standardized set of forecasting questions. To
+  address this gap, we introduce ForecastBench: a dynamic
+  benchmark that evaluates the accuracy of ML systems on an
+  automatically generated and regularly updated set of 1,000
+  forecasting questions. To avoid any possibility of data
+  leakage, ForecastBench is comprised solely of questions
+  about future events that have no known answer at the time
+  of submission. We quantify the capabilities of current ML
+  systems by collecting forecasts from expert (human)
+  forecasters, the general public, and LLMs on a random
+  subset of questions from the benchmark (N=200). While LLMs
+  have achieved super-human performance on many benchmarks,
+  they perform less well here: expert forecasters outperform
+  the top-performing LLM (p-value=0.01). We display system
+  and human scores in a public leaderboard at
+  https://www.forecastbench.org.
+keywords:
+  - machine learning
+  - forecasting
+  - benchmarking
+  - artificial intelligence
+  - decision-making
+license: MIT
+version: 1.0.0
+preferred-citation:
+  type: article
+  title: "ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities"
+  authors:
+    - family-names: Karger
+      given-names: Ezra
+    - family-names: Bastani
+      given-names: Houtan
+    - family-names: Yueh-Han
+      given-names: Chen
+    - family-names: Jacobs
+      given-names: Zachary
+    - family-names: Halawi
+      given-names: Danny
+    - family-names: Zhang
+      given-names: Fred
+    - family-names: Tetlock
+      given-names: Philip E.
+  year: 2024
+  eprint: 2409.19839
+  archivePrefix: arXiv
+  primaryClass: cs.LG
+  url: https://arxiv.org/abs/2409.19839
+
