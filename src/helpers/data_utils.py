@@ -195,3 +195,32 @@ def upload_questions_and_resolution(dfq, dfr, source):
     """
     upload_questions(dfq, source)
     upload_resolutions(dfq, source)
+
+
+def read_jsonl(file_path):
+    """
+    Read a JSONL file and return its content as a list of dictionaries.
+
+    Args:
+        file_path (str): The path to the JSONL file.
+
+    Returns:
+        list: A list of dictionaries, each representing a JSON object from the file.
+    """
+    data = []
+    with open(file_path, "r", encoding="utf-8") as file:
+        for line in file:
+            if line.strip():
+                json_object = json.loads(line)
+                data.append(json_object)
+    return data
+
+
+def list_files(directory):
+    """List all filenames under a directory."""
+    filenames = []
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        if os.path.isfile(file_path):
+            filenames.append(filename)
+    return filenames

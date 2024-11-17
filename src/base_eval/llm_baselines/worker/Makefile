@@ -1,8 +1,8 @@
-all :
+all:
 	$(MAKE) clean
 	$(MAKE) deploy
 
-.PHONY : all clean deploy
+.PHONY: all clean deploy
 
 UPLOAD_DIR = upload
 
@@ -16,26 +16,25 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 		-e 's/PYTHON_VERSION/python312/g' \
 		$< > Dockerfile
 
-NUM_CPUS = 4
+NUM_CPUS = 8
 
-deploy : main.py requirements.txt Dockerfile
+deploy : main.py .gcloudignore requirements.txt Dockerfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud run jobs deploy \
-		func-leaderboard \
+		func-baseline-llm-forecasts-worker \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
-		--parallelism 1 \
-		--task-timeout 1h \
+		--task-timeout 1m \
 		--memory 8Gi \
 		--cpu $(NUM_CPUS) \
 		--max-retries 0 \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
-		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS) \
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),FORECAST_DUE_DATE=,TEST_OR_PROD=TEST \
 		--source $(UPLOAD_DIR)
 
-clean :
+clean:
 	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile

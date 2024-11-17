@@ -903,8 +903,7 @@ def driver(_):
     llm_and_human_combo_all_generated_leaderboard = {}
     files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
     files = [file for file in files if file.endswith(".json")]
-    num_cpus = int(os.environ.get("NUM_CPUS", 1))
-    print(f"Have access to {num_cpus}")
+    logger.info(f"Have access to {env.NUM_CPUS}.")
     for f in files:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
@@ -1008,8 +1007,8 @@ def driver(_):
                     }
                 )
 
-    logger.info(f"Using {num_cpus} cpus for worker pool.")
-    with Pool(processes=num_cpus) as pool:
+    logger.info(f"Using {env.NUM_CPUS} cpus for worker pool.")
+    with Pool(processes=env.NUM_CPUS) as pool:
         results = pool.map(worker, tasks)
 
     files = {}

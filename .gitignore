@@ -1,8 +1,6 @@
 # Byte-compiled / optimized / DLL files
 *.mk
-upload/
-upload1/
-upload2/
+upload*
 plotly_charts
 *.html
 *.json
@@ -16,6 +14,8 @@ __pycache__/
 .vscode
 .history
 
+src/base_eval/llm_baselines/manager/Dockerfile
+src/base_eval/llm_baselines/worker/Dockerfile
 src/questions/polymarket/fetch/Dockerfile
 src/curate_questions/publish_question_set/Dockerfile
 src/leaderboard/Dockerfile
@@ -51,7 +51,8 @@ ENV/
 \#*\#
 .\#*
 
-*.ipynb
+# notebook checkpoints
+.ipynb_checkpoints/
 
 # isort
 *.py.isorted

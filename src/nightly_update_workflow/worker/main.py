@@ -3,11 +3,8 @@
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-import nightly_update_workflow_helper as nightly_update  # noqa: E402
-
-from helpers import dates, question_curation  # noqa: E402
+from helpers import cloud_run, dates, question_curation  # noqa: E402
 
 metadata = [
     [
@@ -98,10 +95,10 @@ def sequential_cloud_run_jobs(functions_to_call):
     * The second is a boolean saying whether or not to quit processing if an error is encountered.
     """
     for function, exit_on_error in functions_to_call:
-        operation = nightly_update.cloud_run_job(
+        operation = cloud_run.run_job(
             job_name=function,
         )
-        nightly_update.block_and_check_job_result(
+        cloud_run.block_and_check_job_result(
             operation=operation,
             name=function,
             exit_on_error=exit_on_error,

@@ -7,14 +7,22 @@ export QUESTION_BANK_BUCKET
 export QUESTION_BANK_BUCKET_SERVICE_ACCOUNT
 export QUESTION_SETS_BUCKET
 export WORKFLOW_SERVICE_ACCOUNT
+export LLM_BASELINE_SERVICE_ACCOUNT
 export FORECAST_SETS_BUCKET
 export PROCESSED_FORECAST_SETS_BUCKET
 export PUBLIC_RELEASE_BUCKET
 export WEBSITE_BUCKET
+export LLM_BASELINE_STAGING_BUCKET
+export LLM_BASELINE_NEWS_BUCKET
+export BUILD_ENV
 
 export CLOUD_DEPLOY_REGION := us-central1
 
-export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET),WEBSITE_BUCKET=$(WEBSITE_BUCKET),CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION)
+export LLM_BASELINE_DOCKER_IMAGE_NAME := llm-baselines
+export LLM_BASELINE_DOCKER_REPO_NAME := llm-baselines
+export LLM_BASELINE_PUB_SUB_TOPIC_NAME := run-llm-baselines
+
+export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET),WEBSITE_BUCKET=$(WEBSITE_BUCKET),CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION),LLM_BASELINE_DOCKER_IMAGE_NAME=$(LLM_BASELINE_DOCKER_IMAGE_NAME),LLM_BASELINE_DOCKER_REPO_NAME=$(LLM_BASELINE_DOCKER_REPO_NAME),LLM_BASELINE_STAGING_BUCKET=$(LLM_BASELINE_STAGING_BUCKET),LLM_BASELINE_SERVICE_ACCOUNT=$(LLM_BASELINE_SERVICE_ACCOUNT),LLM_BASELINE_PUB_SUB_TOPIC_NAME=$(LLM_BASELINE_PUB_SUB_TOPIC_NAME)
 
 .PHONY: all clean lint deploy
 
@@ -55,7 +63,7 @@ setup-python-env: .venv install-requirements
 
 all: deploy
 
-deploy: orchestration questions metadata resolve leaderboard curate-questions website
+deploy: orchestration questions metadata resolve leaderboard curate-questions website baselines
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
@@ -75,6 +83,8 @@ create-question-set:
 
 publish-question-set:
 	make -C src/curate_questions/publish_question_set
+
+baselines: llm-baselines
 
 manifold: manifold-fetch manifold-update-questions
 
@@ -169,3 +179,11 @@ nightly-worker-job:
 
 nightly-manager-job:
 	make -C src/nightly_update_workflow/manager
+
+llm-baselines: llm-baseline-manager llm-baseline-worker
+
+llm-baseline-manager:
+	make -C src/base_eval/llm_baselines/manager
+
+llm-baseline-worker:
+	make -C src/base_eval/llm_baselines/worker

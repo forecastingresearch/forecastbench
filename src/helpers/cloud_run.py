@@ -1,15 +1,11 @@
-"""Helper functions for nightly update workflows."""
+"""Cloud run interacitons."""
 
 import logging
-import os
 import sys
 
 from google.cloud import run_v2
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import env, keys  # noqa: E402
+from . import env, slack
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,8 +13,30 @@ logger = logging.getLogger(__name__)
 timeout_1h = 3600
 
 
-def cloud_run_job(job_name, env_vars=None, task_count=1, timeout=timeout_1h):
-    """Run the Cloud Run job for the nightly worker.
+def call_worker(job_name, env_vars, task_count):
+    """Invoke a Cloud Run Job.
+
+    Params:
+    job_name: the name of the job to run
+    env_vars: a dict of the environment variables to overwrite
+    task_count: the number of invocations of the job to start
+    """
+    if (
+        not isinstance(job_name, str)
+        or not isinstance(env_vars, dict)
+        or not isinstance(task_count, int)
+    ):
+        raise ValueError("One of the arguments to `cloud_run.call_workrer` is incorrect.")
+
+    return run_job(
+        job_name=job_name,
+        env_vars=env_vars,
+        task_count=task_count,
+    )
+
+
+def run_job(job_name, env_vars=None, task_count=1, timeout=timeout_1h):
+    """Run the Cloud Run job given by `job_name`.
 
     env_vars: override default environment variables.
     task_count: override default task count.
@@ -53,18 +71,6 @@ def cloud_run_job(job_name, env_vars=None, task_count=1, timeout=timeout_1h):
     return operation
 
 
-def send_slack_message(message=""):
-    """Send a slack message."""
-    client = WebClient(token=keys.API_SLACK_BOT_NOTIFICATION)
-
-    try:
-        client.chat_postMessage(channel=keys.API_SLACK_BOT_CHANNEL, text=message)
-        logger.info("Slack message sent successfully!")
-    except SlackApiError as e:
-        logger.info(f"Got an error: {e.response['error']}")
-        logger.info(f"Received a response status_code: {e.response.status_code}")
-
-
 def block_and_check_job_result(operation, name, exit_on_error, timeout=timeout_1h):
     """Blocking check for result of Cloud Run job specified in `operation`."""
     try:
@@ -94,5 +100,5 @@ def block_and_check_job_result(operation, name, exit_on_error, timeout=timeout_1
         message = f"Job `{name}` failed with exception:\n\n{e}"
         logger.error(message)
         if exit_on_error:
-            send_slack_message(message=message)
+            slack.send_message(message=message)
             sys.exit(1)
