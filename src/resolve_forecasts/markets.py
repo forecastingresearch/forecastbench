@@ -101,7 +101,7 @@ def resolve(source, df, dfq, dfr):
     df_standard.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
 
     # Setup combo resolutions given df_standard
-    def update_col(index, id0, id1, col):
+    def update_col(index, id0, id1, dir0, dir1, col):
         value_id0 = df_standard.loc[df_standard["id"] == id0, col].iloc[0]
         value_id1 = df_standard.loc[df_standard["id"] == id1, col].iloc[0]
         df_combo.at[index, col] = resolution.combo_change_sign(
@@ -114,8 +114,22 @@ def resolve(source, df, dfq, dfr):
     for index, row in df_combo.iterrows():
         id0, id1 = row["id"]
         dir0, dir1 = row["direction"]
-        update_col(index=index, id0=id0, id1=id1, col="resolved_to")
-        update_col(index=index, id0=id0, id1=id1, col="market_value_on_due_date")
+        update_col(
+            index=index,
+            id0=id0,
+            id1=id1,
+            dir0=dir0,
+            dir1=dir1,
+            col="resolved_to",
+        )
+        update_col(
+            index=index,
+            id0=id0,
+            id1=id1,
+            dir0=dir0,
+            dir1=dir1,
+            col="market_value_on_due_date",
+        )
 
     df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
     df = pd.concat([df, df_standard, df_combo], ignore_index=True)
