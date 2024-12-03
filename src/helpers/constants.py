@@ -175,6 +175,11 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "claude-3-5-sonnet-20240620",
         "token_limit": 200000,
     },
+    "claude-3-5-sonnet-20241022": {
+        "source": ANTHROPIC_SOURCE,
+        "full_name": "claude-3-5-sonnet-20241022",
+        "token_limit": 200000,
+    },
     # google context window from: https://ai.google.dev/gemini-api/docs/models/gemini
     "gemini_1p5_flash": {
         "source": GOOGLE_SOURCE,
@@ -185,6 +190,13 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "source": GOOGLE_SOURCE,
         "full_name": "gemini-1.5-pro",
         "token_limit": 2097152,
+    },
+    "gemini-exp-1121": {
+        "source": GOOGLE_SOURCE,
+        "full_name": "gemini-exp-1121",
+        "token_limit": 32000,
+        # not listed on Gemeni site, but in this Tweet:
+        # https://twitter.com/officiallogank/status/1860106796247216174
     },
 }
 
