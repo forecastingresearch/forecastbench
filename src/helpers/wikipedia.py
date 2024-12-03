@@ -121,6 +121,7 @@ class QuestionType(Enum):
     SAME_OR_MORE = 1
     MORE = 2
     ONE_PERCENT_MORE = 3
+    SAME_OR_LESS = 4
 
 
 def compare_values(question_type, resolution_date_value, forecast_due_date_value):
@@ -129,6 +130,8 @@ def compare_values(question_type, resolution_date_value, forecast_due_date_value
         return resolution_date_value == forecast_due_date_value
     elif question_type == QuestionType.SAME_OR_MORE:
         return resolution_date_value >= forecast_due_date_value
+    elif question_type == QuestionType.SAME_OR_LESS:
+        return resolution_date_value <= forecast_due_date_value
     elif question_type == QuestionType.MORE:
         return resolution_date_value > forecast_due_date_value
     elif question_type == QuestionType.ONE_PERCENT_MORE:
@@ -270,7 +273,7 @@ PAGES = [
         "id_root": "FIDE_rankings_ranking",
         "page_title": "FIDE_rankings",
         "table_index": [1, 3],
-        "question_type": QuestionType.SAME_OR_MORE,
+        "question_type": QuestionType.SAME_OR_LESS,
         "fields": {
             "id": "Player",
             "value": "Rank",
