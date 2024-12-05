@@ -658,7 +658,7 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
             final_dir += "_test"
         file_path = f"/tmp/{prompt_type}/{final_dir}/{model}"
         questions = data_utils.read_jsonl(file_path)
-        if "gpt" in model:
+        if "gpt" in model or "o1" in model:
             org = "OpenAI"
         elif "llama" in model:
             org = "Meta"
@@ -672,6 +672,10 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
             org = "Google"
         elif "grok" in model:
             org = "xAI"
+        else:
+            message = f"Unable to find org for model `{model}`."
+            logger.error(message)
+            raise ValueError(message)
 
         directory = f"/tmp/{prompt_type}/final_submit"
         if test_or_prod == "TEST":
