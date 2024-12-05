@@ -37,9 +37,13 @@ oai_async_client = openai.AsyncOpenAI(api_key=keys.API_KEY_OPENAI)
 oai = openai.OpenAI(api_key=keys.API_KEY_OPENAI)
 together.api_key = keys.API_KEY_TOGETHERAI
 google_ai.configure(api_key=keys.API_KEY_GOOGLE)
-client = openai.OpenAI(
+togetherai_client = openai.OpenAI(
     api_key=keys.API_KEY_TOGETHERAI,
     base_url="https://api.together.xyz/v1",
+)
+xai_client = openai.OpenAI(
+    api_key=keys.API_KEY_XAI,
+    base_url="https://api.x.ai/v1",
 )
 mistral_client = MistralClient(api_key=keys.API_KEY_MISTRAL)
 HUMAN_JOINT_PROMPTS = [
@@ -141,6 +145,37 @@ def get_response_from_oai_model(
         )
 
 
+def get_response_from_xai_model(model_name, prompt, max_tokens, temperature, wait_time):
+    """
+    Make an API call to the xAI API and retry on failure after a specified wait time.
+
+    Args:
+        model_name (str): Name of the model to use (such as "claude-2").
+        prompt (str): Fully specififed prompt to use for the API call.
+        max_tokens (int): Maximum number of tokens to sample.
+        temperature (float): Sampling temperature.
+        wait_time (int): Time to wait before retrying, in seconds.
+
+    Returns:
+        str: Response string from the API call.
+    """
+
+    def api_call():
+        response = xai_client.chat.completions.create(
+            model="grok-beta",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        # return completion.choices[0].message
+        return response.choices[0].message.content
+
+    # Grok is time limited to 1 RPS
+    time.sleep(1)
+
+    return get_response_with_retry(api_call, wait_time, "xAI API request exceeded rate limit.")
+
+
 def get_response_from_anthropic_model(model_name, prompt, max_tokens, temperature, wait_time):
     """
     Make an API call to the Anthropic API and retry on failure after a specified wait time.
@@ -232,7 +267,7 @@ def get_response_from_together_ai_model(model_name, prompt, max_tokens, temperat
         model_token_limit = constants.MODEL_TOKEN_LIMITS.get(model_name)
 
         try:
-            chat_completion = client.chat.completions.create(
+            chat_completion = togetherai_client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "user", "content": prompt},
@@ -334,6 +369,8 @@ def get_response_from_model(
         return get_response_from_mistral_model(
             model_name, prompt, max_tokens, temperature, wait_time
         )
+    elif model_source == constants.XAI_SOURCE:
+        return get_response_from_xai_model(model_name, prompt, max_tokens, temperature, wait_time)
     else:
         return "Not a valid model source."
 
@@ -387,7 +424,7 @@ async def get_async_response(
                 return response.text
             elif model_source == constants.TOGETHER_AI_SOURCE:
                 chat_completion = await asyncio.to_thread(
-                    client.chat.completions.create,
+                    togetherai_client.chat.completions.create,
                     model=model_name,
                     messages=[
                         {"role": "user", "content": prompt},
@@ -633,6 +670,8 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
             org = "Qwen"
         elif "gemini" in model:
             org = "Google"
+        elif "grok" in model:
+            org = "xAI"
 
         directory = f"/tmp/{prompt_type}/final_submit"
         if test_or_prod == "TEST":

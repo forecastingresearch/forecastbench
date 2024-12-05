@@ -90,6 +90,7 @@ ANTHROPIC_SOURCE = "ANTHROPIC"
 TOGETHER_AI_SOURCE = "TOGETHER"
 GOOGLE_SOURCE = "GOOGLE"
 MISTRAL_SOURCE = "MISTRAL"
+XAI_SOURCE = "XAI"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
@@ -197,6 +198,12 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "token_limit": 32000,
         # not listed on Gemeni site, but in this Tweet:
         # https://twitter.com/officiallogank/status/1860106796247216174
+    },
+    # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
+    "grok-beta": {
+        "source": XAI_SOURCE,
+        "full_name": "grok-beta",
+        "token_limit": 131072,
     },
 }
 
