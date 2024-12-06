@@ -672,45 +672,13 @@ def driver(request):
         logger.warning("No forecast sets to evaluate.")
         return
 
-    def get_and_pickle_resolution_values(filename, save_pickle_file=False, sources_to_get=None):
-        """Get and pickle dfr and dfq from GCP so that we can avoid doing this on every run.
-
-        If `sources_to_get` is passed, only get dfr and dfq for these sources. Update the existing .pkl
-        file. NB: this is only used if a resolution file already exists.
-        """
-        import pickle
-
-        resolution_values = None
-        if os.path.exists(filename):
-            with open(filename, "rb") as handle:
-                resolution_values = pickle.load(handle)
-
-            if sources_to_get:
-                resolution_values_tmp = resolution.get_resolution_values(
-                    sources_to_get=sources_to_get
-                )
-                if resolution_values is not None and isinstance(resolution_values, dict):
-                    resolution_values.update(resolution_values_tmp)
-                else:
-                    resolution_values = resolution_values_tmp
-
-                if save_pickle_file:
-                    with open(filename, "wb") as handle:
-                        pickle.dump(resolution_values, handle)
-        else:
-            resolution_values = resolution.get_resolution_values()
-            if save_pickle_file:
-                with open(filename, "wb") as handle:
-                    pickle.dump(resolution_values, handle)
-        return resolution_values
-
     if RUN_LOCALLY_WITH_MOCK_DATA:
         # Running locally, using mock data.
-        resolution_values = get_and_pickle_resolution_values(
+        resolution_values = resolution.get_and_pickle_resolution_values(
             filename="mock_resolution_values.pkl", save_pickle_file=True
         )
     else:
-        resolution_values = get_and_pickle_resolution_values(
+        resolution_values = resolution.get_and_pickle_resolution_values(
             filename="resolution_values.pkl",
             save_pickle_file=False,
         )

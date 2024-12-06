@@ -3,7 +3,7 @@
 All datetimes should be stored as ISO 8601 in seconds in UTC.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytz
 from dateutil import parser
@@ -22,6 +22,11 @@ def get_datetime_today():
 def get_date_today():
     """Get datetime.now in UTC as a date."""
     return get_datetime_today().date()
+
+
+def get_date_yesterday():
+    """Get datetime.now - 1 day in UTC as a date."""
+    return get_date_today() - timedelta(days=1)
 
 
 def get_date_today_as_iso():

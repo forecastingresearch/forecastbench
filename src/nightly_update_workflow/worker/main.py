@@ -26,6 +26,22 @@ website = [
 ]
 
 
+def get_naive_forecaster():
+    """Generate the naive forecast if the question set was published today.
+
+    This is in a separate call to the worker because we want to call it after fetch and update.
+    """
+    return (
+        [
+            [
+                ("func-baseline-naive-forecaster", True),
+            ],
+        ]
+        if question_curation.is_today_question_set_publication_date()
+        else None
+    )
+
+
 def get_create_question_set():
     """Create question set if it's the right day to do so.
 
@@ -119,6 +135,7 @@ def main():
         "create_question_set": get_create_question_set(),
         "publish_question_set_make_llm_baseline": get_publish_question_set_make_llm_baseline(),
         "resolve_and_leaderboard": resolve_and_leaderboard,
+        "naive_forecaster": get_naive_forecaster(),
         "website": website,
     }
 

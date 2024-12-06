@@ -3,7 +3,9 @@
 import json
 import logging
 import os
+import pickle
 import sys
+import tempfile
 from typing import Union
 
 import pandas as pd
@@ -162,11 +164,45 @@ def get_resolution_values(sources_to_get=question_curation.ALL_SOURCES):
     return get_sources(sources=sources_to_get)
 
 
+def get_and_pickle_resolution_values(filename, save_pickle_file=False, sources_to_get=None):
+    """Get and pickle dfr and dfq from GCP so that we can avoid doing this on every run.
+
+    If `sources_to_get` is passed, only get dfr and dfq for these sources. Update the existing .pkl
+    file. NB: this is only used if a resolution file already exists.
+
+    save_pickle_file should only be set to True when working locally; never save pickle file on
+    Cloud as we always want the latest data.
+    """
+    resolution_values = None
+    if os.path.exists(filename):
+        with open(filename, "rb") as handle:
+            resolution_values = pickle.load(handle)
+
+        if sources_to_get:
+            resolution_values_tmp = get_resolution_values(sources_to_get=sources_to_get)
+            if resolution_values is not None and isinstance(resolution_values, dict):
+                resolution_values.update(resolution_values_tmp)
+            else:
+                resolution_values = resolution_values_tmp
+
+            if save_pickle_file:
+                with open(filename, "wb") as handle:
+                    pickle.dump(resolution_values, handle)
+    else:
+        resolution_values = get_resolution_values()
+        if save_pickle_file:
+            with open(filename, "wb") as handle:
+                pickle.dump(resolution_values, handle)
+    return resolution_values
+
+
 def download_and_read_question_set_file(filename, run_locally=False):
     """Download question set file."""
     local_filename = filename
     if not run_locally:
         local_filename = "/tmp/tmp.json"
+        if os.path.exists(local_filename):
+            os.remove(local_filename)
         gcp.storage.download(
             bucket_name=env.QUESTION_SETS_BUCKET, filename=filename, local_filename=local_filename
         )
@@ -185,3 +221,18 @@ def download_and_read_question_set_file(filename, run_locally=False):
     df = pd.DataFrame(questions)
     df = make_columns_hashable(df)
     return df
+
+
+def get_field_from_question_set_file(filename, field):
+    """Download value in `field` from question set `filename`."""
+    with tempfile.NamedTemporaryFile(mode="r+", suffix=".json", dir="/tmp") as tmp:
+        gcp.storage.download(
+            bucket_name=env.QUESTION_SETS_BUCKET,
+            filename=filename,
+            local_filename=tmp.name,
+        )
+
+        retval = json.load(tmp).get(field)
+        if not retval:
+            raise ValueError(f"`{field}` not found in {filename}.")
+        return retval

@@ -5,13 +5,14 @@ import json
 import logging
 import os
 import sys
+from datetime import timedelta
 from enum import Enum
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from . import constants, env
+from . import constants, dates, env
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from utils import gcp  # noqa: E402
@@ -84,6 +85,35 @@ def make_resolution_df():
     df["date"] = pd.to_datetime(df["date"])
     df["id"] = df["id"].astype(str)
     return df
+
+
+def ffill_dfr(dfr):
+    """
+    Forward fill dfr to yesterday.
+
+    We only have data until yesterday, so that's the last complete day.
+    """
+    dfr = dfr.sort_values(by=["id", "date"])
+    dfr = dfr.drop_duplicates(subset=["id", "date"])
+    yesterday = dates.get_date_yesterday()
+    yesterday = pd.Timestamp(yesterday)
+    result_df = pd.DataFrame()
+    for unique_id in dfr["id"].unique():
+        temp_df = dfr[dfr["id"] == unique_id].set_index("date").resample("D").ffill().reset_index()
+        if temp_df["date"].max() < yesterday:
+            last_value = temp_df.iloc[-1]["value"]
+            additional_days = pd.date_range(
+                start=temp_df["date"].max() + timedelta(days=1), end=yesterday
+            )
+            additional_df = pd.DataFrame(
+                {"date": additional_days, "id": unique_id, "value": last_value}
+            )
+            temp_df = pd.concat([temp_df, additional_df])
+
+        result_df = pd.concat([result_df, temp_df])
+
+    dfr = result_df.sort_values(by=["id", "date"]).reset_index(drop=True)
+    return dfr
 
 
 def get_fetch_filename(question_id_root: str) -> str:

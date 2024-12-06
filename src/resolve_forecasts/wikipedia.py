@@ -3,7 +3,6 @@
 import logging
 import os
 import sys
-from datetime import timedelta
 
 import numpy as np
 import pandas as pd
@@ -37,29 +36,10 @@ def resolve(df, dfq, dfr):
     logger.info("Resolving Wikipedia questions.")
     wikipedia.populate_hash_mapping()
 
-    # Forward fill dfr to yesterday (only have data until yesterday, the last complete day)
-    dfr = dfr.sort_values(by=["id", "date"])
-    dfr = dfr.drop_duplicates(subset=["id", "date"])
-    yesterday = dates.get_date_today() - timedelta(days=1)
-    yesterday = pd.Timestamp(yesterday)
-    result_df = pd.DataFrame()
-    for unique_id in dfr["id"].unique():
-        temp_df = dfr[dfr["id"] == unique_id].set_index("date").resample("D").ffill().reset_index()
-        if temp_df["date"].max() < yesterday:
-            last_value = temp_df.iloc[-1]["value"]
-            additional_days = pd.date_range(
-                start=temp_df["date"].max() + timedelta(days=1), end=yesterday
-            )
-            additional_df = pd.DataFrame(
-                {"date": additional_days, "id": unique_id, "value": last_value}
-            )
-            temp_df = pd.concat([temp_df, additional_df])
-
-        result_df = pd.concat([result_df, temp_df])
-
-    dfr = result_df.sort_values(by=["id", "date"]).reset_index(drop=True)
+    dfr = wikipedia.ffill_dfr(dfr=dfr)
 
     # Only pick out data relevant to wikipedia
+    yesterday = pd.Timestamp(dates.get_date_yesterday())
     mask = (df["source"] == "wikipedia") & (df["resolution_date"] <= yesterday)
     for index, row in df[mask].iterrows():
         forecast_due_date = row["forecast_due_date"].date()
