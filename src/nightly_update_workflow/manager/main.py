@@ -25,7 +25,7 @@ def call_worker(dict_to_use, task_count):
 
 def main():
     """Manage nightly run."""
-    dict_to_use_publish_question_set = "publish_question_set"
+    dict_to_use_publish_question_set = "publish_question_set_make_llm_baseline"
     operation_publish_question_set = call_worker(
         dict_to_use=dict_to_use_publish_question_set, task_count=1
     )

@@ -42,7 +42,7 @@ def get_create_question_set():
     )
 
 
-def get_publish_question_set():
+def get_publish_question_set_make_llm_baseline():
     """Publish the question set if it's the right day to do so.
 
     If today is a multiple of 2 weeks after the original forecast due date, publish the question
@@ -52,6 +52,7 @@ def get_publish_question_set():
         [
             [
                 ("func-question-set-publish", True),
+                ("func-baseline-llm-forecasts-manager", True),
             ],
         ]
         if question_curation.is_today_question_set_publication_date()
@@ -116,7 +117,7 @@ def main():
         "fetch_and_update": get_fetch_and_update(),
         "metadata": metadata,
         "create_question_set": get_create_question_set(),
-        "publish_question_set": get_publish_question_set(),
+        "publish_question_set_make_llm_baseline": get_publish_question_set_make_llm_baseline(),
         "resolve_and_leaderboard": resolve_and_leaderboard,
         "website": website,
     }
