@@ -140,6 +140,11 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "meta-llama/Llama-3.2-3B-Instruct-Turbo",
         "token_limit": 131072,
     },
+    "llama-3p3-70B-Instruct-Turbo": {
+        "source": TOGETHER_AI_SOURCE,
+        "full_name": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "token_limit": 131072,
+    },
     "mistral_8x7b_instruct": {
         "source": TOGETHER_AI_SOURCE,
         "full_name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
