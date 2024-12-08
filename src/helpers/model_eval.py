@@ -125,12 +125,19 @@ def get_response_from_oai_model(
         """
         model_input = [{"role": "system", "content": system_prompt}] if system_prompt else []
         model_input.append({"role": "user", "content": prompt})
-        response = oai.chat.completions.create(
-            model=model_name,
-            messages=model_input,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+
+        params = {
+            "model": model_name,
+            "messages": model_input,
+        }
+        if "o1" in model_name:
+            params["max_completion_tokens"] = max_tokens
+        else:
+            params["temperature"] = temperature
+            params["max_tokens"] = max_tokens
+
+        response = oai.chat.completions.create(**params)
+
         # logger.info(f"full prompt: {prompt}")
         return response.choices[0].message.content
 

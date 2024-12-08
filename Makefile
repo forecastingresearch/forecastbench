@@ -84,7 +84,7 @@ create-question-set:
 publish-question-set:
 	make -C src/curate_questions/publish_question_set
 
-baselines: llm-baselines
+baselines: llm-baselines naive-forecaster
 
 manifold: manifold-fetch manifold-update-questions
 
