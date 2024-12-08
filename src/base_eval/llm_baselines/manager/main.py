@@ -47,6 +47,7 @@ def main():
 
     logger.info(f"Running LLM baselines for: {forecast_due_date}-llm.json")
 
+    timeout = cloud_run.timeout_1h * 8
     operation = cloud_run.call_worker(
         job_name="func-baseline-llm-forecasts-worker",
         env_vars={
@@ -54,11 +55,13 @@ def main():
             "TEST_OR_PROD": args.mode,
         },
         task_count=9,
+        timeout=timeout,
     )
     cloud_run.block_and_check_job_result(
         operation=operation,
         name="llm-baselines",
         exit_on_error=True,
+        timeout=timeout,
     )
 
 

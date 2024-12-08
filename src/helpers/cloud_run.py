@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 timeout_1h = 3600
 
 
-def call_worker(job_name, env_vars, task_count):
+def call_worker(job_name, env_vars, task_count, timeout=timeout_1h):
     """Invoke a Cloud Run Job.
 
     Params:
@@ -32,6 +32,7 @@ def call_worker(job_name, env_vars, task_count):
         job_name=job_name,
         env_vars=env_vars,
         task_count=task_count,
+        timeout=timeout,
     )
 
 

@@ -26,8 +26,11 @@ def call_worker(dict_to_use, task_count):
 def main():
     """Manage nightly run."""
     dict_to_use_publish_question_set = "publish_question_set_make_llm_baseline"
+    timeout_publish_question_set = cloud_run.timeout_1h * 8
     operation_publish_question_set = call_worker(
-        dict_to_use=dict_to_use_publish_question_set, task_count=1
+        dict_to_use=dict_to_use_publish_question_set,
+        task_count=1,
+        timeout=timeout_publish_question_set,
     )
 
     dict_to_use = "fetch_and_update"
@@ -71,23 +74,24 @@ def main():
         exit_on_error=True,
     )
 
-    cloud_run.block_and_check_job_result(
-        operation=operation_publish_question_set,
-        name=dict_to_use_publish_question_set,
-        exit_on_error=True,
-    )
-
-    cloud_run.block_and_check_job_result(
-        operation=operation_naive_forecaster,
-        name=dict_to_use_naive_forecaster,
-        exit_on_error=True,
-    )
-
     dict_to_use_website = "website"
     operation_website = call_worker(dict_to_use=dict_to_use_website, task_count=1)
     cloud_run.block_and_check_job_result(
         operation=operation_website,
         name=dict_to_use_website,
+        exit_on_error=True,
+    )
+
+    cloud_run.block_and_check_job_result(
+        operation=operation_publish_question_set,
+        name=dict_to_use_publish_question_set,
+        exit_on_error=True,
+        timeout=timeout_publish_question_set,
+    )
+
+    cloud_run.block_and_check_job_result(
+        operation=operation_naive_forecaster,
+        name=dict_to_use_naive_forecaster,
         exit_on_error=True,
     )
 
