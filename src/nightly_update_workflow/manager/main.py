@@ -62,8 +62,10 @@ def main():
         dict_to_use=dict_to_use_create_question_set, task_count=1
     )
 
-    dict_to_use_naive_forecaster = "naive_forecaster"
-    operation_naive_forecaster = call_worker(dict_to_use=dict_to_use_naive_forecaster, task_count=1)
+    dict_to_use_naive_and_dummy_forecasters = "naive_and_dummy_forecasters"
+    operation_naive_and_dummy_forecasters = call_worker(
+        dict_to_use=dict_to_use_naive_and_dummy_forecasters, task_count=1
+    )
 
     cloud_run.block_and_check_job_result(
         operation=operation_resolve_and_leaderboard,
@@ -93,8 +95,8 @@ def main():
     )
 
     cloud_run.block_and_check_job_result(
-        operation=operation_naive_forecaster,
-        name=dict_to_use_naive_forecaster,
+        operation=operation_naive_and_dummy_forecasters,
+        name=dict_to_use_naive_and_dummy_forecasters,
         exit_on_error=True,
     )
 

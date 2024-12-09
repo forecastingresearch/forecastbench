@@ -226,81 +226,6 @@ def get_dataset_forecasts(source, df, dfr):
         raise ValueError(msg)
 
 
-# def get_market_forecasts(source, df, dfr):
-#     """Generate forecasts for all market questions from `source`.
-
-#     We could just set these to null and have them imputed at resolution.
-#     """
-#     df_market, df = resolution.split_dataframe_on_source(df=df, source=source)
-#     unique_ids_for_resolved_markets = dfr["id"].unique()
-
-#     def check_id(mid):
-#         if resolution.is_combo(mid):
-#             for midi in mid:
-#                 check_id(midi)
-#         elif mid not in unique_ids_for_resolved_markets:
-#             msg = f"Missing resolution values in dfr for (source: {source}, id: {mid})!!!"
-#             logger.error(msg)
-#             raise ValueError(msg)
-
-#     df_market["id"].apply(lambda x: check_id(x))
-
-#     # Handle single markets first: split into standard and combo questions
-#     combo_mask = df_market["id"].apply(lambda x: resolution.is_combo(x))
-#     df_standard = df_market[~combo_mask].copy()
-#     df_combo = df_market[combo_mask].copy()
-
-#     # Convert freeze datetime value into floats. This only exists for standard questions. Hence,
-#     # raise errors for standard questions, use coerce to set NaN values for combo questions
-#     df_standard["freeze_datetime_value"] = pd.to_numeric(
-#         df_standard["freeze_datetime_value"], errors="raise"
-#     )
-#     df_combo["freeze_datetime_value"] = pd.to_numeric(
-#         df_standard["freeze_datetime_value"], errors="coerce"
-#     )
-
-#     # Resolve forecasts at all horizons to yesterday's market value.
-#     df_standard = pd.merge(
-#         df_standard,
-#         dfr,
-#         left_on=["id", "last_date_for_data"],
-#         right_on=["id", "date"],
-#         how="left",
-#     )
-#     df_standard["forecast"] = df_standard["value"]
-#     df_standard = df_standard.drop(columns=["date", "value"])
-
-#     # Any null values were resolved before the forecast due date and won't actually be considered
-#     # when scoring. Hence, just fill thees with the freeze value.
-#     df_standard.loc[df_standard["forecast"].isna(), "forecast"] = df_standard[
-#         "freeze_datetime_value"
-#     ]
-#     df_standard.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
-
-#     # Setup combo resolutions given df_standard
-#     def update_col(index, id0, id1, dir0, dir1, col):
-#         value_id0 = df_standard.loc[df_standard["id"] == id0, col].iloc[0]
-#         value_id1 = df_standard.loc[df_standard["id"] == id1, col].iloc[0]
-#         df_combo.at[index, col] = resolution.combo_change_sign(
-#             value_id0, dir0
-#         ) * resolution.combo_change_sign(value_id1, dir1)
-
-#     for index, row in df_combo.iterrows():
-#         id0, id1 = row["id"]
-#         dir0, dir1 = row["direction"]
-#         update_col(
-#             index=index,
-#             id0=id0,
-#             id1=id1,
-#             dir0=dir0,
-#             dir1=dir1,
-#             col="forecast",
-#         )
-#     df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
-#     df = pd.concat([df, df_standard, df_combo], ignore_index=True)
-#     return df
-
-
 def prepare_df_and_set_null_values(df, forecast_due_date, last_date_for_data):
     """Prepare the df by setting default values and expanding."""
     df["reasoning"] = ""
@@ -333,6 +258,52 @@ def prepare_df_and_set_null_values(df, forecast_due_date, last_date_for_data):
     df = df.sort_values(by=["source", "resolution_date"], ignore_index=True)
 
     return df
+
+
+def write_and_upload_forecast_file(data, df, model_name):
+    """Write and upload forecast file."""
+    data["model"] = model_name
+    data["forecasts"] = df.reset_index(drop=True).to_dict(orient="records")
+    forecast_due_date = data["forecast_due_date"]
+    model_name_for_file = model_name.lower().replace(" ", "-")
+    forecast_filename = f"{forecast_due_date}.{constants.BENCHMARK_NAME}.{model_name_for_file}.json"
+    local_filename = f"/tmp/{forecast_filename}"
+    with open(local_filename, "w") as f:
+        f.write(json.dumps(data, indent=4))
+
+    gcp.storage.upload(
+        bucket_name=env.FORECAST_SETS_BUCKET,
+        local_filename=local_filename,
+        filename=f"{forecast_due_date}/{forecast_filename}",
+    )
+
+
+def create_dummy_files(data, df):
+    """Create dummy files for the llm question set as it's a superset of the human question set."""
+    logger.info("Creating dummy forecasts.")
+
+    dummy_file_info = {
+        "Always 0.5": {
+            "func": lambda df: 0.5,
+        },
+        "Always 1": {
+            "func": lambda df: 1.0,
+        },
+        "Always 0": {
+            "func": lambda df: 0.0,
+        },
+        "Random Uniform": {
+            "func": lambda df: np.random.rand(len(df)),
+        },
+        "Imputed Forecaster": {
+            "func": lambda df: None,
+        },
+    }
+
+    for key, value in dummy_file_info.items():
+        df_dummy = df.copy()
+        df_dummy["forecast"] = value["func"](df_dummy)
+        write_and_upload_forecast_file(data=data, df=df_dummy, model_name=key)
 
 
 @decorator.log_runtime
@@ -378,11 +349,6 @@ def driver(_):
         resolution_values[source]["dfr"] = dfr.copy()
 
     logger.info(f"Generating naive forecast for {forecast_due_date.strftime('%Y-%m-%d')}...")
-    # for source in resolution.MARKET_SOURCES:
-    #     df = get_market_forecasts(
-    #         source=source, df=df.copy(), dfr=resolution_values[source]["dfr"].copy()
-    #     )
-
     for source in resolution.DATA_SOURCES:
         df = get_dataset_forecasts(
             source=source, df=df.copy(), dfr=resolution_values[source]["dfr"].copy()
@@ -393,24 +359,14 @@ def driver(_):
     df["resolution_date"] = df["resolution_date"].astype(str).replace("NaT", None)
 
     forecast_due_date = forecast_due_date.strftime("%Y-%m-%d")
+
     data = {
         "organization": constants.BENCHMARK_NAME,
-        "model": "Naive Forecaster",
         "question_set": question_set_filename,
         "forecast_due_date": forecast_due_date,
-        "forecasts": df.reset_index(drop=True).to_dict(orient="records"),
     }
-
-    forecast_filename = f"{forecast_due_date}.{constants.BENCHMARK_NAME}.naive-forecaster.json"
-    local_filename = f"/tmp/{forecast_filename}"
-    with open(local_filename, "w") as f:
-        f.write(json.dumps(data, indent=4))
-
-    gcp.storage.upload(
-        bucket_name=env.FORECAST_SETS_BUCKET,
-        local_filename=local_filename,
-        filename=f"{forecast_due_date}/{forecast_filename}",
-    )
+    write_and_upload_forecast_file(data=data, df=df, model_name="Naive Forecaster")
+    create_dummy_files(data=data, df=df)
 
     logger.info("Done.")
 

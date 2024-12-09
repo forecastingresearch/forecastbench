@@ -42,15 +42,12 @@ required_forecast_file_keys = [
     "forecasts",
 ]
 
-dummy_forecast_keys = [
+valid_forecast_keys = [
     "id",
     "source",
     "direction",
     "forecast",
     "resolution_date",
-]
-
-valid_forecast_keys = dummy_forecast_keys + [
     "reasoning",
 ]
 
@@ -494,96 +491,6 @@ def get_resolution_values_for_forecast_due_date(
     return resolved_values_for_question_sources
 
 
-def create_dummy_forecasts_for_forecast_due_date(
-    forecast_due_date, resolved_values_for_question_sources
-):
-    """Create dummy files for the llm question set as it's a superset of the human question set.
-
-    Always update dummy forecast files for each question set. Return the list of added dummy
-    forecast files.
-
-    Parameters:
-    forecast_due_date (str): the forecast due date
-    resolved_values_for_question_sources (dict): all resolved question sets
-
-    Return:
-    (list): uploaded dummy forecast files
-    """
-    uploaded_files = []
-    logger.info(f"Creating dummy forecasts for {forecast_due_date}.")
-
-    def upload_dummy_forecast_file(destination_folder, filename, output):
-        """Upload dummy forecast files."""
-        local_filename = "/tmp/tmp.json"
-        with open(local_filename, "w", encoding="utf-8") as f:
-            json.dump(output, f)
-
-        if not RUN_LOCALLY_WITH_MOCK_DATA:
-            gcp.storage.upload(
-                bucket_name=env.FORECAST_SETS_BUCKET,
-                local_filename=local_filename,
-                destination_folder=destination_folder,
-                filename=filename,
-            )
-            return f"{destination_folder}/{filename}"
-
-    dummy_file_info = {
-        "always-0.5": {
-            "name": "Always 0.5",
-            "func": lambda df: 0.5,
-        },
-        "always-1": {
-            "name": "Always 1",
-            "func": lambda df: 1.0,
-        },
-        "always-0": {
-            "name": "Always 0",
-            "func": lambda df: 0.0,
-        },
-        "random-uniform": {
-            "name": "Random Uniform",
-            "func": lambda df: np.random.rand(len(df)),
-        },
-        "imputed-forecaster": {
-            "name": "Imputed Forecaster",
-            "func": lambda df: np.nan,
-        },
-    }
-
-    output = {
-        "organization": constants.BENCHMARK_NAME,
-        "question_set": f"{forecast_due_date}-llm.json",
-        "forecast_due_date": forecast_due_date,
-    }
-
-    df = resolved_values_for_question_sources[forecast_due_date]["llm"].copy()
-    destination_folder = forecast_due_date
-    for key, value in dummy_file_info.items():
-        df_dummy = df.copy()
-        df_dummy["forecast"] = value["func"](df_dummy)
-        df_dummy = df_dummy[dummy_forecast_keys]
-        df_dummy["direction"] = df_dummy["direction"].apply(lambda x: None if len(x) == 0 else x)
-        df_dummy["resolution_date"] = (
-            df_dummy["resolution_date"].dt.strftime("%Y-%m-%d").astype(str)
-        )
-        df_dummy["reasoning"] = None
-        df_dummy = df_dummy[
-            ["id", "source", "forecast", "resolution_date", "reasoning", "direction"]
-        ]
-        output["forecasts"] = json.loads(df_dummy.to_json(orient="records"))
-        output["model"] = value["name"]
-        uploaded_files.append(
-            upload_dummy_forecast_file(
-                destination_folder=destination_folder,
-                filename=f"{forecast_due_date}.{constants.BENCHMARK_NAME}.llm-{key}-forecast.json",
-                output=output,
-            )
-        )
-
-    resolved_values_for_question_sources[forecast_due_date]["dummy"] = True
-    return uploaded_files, resolved_values_for_question_sources
-
-
 def check_and_prepare_forecast_file(df, forecast_due_date, organization):
     """Check and prepare the organization's forecast file.
 
@@ -684,7 +591,6 @@ def driver(request):
         )
 
     resolved_values_for_question_sources = {}
-    created_dummy_forecasts_for_forecast_due_date = []
     for f in forecast_sets:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
@@ -734,18 +640,6 @@ def driver(request):
                 resolved_values_for_question_sources=resolved_values_for_question_sources,
                 resolution_values=resolution_values,
             )
-            if forecast_due_date not in created_dummy_forecasts_for_forecast_due_date:
-                created_dummy_forecasts_for_forecast_due_date += [forecast_due_date]
-                add_to_forecast_sets, resolved_values_for_question_sources = (
-                    create_dummy_forecasts_for_forecast_due_date(
-                        forecast_due_date=forecast_due_date,
-                        resolved_values_for_question_sources=resolved_values_for_question_sources,
-                    )
-                )
-                for file_to_add in add_to_forecast_sets:
-                    if file_to_add not in forecast_sets:
-                        logger.info(f"Adding {file_to_add} to list of forecast sets to resolve.")
-                        forecast_sets += [file_to_add]
         except ValueError as e:
             logger.error(f"EXCEPTION caught {str(e)}")
             return f"Error: {str(e)}", 400

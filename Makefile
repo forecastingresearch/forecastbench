@@ -84,7 +84,7 @@ create-question-set:
 publish-question-set:
 	make -C src/curate_questions/publish_question_set
 
-baselines: llm-baselines naive-forecaster
+baselines: llm-baselines naive-and-dummy-forecasters
 
 manifold: manifold-fetch manifold-update-questions
 
@@ -168,8 +168,8 @@ validate-questions:
 resolve-forecasts:
 	make -C src/resolve_forecasts
 
-naive-forecaster:
-	make -C src/base_eval/naive_forecaster
+naive-and-dummy-forecasters:
+	make -C src/base_eval/naive_and_dummy_forecasters
 
 leaderboard:
 	make -C src/leaderboard

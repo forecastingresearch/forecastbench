@@ -18,7 +18,7 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp $^ $(UPLOAD_DIR)/
 	gcloud run jobs deploy \
-		func-baseline-naive-forecaster \
+		func-baseline-naive-and-dummy-forecasters \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
