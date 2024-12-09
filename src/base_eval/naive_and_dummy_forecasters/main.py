@@ -17,6 +17,7 @@ from helpers import (  # noqa: E402
     dates,
     decorator,
     env,
+    question_sets,
     resolution,
     wikipedia,
 )
@@ -309,14 +310,10 @@ def create_dummy_files(data, df):
 @decorator.log_runtime
 def driver(_):
     """Generate the naive forecast."""
-    question_set_filename = "latest-llm.json"
-    df = resolution.download_and_read_question_set_file(question_set_filename)
-    forecast_due_date = resolution.get_field_from_question_set_file(
-        filename=question_set_filename, field="forecast_due_date"
-    )
-    question_set_filename = resolution.get_field_from_question_set_file(
-        filename=question_set_filename, field="question_set"
-    )
+    df = question_sets.download_and_read_latest_question_set_file()
+    forecast_due_date = question_sets.get_field_from_latest_question_set_file("forecast_due_date")
+    question_set_filename = question_sets.get_field_from_latest_question_set_file("question_set")
+
     forecast_due_date = pd.to_datetime(forecast_due_date)
     last_date_for_data = pd.to_datetime(forecast_due_date) - pd.to_timedelta(1, unit="D")
 
