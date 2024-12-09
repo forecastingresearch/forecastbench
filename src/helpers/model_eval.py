@@ -907,7 +907,9 @@ def worker(
         logger.error(f"Error in worker: {e}")
         response = None
 
-    logger.info(f" IN WORKER: ... {prompt_type} {is_market_question}")
+    logger.info(
+        f"IN WORKER: ... {model_name}. {prompt_type}. Is market_question: {is_market_question}."
+    )
     if prompt_type == "zero_shot":
         if is_market_question:
             save_dict[index] = {"forecast": extract_probability(response)}
