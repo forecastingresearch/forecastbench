@@ -12,7 +12,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import cloud_run, decorator, git, keys  # noqa: E402
+from helpers import cloud_run, constants, decorator, git, keys  # noqa: E402
 
 
 def parse_arguments():
@@ -48,13 +48,14 @@ def main():
     logger.info(f"Running LLM baselines for: {forecast_due_date}-llm.json")
 
     timeout = cloud_run.timeout_1h * 8
+    task_count = len(constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE.keys())
     operation = cloud_run.call_worker(
         job_name="func-baseline-llm-forecasts-worker",
         env_vars={
             "FORECAST_DUE_DATE": forecast_due_date,
             "TEST_OR_PROD": args.mode,
         },
-        task_count=9,
+        task_count=task_count,
         timeout=timeout,
     )
     cloud_run.block_and_check_job_result(
