@@ -5,8 +5,7 @@ import os
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-
-from helpers import cloud_run, slack  # noqa: E402
+from helpers import cloud_run, question_curation, slack  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,7 +34,10 @@ def main():
     )
 
     dict_to_use = "fetch_and_update"
-    operation = call_worker(dict_to_use=dict_to_use, task_count=9)
+    task_count = len(question_curation.FREEZE_QUESTION_DATA_SOURCES) + len(
+        question_curation.FREEZE_QUESTION_MARKET_SOURCES
+    )
+    operation = call_worker(dict_to_use=dict_to_use, task_count=task_count)
     cloud_run.block_and_check_job_result(
         operation=operation,
         name=dict_to_use,
