@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def call_worker(dict_to_use, task_count):
+def call_worker(dict_to_use, task_count, timeout=cloud_run.timeout_1h):
     """Make main() easier to read."""
     return cloud_run.call_worker(
         job_name="nightly-worker",
@@ -20,6 +20,7 @@ def call_worker(dict_to_use, task_count):
             "DICT_TO_USE": dict_to_use,
         },
         task_count=task_count,
+        timeout=timeout,
     )
 
 
