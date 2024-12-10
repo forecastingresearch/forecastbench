@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import acled
 import data
@@ -332,7 +332,11 @@ def print_question_set_breakdown(human_or_llm, forecast_due_date, df, df_orig_qu
     logger.info("")
     logger.info(f"{human_or_llm} QUESTION SET Breakdown {forecast_due_date}")
 
-    resolution_date = [df["resolution_date"].unique()[0]]
+    resolution_date = [df["resolution_date"].unique()]
+    if len(resolution_date) == 0:
+        logger.error("No resolution dates to breakdown.")
+        return
+    resolution_date = resolution_date[0]
 
     def get_df_len(df, single, sources):
         combo_mask = df["id"].apply(resolution.is_combo)
@@ -602,6 +606,14 @@ def driver(request):
         model = data.get("model")
         question_set_filename = data.get("question_set")
         forecast_due_date = data.get("forecast_due_date")
+        forecast_due_date_datetime = datetime.strptime(forecast_due_date, "%Y-%m-%d")
+        if (
+            forecast_due_date_datetime + timedelta(days=min(constants.FORECAST_HORIZONS_IN_DAYS))
+        ).date() >= dates.get_date_today():
+            logger.warning(
+                f"It is too soon to evaluate {f} which was submitted on {forecast_due_date}."
+            )
+            continue
         forecasts = data.get("forecasts")
         if (
             not organization
