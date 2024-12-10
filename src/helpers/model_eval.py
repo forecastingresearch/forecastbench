@@ -123,6 +123,13 @@ def get_response_from_oai_model(
         Returns:
             str: Response string from the API call.
         """
+        o1_family_model = "o1" in model_name
+
+        if o1_family_model and system_prompt:
+            print(system_prompt)
+            logger.error("o1 family models do NOT support system prompts.")
+            sys.exit(1)
+
         model_input = [{"role": "system", "content": system_prompt}] if system_prompt else []
         model_input.append({"role": "user", "content": prompt})
 
@@ -130,9 +137,7 @@ def get_response_from_oai_model(
             "model": model_name,
             "messages": model_input,
         }
-        if "o1" in model_name:
-            params["max_completion_tokens"] = max_tokens
-        else:
+        if not o1_family_model:
             params["temperature"] = temperature
             params["max_tokens"] = max_tokens
 
