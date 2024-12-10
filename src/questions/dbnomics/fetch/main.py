@@ -4,14 +4,13 @@ import json
 import logging
 import os
 import sys
-from datetime import date
 
 import backoff
 import pandas as pd
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dbnomics, decorator, env  # noqa: E402
+from helpers import constants, data_utils, dates, dbnomics, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -51,13 +50,13 @@ def _call_endpoint(id):
             "series_name": docs.get("series_name"),
         }
     )
-    df["period"] = pd.to_datetime(df["period"])
+    df["period"] = pd.to_datetime(df["period"]).dt.date
     # Filter to record start date and beyond
-    df = df[df["period"] >= constants.BENCHMARK_START_DATE].reset_index(drop=True)
-    df = df[df["period"] != str(date.today())]
-    if df.empty:
-        df = None
-    return df
+    df = df[
+        (df["period"] >= constants.QUESTION_BANK_DATA_STORAGE_START_DATE)
+        & (df["period"] < dates.get_date_today())
+    ].reset_index(drop=True)
+    return df if not df.empty else None
 
 
 @decorator.log_runtime

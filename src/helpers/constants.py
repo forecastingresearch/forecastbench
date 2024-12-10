@@ -1,7 +1,7 @@
 """Constants."""
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 BENCHMARK_NAME = "ForecastBench"
 
@@ -28,6 +28,9 @@ BENCHMARK_TOURNAMENT_START_DATE_DATETIME_DATE = BENCHMARK_TOURNAMENT_START_DATE_
 parsed_date = datetime.strptime(BENCHMARK_START_DATE + " 00:00", "%Y-%m-%d %H:%M")
 BENCHMARK_START_DATE_EPOCHTIME = int(parsed_date.timestamp())
 BENCHMARK_START_DATE_EPOCHTIME_MS = BENCHMARK_START_DATE_EPOCHTIME * 1000
+
+QUESTION_BANK_DATA_STORAGE_START_DATETIME = BENCHMARK_START_DATE_DATETIME - timedelta(days=360)
+QUESTION_BANK_DATA_STORAGE_START_DATE = QUESTION_BANK_DATA_STORAGE_START_DATETIME.date()
 
 FORECAST_HORIZONS_IN_DAYS = [
     7,  # 1 week

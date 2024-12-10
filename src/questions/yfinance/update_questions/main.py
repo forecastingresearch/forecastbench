@@ -3,7 +3,7 @@
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pandas as pd
 import yfinance as yf
@@ -18,8 +18,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SOURCE = "yfinance"
-
-benchmark_start_date = datetime.strptime(constants.BENCHMARK_START_DATE, "%Y-%m-%d").date()
 
 
 def select_time_range(days_difference):
@@ -108,7 +106,9 @@ def get_historical_prices(current_df, ticker, period):
 
     yesterday = dates.get_date_today() - timedelta(days=1)
     df["date"] = pd.to_datetime(df["date"]).dt.date
-    df = df[(df["date"] >= benchmark_start_date) & (df["date"] <= yesterday)]
+    df = df[
+        (df["date"] >= constants.QUESTION_BANK_DATA_STORAGE_START_DATE) & (df["date"] <= yesterday)
+    ]
 
     # forward fill for weekends
     full_date_range = pd.date_range(start=df["date"].min(), end=yesterday)
@@ -178,7 +178,7 @@ def update_questions(dfq, dff):
     It also appends new community predictions to dfr for each question in all_questions_to_add.
     """
     dff_list = dff.to_dict("records")
-    day_diff = (dates.get_date_today() - benchmark_start_date).days
+    day_diff = (dates.get_date_today() - constants.QUESTION_BANK_DATA_STORAGE_START_DATE).days
     period = select_time_range(day_diff)
 
     for question in dff_list:

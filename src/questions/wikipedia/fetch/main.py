@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 
 source = "wikipedia"
 filenames = data_utils.generate_filenames(source=source)
-START_DATE = datetime.strptime(constants.BENCHMARK_START_DATE, "%Y-%m-%d")
 
 
 def get_edit_history_urls(page_title):
     """Get the edit history of a wikipedia page.
 
-    Get the last edit of the day for each day between today and START_DATE.
+    Get the last edit of the day for each day between today and
+    constants.QUESTION_BANK_DATA_STORAGE_START_DATE
     """
     base_history_url = (
         f"https://en.wikipedia.org/w/index.php?title={page_title}&action=history&limit=20"
@@ -55,7 +55,7 @@ def get_edit_history_urls(page_title):
                 edit_history.append((edit_date, edit_url))
                 last_seen_dates.add(edit_date.date())
 
-            if edit_date <= START_DATE:
+            if edit_date.date() <= constants.QUESTION_BANK_DATA_STORAGE_START_DATE:
                 return edit_history
 
         next_page = soup.find("a", {"class": "mw-nextlink"})
