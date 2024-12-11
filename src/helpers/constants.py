@@ -94,121 +94,28 @@ XAI_SOURCE = "XAI"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
-    "gpt_3p5_turbo_0125": {
-        "source": OAI_SOURCE,
-        "full_name": "gpt-3.5-turbo-0125",
-        "token_limit": 16385,
-    },
-    "gpt_4": {
-        "source": OAI_SOURCE,
-        "full_name": "gpt-4-0613",
-        "token_limit": 8192,
-    },
-    "gpt_4_turbo_0409": {
-        "source": OAI_SOURCE,
-        "full_name": "gpt-4-turbo-2024-04-09",
-        "token_limit": 128000,
-    },
-    "gpt_4o_2024-05-13": {
-        "source": OAI_SOURCE,
-        "full_name": "gpt-4o-2024-05-13",
-        "token_limit": 128000,
-    },
-    "gpt_4o_2024-08-06": {
-        "source": OAI_SOURCE,
-        "full_name": "gpt-4o-2024-08-06",
-        "token_limit": 128000,
-    },
-    "o1-preview-2024-09-12": {
-        "source": OAI_SOURCE,
-        "full_name": "o1-preview-2024-09-12",
-        "token_limit": 128000,
-    },
     "o1-mini-2024-09-12": {
         "source": OAI_SOURCE,
         "full_name": "o1-mini-2024-09-12",
         "token_limit": 128000,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
-    "llama-3p1-405B-Instruct-Turbo": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
-        "token_limit": 130815,
-    },
-    "llama-3p2-3B-Instruct-Turbo": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "meta-llama/Llama-3.2-3B-Instruct-Turbo",
-        "token_limit": 131072,
-    },
     "llama-3p3-70B-Instruct-Turbo": {
         "source": TOGETHER_AI_SOURCE,
         "full_name": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         "token_limit": 131072,
     },
-    "mistral_8x7b_instruct": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        "token_limit": 32768,
-    },
-    "mistral_8x22b_instruct": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "mistralai/Mixtral-8x22B-Instruct-v0.1",
-        "token_limit": 65536,
-    },
-    "qwen_2p5_72b": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "Qwen/Qwen2.5-72B-Instruct-Turbo",
-        "token_limit": 32768,
-    },
     # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
-    "claude_2p1": {
-        "source": ANTHROPIC_SOURCE,
-        "full_name": "claude-2.1",
-        "token_limit": 200000,
-    },
-    "claude_3_opus": {
-        "source": ANTHROPIC_SOURCE,
-        "full_name": "claude-3-opus-20240229",
-        "token_limit": 200000,
-    },
-    "claude_3_haiku": {
-        "source": ANTHROPIC_SOURCE,
-        "full_name": "claude-3-haiku-20240307",
-        "token_limit": 200000,
-    },
-    "claude_3p5_sonnet": {
-        "source": ANTHROPIC_SOURCE,
-        "full_name": "claude-3-5-sonnet-20240620",
-        "token_limit": 200000,
-    },
     "claude-3-5-sonnet-20241022": {
         "source": ANTHROPIC_SOURCE,
         "full_name": "claude-3-5-sonnet-20241022",
         "token_limit": 200000,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models/gemini
-    "gemini_1p5_flash": {
+    "gemini-2.0-flash-exp": {
         "source": GOOGLE_SOURCE,
-        "full_name": "gemini-1.5-flash",
+        "full_name": "gemini-2.0-flash-exp",
         "token_limit": 1048576,
-    },
-    "gemini_1p5_pro": {
-        "source": GOOGLE_SOURCE,
-        "full_name": "gemini-1.5-pro",
-        "token_limit": 2097152,
-    },
-    "gemini-exp-1121": {
-        "source": GOOGLE_SOURCE,
-        "full_name": "gemini-exp-1121",
-        "token_limit": 32000,
-        # not listed on Gemeni site, but in this Tweet:
-        # https://twitter.com/officiallogank/status/1860106796247216174
-    },
-    # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
-    "grok-beta": {
-        "source": XAI_SOURCE,
-        "full_name": "grok-beta",
-        "token_limit": 131072,
     },
 }
 
