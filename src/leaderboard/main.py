@@ -520,10 +520,10 @@ def add_to_llm_and_human_combo_leaderboards(
                 for dir0, dir1 in list(itertools.product([1, -1], repeat=2)):
                     forecast = resolution.combo_change_sign(
                         df_forecast0_tmp["forecast"].iloc[0], dir0
-                    ) * resolution.combo_change_sign(df_forecast1["forecast"].iloc[0], dir1)
+                    ) * resolution.combo_change_sign(df_forecast1_tmp["forecast"].iloc[0], dir1)
                     resolved_to = resolution.combo_change_sign(
                         df_forecast0_tmp["resolved_to"].iloc[0], dir0
-                    ) * resolution.combo_change_sign(df_forecast1["resolved_to"].iloc[0], dir1)
+                    ) * resolution.combo_change_sign(df_forecast1_tmp["resolved_to"].iloc[0], dir1)
                     resolved = (
                         df_forecast0_tmp["resolved"].iloc[0]
                         and df_forecast1_tmp["resolved"].iloc[0]
