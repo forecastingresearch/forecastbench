@@ -562,9 +562,25 @@ def check_and_prepare_forecast_file(df, forecast_due_date, organization):
 
     # Make columns hashable
     df = resolution.make_columns_hashable(df)
-    df = df.drop_duplicates(
+    df_tmp = df.drop_duplicates(
         subset=["id", "source", "resolution_date", "direction"], keep="first", ignore_index=True
     )
+    if len(df_tmp) != len(df):
+        dropped_rows = (
+            df.merge(
+                df_tmp,
+                on=["id", "source", "resolution_date", "direction"],
+                how="left",
+                indicator=True,
+            )
+            .query('_merge == "left_only"')
+            .drop("_merge", axis=1)
+        )
+        print(dropped_rows)
+        msg = f"Duplicate Rows encountered in {organization} forecast file."
+        logger.error(msg)
+        raise ValueError(msg)
+
     return df
 
 
