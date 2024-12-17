@@ -113,7 +113,7 @@ def get_leaderboard_entry(df):
     )
 
     # % imputed
-    pct_imputed = int(df["imputed"].sum() / len(df) * 100)
+    pct_imputed = int(np.round(df["imputed"].mean() * 100))
 
     return {
         "data": data_resolved_score,
