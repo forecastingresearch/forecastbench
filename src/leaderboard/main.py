@@ -33,12 +33,17 @@ logger = logging.getLogger(__name__)
 
 LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %d, %Y")
 BASELINE_ORG_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Naive Forecast"}
+SUPERFORECASTER_MODEL = {
+    "organization": constants.BENCHMARK_NAME,
+    "model": "Superforecaster median forecast",
+}
+GENERAL_PUBLIC_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Public median forecast"}
 
 CONFIDENCE_LEVEL = 0.95
 LEADERBOARD_DECIMAL_PLACES = 3
 
 
-def download_and_read_forecast_file(filename):
+def download_and_read_processed_forecast_file(filename):
     """Download forecast file."""
     local_filename = "/tmp/tmp.json"
     gcp.storage.download(
@@ -60,10 +65,15 @@ def get_leaderboard_entry(df):
     # Market sources should be reduced to the value at a single date. This is because we always
     # evaluate to the latest market value or the resolution value for a market and orgs only
     # forecast the outcome. Hence they get the same score at every period.
-    single_resolution_date = sorted(df["resolution_date"].unique())[0]
-    market_mask = df["source"].isin(question_curation.MARKET_SOURCES) & (
-        df["resolution_date"] == single_resolution_date
+    market_source_mask = df["source"].isin(question_curation.MARKET_SOURCES)
+    market_drop_duplicates_mask = ~df.duplicated(
+        [
+            "id",
+            "source",
+            "direction",
+        ]
     )
+    market_mask = market_source_mask & market_drop_duplicates_mask
 
     resolved_mask = df["resolved"].astype(bool)
     unresolved_mask = ~resolved_mask
@@ -598,6 +608,22 @@ def make_and_upload_html_table(df, title, basename):
     df[numeric_cols] = df[numeric_cols].round(3)
 
     # Rename columns
+    for col in [
+        "n_data",
+        "n_market_resolved",
+        "n_market_unresolved",
+        "n_market_overall",
+        "n_overall",
+        "n_overall_resolved",
+    ]:
+        if df[col].min() != df[col].max():
+            msg = (
+                f"Error making leaderboard {title}: in col {col}: min ({df[col].min()}) not equal "
+                f"to max ({df[col].max()})."
+            )
+            logger.error(msg)
+            raise ValueError(msg)
+
     n_data = df["n_data"].max()
     n_market_resolved = df["n_market_resolved"].max()
     n_market_unresolved = df["n_market_unresolved"].max()
@@ -889,8 +915,9 @@ def worker(task):
             basename=task["basename"],
         )
     except Exception as e:
-        logger.error(f"Error processing task {task['title']}: {e}")
-        return {}
+        msg = f"Error processing task {task['title']}: {e}"
+        logger.error(msg)
+        raise ValueError(msg)
 
 
 @decorator.log_runtime
@@ -907,7 +934,7 @@ def driver(_):
     for f in files:
         logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
 
-        data = download_and_read_forecast_file(filename=f)
+        data = download_and_read_processed_forecast_file(filename=f)
         if not data or not isinstance(data, dict):
             logger.warning(f"Problem processing {f}. First `continue`.")
             continue
@@ -942,8 +969,10 @@ def driver(_):
         df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
         df["forecast_due_date"] = pd.to_datetime(df["forecast_due_date"]).dt.date
 
-        is_human_question_set = "human" in question_set_filename
         org_and_model = {"organization": organization, "model": model}
+        is_human_question_set = (
+            org_and_model == SUPERFORECASTER_MODEL or org_and_model == GENERAL_PUBLIC_MODEL
+        )
         if not is_human_question_set:
             add_to_llm_leaderboard(llm_leaderboard, org_and_model, df, forecast_due_date)
         add_to_llm_and_human_leaderboard(

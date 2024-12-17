@@ -94,9 +94,9 @@ def resolve(source, df, dfq, dfr):
                 df_standard.loc[df_standard["id"] == mid, "resolved_to"] = np.nan
                 rd = resolution_date.strftime("%Y-%m-%d")
                 fd = forecast_due_date.strftime("%Y-%m-%d")
-                logger.info(
-                    f"Nullifying question {mid}; it was resolved on {rd} but the forecast date is "
-                    f"{fd}."
+                logger.warning(
+                    f"`{source} question {mid}; was resolved on {rd} but the forecast date is "
+                    f"{fd}. Nullifying!"
                 )
     df_standard.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
 
