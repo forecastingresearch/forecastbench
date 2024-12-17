@@ -101,34 +101,34 @@ def resolve(source, df, dfq, dfr):
     df_standard.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
 
     # Setup combo resolutions given df_standard
-    def update_col(index, id0, id1, dir0, dir1, col):
-        value_id0 = df_standard.loc[df_standard["id"] == id0, col].iloc[0]
-        value_id1 = df_standard.loc[df_standard["id"] == id1, col].iloc[0]
+    def update_col(index, value0, value1, dir0, dir1, col):
         df_combo.at[index, col] = resolution.combo_change_sign(
-            value_id0, dir0
-        ) * resolution.combo_change_sign(value_id1, dir1)
-        resolved_id0 = df_standard.loc[df_standard["id"] == id0, "resolved"].iloc[0]
-        resolved_id1 = df_standard.loc[df_standard["id"] == id1, "resolved"].iloc[0]
-        df_combo.at[index, "resolved"] = resolved_id0 and resolved_id1
+            value0, dir0
+        ) * resolution.combo_change_sign(value1, dir1)
 
     for index, row in df_combo.iterrows():
         id0, id1 = row["id"]
+        id0_data = df_standard[df_standard["id"] == id0].iloc[0]
+        id1_data = df_standard[df_standard["id"] == id1].iloc[0]
         dir0, dir1 = row["direction"]
-        update_col(
-            index=index,
-            id0=id0,
-            id1=id1,
+
+        for col in ["resolved_to", "market_value_on_due_date"]:
+            update_col(
+                index=index,
+                value0=id0_data[col],
+                value1=id1_data[col],
+                dir0=dir0,
+                dir1=dir1,
+                col=col,
+            )
+
+        df_combo.at[index, "resolved"] = resolution.is_combo_question_resolved(
+            is_resolved0=id0_data["resolved"],
+            is_resolved1=id1_data["resolved"],
             dir0=dir0,
             dir1=dir1,
-            col="resolved_to",
-        )
-        update_col(
-            index=index,
-            id0=id0,
-            id1=id1,
-            dir0=dir0,
-            dir1=dir1,
-            col="market_value_on_due_date",
+            resolution0=id0_data["resolved_to"],
+            resolution1=id1_data["resolved_to"],
         )
 
     df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)

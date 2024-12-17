@@ -58,6 +58,32 @@ def is_combo(row):
     raise ValueError(f"Problem in `is_combo` with {row}. This type is not handled: {type(row)}")
 
 
+def _is_combo_question_resolved_helper(is_resolved, direction, resolution):
+    """Determine whether or not a combo question has resolved for a single direction."""
+    if is_resolved and ((direction == 1 and not resolution) or (direction == -1 and resolution)):
+        return True
+    return False
+
+
+def is_combo_question_resolved(is_resolved0, is_resolved1, dir0, dir1, resolution0, resolution1):
+    """Determine whether or not a combo question has resolved.
+
+    Combo questions are asked in 4 directions: (1,1), (1,-1), (-1,1), (-1,-1). If q2 has resolved,
+    then 2 of the directions have resolved as well. e.g. if q2 resolves No, then questions with
+    directions (1,1) and (-1,1) have resolved to 0. No matter the outcome of q1, the score for these
+    two questions will not change.
+    """
+    return _is_combo_question_resolved_helper(
+        is_resolved=is_resolved0,
+        direction=dir0,
+        resolution=resolution0,
+    ) or _is_combo_question_resolved_helper(
+        is_resolved=is_resolved1,
+        direction=dir1,
+        resolution=resolution1,
+    )
+
+
 def combo_change_sign(value: Union[bool, int, float], sign: int):
     """Change direction of bool value given sign (-1 or 1)."""
     if sign not in (1, -1):
