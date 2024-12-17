@@ -642,10 +642,18 @@ def make_and_upload_html_table(df, title, basename):
     df["pct_imputed"] = df["pct_imputed"].round(0).astype(int).astype(str) + "%"
     df["pct_better_than_no1"] = df["pct_better_than_no1"].round(0).astype(int).astype(str) + "%"
 
-    # For small p-values, only show <0.001
-    df["p-value_pairwise_bootstrap"] = df["p-value_pairwise_bootstrap"].apply(
-        lambda x: ("<0.001" if isinstance(x, (float, int)) and x < 0.001 else x)
-    )
+    def get_p_value_display(p):
+        if not isinstance(p, (float, int)):
+            return str(p)
+        if p < 0.001:
+            return "<0.001"
+        if p < 0.01:
+            return "<0.01"
+        if p < 0.05:
+            return "<0.05"
+        return f"{p:.{LEADERBOARD_DECIMAL_PLACES}f}"
+
+    df["p-value_pairwise_bootstrap"] = df["p-value_pairwise_bootstrap"].apply(get_p_value_display)
 
     df = df[
         [
