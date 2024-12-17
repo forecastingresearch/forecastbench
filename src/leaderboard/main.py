@@ -959,11 +959,11 @@ def driver(_):
             logger.warning(f"Problem processing {f}. Third `continue`.")
             continue
 
-        sanity_check = df["score"] - ((df["forecast"] - df["resolved_to"]) ** 2)
-        if sanity_check.sum() > 1e-5:
-            raise ValueError(
-                f"Sanity Check failed. Should be close to 0. Instead value is {sanity_check.sum()}."
-            )
+        df_sanity_check = df["score"] - ((df["forecast"] - df["resolved_to"]) ** 2)
+        mask_sanity_check = df_sanity_check.abs() > 1e-8
+        if any(mask_sanity_check):
+            print(df_sanity_check[mask_sanity_check])
+            raise ValueError(f"Sanity Check failed for {f}. Should be close to 0.")
 
         df = resolution.make_columns_hashable(df)
         df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
