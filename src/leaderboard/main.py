@@ -16,7 +16,6 @@ from termcolor import colored
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
     constants,
-    dates,
     decorator,
     env,
     git,
@@ -408,17 +407,6 @@ def get_pairwise_p_values(df, n_replications):
 
 def add_to_leaderboard(leaderboard, org_and_model, df, forecast_due_date):
     """Add scores to the leaderboard."""
-    resolution_dates = df["resolution_date"].unique()
-    forecast_due_date_date = dates.convert_iso_str_to_date(forecast_due_date)
-    for resolution_date in resolution_dates:
-        resolution_date_key = (resolution_date - forecast_due_date_date).days
-        leaderboard_entry = [
-            org_and_model | get_leaderboard_entry(df[df["resolution_date"] == resolution_date])
-        ]
-        leaderboard[resolution_date_key] = (
-            leaderboard.get(resolution_date_key, []) + leaderboard_entry
-        )
-
     leaderboard_entry = [org_and_model | get_leaderboard_entry(df)]
     leaderboard["overall"] = leaderboard.get("overall", []) + leaderboard_entry
 
@@ -461,7 +449,7 @@ def add_to_llm_and_human_leaderboard(leaderboard, org_and_model, df, forecast_du
 
 
 def add_to_llm_and_human_combo_leaderboards(
-    leaderboard_combo, leaderboard_combo_generated, org_and_model, df, forecast_due_date, cache
+    leaderboard_combo, org_and_model, df, forecast_due_date, cache
 ):
     """Parse the forecasts to include only those questions that were in the human question set."""
     download_question_set_save_in_cache(forecast_due_date, cache)
@@ -575,20 +563,6 @@ def add_to_llm_and_human_combo_leaderboards(
 
     leaderboard_combo = add_to_leaderboard(
         leaderboard=leaderboard_combo,
-        org_and_model=org_and_model,
-        df=df_only_human_question_set,
-        forecast_due_date=forecast_due_date,
-    )
-
-    if df_from_llm:
-        # This is an LLM set, so only generate combos for leaderboard_combo_generated.
-        # This means the LLMs combo forecasts were used for leaderboard_combo.
-        df_only_human_question_set = generate_combo_forecasts(
-            df_only_human_question_set, forecast_due_date
-        )
-
-    leaderboard_combo_generated = add_to_leaderboard(
-        leaderboard=leaderboard_combo_generated,
         org_and_model=org_and_model,
         df=df_only_human_question_set,
         forecast_due_date=forecast_due_date,
@@ -943,7 +917,6 @@ def driver(_):
     llm_leaderboard = {}
     llm_and_human_leaderboard = {}
     llm_and_human_combo_leaderboard = {}
-    llm_and_human_combo_all_generated_leaderboard = {}
     files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
     files = [file for file in files if file.endswith(".json")]
     logger.info(f"Have access to {env.NUM_CPUS}.")
@@ -1001,7 +974,6 @@ def driver(_):
 
         add_to_llm_and_human_combo_leaderboards(
             llm_and_human_combo_leaderboard,
-            llm_and_human_combo_all_generated_leaderboard,
             org_and_model,
             df,
             forecast_due_date,
@@ -1017,40 +989,24 @@ def driver(_):
         # df["z_score_wrt_naive_mean"] = (df["overall"] - naive_baseline_mean) / naive_std_dev
         return df
 
-    def is_numeric(s):
-        try:
-            float(s)
-            return True
-        except ValueError:
-            return False
-
-    tasks = []
-    for key in llm_leaderboard:
-        if not is_numeric(key):
-            # Only make overall tables for now
-            title = "Leaderboard: " + (f"{key} day" if is_numeric(key) else "overall")
-            tasks.append(
-                {
-                    "d": llm_leaderboard[key],
-                    "title": title,
-                    "basename": f"leaderboard_{key}",
-                }
-            )
-            if key in llm_and_human_leaderboard:
-                tasks.append(
-                    {
-                        "d": llm_and_human_leaderboard[key],
-                        "title": f"Human {title}",
-                        "basename": f"human_leaderboard_{key}",
-                    }
-                )
-                tasks.append(
-                    {
-                        "d": llm_and_human_combo_leaderboard[key],
-                        "title": f"Human Combo {title}",
-                        "basename": f"human_combo_leaderboard_{key}",
-                    }
-                )
+    title = "Leaderboard: overall"
+    tasks = [
+        {
+            "d": llm_leaderboard["overall"],
+            "title": title,
+            "basename": "leaderboard_overall",
+        },
+        {
+            "d": llm_and_human_leaderboard["overall"],
+            "title": f"Human {title}",
+            "basename": "human_leaderboard_overall",
+        },
+        {
+            "d": llm_and_human_combo_leaderboard["overall"],
+            "title": f"Human Combo {title}",
+            "basename": "human_combo_leaderboard_overall",
+        },
+    ]
 
     logger.info(f"Using {env.NUM_CPUS} cpus for worker pool.")
     with Pool(processes=env.NUM_CPUS) as pool:
