@@ -481,7 +481,7 @@ def add_to_llm_and_human_leaderboard(leaderboard, org_and_model, df, forecast_du
 
 
 def add_to_llm_and_human_combo_leaderboards(
-    leaderboard_combo, org_and_model, df, forecast_due_date, cache
+    leaderboard_combo, org_and_model, df, forecast_due_date, cache, is_human_forecast_set
 ):
     """Parse the forecasts to include only those questions that were in the human question set."""
     download_question_set_save_in_cache(forecast_due_date, cache)
@@ -497,7 +497,7 @@ def add_to_llm_and_human_combo_leaderboards(
             df_source = df_human_question_set[df_human_question_set["source"] == source]
             if {id0, id1}.issubset(df_source["id"]):
                 human_possible_combos.append({"source": source, "id": row["id"]})
-            cache[forecast_due_date]["combos"] = human_possible_combos
+        cache[forecast_due_date]["combos"] = human_possible_combos
     human_combos = cache[forecast_due_date]["combos"].copy()
 
     df_only_human_question_set = pd.merge(
@@ -506,11 +506,8 @@ def add_to_llm_and_human_combo_leaderboards(
         on=["id", "source"],
     ).reset_index(drop=True)
 
-    # Is this a human forecast set or an llm set (human sets don't have any combo forecasts)
-    df_from_llm = df["id"].apply(resolution.is_combo).any()
-
     # Add pertinent combos from llm forecast file to llm df
-    if df_from_llm:
+    if not is_human_forecast_set:
         df_llm_combos = df[
             df.apply(
                 lambda row: (row["id"], row["source"])
@@ -586,9 +583,8 @@ def add_to_llm_and_human_combo_leaderboards(
                     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         return df
 
-    if not df_from_llm:
-        # This is a human forecast set. Hence combos need to be generated for both leaderboard_
-        # combo and leaderboard_combo_generated.
+    if is_human_forecast_set:
+        # This is a human forecast set. Hence combos need to be generated for leaderboard_combo.
         df_only_human_question_set = generate_combo_forecasts(
             df_only_human_question_set, forecast_due_date
         )
@@ -991,10 +987,10 @@ def driver(_):
         df["forecast_due_date"] = pd.to_datetime(df["forecast_due_date"]).dt.date
 
         org_and_model = {"organization": organization, "model": model}
-        is_human_question_set = (
+        is_human_forecast_set = (
             org_and_model == SUPERFORECASTER_MODEL or org_and_model == GENERAL_PUBLIC_MODEL
         )
-        if not is_human_question_set:
+        if not is_human_forecast_set:
             add_to_llm_leaderboard(llm_leaderboard, org_and_model, df, forecast_due_date)
         add_to_llm_and_human_leaderboard(
             llm_and_human_leaderboard,
@@ -1010,6 +1006,7 @@ def driver(_):
             df,
             forecast_due_date,
             cache,
+            is_human_forecast_set,
         )
 
     def get_z_score(df):
