@@ -334,12 +334,44 @@ def get_pairwise_p_values(df, n_replications):
         )
         df_merged = df_merged[["id", "source", "resolved", "score_comparison", "score_best"]]
 
-        assert len(df_best) == len(df_comparison) and len(df_best) == len(df_merged), (
-            "Problem with merge in `get_pairwise_p_values()`. Comparing org: "
-            f"{df.at[index, 'organization']}, model: {df.at[index, 'model']} "
-            f"n_best: {len(df_best)}, n_comparison: {len(df_comparison)}, "
-            f"n_merged: {len(df_merged)}"
-        )
+        if not (len(df_best) == len(df_comparison) and len(df_best) == len(df_merged)):
+            missing_in_comparison = df_best.merge(
+                df_comparison,
+                on=[
+                    "id",
+                    "source",
+                    "direction",
+                    "forecast_due_date",
+                    "resolved",
+                    "resolution_date",
+                ],
+                how="left",
+                indicator=True,
+            ).query('_merge == "left_only"')
+
+            missing_in_best = df_comparison.merge(
+                df_best,
+                on=[
+                    "id",
+                    "source",
+                    "direction",
+                    "forecast_due_date",
+                    "resolved",
+                    "resolution_date",
+                ],
+                how="left",
+                indicator=True,
+            ).query('_merge == "left_only"')
+
+            print(missing_in_comparison)
+            print(missing_in_best)
+
+            raise ValueError(
+                "Problem with merge in `get_pairwise_p_values()`. Comparing org: "
+                f"{df.at[index, 'organization']}, model: {df.at[index, 'model']} "
+                f"n_best: {len(df_best)}, n_comparison: {len(df_comparison)}, "
+                f"n_merged: {len(df_merged)}"
+            )
 
         df_merged_data = df_merged[
             (df_merged["source"].isin(resolution.DATA_SOURCES)) & df_merged["resolved"].astype(bool)
