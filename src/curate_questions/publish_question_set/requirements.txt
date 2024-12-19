@@ -3,3 +3,4 @@ google-cloud-secret-manager
 GitPython
 pandas
 tqdm
+scipy

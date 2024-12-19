@@ -35,12 +35,18 @@ def create_resolution_file(dff, page, wid, question_key: pd.Series):
         mask &= dff[field_name] == question_key[field_name]
 
     df = dff[mask].copy()
+    if df["date"].max().date() < constants.QUESTION_BANK_DATA_STORAGE_START_DATE:
+        # Fetching more data than we need for naive forecasts. Don't need to create resolution
+        # files for events that are no longer current
+        return None
+
     df.rename(columns={id_field: "id", value_field: "value"}, inplace=True)
     df["id"] = wid
 
     # The case where some item has dropped off the list, mark as resolved
     if max_date > df["date"].max():
         all_dates = dff["date"].sort_values().unique()
+        all_dates = all_dates[all_dates >= constants.QUESTION_BANK_DATA_STORAGE_START_DATETIME]
         df_dates = df["date"].unique()
         resolved_date = next(date for date in all_dates if date not in df_dates)
         df_new_row = pd.DataFrame(
@@ -54,6 +60,7 @@ def create_resolution_file(dff, page, wid, question_key: pd.Series):
         )
         df = pd.concat([df, df_new_row], ignore_index=True)
     df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+    df = df.sort_values(by="date")
 
     local_filename = f"/tmp/{wid}.jsonl"
     df.to_json(local_filename, orient="records", lines=True, date_format="iso")
@@ -138,13 +145,14 @@ def update_page_questions(page, dfq, dff):
         wid = wikipedia.id_hash(id_root=question_id_root, id_field_value=id_field_value_for_wid)
         try:
             dfr = create_resolution_file(dff=dff, page=page, wid=wid, question_key=row)
-            dfq = add_to_dfq(
-                dfq=dfq,
-                dfr=dfr,
-                page=page,
-                wid=wid,
-                id_field_value=row[page["fields"]["id"]],
-            )
+            if dfr is not None:
+                dfq = add_to_dfq(
+                    dfq=dfq,
+                    dfr=dfr,
+                    page=page,
+                    wid=wid,
+                    id_field_value=row[page["fields"]["id"]],
+                )
         except Exception as e:
             logger.warning(f"Couldn't add {question_id_root} {wid}: {row}")
             logger.warning(f"Exception encountered: {e}")

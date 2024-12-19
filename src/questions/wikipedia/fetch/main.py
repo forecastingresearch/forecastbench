@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, decorator, env, wikipedia  # noqa: E402
+from helpers import data_utils, decorator, env, wikipedia  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -27,7 +27,7 @@ def get_edit_history_urls(page_title):
     """Get the edit history of a wikipedia page.
 
     Get the last edit of the day for each day between today and
-    constants.QUESTION_BANK_DATA_STORAGE_START_DATE
+    wikipedia.WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE
     """
     base_history_url = (
         f"https://en.wikipedia.org/w/index.php?title={page_title}&action=history&limit=20"
@@ -53,7 +53,7 @@ def get_edit_history_urls(page_title):
                 edit_history.append((edit_date, edit_url))
                 last_seen_dates.add(edit_date.date())
 
-            if edit_date.date() <= constants.QUESTION_BANK_DATA_STORAGE_START_DATE:
+            if edit_date.date() <= wikipedia.WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE:
                 return edit_history
 
         next_page = soup.find("a", {"class": "mw-nextlink"})

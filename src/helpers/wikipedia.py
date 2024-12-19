@@ -11,6 +11,7 @@ from enum import Enum
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 from tqdm import tqdm
 
 from . import constants, dates, env
@@ -20,6 +21,13 @@ from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATETIME = (
+    constants.QUESTION_BANK_DATA_STORAGE_START_DATETIME - timedelta(days=360 * 4)
+)
+WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE = (
+    WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATETIME.date()
+)
 
 source = "wikipedia"
 
@@ -299,6 +307,7 @@ def clean_FIDE_rankings(df):
 
     Fix inconsistent player names.
     """
+    df = df[~df["Player"].str.contains("Change from the previous month")].copy()
     replacements = {
         "Gukesh D.": "Gukesh Dommaraju",
         "Gukesh D": "Gukesh Dommaraju",
@@ -308,6 +317,69 @@ def clean_FIDE_rankings(df):
     }
     df["Player"] = df["Player"].replace(replacements)
     return df
+
+
+def get_probability_forecast(mid, comparison_value, forecast_mean, forecast_std):
+    """Get forecast based on question type.
+
+    Used for the naive forecaster.
+    """
+    question_type = get_question_type(mid)
+    if pd.isna(question_type):
+        raise ValueError(f"Wikipedia: Should not encounter nan question type: {mid}.")
+
+    if question_type == QuestionType.SAME_OR_MORE or question_type == QuestionType.MORE:
+        return 1 - norm.cdf(comparison_value, loc=forecast_mean, scale=forecast_std)
+    elif question_type == QuestionType.SAME_OR_LESS:
+        return norm.cdf(comparison_value, loc=forecast_mean, scale=forecast_std)
+    elif question_type == QuestionType.ONE_PERCENT_MORE:
+        return 1 - norm.cdf(comparison_value * 1.01, loc=forecast_mean, scale=forecast_std)
+    elif question_type == QuestionType.SAME:
+        # For exact equality, use a small epsilon
+        # If swimming or infection disease data (which is binary)
+        epsilon = (
+            0.5
+            if get_id_root(mid)
+            in [
+                "List_of_world_records_in_swimming",
+                "List_of_infectious_diseases",
+            ]
+            else 0.001 * comparison_value
+        )
+        return norm.cdf(
+            comparison_value + epsilon, loc=forecast_mean, scale=forecast_std
+        ) - norm.cdf(comparison_value - epsilon, loc=forecast_mean, scale=forecast_std)
+    raise ValueError("Invalid QuestionType")
+
+
+def get_min_max_possible_value(mid):
+    """Return the min/max possible values for this question type.
+
+    Used by the naive forecaster.
+    """
+    d = id_unhash(mid)
+    if d is None:
+        raise ValueError(f"Could not unhash {mid}.")
+
+    id_root = d["id_root"]
+    if id_root == "FIDE_rankings_elo_rating":
+        return 0, 2950
+
+    if id_root == "FIDE_rankings_ranking":
+        # we only look at the top 20, so putting 1000 as the worst ranking gives enough space for
+        # Prophet to move.
+        return 1, 1000
+
+    if id_root in [
+        "List_of_world_records_in_swimming",
+        "List_of_infectious_diseases",
+    ]:
+        # The min/max values are 0,1 as it's really a dummy variable:
+        # * the swimmer has a WR or they don't
+        # * the vaccine has either been created or it hasn't
+        return 0, 1
+
+    raise ValueError(f"Could not find min/max for {id_root}.")
 
 
 def clean_List_of_world_records_in_swimming(df):
@@ -331,6 +403,8 @@ def clean_List_of_infectious_diseases(df):
     """
     duplicates = df[df.duplicated(subset=["date", "Common name"], keep=False)]
     df = df.drop(duplicates.index).reset_index(drop=True)
+    # On and before this date the `"Vaccine(s)"` field had other info in it.
+    df = df[df["date"] > pd.Timestamp("2021-07-07")]
     df["Vaccine(s)"] = df["Vaccine(s)"].replace(
         {
             r"Under research.*": "No",
@@ -355,6 +429,60 @@ def is_resolved_List_of_infectious_diseases(value):
 def get_value_List_of_infectious_diseases(value):
     """Return Yes/No instead of 1/0."""
     return "Yes" if value else "No"
+
+
+def get_question_type(mid):
+    """Retun the question type given mid."""
+    d = id_unhash(mid)
+    if d is None:
+        logger.warn(f"Wikipedia: could NOT unhash {mid}")
+        return np.nan
+
+    question_type = [q["question_type"] for q in PAGES if q["id_root"] == d["id_root"]]
+    if len(question_type) != 1:
+        logger.error(
+            f"Nullifying Wikipedia market {mid}. Couldn't find comparison type "
+            "(should not arrive here)."
+        )
+        return np.nan
+
+    return question_type[0]
+
+
+def get_id_root(mid):
+    """Return the id_root given the mid."""
+    d = id_unhash(mid)
+    if d is None:
+        logger.warn(f"Wikipedia: could NOT unhash {mid}")
+        return np.nan
+    return d["id_root"]
+
+
+def backfill_for_forecast(mid, dfr):
+    """Backfill dfr provided mid.
+
+    This is only used for the naive forecaster.
+    """
+    if get_id_root(mid) != "List_of_world_records_in_swimming":
+        return dfr
+
+    min_datetime = dfr["date"].min()
+    if min_datetime.date() > WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE:
+        fill_dates = pd.date_range(
+            start=WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+            end=min_datetime - pd.Timedelta(days=1),
+            freq="D",
+        )
+        fill_df = pd.DataFrame(
+            {
+                "date": fill_dates,
+                "value": None,
+                "id": dfr["id"].iloc[0],  # Use the same ID as existing data
+            }
+        )
+        dfr = pd.concat([fill_df, dfr]).sort_values("date")
+
+    return dfr
 
 
 def resolve(mid, dfr, forecast_due_date, resolution_date):

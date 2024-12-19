@@ -8,7 +8,7 @@ import sys
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dbnomics, decorator, env  # noqa: E402
+from helpers import constants, data_utils, dates, dbnomics, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
@@ -69,8 +69,18 @@ def _construct_questions(dff, dfq):
             f"{url}."
         )
         freeze_datetime_value_explanation = row["freeze_datetime_value_explanation"]
-        values = dff[dff["id"] == id]["value"]
-        if (values.tail(observations_without_data) != "NA").any():
+        series_values = dff[dff["id"] == id]["value"]
+        series_dates = pd.to_datetime(dff[dff["id"] == id]["period"])
+
+        last_fetch_date = series_dates.iloc[-1]
+        last_fetch_value = series_values.iloc[-1]
+        freeze_datetime_value = (
+            float(last_fetch_value)
+            if last_fetch_date.date() > dates.get_date_yesterday() and last_fetch_value != "NA"
+            else "N/A"
+        )
+
+        if (series_values.tail(observations_without_data) != "NA").any():
             new_row = {
                 "id": id,
                 "question": question,
@@ -82,7 +92,7 @@ def _construct_questions(dff, dfq):
                 "market_info_resolution_datetime": "N/A",
                 "resolved": False,
                 "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
-                "freeze_datetime_value": float(values[values != "NA"].iloc[-1]),
+                "freeze_datetime_value": freeze_datetime_value,
                 "freeze_datetime_value_explanation": freeze_datetime_value_explanation,
             }
             new_row = pd.DataFrame([new_row])
@@ -94,7 +104,7 @@ def _construct_questions(dff, dfq):
                 )
             else:
                 dfq.loc[dfq["id"] == id, "freeze_datetime_value"] = float(
-                    values[values != "NA"].iloc[-1]
+                    series_values[series_values != "NA"].iloc[-1]
                 )
     new_series = new_series if new_series is not None else pd.DataFrame()
     return new_series

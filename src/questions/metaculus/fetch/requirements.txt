@@ -5,3 +5,4 @@ pyarrow
 backoff
 certifi
 tqdm
+scipy

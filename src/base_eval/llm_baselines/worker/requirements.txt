@@ -21,3 +21,4 @@ google-cloud-artifact-registry
 google-cloud-run
 slack_sdk
 GitPython
+scipy

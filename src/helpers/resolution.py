@@ -151,6 +151,8 @@ def make_resolution_df(source):
                 desc=f"downloading `{source}` resolution files",
             )
         )
+        executor.shutdown(wait=True)
+
     df = pd.concat(dfs, ignore_index=True)
     df = make_columns_hashable(df)
     df["date"] = pd.to_datetime(df["date"])
@@ -245,17 +247,21 @@ def download_and_read_question_set_file(filename, run_locally=False):
     """Download question set file."""
     local_filename = filename
     if not run_locally:
-        local_filename = "/tmp/tmp.json"
-        if os.path.exists(local_filename):
-            os.remove(local_filename)
+        with tempfile.NamedTemporaryFile(dir="/tmp/", delete=False) as tmp:
+            local_filename = tmp.name
         gcp.storage.download(
-            bucket_name=env.QUESTION_SETS_BUCKET, filename=filename, local_filename=local_filename
+            bucket_name=env.QUESTION_SETS_BUCKET,
+            filename=filename,
+            local_filename=local_filename,
         )
 
     questions = None
     with open(local_filename, "r", encoding="utf-8") as f:
         data = json.load(f)
         questions = data.get("questions")
+
+    if not run_locally:
+        os.remove(local_filename)
 
     if questions is None:
         raise ValueError(

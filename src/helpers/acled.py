@@ -7,6 +7,7 @@ import sys
 from datetime import timedelta
 from enum import Enum
 
+import numpy as np
 import pandas as pd
 
 from . import data_utils, env
@@ -151,6 +152,57 @@ class QuestionType(Enum):
     N_30_DAYS_X_10_GT_30_DAY_AVG_OVER_PAST_360_DAYS_PLUS_1 = 1
 
 
+def get_forecast(comparison_value, dfr, country, col, ref_date):
+    """Retrun the LHS of the comparison for the question.
+
+    Used for the naive forecaster.
+    """
+    dfr["country"] = country
+    dfr[col] = dfr["yhat"]
+    dfr["event_date"] = dfr["ds"]
+    start_date = ref_date - timedelta(days=30)
+    dfr = dfr[
+        (dfr["event_date"].dt.date >= start_date) & (dfr["event_date"].dt.date < ref_date)
+    ].reset_index(drop=True)
+    simulated_values = []
+    dates = [pd.to_datetime(ref_date) - timedelta(days=i) for i in range(len(dfr))]
+    for _ in range(1000):
+        draws = np.random.normal(dfr[col], (dfr["yhat_upper"] - dfr["yhat_lower"]) / (2 * 1.28))
+        df_draws = pd.DataFrame(
+            {
+                "country": country,
+                "event_date": dates,
+                col: draws,
+            }
+        )
+        simulated_values.append(
+            sum_over_past_30_days(
+                dfr=df_draws,
+                country=country,
+                col=col,
+                ref_date=ref_date,
+            )
+        )
+
+    return float(np.mean([value > comparison_value for value in simulated_values]))
+
+
+def get_base_comparison_value(key, dfr, country, col, ref_date):
+    """Get the base comparison value given the question type.
+
+    Used for the naive forecaster and resolve.
+    """
+    if key == "last30Days.gt.30DayAvgOverPast360Days":
+        return thirty_day_avg_over_past_360_days(
+            dfr=dfr, country=country, col=col, ref_date=ref_date
+        )
+    elif key == "last30DaysTimes10.gt.30DayAvgOverPast360DaysPlus1":
+        return 10 * thirty_day_avg_over_past_360_days_plus_1(
+            dfr=dfr, country=country, col=col, ref_date=ref_date
+        )
+    raise ValueError("Invalid key.")
+
+
 def resolve(
     key,
     dfr,
@@ -160,19 +212,19 @@ def resolve(
     resolution_date,
 ):
     """Resolve given the QuestionType."""
-    lhs = sum_over_past_30_days(dfr=dfr, country=country, col=event_type, ref_date=resolution_date)
-
-    if key == "last30Days.gt.30DayAvgOverPast360Days":
-        rhs = thirty_day_avg_over_past_360_days(
-            dfr=dfr, country=country, col=event_type, ref_date=forecast_due_date
-        )
-    elif key == "last30DaysTimes10.gt.30DayAvgOverPast360DaysPlus1":
-        rhs = 10 * thirty_day_avg_over_past_360_days_plus_1(
-            dfr=dfr, country=country, col=event_type, ref_date=forecast_due_date
-        )
-    else:
-        raise ValueError("Invalid key passed to acled.resolve.")
-
+    lhs = sum_over_past_30_days(
+        dfr=dfr,
+        country=country,
+        col=event_type,
+        ref_date=resolution_date,
+    )
+    rhs = get_base_comparison_value(
+        key=key,
+        dfr=dfr,
+        country=country,
+        col=event_type,
+        ref_date=forecast_due_date,
+    )
     return int(lhs > rhs)
 
 

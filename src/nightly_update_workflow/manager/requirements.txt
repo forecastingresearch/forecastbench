@@ -6,3 +6,4 @@ pandas >= 2.2.2
 tqdm
 tabulate
 gcsfs==2024.3.1
+scipy

@@ -9,12 +9,14 @@ from datetime import timedelta
 
 import numpy as np
 import pandas as pd
+import pandas_market_calendars as mcal
+from prophet import Prophet
+from scipy.stats import norm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import (  # noqa: E402
     acled,
     constants,
-    dates,
     decorator,
     env,
     question_sets,
@@ -28,16 +30,36 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+logging.getLogger("cmdstanpy").setLevel(logging.ERROR)
+logging.getLogger("cmdstanpy").propagate = False
+logging.getLogger("prophet").setLevel(logging.ERROR)
+logging.getLogger("prophet").propagate = False
+
 N_WINDOWS_FOR_FORECAST = 100
-SHORT_WINDOW_LENGTH_FOR_FORECAST = 60
-LONG_WINDOW_LENGTH_FOR_FORECAST = 60
+SHORT_WINDOW_LENGTH_FOR_FORECAST = 30
+LONG_WINDOW_LENGTH_FOR_FORECAST = 90
+
+MAX_FORECAST_HORIZON = max(constants.FORECAST_HORIZONS_IN_DAYS)
+
+# The amount of data to remove from the dataset
+# This is because when running on forecast due date, not all data is available until the day before
+# so we can retroactively run the naive forecast
+DATA_OFFSETS = {
+    "acled": 30,
+    "fred": 30,
+}
+
+
+def get_day_before_forecast_due_date(forecast_due_date):
+    """Subtract 1 day from the provided date."""
+    return forecast_due_date - timedelta(days=1)
 
 
 def _helper_split_df(df, source):
     """Split df into source df and standard & combo question df."""
     df_source, df = resolution.split_dataframe_on_source(df=df, source=source)
 
-    combo_mask = df_source["id"].apply(lambda x: resolution.is_combo(x))
+    combo_mask = df_source["id"].apply(resolution.is_combo)
     df_standard = df_source[~combo_mask].copy()
     df_combo = df_source[combo_mask].copy()
 
@@ -50,9 +72,10 @@ def _helper_fill_combo(df_standard, df_combo):
     def update_col(index, id0, id1, dir0, dir1, col):
         value_id0 = df_standard.loc[df_standard["id"] == id0, col].iloc[0]
         value_id1 = df_standard.loc[df_standard["id"] == id1, col].iloc[0]
-        df_combo.at[index, col] = resolution.combo_change_sign(
-            value_id0, dir0
-        ) * resolution.combo_change_sign(value_id1, dir1)
+        df_combo.at[index, col] = get_bounded_forecast(
+            resolution.combo_change_sign(value_id0, dir0)
+            * resolution.combo_change_sign(value_id1, dir1)
+        )
 
     for index, row in df_combo.iterrows():
         id0, id1 = row["id"]
@@ -69,137 +92,178 @@ def _helper_fill_combo(df_standard, df_combo):
     return df_combo
 
 
-def get_wikipedia_forecast(df, dfr):
-    """Return the forecasts for all wikipedia questions in df."""
-    wikipedia.populate_hash_mapping()
-    df, df_standard, df_combo = _helper_split_df(df=df, source="wikipedia")
-    dfr = wikipedia.ffill_dfr(dfr=dfr)
+def get_prophet_forecast(
+    source, df, dfr, day_before_forecast_due_date, prophet_args, forecast_due_date_plus_max_horizon
+):
+    """Get forecast for source from Prophet."""
+    df, df_standard, df_combo = _helper_split_df(df=df, source=source)
 
-    yesterday = dates.get_date_yesterday()
-    resolution_dates = [yesterday - timedelta(days=i) for i in range(N_WINDOWS_FOR_FORECAST)]
+    dfr["value"] = pd.to_numeric(dfr["value"], errors="coerce")
+
+    resolution_dates = sorted(df_standard["resolution_date"].unique())
+
     for mid in df_standard["id"].unique():
-        forecasts = [
-            wikipedia.resolve(
-                mid,
-                dfr,
-                resolution_date - timedelta(days=LONG_WINDOW_LENGTH_FOR_FORECAST),
-                resolution_date,
-            )
-            for resolution_date in resolution_dates
-        ]
-        df_standard.loc[df_standard["id"] == mid, "forecast"] = get_forecast(
-            sum(forecasts) / len(forecasts)
-        )
+        dfr_mid = dfr[dfr["id"] == mid].sort_values(by="date", ignore_index=True).ffill().bfill()
+        comparison_value = dfr_mid["value"].iloc[-1]
+
+        if source == "fred":
+            dfr_mid = dfr_mid[
+                dfr_mid["date"]
+                < day_before_forecast_due_date - timedelta(days=DATA_OFFSETS["fred"])
+            ]
+        prophet_df = dfr_mid.rename(columns={"date": "ds", "value": "y"})
+
+        model = Prophet(**prophet_args)
+        model.fit(prophet_df)
+
+        periods = (forecast_due_date_plus_max_horizon - max(prophet_df["ds"]).date()).days
+        future = model.make_future_dataframe(periods=periods)
+        forecast = model.predict(future)
+        for resolution_date in resolution_dates:
+            row = forecast[forecast["ds"].dt.date == resolution_date]
+
+            forecast_mean = row["yhat"].values[0]
+            lower = row["yhat_lower"].values[0]
+            upper = row["yhat_upper"].values[0]
+            forecast_std = (upper - lower) / (2 * 1.28)
+
+            if source in ["fred", "yfinance"]:
+                # linear interpolation
+                prob_increase = (forecast_mean - lower) / (upper - lower)
+            else:
+                # normal approximation
+                prob_increase = 1 - norm.cdf(
+                    comparison_value, loc=forecast_mean, scale=forecast_std
+                )
+
+            mask = (df_standard["id"] == mid) & (df_standard["resolution_date"] == resolution_date)
+            df_standard.loc[mask, "forecast"] = get_bounded_forecast(prob_increase)
 
     df_combo = _helper_fill_combo(df_standard=df_standard, df_combo=df_combo)
     df = pd.concat([df, df_standard, df_combo], ignore_index=True)
     return df
 
 
-def get_acled_forecast(df, dfr):
+def get_wikipedia_forecast(df, dfr, forecast_due_date_plus_max_horizon):
+    """Return the forecasts for all wikipedia questions in df."""
+    wikipedia.populate_hash_mapping()
+    df, df_standard, df_combo = _helper_split_df(df=df, source="wikipedia")
+
+    resolution_dates = sorted(df_standard["resolution_date"].unique())
+
+    for mid in df_standard["id"].unique():
+        dfr_mid = dfr[dfr["id"] == mid].sort_values(by="date", ignore_index=True)
+
+        dfr_mid = wikipedia.backfill_for_forecast(mid, dfr_mid)
+
+        v = dfr_mid["value"].map(lambda x: isinstance(x, str)).any()
+        if v:
+            dfr_mid["value"] = dfr_mid["value"].apply(lambda x: 0 if pd.isna(x) else 1)
+
+        comparison_value = dfr_mid["value"].iloc[-1]
+
+        prophet_df = dfr_mid.rename(columns={"date": "ds", "value": "y"})
+        floor, carrying_capacity = wikipedia.get_min_max_possible_value(mid)
+        prophet_df["cap"] = carrying_capacity
+        prophet_df["floor"] = floor
+
+        model = Prophet(
+            growth="logistic",
+            yearly_seasonality=True,
+            weekly_seasonality=False,
+            daily_seasonality=False,
+        )
+        model.fit(prophet_df)
+
+        periods = (forecast_due_date_plus_max_horizon - max(prophet_df["ds"]).date()).days
+        future = model.make_future_dataframe(periods=periods)
+        future["cap"] = carrying_capacity
+        future["floor"] = floor
+        forecast = model.predict(future)
+
+        for resolution_date in resolution_dates:
+            row = forecast[forecast["ds"].dt.date == resolution_date]
+
+            forecast_mean = row["yhat"].values[0]
+            forecast_std = (row["yhat_upper"].values[0] - row["yhat_lower"].values[0]) / (2 * 1.28)
+
+            mask = (df_standard["id"] == mid) & (df_standard["resolution_date"] == resolution_date)
+            df_standard.loc[mask, "forecast"] = get_bounded_forecast(
+                wikipedia.get_probability_forecast(
+                    mid,
+                    comparison_value,
+                    forecast_mean,
+                    forecast_std,
+                )
+            )
+
+    df_combo = _helper_fill_combo(df_standard=df_standard, df_combo=df_combo)
+    df = pd.concat([df, df_standard, df_combo], ignore_index=True)
+    return df
+
+
+def get_acled_forecast(df, dfr, day_before_forecast_due_date, forecast_due_date_plus_max_horizon):
     """Return the forecasts for all acled questions in df."""
     acled.populate_hash_mapping()
     df, df_standard, df_combo = _helper_split_df(df=df, source="acled")
 
-    yesterday = dates.get_date_yesterday()
-    resolution_dates = [yesterday - timedelta(days=7 * i) for i in range(N_WINDOWS_FOR_FORECAST)]
+    resolution_dates = sorted(df_standard["resolution_date"].unique())
+
     for mid in df_standard["id"].unique():
         d = acled.id_unhash(mid)
-        forecasts = []
+        country = d["country"]
+        col_event_type = d["event_type"]
+        logger.info(f"Getting ACLED forecast for {mid}.")
+
+        end_date = day_before_forecast_due_date - timedelta(days=DATA_OFFSETS["acled"])
+        comparison_value = acled.get_base_comparison_value(
+            key=d["key"],
+            dfr=dfr,
+            country=country,
+            col=col_event_type,
+            ref_date=end_date.date(),
+        )
+
+        # Fill dfr_country with 0s for event type on days where no events ocurred
+        dfr_country = dfr[dfr["country"] == country]
+        start_date = dfr["event_date"].min()
+
+        date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+        full_df = pd.DataFrame({"event_date": date_range})
+        dfr_mid = pd.merge(
+            full_df, dfr_country[["event_date", col_event_type]], on="event_date", how="left"
+        ).fillna(0)
+        prophet_df = dfr_mid.rename(columns={"event_date": "ds", col_event_type: "y"})
+
+        model = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=False,
+            daily_seasonality=False,
+        )
+        model.fit(prophet_df)
+
+        periods = (forecast_due_date_plus_max_horizon - max(prophet_df["ds"]).date()).days
+        future = model.make_future_dataframe(periods=periods)
+        forecast = model.predict(future)
+
         for resolution_date in resolution_dates:
-            forecast = acled.resolve(
-                **d,
-                dfr=dfr,
-                forecast_due_date=resolution_date - timedelta(days=LONG_WINDOW_LENGTH_FOR_FORECAST),
-                resolution_date=resolution_date,
-            )
-            forecasts += [forecast]
-        df_standard.loc[df_standard["id"] == mid, "forecast"] = get_forecast(
-            sum(forecasts) / len(forecasts)
-        )
-
-    df_combo = _helper_fill_combo(df_standard=df_standard, df_combo=df_combo)
-    df = pd.concat([df, df_standard, df_combo], ignore_index=True)
-    return df
-
-
-def get_fred_forecast(df, dfr):
-    """Return the forecasts for all fred questions in df."""
-    df, df_standard, df_combo = _helper_split_df(df=df, source="fred")
-
-    dfr_tmp = dfr.copy()
-    dfr_tmp["value"] = pd.to_numeric(dfr_tmp["value"], errors="coerce")
-
-    def get_potentially_missing_value(dfr_mid, date):
-        tmp = dfr_mid[dfr_mid["date"] == date]["value"]
-        if len(tmp) == 0:
-            raise
-        return tmp.iloc[0]
-
-    for mid in df_standard["id"].unique():
-        is_updated_daily_or_weekly = len(df_standard[df_standard["id"] == mid]) == len(
-            constants.FORECAST_HORIZONS_IN_DAYS
-        )
-        if is_updated_daily_or_weekly:
-            retval = (
-                dfr_tmp[dfr_tmp["id"] == mid]["value"]
-                .rolling(
-                    window=LONG_WINDOW_LENGTH_FOR_FORECAST,
-                    min_periods=LONG_WINDOW_LENGTH_FOR_FORECAST,
+            mask = (df_standard["id"] == mid) & (df_standard["resolution_date"] == resolution_date)
+            df_standard.loc[mask, "forecast"] = get_bounded_forecast(
+                acled.get_forecast(
+                    comparison_value=comparison_value,
+                    dfr=forecast.copy(),
+                    country=country,
+                    col=col_event_type,
+                    ref_date=resolution_date,
                 )
-                .apply(lambda x: x[-1] > x[0], raw=True)
-                .dropna()
-                .tail(N_WINDOWS_FOR_FORECAST)
             )
-        else:
-            # This is monthly data
-            dfr_mid = dfr_tmp[dfr_tmp["id"] == mid].copy()
-            date_max = dfr_mid["date"].max()
-            retval = np.array([])
-            for i in range(N_WINDOWS_FOR_FORECAST):
-                date = date_max - timedelta(days=LONG_WINDOW_LENGTH_FOR_FORECAST * i)
-                try:
-                    resolution_val = get_potentially_missing_value(dfr_mid=dfr_mid, date=date)
-                    forecast_val = get_potentially_missing_value(
-                        dfr_mid=dfr_mid, date=date - timedelta(days=LONG_WINDOW_LENGTH_FOR_FORECAST)
-                    )
-                    retval = np.append(retval, resolution_val > forecast_val)
-                    if len(retval) == N_WINDOWS_FOR_FORECAST:
-                        break
-                except Exception:
-                    break
-        df_standard.loc[df_standard["id"] == mid, "forecast"] = get_forecast(retval.mean())
 
     df_combo = _helper_fill_combo(df_standard=df_standard, df_combo=df_combo)
     df = pd.concat([df, df_standard, df_combo], ignore_index=True)
     return df
 
 
-def get_dbnomics_yfinance_forecast(df, dfr, source):
-    """Return the forecasts for dbnomics and yfinance questions in df."""
-    df, df_standard, df_combo = _helper_split_df(df=df, source=source)
-
-    dfr_tmp = dfr.copy()
-    dfr_tmp["value"] = pd.to_numeric(dfr_tmp["value"], errors="coerce")
-
-    for mid in df_standard["id"].unique():
-        retval = (
-            dfr_tmp[dfr_tmp["id"] == mid]["value"]
-            .rolling(
-                window=LONG_WINDOW_LENGTH_FOR_FORECAST, min_periods=SHORT_WINDOW_LENGTH_FOR_FORECAST
-            )
-            .apply(lambda x: x[-1] > x[0], raw=True)
-            .dropna()
-            .tail(N_WINDOWS_FOR_FORECAST)
-        )
-        df_standard.loc[df_standard["id"] == mid, "forecast"] = get_forecast(retval.mean())
-
-    df_combo = _helper_fill_combo(df_standard=df_standard, df_combo=df_combo)
-    df = pd.concat([df, df_standard, df_combo], ignore_index=True)
-    return df
-
-
-def get_forecast(mean):
+def get_bounded_forecast(mean):
     """
     Cap the min and max possible forecasts.
 
@@ -210,21 +274,104 @@ def get_forecast(mean):
     return 0.05 if mean < 0.05 else 0.95 if mean > 0.95 else float(mean)
 
 
-def get_dataset_forecasts(source, df, dfr):
+def get_market_holidays(start_date, end_date):
+    """Return a list of market holidays (federal and weekend) for NYSE/Nasdaq."""
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+
+    nyse = mcal.get_calendar("NYSE")
+    holidays = [h for h in nyse.holidays().holidays if h >= start_date and h <= end_date]
+    df_holidays = pd.DataFrame(
+        {
+            "ds": holidays,
+            "holiday": "Market Holiday",
+        }
+    )
+
+    all_dates = pd.date_range(start=start_date, end=end_date)
+    weekends = [np.datetime64(d, "D") for d in all_dates if d.weekday() >= 5]
+    df_weekends = pd.DataFrame(
+        {
+            "ds": weekends,
+            "holiday": "Weekend",
+        }
+    )
+
+    return pd.concat([df_weekends, df_holidays])
+
+
+def get_dataset_forecasts(source, df, dfr, forecast_due_date):
     """Generate forecasts for all data questions from `source`."""
     logger.info(f"Getting forecasts for {source}")
-    if source == "acled":
-        return get_acled_forecast(df=df, dfr=dfr)
-    elif source == "fred":
-        return get_fred_forecast(df=df, dfr=dfr)
+
+    def remove_newer_dates_from_dfr(dfr, day_before_forecast_due_date):
+        return dfr[dfr["date"] <= day_before_forecast_due_date].copy()
+
+    day_before_forecast_due_date = get_day_before_forecast_due_date(forecast_due_date)
+    forecast_due_date_plus_max_horizon = (
+        forecast_due_date + timedelta(days=MAX_FORECAST_HORIZON)
+    ).date()
+    if source in [
+        "dbnomics",
+        "fred",
+        "yfinance",
+    ]:
+        dfr = remove_newer_dates_from_dfr(dfr, day_before_forecast_due_date)
+
+    if source in ["dbnomics", "fred", "yfinance"]:
+        if source == "fred":
+            prophet_args = {
+                "yearly_seasonality": True,
+                "weekly_seasonality": True,
+                "daily_seasonality": False,
+            }
+        elif source == "dbnomics":
+            prophet_args = {
+                "changepoint_prior_scale": 0.05,
+                "seasonality_mode": "multiplicative",
+                "yearly_seasonality": True,
+                "weekly_seasonality": False,
+                "daily_seasonality": False,
+            }
+        elif source == "yfinance":
+            prophet_args = {
+                "changepoint_prior_scale": 0.1,
+                "holidays": get_market_holidays(
+                    start_date=dfr["date"].min(),
+                    end_date=forecast_due_date_plus_max_horizon,
+                ),
+                "yearly_seasonality": True,
+                "weekly_seasonality": True,
+                "daily_seasonality": False,
+            }
+
+        return get_prophet_forecast(
+            source=source,
+            df=df,
+            dfr=dfr,
+            day_before_forecast_due_date=day_before_forecast_due_date,
+            prophet_args=prophet_args,
+            forecast_due_date_plus_max_horizon=forecast_due_date_plus_max_horizon,
+        )
+    elif source == "acled":
+        return get_acled_forecast(
+            df=df,
+            dfr=dfr,
+            day_before_forecast_due_date=day_before_forecast_due_date,
+            forecast_due_date_plus_max_horizon=forecast_due_date_plus_max_horizon,
+        )
     elif source == "wikipedia":
-        return get_wikipedia_forecast(df=df, dfr=dfr)
-    elif source in ["dbnomics", "yfinance"]:
-        return get_dbnomics_yfinance_forecast(df=df, dfr=dfr, source=source)
-    else:
-        msg = f"Unknown source: {source}"
-        logger.error(msg)
-        raise ValueError(msg)
+        dfr = wikipedia.ffill_dfr(dfr=dfr)
+        dfr = remove_newer_dates_from_dfr(dfr, day_before_forecast_due_date)
+        return get_wikipedia_forecast(
+            df=df,
+            dfr=dfr,
+            forecast_due_date_plus_max_horizon=forecast_due_date_plus_max_horizon,
+        )
+
+    msg = f"Unknown source: {source}"
+    logger.error(msg)
+    raise ValueError(msg)
 
 
 def prepare_df_and_set_null_values(df, forecast_due_date, last_date_for_data):
@@ -335,8 +482,8 @@ def driver(_):
     logger.info("Downloading latest data...")
     resolution_values = resolution.get_and_pickle_resolution_values(
         filename="resolution_values.pkl",
-        sources_to_get=resolution.DATA_SOURCES,
-        save_pickle_file=False,
+        # sources_to_get=resolution.DATA_SOURCES,
+        # save_pickle_file=True,
     )
     logger.info("Done downloading data.")
 
@@ -350,7 +497,10 @@ def driver(_):
     logger.info(f"Generating naive forecast for {forecast_due_date.strftime('%Y-%m-%d')}...")
     for source in resolution.DATA_SOURCES:
         df = get_dataset_forecasts(
-            source=source, df=df.copy(), dfr=resolution_values[source]["dfr"].copy()
+            source=source,
+            df=df.copy(),
+            dfr=resolution_values[source]["dfr"].copy(),
+            forecast_due_date=forecast_due_date,
         )
 
     df = df[["id", "source", "forecast", "resolution_date", "reasoning", "direction"]]
