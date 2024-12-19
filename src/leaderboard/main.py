@@ -557,8 +557,8 @@ def add_to_llm_and_human_combo_leaderboards(
                             is_resolved1=df_forecast1_tmp["resolved"].iloc[0],
                             dir0=dir0,
                             dir1=dir1,
-                            resolution0=df_forecast0_tmp["resolved_to"].iloc[0],
-                            resolution1=df_forecast1_tmp["resolved_to"].iloc[0],
+                            resolved_to0=df_forecast0_tmp["resolved_to"].iloc[0],
+                            resolved_to1=df_forecast1_tmp["resolved_to"].iloc[0],
                         )
                         if source in resolution.MARKET_SOURCES
                         else True

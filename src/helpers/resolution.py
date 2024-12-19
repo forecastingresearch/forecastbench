@@ -8,6 +8,7 @@ import sys
 import tempfile
 from typing import Union
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -58,29 +59,38 @@ def is_combo(row):
     raise ValueError(f"Problem in `is_combo` with {row}. This type is not handled: {type(row)}")
 
 
-def _is_combo_question_resolved_helper(is_resolved, direction, resolution):
+def _is_combo_question_resolved_helper(is_resolved, direction, resolved_to):
     """Determine whether or not a combo question has resolved for a single direction."""
-    if is_resolved and ((direction == 1 and not resolution) or (direction == -1 and resolution)):
-        return True
-    return False
+    return is_resolved and (
+        (direction == 1 and not resolved_to) or (direction == -1 and resolved_to)
+    )
 
 
-def is_combo_question_resolved(is_resolved0, is_resolved1, dir0, dir1, resolution0, resolution1):
+def is_combo_question_resolved(is_resolved0, is_resolved1, dir0, dir1, resolved_to0, resolved_to1):
     """Determine whether or not a combo question has resolved.
 
-    Combo questions are asked in 4 directions: (1,1), (1,-1), (-1,1), (-1,-1). If q2 has resolved,
-    then 2 of the directions have resolved as well. e.g. if q2 resolves No, then questions with
-    directions (1,1) and (-1,1) have resolved to 0. No matter the outcome of q1, the score for these
-    two questions will not change.
+    Combo questions are asked in 4 directions: (1,1), (1,-1), (-1,1), (-1,-1).
+
+    If neither question has resolved, the combo question has not resolved. If both have resolved,
+    the combo question has resolved.
+
+    However, if only one question has resolved, then 2 of the 4 directions of the combo question
+    have resolved. e.g. if q2 resolves No, then questions with directions (1,1) and (-1,1) have
+    resolved to 0; no matter the outcome of q1, the score for these two questions will not change.
     """
-    return _is_combo_question_resolved_helper(
-        is_resolved=is_resolved0,
-        direction=dir0,
-        resolution=resolution0,
-    ) or _is_combo_question_resolved_helper(
-        is_resolved=is_resolved1,
-        direction=dir1,
-        resolution=resolution1,
+    if (is_resolved0 and is_resolved1) or np.isnan(resolved_to0) or np.isnan(resolved_to1):
+        return True
+    return bool(
+        _is_combo_question_resolved_helper(
+            is_resolved=is_resolved0,
+            direction=dir0,
+            resolved_to=resolved_to0,
+        )
+        or _is_combo_question_resolved_helper(
+            is_resolved=is_resolved1,
+            direction=dir1,
+            resolved_to=resolved_to1,
+        )
     )
 
 

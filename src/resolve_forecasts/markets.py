@@ -127,8 +127,8 @@ def resolve(source, df, dfq, dfr):
             is_resolved1=id1_data["resolved"],
             dir0=dir0,
             dir1=dir1,
-            resolution0=id0_data["resolved_to"],
-            resolution1=id1_data["resolved_to"],
+            resolved_to0=id0_data["resolved_to"],
+            resolved_to1=id1_data["resolved_to"],
         )
 
     df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
