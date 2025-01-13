@@ -189,7 +189,13 @@ def clean_List_of_infectious_diseases(df):
     duplicates = df[df.duplicated(subset=["date", "Common name"], keep=False)]
     df = df.drop(duplicates.index).reset_index(drop=True)
     df["Vaccine(s)"] = df["Vaccine(s)"].replace(
-        {r"Under research.*": "No", r"Yes.*": "Yes", r"No.*": "No"}, regex=True
+        {
+            r"Under research.*": "No",
+            r"Under Development.*": "No",
+            r"Yes.*": "Yes",
+            r"No.*": "No",
+        },
+        regex=True,
     )
     df.loc[df["Vaccine(s)"] == "No", "Vaccine(s)"] = 0
     df.loc[df["Vaccine(s)"] == "Yes", "Vaccine(s)"] = 1
