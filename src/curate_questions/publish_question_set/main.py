@@ -28,6 +28,7 @@ def driver(_):
     local_folder = f"/tmp/{remote_folder}"
     forecast_due_date = dates.get_date_today_as_iso()
     question_sets = gcp.storage.list(bucket_name=env.QUESTION_SETS_BUCKET)
+    question_set_found = False
     for question_set in question_sets:
         if question_set == f"{forecast_due_date}-llm.json":
             logger.info(f"Found {question_set}. Downloading and pushing to git.")
@@ -51,7 +52,13 @@ def driver(_):
                 },
                 commit_message=f"publish {question_set}.",
             )
+            question_set_found = True
             break
+
+    if not question_set_found:
+        raise FileNotFoundError(
+            f"Question set for date {forecast_due_date} not found in bucket {env.QUESTION_SETS_BUCKET}"
+        )
 
     logger.info("Done.")
 
