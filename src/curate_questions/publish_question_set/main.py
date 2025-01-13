@@ -42,6 +42,8 @@ def driver(_):
 
             # Create latest-llm.json soft link
             soft_link_filename = f"{local_folder}/latest-llm.json"
+            if os.path.exists(soft_link_filename):
+                os.remove(soft_link_filename)
             os.symlink(question_set, soft_link_filename)
 
             git.clone_and_push_files(
