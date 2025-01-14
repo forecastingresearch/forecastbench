@@ -20,7 +20,7 @@ source = "wikipedia"
 filenames = data_utils.generate_filenames(source=source)
 
 
-def create_resolution_file(dff, page, wid, id_field_value):
+def create_resolution_file(dff, page, wid, question_key: pd.Series):
     """Create the resolution file. Overwrite it every time.
 
     filename is: `{source}/{wid}.jsonl`
@@ -30,7 +30,11 @@ def create_resolution_file(dff, page, wid, id_field_value):
     id_field = page["fields"]["id"]
     value_field = page["fields"]["value"]
 
-    df = dff[dff[id_field] == id_field_value].copy()
+    mask = pd.Series(True, index=dff.index)
+    for field_name in question_key.index:
+        mask &= dff[field_name] == question_key[field_name]
+
+    df = dff[mask].copy()
     df.rename(columns={id_field: "id", value_field: "value"}, inplace=True)
     df["id"] = wid
 
@@ -126,14 +130,23 @@ def update_page_questions(page, dfq, dff):
     question_id_root = page.get("id_root")
     logger.info(f"Updating questions for for {question_id_root}.")
 
-    id_field = page["fields"]["id"]
-    for id_field_value in dff[id_field].unique():
-        wid = wikipedia.id_hash(id_root=question_id_root, id_field_value=id_field_value)
+    # The `key` field of each page contains the unique entry/entries that make a question.
+    # See issue #123.
+    id_fields = [page["fields"][key] for key in page["key"]]
+    for _, row in dff[id_fields].drop_duplicates().iterrows():
+        id_field_value_for_wid = str(row.iloc[0]) if len(row) == 1 else str(sorted(row))
+        wid = wikipedia.id_hash(id_root=question_id_root, id_field_value=id_field_value_for_wid)
         try:
-            dfr = create_resolution_file(dff=dff, page=page, wid=wid, id_field_value=id_field_value)
-            dfq = add_to_dfq(dfq=dfq, dfr=dfr, page=page, wid=wid, id_field_value=id_field_value)
+            dfr = create_resolution_file(dff=dff, page=page, wid=wid, question_key=row)
+            dfq = add_to_dfq(
+                dfq=dfq,
+                dfr=dfr,
+                page=page,
+                wid=wid,
+                id_field_value=row[page["fields"]["id"]],
+            )
         except Exception as e:
-            logger.warning(f"Couldn't add {question_id_root} {id_field_value}: {wid}")
+            logger.warning(f"Couldn't add {question_id_root} {wid}: {row}")
             logger.warning(f"Exception encountered: {e}")
 
     return dfq
