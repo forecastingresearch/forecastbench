@@ -40,9 +40,7 @@ def get_edit_history_urls(page_title):
         history_url = base_history_url + offset
         response = requests.get(history_url)
         soup = BeautifulSoup(response.text, "html.parser")
-        edits = soup.find_all(
-            "li", class_=["mw-tag-wikieditor", "mw-tag-mobile_edit", "mw-tag-mobile_web_edit"]
-        )
+        edits = soup.find_all("li", attrs={"data-mw-revid": True})
 
         for edit in edits:
             edit_date_str = edit.find("a", class_="mw-changeslist-date").text
