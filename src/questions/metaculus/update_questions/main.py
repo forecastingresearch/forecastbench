@@ -32,7 +32,9 @@ filenames = data_utils.generate_filenames(source=source)
 
 # The Metaculus rate limit is 1,000 queries per hour, so we limit the number of questions we use
 # to 1,000 - number of queries executed by the `fetch` function.
-QUESTION_LIMIT = 1000 - (len(metaculus.CATEGORIES) + 1)
+# Edit: bump limit to 10k as it seems Metaculus has removed the limit. Maintain code for a while to
+#       in case it is reinstated.
+QUESTION_LIMIT = 10000 - (len(metaculus.CATEGORIES) + 1)
 N_API_CALLS = 0
 
 
@@ -47,7 +49,7 @@ def _get_market(market_id):
     global N_API_CALLS
     N_API_CALLS += 1
     logger.info(f"Calling market endpoint for {market_id}. This is API call number {N_API_CALLS}.")
-    endpoint = f"https://www.metaculus.com/api2/questions/{market_id}"
+    endpoint = f"https://www.metaculus.com/api/posts/{market_id}"
     headers = {"Authorization": f"Token {keys.API_KEY_METACULUS}"}
     response = requests.get(endpoint, headers=headers, verify=certifi.where())
     if not response.ok:
@@ -222,11 +224,13 @@ def _update_questions_and_resolved_values(dfq, dff):
 
     def _assign_market_values_to_df(df, index, market):
         df.at[index, "question"] = market["title"]
-        df.at[index, "background"] = market.get("description", "N/A")
+        df.at[index, "background"] = market["question"].get("description", "N/A")
         df.at[index, "market_info_resolution_criteria"] = market["question"].get(
             "resolution_criteria", "N/A"
         )
-        df.at[index, "market_info_open_datetime"] = dates.convert_zulu_to_iso(market["open_time"])
+        df.at[index, "market_info_open_datetime"] = dates.convert_zulu_to_iso(
+            market["question"]["open_time"]
+        )
         df.at[index, "market_info_close_datetime"] = dates.convert_zulu_to_iso(
             market["question"]["actual_close_time"]
         )

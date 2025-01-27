@@ -4,3 +4,4 @@ pandas
 pyarrow
 backoff
 certifi
+tqdm

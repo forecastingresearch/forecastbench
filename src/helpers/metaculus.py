@@ -7,6 +7,10 @@ CATEGORIES = [
     "health-pandemics",
     "law",
     "computing-and-math",
+    "artificial-intelligence",
+    "nuclear",
+    "social-sciences",
+    "elections",
 ]
 
 SOURCE_INTRO = (
