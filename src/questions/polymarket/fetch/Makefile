@@ -6,23 +6,13 @@ all :
 
 UPLOAD_DIR = upload
 
-# additional .gcloudignore for polymayket to ignore llm_prompts.py, which does not work with
-# python 3.9
-GCLOUDIGNORE_ADDITIONAL = $(ROOT_DIR)src/questions/polymarket/.gcloudignore.add
-
-.gcloudignore: $(GCLOUDIGNORE_ADDITIONAL)
+.gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
-	cat $^ >> .gcloudignore
 
-Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
-	sed \
-		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
-		-e 's/STACK/google-18-full/g' \
-		-e 's/PYTHON_VERSION/python39/g' \
-		$< > Dockerfile
+Procfile:
+	cp -r $(ROOT_DIR)src/helpers/Procfile .
 
-# Python 3.9 runtime required for `py_clob_client` library
-deploy : main.py .gcloudignore requirements.txt Dockerfile
+deploy : main.py .gcloudignore requirements.txt Procfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
@@ -37,8 +27,8 @@ deploy : main.py .gcloudignore requirements.txt Dockerfile
 	 	--memory 1Gi \
 	 	--max-retries 0 \
 	 	--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
-	 	--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),GOOGLE_PYTHON_VERSION="3.9.x" \
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile
+	rm -rf $(UPLOAD_DIR) .gcloudignore Procfile

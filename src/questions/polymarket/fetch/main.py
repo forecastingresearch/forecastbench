@@ -12,12 +12,10 @@ import certifi
 import numpy as np
 import pandas as pd
 import requests
-from py_clob_client.client import ClobClient
-from py_clob_client.constants import POLYGON
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator, env, keys  # noqa: E402
+from helpers import constants, data_utils, dates, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -26,6 +24,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SOURCE = "polymarket"
+
+MIN_MARKET_LIQUIDITY = 25000
 
 
 @backoff.on_exception(
@@ -115,60 +115,89 @@ def fetch_all_questions(dfq):
     """
     all_new_questions = []
     today = dates.get_date_today()
-    next_cursor = None
-    page_cnt = 1
-    drop_cnt = 0
-    bet_cnt = 725
-    closed_cnt = 0
-    client = ClobClient(
-        "https://clob.polymarket.com", key=keys.API_KEY_POLYMARKET, chain_id=POLYGON
-    )
+    fetch_datetime = dates.get_datetime_now()
+    endpoint = "https://gamma-api.polymarket.com/markets"
+    offset = 0
+    limit = 500  # max page size: 500
+    params = {
+        "limit": limit,
+        "archived": False,
+        "active": True,
+        "closed": False,
+        "order": "liquidity",
+        "ascending": False,
+    }
+    n_markets_fetched = 0
+
+    def get_market(condition_id):
+        """Return a market given the condition id."""
+        params["condition_ids"] = condition_id
+        response = requests.get(endpoint, params=params)
+        response.raise_for_status()
+        markets = response.json()
+        print(markets)
+        if len(markets) != 1:
+            message = f"Problem getting market for condition id {condition_id}."
+            logger.error(message)
+            raise ValueError(message)
+        return markets[0]
+
+    def get_yes_index(market):
+        """Return the index associated with a "Yes" bid."""
+        return 0 if json.loads(market["outcomes"])[0].lower() == "yes" else 1
+
+    def get_yes_token(market):
+        """Return the index of the token associated with a "Yes" bid."""
+        yes_token_index = get_yes_index(market)
+        yes_token = json.loads(market["clobTokenIds"])[yes_token_index]
+        return yes_token
+
+    def is_market_binary(market):
+        """Return true if this is a binary market."""
+        return {s.lower() for s in json.loads(market["outcomes"])} == {"yes", "no"}
+
     while True:
-        time.sleep(0.1)
-        resp = client.get_markets(next_cursor=next_cursor) if next_cursor else client.get_markets()
-        new_questions = []
-        for q in resp["data"]:
-            closed_cnt += 1
-            if not q["closed"] and not q["archived"] and q["active"]:
-                closed_cnt -= 1
-                outcomes = {token["outcome"] for token in q["tokens"]}
-                if len(outcomes) == 2 and outcomes == {"Yes", "No"}:
-                    yes_token_index = 0 if q["tokens"][0]["outcome"] == "Yes" else 1
-                    # If there are no bets, fetch_price_history will get 400 status error
-                    if q["tokens"][yes_token_index]["token_id"]:
-                        price_history = fetch_price_history(
-                            q["tokens"][yes_token_index]["token_id"]
+        params["offset"] = offset
+        try:
+            logger.info(f"Fetching markets with offset {offset}.")
+            response = requests.get(endpoint, params=params)
+            response.raise_for_status()
+            markets = response.json()
+            if not markets:
+                logger.info(
+                    f"Fetched total of {n_markets_fetched} markets, "
+                    f"{len(all_new_questions)} satisfy criteria."
+                )
+                break
+
+            n_markets_fetched += len(markets)
+            for market in markets:
+                binary_market = is_market_binary(market=market)
+                # Avoids questions like the following, which don't make sense without the other
+                # questions in the event:
+                # * Will any other Republican Politician win the popular vote in the 2024
+                #   Presidential Election?
+                catch_all_market = "other" in market["slug"]  # no need to test "another" also
+                liquid_market = (
+                    "liquidityNum" in market.keys()
+                    and market["liquidityNum"] > MIN_MARKET_LIQUIDITY
+                )
+                if binary_market and liquid_market and not catch_all_market:
+                    price_history = fetch_price_history(market_id=get_yes_token(market=market))
+                    if price_history is not None:
+                        logger.info(
+                            "Binary question satisfying criteria: https://polymarket.com/market/"
+                            f"{market['slug']}"
                         )
-                        if price_history is not None and len(price_history) >= bet_cnt:
-                            # only save questions with at least `bet_cnt` predictions
-                            logger.info(
-                                "Binary question satisfying criteria: "
-                                f"https://polymarket.com/market/{q['market_slug']}"
-                            )
-                            q["price_history"] = price_history
-                            new_questions.append(q)
-                        else:
-                            drop_cnt += 1
-                    else:
-                        drop_cnt += 1
-                else:
-                    drop_cnt += 1
+                        market["price_history"] = price_history
+                        all_new_questions.append(market)
 
-        all_new_questions.extend(new_questions)
-        next_cursor = resp.get("next_cursor", None)
-
-        # Check if there are no more pages of data
-        if next_cursor is None or next_cursor == "LTE=":
-            logger.info("No more pages to fetch.")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching markets: {e}")
             break
 
-        logger.info(
-            f"Current page is {page_cnt:,}."
-            + f" Current question count is {len(all_new_questions):,}."
-            + f" Current drop count is {drop_cnt:,}."
-            + f" Current closed market count is {closed_cnt:,}."
-        )
-        page_cnt += 1
+        time.sleep(1)
+        offset += limit
 
     resolved_ids = set(dfq.loc[dfq["resolved"], "id"]) if not dfq.empty else set()
     unresolved_ids = set(dfq.loc[~dfq["resolved"], "id"]) if not dfq.empty else set()
@@ -194,7 +223,7 @@ def fetch_all_questions(dfq):
 
     logger.info(f"Number of unresolved questions in dfq: {len(unresolved_ids)}")
 
-    all_newly_fetched_ids = {q["condition_id"] for q in all_new_questions}
+    all_newly_fetched_ids = {q["conditionId"] for q in all_new_questions}
     logger.info(f"Number of newly fetched questions: {len(all_newly_fetched_ids)}")
 
     unresolved_ids.difference_update(all_newly_fetched_ids)
@@ -205,19 +234,16 @@ def fetch_all_questions(dfq):
     invalid_question_ids = set()
     for id_ in unresolved_ids:
         time.sleep(0.1)
-        q = client.get_market(condition_id=id_)
-        outcomes = {token["outcome"] for token in q["tokens"]}
-        if not (len(outcomes) == 2 and outcomes == {"Yes", "No"}):
+        q = get_market(condition_id=id_)
+        if not is_market_binary(q):
             # Questions that were not Yes/No questions should be marked as resolved/closed so
             # they're not selected in question sets.
-            invalid_question_ids.add(q["condition_id"])
+            invalid_question_ids.add(q["conditionId"])
             q["closed"] = True
 
-        yes_token_index = 0 if q["tokens"][0]["outcome"] == "Yes" else 1
-        price_history = fetch_price_history(q["tokens"][yes_token_index]["token_id"])
-
+        price_history = fetch_price_history(market_id=get_yes_token(market=q))
         if price_history is None:
-            logger.error(f"PRICE HISTORY was NONE for {q['market_slug']}")
+            logger.error(f"PRICE HISTORY was NONE for {q['slug']}")
             # Add dummy entry with NaN value for last possible date so we don't accidentally
             # resolve these qusetions later or pull from them for the question set. Use today
             # because we remove one day from the converted_price_history in the next loop.
@@ -234,7 +260,7 @@ def fetch_all_questions(dfq):
     if len(invalid_question_ids) > 0:
         logger.warning(f"Invalid questions found: {invalid_question_ids}")
         for q in all_existing_unresolved_questions:
-            if q["condition_id"] in invalid_question_ids:
+            if q["conditionId"] in invalid_question_ids:
                 for item in q["price_history"]:
                     item["p"] = np.nan
 
@@ -243,6 +269,7 @@ def fetch_all_questions(dfq):
 
     all_complete_questions = []
     for q in tqdm(all_questions_to_add, "Compiling questions."):
+        logger.info(f"Adding {q['conditionId']}")
         price_history = q["price_history"]
 
         final_resolutions_df = pd.DataFrame([], columns=["date", "value"])
@@ -271,78 +298,81 @@ def fetch_all_questions(dfq):
         final_resolutions_df = final_resolutions_df[["date", "value"]]
         final_resolutions_df["date"] = pd.to_datetime(final_resolutions_df["date"])
 
-        current_prob = price_history[-1]["p"] if len(price_history) > 1 else 0
+        current_prob = price_history[-1]["p"] if len(price_history) > 1 else np.nan
         resolved_datetime = resolved_datetime_str = "N/A"
-        if q["end_date_iso"]:
-            resolved_datetime_str = dates.convert_zulu_to_iso(q["end_date_iso"])
-            resolved_datetime = datetime.fromisoformat(resolved_datetime_str).replace(tzinfo=None)
+
+        end_date = q["endDate"] if "endDate" in q else q["events"][0]["endDate"]
+        market_closed_datetime_str = dates.convert_zulu_to_iso(end_date)
+        market_closed_datetime = datetime.fromisoformat(market_closed_datetime_str).replace(
+            tzinfo=None
+        )
+
+        use_uma_date = False
+        if q.get("umaEndDate"):
+            # UMA Oracle
+            uma_datetime_str = dates.convert_zulu_to_iso(q["umaEndDate"])
+            uma_datetime = datetime.fromisoformat(uma_datetime_str).replace(tzinfo=None)
+            use_uma_date = uma_datetime < market_closed_datetime
+
+        resolved_datetime_str = uma_datetime_str if use_uma_date else market_closed_datetime_str
+        resolved_datetime = uma_datetime if use_uma_date else market_closed_datetime
 
         # Get the resolution if the question is closed (but not if it's invalid so we maintain the
         # NaN values above)
-        if q["closed"] and not q["condition_id"] in invalid_question_ids:
-            current_prob = 1
-            if (q["tokens"][0]["outcome"] == "No" and q["tokens"][0]["winner"]) or (
-                q["tokens"][1]["outcome"] == "No" and q["tokens"][1]["winner"]
-            ):
-                current_prob = 0
+        resolved = q.get("umaResolutionStatus", "") == "resolved"
+        if resolved and not q["conditionId"] in invalid_question_ids:
+            yes_index = get_yes_index(market)
+            current_prob = json.loads(q["outcomePrices"])[yes_index]
 
-            if resolved_datetime == "N/A":
-                # For some reason the resolved datetime was not found. In this case, just insert
-                # the resolution on the last date
+            # Insert the resolution value on the resolved date. Truncate all data after that date.
+            # Forward fill data until that date
+
+            # Truncate any data after resolved_datetime
+            final_resolutions_df = final_resolutions_df[
+                final_resolutions_df["date"].dt.date <= resolved_datetime.date()
+            ]
+
+            # Insert resolved date and resolution value
+            if resolved_datetime.date() in final_resolutions_df["date"].dt.date.values:
+                final_resolutions_df.loc[
+                    final_resolutions_df["date"].dt.date == resolved_datetime.date(), "value"
+                ] = current_prob
+            else:
+                # If the date does not exist, add a new row
                 final_resolutions_df.loc[len(final_resolutions_df)] = [
-                    final_resolutions_df["date"].max() + timedelta(days=1),
+                    resolved_datetime,
                     current_prob,
                 ]
-            else:
-                # Insert the resolution value on the resolved date. Truncate all data after that date.
-                # Forward fill data until that date
 
-                # Truncate any data after resolved_datetime
-                final_resolutions_df = final_resolutions_df[
-                    final_resolutions_df["date"].dt.date <= resolved_datetime.date()
-                ]
-
-                # Insert resolved date and resolution value
-                if resolved_datetime.date() in final_resolutions_df["date"].dt.date.values:
-                    final_resolutions_df.loc[
-                        final_resolutions_df["date"].dt.date == resolved_datetime.date(), "value"
-                    ] = current_prob
-                else:
-                    # If the date does not exist, add a new row
-                    final_resolutions_df.loc[len(final_resolutions_df)] = [
-                        resolved_datetime,
-                        current_prob,
-                    ]
-
-                # Forward fill in case the resolution date is more than one day after the last day
-                # for which data is available
-                all_dates = pd.date_range(
-                    start=final_resolutions_df["date"].min(),
-                    end=final_resolutions_df["date"].max(),
-                    freq="D",
-                )
-                final_resolutions_df = (
-                    final_resolutions_df.set_index("date")
-                    .reindex(all_dates, method="ffill")
-                    .reset_index()
-                    .rename(columns={"index": "date"})
-                )
+            # Forward fill in case the resolution date is more than one day after the last day
+            # for which data is available
+            all_dates = pd.date_range(
+                start=final_resolutions_df["date"].min(),
+                end=final_resolutions_df["date"].max(),
+                freq="D",
+            )
+            final_resolutions_df = (
+                final_resolutions_df.set_index("date")
+                .reindex(all_dates, method="ffill")
+                .reset_index()
+                .rename(columns={"index": "date"})
+            )
 
         final_resolutions_df = final_resolutions_df[["date", "value"]]
         final_resolutions_df["date"] = final_resolutions_df["date"].astype(str)
 
         all_complete_questions.append(
             {
-                "id": q["condition_id"],
+                "id": q["conditionId"],
                 "question": q["question"],
                 "background": q["description"],
                 "market_info_resolution_criteria": "N/A",
-                "market_info_open_datetime": "N/A",
-                "market_info_close_datetime": resolved_datetime_str,
-                "url": "https://polymarket.com/market/" + q["market_slug"],
-                "resolved": q["closed"],
+                "market_info_open_datetime": q["startDateIso"],
+                "market_info_close_datetime": market_closed_datetime_str,
+                "url": "https://polymarket.com/market/" + q["slug"],
+                "resolved": resolved,
                 "market_info_resolution_datetime": resolved_datetime_str,
-                "fetch_datetime": dates.get_datetime_now(),
+                "fetch_datetime": fetch_datetime,
                 "probability": "N/A" if np.isnan(current_prob) else current_prob,
                 "forecast_horizons": "N/A",
                 "freeze_datetime_value": "N/A" if np.isnan(current_prob) else current_prob,
