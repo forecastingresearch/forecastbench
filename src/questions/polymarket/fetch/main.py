@@ -131,11 +131,12 @@ def fetch_all_questions(dfq):
 
     def get_market(condition_id):
         """Return a market given the condition id."""
-        params["condition_ids"] = condition_id
-        response = requests.get(endpoint, params=params)
+        params_market = {
+            "condition_ids": condition_id,
+        }
+        response = requests.get(endpoint, params=params_market)
         response.raise_for_status()
         markets = response.json()
-        print(markets)
         if len(markets) != 1:
             message = f"Problem getting market for condition id {condition_id}."
             logger.error(message)
@@ -316,13 +317,14 @@ def fetch_all_questions(dfq):
 
         resolved_datetime_str = uma_datetime_str if use_uma_date else market_closed_datetime_str
         resolved_datetime = uma_datetime if use_uma_date else market_closed_datetime
+        resolved_datetime = resolved_datetime.replace(hour=0, minute=0, second=0)
 
         # Get the resolution if the question is closed (but not if it's invalid so we maintain the
         # NaN values above)
         resolved = q.get("umaResolutionStatus", "") == "resolved"
         if resolved and not q["conditionId"] in invalid_question_ids:
-            yes_index = get_yes_index(market)
-            current_prob = json.loads(q["outcomePrices"])[yes_index]
+            yes_index = get_yes_index(q)
+            current_prob = float(json.loads(q["outcomePrices"])[yes_index])
 
             # Insert the resolution value on the resolved date. Truncate all data after that date.
             # Forward fill data until that date
