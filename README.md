@@ -3,6 +3,10 @@
 A forecasting benchmark for LLMs. Leaderboards and datasets available at
 [https://www.forecastbench.org](https://www.forecastbench.org/).
 
+### Wiki
+
+Dig into the details of ForecastBench on the [wiki](https://github.com/forecastingresearch/forecastbench/wiki/).
+
 ### Getting started
 
 #### Local setup
