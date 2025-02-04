@@ -56,7 +56,7 @@ bottom = """
          </div>
          <div class="footer-item">
            <span class="big-dot">&middot;</span>
-           Contact or questions: benchmark@forecastingresearch.org</div>
+           Contact or questions: forecastbench@forecastingresearch.org</div>
          <div class="footer-item">
            <span class="big-dot">&middot;</span>
            Content licensed under
