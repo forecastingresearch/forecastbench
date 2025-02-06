@@ -27,17 +27,22 @@ logger = logging.getLogger(__name__)
 
 
 def get_categories_from_llm(dfq):
-    """Get category for question from gpt 3.5-turbo."""
+    """Get category for question using the model from `question_curation.METADATA_MODEL_NAME`."""
     for index, row in dfq[dfq["category"] == ""].iterrows():
         prompt = llm_prompts.ASSIGN_CATEGORY_PROMPT.format(
             question=row["question"], background=row["background"]
         )
         try:
             response = model_eval.get_response_from_model(
-                model_name="gpt-3.5-turbo-0125", prompt=prompt, max_tokens=50, temperature=0
+                model_name=question_curation.METADATA_MODEL_NAME,
+                prompt=prompt,
+                max_tokens=50,
+                temperature=0,
             )
             category = response.strip('"').strip("'").strip(" ").strip(".")
-            logger.info(f"Got category for {row['source']}: {row['id']} --> {category}")
+            logger.info(
+                f"Got category for {row['source']}: {row['id']} {row['question']}--> {category}"
+            )
             dfq.at[index, "category"] = (
                 category if category in constants.QUESTION_CATEGORIES else "Other"
             )

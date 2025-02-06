@@ -130,6 +130,7 @@ for key, value in ZERO_SHOT_AND_SCRATCHPAD_MODELS.items():
     MODEL_NAME_TO_SOURCE[value["full_name"]] = value["source"]
     ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE[value["source"]][key] = value
 
+# "gpt-4o-mini" Model used by metadat functions in question_curation.METADATA_MODEL_NAME
 MODEL_TOKEN_LIMITS["gpt-4o-mini"] = 128000
 MODEL_NAME_TO_SOURCE["gpt-4o-mini"] = OAI_SOURCE
 

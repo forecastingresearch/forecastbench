@@ -26,14 +26,17 @@ logger = logging.getLogger(__name__)
 
 
 def validate_questions(dfq):
-    """Validate question with gpt 3.5-turbo."""
+    """Validate question using the model from `question_curation.METADATA_MODEL_NAME`."""
     invalid_questions = []
     for index, row in dfq[dfq["valid_question"] == ""].iterrows():
         question = row["question"]
         prompt = llm_prompts.VALIDATE_QUESTION_PROMPT.format(question=question)
         try:
             response = model_eval.get_response_from_model(
-                model_name="gpt-3.5-turbo-0125", prompt=prompt, max_tokens=500, temperature=0
+                model_name=question_curation.METADATA_MODEL_NAME,
+                prompt=prompt,
+                max_tokens=500,
+                temperature=0,
             )
             if "Classification:" not in response:
                 logger.error(f"'Classification:' is not in the response for question: {question}")
