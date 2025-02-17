@@ -40,11 +40,10 @@ ordered_columns = not_in_data_sources + sorted(
     [col for col in resolution.DATA_SOURCES if col in dfm.columns]
 )
 dfm = dfm.reindex(columns=ordered_columns)
-# dfm["fred"] = 0
-# dfm.loc["Economics & Business", "fred"] = 157
 dfm["Total"] = dfm.sum(axis=1)
-dfm.loc["Total"] = dfm.sum(axis=0)
-print(dfm)
+dfm_print = dfm.copy()
+dfm_print.loc["Total"] = dfm_print.sum(axis=0)
+print("\n\n", dfm_print)
 
 
 def escape_latex_special_chars(text):
@@ -52,21 +51,36 @@ def escape_latex_special_chars(text):
     return text.replace("&", r"\&")
 
 
-# Print dfm in LaTeX format
+def format_number(n):
+    """Format each number."""
+    return f"{n:,}"
+
+
+latex_table = r""" \begin{tabularx}{.95\textwidth}{r*{10}{>{\raggedleft\arraybackslash}X}}\toprule &
+     \rotatebox{90}{RFI} & \rotatebox{90}{Manifold} & \rotatebox{90}{Metaculus} &
+     \rotatebox{90}{Polymarket} & \rotatebox{90}{ACLED} & \rotatebox{90}{DBnomics} &
+     \rotatebox{90}{FRED} & \rotatebox{90}{Wikipedia} & \rotatebox{90}{Yahoo!} &
+     \rotatebox{90}{Total} \\
+     \midrule"""
+
+other_row = ""
 for index, row in dfm.iterrows():
-    row_str = " & ".join(map(str, row.values))  # Join the values with '&'
-    index_str = escape_latex_special_chars(str(index))  # Escape special characters
-    print(f"{index_str} & {row_str} \\\\")  # Format each row for LaTeX with '\\' at the end
+    row_str = " & ".join(map(format_number, row.values))
+    index_str = escape_latex_special_chars(str(index))
+    row_to_add = f"\n    {index_str} & {row_str} \\\\"
+    if str(index).lower() == "other":
+        other_row = row_to_add
+    else:
+        latex_table += row_to_add
 
+if other_row:
+    latex_table += other_row
 
-# %                        infer  manifold  metaculus  polymarket  acled  dbnomics  wikipedia  yfinance  fred  Total # noqa: B950
-# % Arts & Recreation          0        46         12          28      0         0          0         0     0     86 # noqa: B950
-# % Economics & Business       1        15         82          56      0         0          0       501   157    812 # noqa: B950
-# % Environment & Energy       0         2         46           1      0        61          0         0     0    110 # noqa: B950
-# % Healthcare & Biology       0         9         75           1      0         0        213         0     0    298 # noqa: B950
-# % Other                      0         0          2           0      0         0          0         0     0      2 # noqa: B950
-# % Politics & Governance     11        37        223         470      0         0          0         0     0    741 # noqa: B950
-# % Science & Tech             7        91        207          58      0         0         18         0     0    381 # noqa: B950
-# % Security & Defense        13        13        153          10   3108         0          0         0     0   3297 # noqa: B950
-# % Sports                     0        63         23          33      0         0         90         0     0    209 # noqa: B950
-# % Total                     32       276        823         657   3108        61        321       501   157   5936 # noqa: B950
+total_row_values = " & ".join(map(format_number, dfm.sum(axis=0)))
+latex_table += rf"""
+     \midrule
+    Total & {total_row_values} \\
+     \bottomrule
+  \end{{tabularx}}"""
+
+print("\n\n", latex_table)

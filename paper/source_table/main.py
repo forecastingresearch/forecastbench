@@ -58,3 +58,58 @@ print(df_dataset)
 print("\n\nTOTAL")
 df = dfsum(df)
 print(df)
+
+
+def get_source_values(df, source_name):
+    """Return counts for source from df."""
+    row = df.loc[df["source"] == source_name]
+    return row["n"].iloc[0], row["comb"].iloc[0]
+
+
+# Market values
+rfi_n, rfi_pairs = get_source_values(df_market, "infer")
+manifold_n, manifold_pairs = get_source_values(df_market, "manifold")
+metaculus_n, metaculus_pairs = get_source_values(df_market, "metaculus")
+poly_n, poly_pairs = get_source_values(df_market, "polymarket")
+market_total_n, market_total_pairs = get_source_values(df_market, "Total")
+
+# Dataset values
+acled_n, acled_pairs = get_source_values(df_dataset, "acled")
+db_n, db_pairs = get_source_values(df_dataset, "dbnomics")
+fred_n, fred_pairs = get_source_values(df_dataset, "fred")
+wiki_n, wiki_pairs = get_source_values(df_dataset, "wikipedia")
+yahoo_n, yahoo_pairs = get_source_values(df_dataset, "yfinance")
+dataset_total_n, dataset_total_pairs = get_source_values(df_dataset, "Total")
+
+# Overall total
+total_n, total_pairs = get_source_values(df, "Total")
+
+
+print(
+    rf"""
+  \begin{{tabular}}{{llrr}}
+    \toprule
+    Source & URL & $N$ & $\binom{{N}}{{2}}$ \\
+    \midrule
+    RFI & \href{{https://www.randforecastinginitiative.org/}}{{randforecastinginitiative.org}} & {rfi_n} & {rfi_pairs} \\
+    Manifold Markets & \href{{https://manifold.markets}}{{manifold.markets}} & {manifold_n} & {manifold_pairs} \\
+    Metaculus & \href{{https://www.metaculus.com}}{{metaculus.com}} & {metaculus_n} & {metaculus_pairs} \\
+    Polymarket & \href{{https://polymarket.com}}{{polymarket.com}} & {poly_n} & {poly_pairs} \\
+    \cmidrule{{3-4}}
+    \multicolumn{{2}}{{l}}{{\textbf{{Market Total}}}} & {market_total_n} & {market_total_pairs} \\
+    \midrule
+    \midrule
+    ACLED & \href{{https://acleddata.com}}{{acleddata.com}} & {acled_n} & {acled_pairs} \\
+    DBnomics & \href{{https://db.nomics.world/}}{{db.nomics.world}} & {db_n} & {db_pairs} \\
+    FRED & \href{{https://fred.stlouisfed.org}}{{fred.stlouisfed.org}} & {fred_n} & {fred_pairs} \\
+    Wikipedia & \href{{https://www.wikipedia.org}}{{wikipedia.org}} & {wiki_n} & {wiki_pairs} \\
+    Yahoo! Finance & \href{{https://finance.yahoo.com}}{{finance.yahoo.com}} & {yahoo_n} & {yahoo_pairs} \\
+    \cmidrule{{3-4}}
+    \multicolumn{{2}}{{l}}{{\textbf{{Dataset Total}}}} & {dataset_total_n} & {dataset_total_pairs} \\
+    \midrule
+    \midrule
+    \multicolumn{{2}}{{l}}{{\textbf{{Question Bank Total}}}} & {total_n} & {total_pairs} \\
+    \bottomrule
+  \end{{tabular}}
+"""  # noqa: B950
+)

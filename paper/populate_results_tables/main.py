@@ -40,7 +40,7 @@ def process_leaderboard_data(filename, n):
     )
 
     result_df["Pairwise p-value"] = df["Pairwise p-value comparing to No. 1 (bootstrapped)"].apply(
-        lambda x: "--" if pd.isna(x) else x if x == "<0.001" else f"{float(x):.3f}"
+        lambda x: "--" if pd.isna(x) else x if x == "<0.001" or x == "<0.01" else f"{float(x):.3f}"
     )
     result_df["Pct. more accurate"] = df["Pct. more accurate than No. 1"].map(str)
 
@@ -79,6 +79,7 @@ def get_prompt_type(model_str):
 def print_latex_rows(f, df, n):
     """Print rows in latex to be pasted into table."""
     filename = os.path.basename(f).replace(".csv", f".{n}.csv")
+    print(f"Writing {filename}.")
     with open(filename, "w") as f:
         for _, row in df.head(n).iterrows():
             f.write(
@@ -99,3 +100,4 @@ if __name__ == "__main__":
         result = process_leaderboard_data(f, 50)
         print_latex_rows(f, result, 10)
         print_latex_rows(f, result, 50)
+        print()
