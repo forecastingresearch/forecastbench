@@ -196,6 +196,10 @@ nav a:hover::after {
   margin-right: auto;
 }
 
+.commit {
+  font-family: "Courier New", Courier, monospace;
+}
+
 .hamburger {
   display: none;
   font-size: 30px;

@@ -1,13 +1,34 @@
-## ForecastBench
+# ForecastBench
 
-A forecasting benchmark for LLMs. Leaderboards and datasets available at
-[https://www.forecastbench.org](https://www.forecastbench.org/).
+[![ICLR 2025](https://img.shields.io/badge/ICLR-2025-D5FFC1?labelColor=2A363F)](https://iclr.cc/virtual/2025/poster/28507)
 
-### Wiki
+A dynamic, continuously-updated benchmark to evaluate LLM forecasting capabilities. More at [www.forecastbench.org](https://www.forecastbench.org/).
+
+## Datasets
+
+Leaderboards and datasets are updated nightly and available at [github.com/forecastingresearch/forecastbench-datasets](https://github.com/forecastingresearch/forecastbench-datasets).
+
+## Participate in the benchmark
+
+Instructions for how to submit your model to the benchmark can be found here: [How-to-submit-to-ForecastBench](https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench).
+
+## Wiki
 
 Dig into the details of ForecastBench on the [wiki](https://github.com/forecastingresearch/forecastbench/wiki/).
 
-### Getting started
+## Citation
+
+```bibtex
+@inproceedings{karger2025forecastbench,
+      title={ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities},
+      author={Ezra Karger and Houtan Bastani and Chen Yueh-Han and Zachary Jacobs and Danny Halawi and Fred Zhang and Philip E. Tetlock},
+      year={2025},
+      booktitle={International Conference on Learning Representations (ICLR)},
+      url={https://iclr.cc/virtual/2025/poster/28507}
+}
+```
+
+## Getting started for devs
 
 #### Local setup
 1. `git clone --recurse-submodules <repo-url>.git`

@@ -16,10 +16,6 @@ authors:
     given-names: Fred
   - family-names: Tetlock
     given-names: Philip E.
-identifiers:
-  - type: url
-    value: https://arxiv.org/abs/2409.19839
-    description: arXiv preprint
 repository-code: https://github.com/forecastingresearch/forecastbench
 url: https://www.forecastbench.org/
 repository: https://github.com/forecastingresearch/forecastbench-datasets
@@ -41,7 +37,7 @@ abstract: >-
   subset of questions from the benchmark (N=200). While LLMs
   have achieved super-human performance on many benchmarks,
   they perform less well here: expert forecasters outperform
-  the top-performing LLM (p-value=0.01). We display system
+  the top-performing LLM (p-value<0.001). We display system
   and human scores in a public leaderboard at
   https://www.forecastbench.org.
 keywords:
@@ -53,7 +49,7 @@ keywords:
 license: MIT
 version: 1.0.0
 preferred-citation:
-  type: article
+  type: conference-paper
   title: "ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities"
   authors:
     - family-names: Karger
@@ -70,9 +66,7 @@ preferred-citation:
       given-names: Fred
     - family-names: Tetlock
       given-names: Philip E.
-  year: 2024
-  eprint: 2409.19839
-  archivePrefix: arXiv
-  primaryClass: cs.LG
-  url: https://arxiv.org/abs/2409.19839
+  year: 2025
+  event: "International Conference on Learning Representations (ICLR)"
+  url: https://iclr.cc/virtual/2025/poster/28507
 
