@@ -1,0 +1,18 @@
+model,tc,source,assumption
+Claude-3-5-Sonnet-20240620,NA,NA,NA
+GPT-4,NA,NA,NA
+GPT-4-Turbo-2024-04-09,NA,NA,NA
+GPT-4o,3.81E+25,Epoch,
+Mistral-Large-Latest,1.12E+25,Epoch,
+Claude-3-Opus-20240229,NA,NA,NA
+Gemini-1.5-Pro,1.58E+25,Epoch,
+Llama-3-70b-Chat-Hf,7.86E+24,Epoch,
+Claude-2.1,3.87E+24,Epoch,Claude 2
+Gemini-1.5-Flash,NA,NA,NA
+Qwen1.5-110B-Chat,1.30E+24,Epoch,Qwen1.5 72B
+Mixtral-8x22B-Instruct-V0.1,NA,NA,NA
+Llama-3-8b-Chat-Hf,7.20E+23,Halawi estimate,
+Mixtral-8x7B-Instruct-V0.1,NA,NA,NA
+Llama-2-70b-Chat-Hf,8.10E+23,Epoch,
+Claude-3-Haiku-20240307,NA,NA,NA
+GPT-3.5-Turbo-0125,2.58E+24,Epoch,GPT-3.5
