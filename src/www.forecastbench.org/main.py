@@ -241,7 +241,7 @@ Disallow:
 
 Sitemap: https://www.forecastbench.org/sitemap.xml
 """
-    write(content=content, filename="robots.txt")
+    write(content=content, filename="robots.txt", ignore_header_footer=True)
 
 
 def sitemap():
@@ -251,19 +251,21 @@ def sitemap():
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.forecastbench.org/</loc>
-    <lastmod>{today}</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.forecastbench.org/paper.html</loc>
-    <lastmod>{today}</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://www.forecastbench.org/datasets.html</loc>
     <lastmod>{today}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>
 """
-    write(content=content, filename="sitemap.xml")
+    write(content=content, filename="sitemap.xml", ignore_header_footer=True)
 
 
 def make_forwarding_pages():
