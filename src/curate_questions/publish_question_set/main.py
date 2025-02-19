@@ -28,39 +28,37 @@ def driver(_):
     local_folder = f"/tmp/{remote_folder}"
     forecast_due_date = dates.get_date_today_as_iso()
     question_sets = gcp.storage.list(bucket_name=env.QUESTION_SETS_BUCKET)
-    question_set_found = False
-    for question_set in question_sets:
-        if question_set == f"{forecast_due_date}-llm.json":
-            logger.info(f"Found {question_set}. Downloading and pushing to git.")
-            local_filename = f"{local_folder}/{question_set}"
-            os.makedirs(local_folder, exist_ok=True)
-            gcp.storage.download(
-                bucket_name=env.QUESTION_SETS_BUCKET,
-                filename=question_set,
-                local_filename=local_filename,
-            )
+    question_set = f"{forecast_due_date}-llm.json"
 
-            # Create latest-llm.json soft link
-            soft_link_filename = f"{local_folder}/latest-llm.json"
-            if os.path.exists(soft_link_filename):
-                os.remove(soft_link_filename)
-            os.symlink(question_set, soft_link_filename)
-
-            git.clone_and_push_files(
-                repo_url=keys.API_GITHUB_DATASET_REPO_URL,
-                files={
-                    local_filename: f"{remote_folder}/{question_set}",
-                    soft_link_filename: f"{remote_folder}/latest-llm.json",
-                },
-                commit_message=f"publish {question_set}.",
-            )
-            question_set_found = True
-            break
-
-    if not question_set_found:
+    if question_set not in question_sets:
         raise FileNotFoundError(
-            f"Question set for date {forecast_due_date} not found in bucket {env.QUESTION_SETS_BUCKET}"
+            f"Question set {question_set} not found in bucket {env.QUESTION_SETS_BUCKET}."
         )
+
+    logger.info(f"Found {question_set}. Downloading and pushing to git.")
+    local_filename = f"{local_folder}/{question_set}"
+    os.makedirs(local_folder, exist_ok=True)
+    gcp.storage.download(
+        bucket_name=env.QUESTION_SETS_BUCKET,
+        filename=question_set,
+        local_filename=local_filename,
+    )
+
+    # Create latest-llm.json soft link
+    soft_link_question_set = "latest-llm.json"
+    soft_link_filename = f"{local_folder}/{soft_link_question_set}"
+    if os.path.exists(soft_link_filename):
+        os.remove(soft_link_filename)
+    os.symlink(question_set, soft_link_filename)
+
+    git.clone_and_push_files(
+        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
+        files={
+            local_filename: f"{remote_folder}/{question_set}",
+            soft_link_filename: f"{remote_folder}/{soft_link_question_set}",
+        },
+        commit_message=f"publish {question_set}.",
+    )
 
     logger.info("Done.")
 
