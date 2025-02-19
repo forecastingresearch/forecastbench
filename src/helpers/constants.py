@@ -95,43 +95,55 @@ GOOGLE_SOURCE = "GOOGLE"
 MISTRAL_SOURCE = "MISTRAL"
 XAI_SOURCE = "XAI"
 
+OAI_ORG = "OpenAI"
+ANTHROPIC_ORG = "Anthropic"
+META_ORG = "Meta"
+GOOGLE_ORG = "Google"
+
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
     "o1-mini-2024-09-12": {
         "source": OAI_SOURCE,
+        "org": OAI_ORG,
         "full_name": "o1-mini-2024-09-12",
         "token_limit": 128000,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
     "llama-3p3-70B-Instruct-Turbo": {
         "source": TOGETHER_AI_SOURCE,
+        "org": META_ORG,
         "full_name": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         "token_limit": 131072,
     },
     # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
     "claude-3-5-sonnet-20241022": {
         "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
         "full_name": "claude-3-5-sonnet-20241022",
         "token_limit": 200000,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models/gemini
     "gemini-2.0-flash-exp": {
         "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
         "full_name": "gemini-2.0-flash-exp",
         "token_limit": 1048576,
     },
 }
 
 MODEL_TOKEN_LIMITS = dict()
+MODEL_NAME_TO_ORG = dict()
 MODEL_NAME_TO_SOURCE = dict()
 ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE = defaultdict(dict)
 for key, value in ZERO_SHOT_AND_SCRATCHPAD_MODELS.items():
     MODEL_TOKEN_LIMITS[value["full_name"]] = value["token_limit"]
     MODEL_NAME_TO_SOURCE[value["full_name"]] = value["source"]
+    MODEL_NAME_TO_ORG[value["full_name"]] = value["org"]
     ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE[value["source"]][key] = value
 
-# "gpt-4o-mini" Model used by metadat functions in question_curation.METADATA_MODEL_NAME
+# "gpt-4o-mini" Model used by metadata functions in question_curation.METADATA_MODEL_NAME
 MODEL_TOKEN_LIMITS["gpt-4o-mini"] = 128000
+MODEL_NAME_TO_ORG["gpt-4o-mini"] = OAI_ORG
 MODEL_NAME_TO_SOURCE["gpt-4o-mini"] = OAI_SOURCE
 
 # remove models with less than ~17000 token limits

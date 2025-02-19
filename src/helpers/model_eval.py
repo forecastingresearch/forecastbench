@@ -73,6 +73,18 @@ def infer_model_source(model_name):
     return constants.MODEL_NAME_TO_SOURCE[model_name]
 
 
+def get_model_org(model_name):
+    """
+    Get the model org given the model.
+
+    Args:
+    - model_name (str): The name of the model.
+    """
+    if model_name not in constants.MODEL_NAME_TO_ORG:
+        raise ValueError(f"Invalid model name: {model_name}")
+    return constants.MODEL_NAME_TO_ORG[model_name]
+
+
 def get_response_with_retry(api_call, wait_time, error_msg):
     """
     Make an API call and retry on failure after a specified wait time.
@@ -668,24 +680,7 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
             final_dir += "_test"
         file_path = f"/tmp/{prompt_type}/{final_dir}/{model}"
         questions = data_utils.read_jsonl(file_path)
-        if "gpt" in model or "o1" in model:
-            org = "OpenAI"
-        elif "llama" in model:
-            org = "Meta"
-        elif "mistral" in model:
-            org = "Mistral AI"
-        elif "claude" in model:
-            org = "Anthropic"
-        elif "qwen" in model:
-            org = "Qwen"
-        elif "gemini" in model:
-            org = "Google"
-        elif "grok" in model:
-            org = "xAI"
-        else:
-            message = f"Unable to find org for model `{model}`."
-            logger.error(message)
-            raise ValueError(message)
+        org = get_model_org(model)
 
         directory = f"/tmp/{prompt_type}/final_submit"
         if test_or_prod == "TEST":
