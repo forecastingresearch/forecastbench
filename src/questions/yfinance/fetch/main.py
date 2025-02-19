@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import timedelta
 
 import pandas as pd
@@ -108,6 +109,8 @@ def fetch_all_stock(dfq):
     )
 
     for ticker in tqdm(union_stocks_list, desc="Fetching stock data"):
+        # Avoid YFRateLimitError
+        time.sleep(1)
         company_name, hist = fetch_one_stock(ticker)
         current_time = dates.get_datetime_now()
 
