@@ -119,13 +119,13 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         "token_limit": 131072,
     },
-    "deepseek-ai/DeepSeek-R1": {
+    "DeepSeek-R1": {
         "source": TOGETHER_AI_SOURCE,
         "org": DEEPSEEK_ORG,
         "full_name": "deepseek-ai/DeepSeek-R1",
         "token_limit": 128000,
     },
-    "deepseek-ai/DeepSeek-V3": {
+    "DeepSeek-V3": {
         "source": TOGETHER_AI_SOURCE,
         "org": DEEPSEEK_ORG,
         "full_name": "deepseek-ai/DeepSeek-V3",
@@ -154,6 +154,7 @@ for key, value in ZERO_SHOT_AND_SCRATCHPAD_MODELS.items():
     MODEL_TOKEN_LIMITS[value["full_name"]] = value["token_limit"]
     MODEL_NAME_TO_SOURCE[value["full_name"]] = value["source"]
     MODEL_NAME_TO_ORG[value["full_name"]] = value["org"]
+    MODEL_NAME_TO_ORG[key] = value["org"]
     ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE[value["source"]][key] = value
 
 # "gpt-4o-mini" Model used by metadata functions in question_curation.METADATA_MODEL_NAME
