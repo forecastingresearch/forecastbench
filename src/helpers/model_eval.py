@@ -159,15 +159,7 @@ def get_response_from_oai_model(
         # logger.info(f"full prompt: {prompt}")
         return response.choices[0].message.content
 
-    if (
-        get_response_with_retry(api_call, wait_time, "OpenAI API request exceeded rate limit.")
-        == "need_a_new_reformat_prompt"
-    ):
-        return "need_a_new_reformat_prompt"
-    else:
-        return get_response_with_retry(
-            api_call, wait_time, "OpenAI API request exceeded rate limit."
-        )
+    return get_response_with_retry(api_call, wait_time, "OpenAI API request exceeded rate limit.")
 
 
 def get_response_from_xai_model(model_name, prompt, max_tokens, temperature, wait_time):
