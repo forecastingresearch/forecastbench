@@ -135,11 +135,12 @@ def get_response_from_oai_model(
         Returns:
             str: Response string from the API call.
         """
-        o1_family_model = "o1" in model_name
-
-        if o1_family_model and system_prompt:
+        is_reasoning_model = constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.get(model_name, {}).get(
+            "reasoning_model", False
+        )
+        if is_reasoning_model and system_prompt:
             print(system_prompt)
-            logger.error("o1 family models do NOT support system prompts.")
+            logger.error("OpenAI reasoning models do NOT support system prompts.")
             sys.exit(1)
 
         model_input = [{"role": "system", "content": system_prompt}] if system_prompt else []
@@ -149,7 +150,7 @@ def get_response_from_oai_model(
             "model": model_name,
             "messages": model_input,
         }
-        if not o1_family_model:
+        if not is_reasoning_model:
             params["temperature"] = temperature
             params["max_tokens"] = max_tokens
 

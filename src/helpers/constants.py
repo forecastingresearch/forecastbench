@@ -108,6 +108,9 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "org": OAI_ORG,
         "full_name": "o3-mini-2025-01-31",
         "token_limit": 200000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
     "llama-3p3-70B-Instruct-Turbo": {
