@@ -99,14 +99,15 @@ OAI_ORG = "OpenAI"
 ANTHROPIC_ORG = "Anthropic"
 META_ORG = "Meta"
 GOOGLE_ORG = "Google"
+DEEPSEEK_ORG = "DeepSeek"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
-    "o1-mini-2024-09-12": {
+    "o3-mini-2025-01-31": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
-        "full_name": "o1-mini-2024-09-12",
-        "token_limit": 128000,
+        "full_name": "o3-mini-2025-01-31",
+        "token_limit": 200000,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
     "llama-3p3-70B-Instruct-Turbo": {
@@ -115,6 +116,18 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         "token_limit": 131072,
     },
+    "deepseek-ai/DeepSeek-R1": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": DEEPSEEK_ORG,
+        "full_name": "deepseek-ai/DeepSeek-R1",
+        "token_limit": 128000,
+    },
+    "deepseek-ai/DeepSeek-V3": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": DEEPSEEK_ORG,
+        "full_name": "deepseek-ai/DeepSeek-V3",
+        "token_limit": 16384,
+    },
     # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
     "claude-3-5-sonnet-20241022": {
         "source": ANTHROPIC_SOURCE,
@@ -122,12 +135,11 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "claude-3-5-sonnet-20241022",
         "token_limit": 200000,
     },
-    # google context window from: https://ai.google.dev/gemini-api/docs/models/gemini
-    "gemini-2.0-flash-exp": {
-        "source": GOOGLE_SOURCE,
-        "org": GOOGLE_ORG,
-        "full_name": "gemini-2.0-flash-exp",
-        "token_limit": 1048576,
+    "claude-3-5-sonnet-20240620": {
+        "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
+        "full_name": "claude-3-5-sonnet-20240620",
+        "token_limit": 200000,
     },
 }
 
