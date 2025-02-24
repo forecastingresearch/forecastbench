@@ -119,17 +119,35 @@ def _update_questions_and_resolved_values(dfq, dff):
         basename = f"{market['id']}.jsonl"
         remote_filename = f"{source}/{basename}"
         local_filename = "/tmp/tmp.jsonl"
+        if os.path.exists(local_filename):
+            os.remove(local_filename)
         gcp.storage.download_no_error_message_on_404(
             bucket_name=env.QUESTION_BANK_BUCKET,
             filename=remote_filename,
             local_filename=local_filename,
         )
-        df = pd.read_json(
-            local_filename,
-            lines=True,
-            dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
-            convert_dates=False,
-        )
+
+        if os.path.exists(local_filename):
+            df = pd.read_json(
+                local_filename,
+                lines=True,
+                dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
+                convert_dates=False,
+            )
+        else:
+            df = pd.DataFrame(
+                {
+                    col: pd.Series(
+                        dtype=(
+                            constants.RESOLUTION_FILE_COLUMN_DTYPE[col]
+                            if col in constants.RESOLUTION_FILE_COLUMN_DTYPE
+                            else "object"
+                        )
+                    )
+                    for col in constants.RESOLUTION_FILE_COLUMNS
+                }
+            )
+
         if not df.empty and pd.to_datetime(df["date"].iloc[-1]).date() >= YESTERDAY:
             # Check last datetime to see if we've already gotten the resolution value for today
             # If we have, return to avoid unnecessary API calls
