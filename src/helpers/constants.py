@@ -132,6 +132,12 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "token_limit": 16384,
     },
     # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
+    "claude-3-7-sonnet-20250219": {
+        "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
+        "full_name": "claude-3-7-sonnet-20250219",
+        "token_limit": 200000,
+    },
     "claude-3-5-sonnet-20241022": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
