@@ -1,0 +1,38 @@
+\begin{table}[ht!]
+\centering
+\resizebox{\textwidth}{!} {%
+\Large
+\begin{tabular}{@{}l l l l >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{3cm} >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{2cm}@{}}
+\toprule
+& & & & \multicolumn{3}{c}{Brier Score $\downarrow$} \\ \cmidrule(lr){5-7}
+Model & Organization & \begin{tabular}[c]{@{}l@{}}Information\\ provided\end{tabular} & Prompt & \begin{tabular}[c]{@{}l@{}}Dataset\\($N$=5,492)\end{tabular} & \begin{tabular}[c]{@{}l@{}}Market\\($N$=897)\end{tabular} & \begin{tabular}[c]{@{}l@{}}Overall\\($N$=6,389)\end{tabular} & \begin{tabular}[c]{@{}l@{}}Confidence\\ Interval\end{tabular} & \begin{tabular}[c]{@{}l@{}}Pairwise\\$p$-value\\comparing\\to No. 1\end{tabular} & \begin{tabular}[c]{@{}l@{}}Pct. more \\accurate\\ than No. 1\end{tabular} \\
+\midrule
+Claude-3-5-Sonnet-20240620 & Anthropic & Freeze values & Scratchpad & 0.169 & 0.078 & 0.123 & [0.117, 0.129] & -- & 0\% \\
+GPT-4-Turbo-2024-04-09 & OpenAI & Freeze values & Scratchpad & 0.172 & 0.080 & 0.126 & [0.120, 0.132] & 0.096 & 43\% \\
+GPT-4o & OpenAI & Freeze values & Scratchpad & 0.186 & 0.069 & 0.128 & [0.122, 0.133] & <0.01 & 43\% \\
+Gemini-1.5-Pro & Google & Freeze values & Scratchpad & 0.162 & 0.106 & 0.134 & [0.128, 0.139] & <0.001 & 35\% \\
+GPT-4o & OpenAI & News with freeze values & Scratchpad & 0.190 & 0.084 & 0.137 & [0.131, 0.143] & <0.001 & 39\% \\
+Gemini-1.5-Pro & Google & News with freeze values & Scratchpad & 0.166 & 0.111 & 0.139 & [0.133, 0.144] & <0.001 & 34\% \\
+Claude-3-Opus-20240229 & Anthropic & Freeze values & Zero shot & 0.186 & 0.093 & 0.139 & [0.133, 0.146] & <0.001 & 41\% \\
+Qwen1.5-110B-Chat & Qwen & Freeze values & Scratchpad & 0.176 & 0.108 & 0.142 & [0.136, 0.148] & <0.001 & 30\% \\
+Claude-3-5-Sonnet-20240620 & Anthropic & News with freeze values & Scratchpad & 0.184 & 0.101 & 0.143 & [0.137, 0.149] & <0.001 & 32\% \\
+Claude-3-5-Sonnet-20240620 & Anthropic & Freeze values & Zero shot & 0.192 & 0.094 & 0.143 & [0.136, 0.150] & <0.001 & 42\% \\
+\bottomrule
+\end{tabular}
+}
+\begin{minipage}{\textwidth}
+{\tiny
+    \textit{Notes:}\\
+    \vspace{-2mm}
+    1. Shows performance on the 1,000 (500 standard, 500 combination) questions in the LLM question set at the 7-, 30-, 90-, and 180-day forecast horizons.\\
+    \vspace{-2mm} % reduces space between this line and the next one
+    2. For resolved market questions, forecasts are compared against ground truth while for unresolved market questions, they are compared to community aggregates.\\
+    \vspace{-2mm} % reduces space between this line and the next one
+    3. The overall score is calculated as the average of the mean dataset Brier score and the mean market Brier score.\\
+    \vspace{-2mm} % reduces space between this line and the next one
+    4. Pairwise $p$-value comparing to No. 1 (bootstrapped): The $p$-value calculated by bootstrapping the differences in overall score between each model and the best\\ \vspace{-2mm} forecaster under the null hypothesis that there's no difference.\\
+    \vspace{-2mm}
+    5. Pct. more accurate than No. 1: The percent of questions where this forecaster had a better overall score than the best forecaster.\\
+}
+\end{minipage}
+\end{table}

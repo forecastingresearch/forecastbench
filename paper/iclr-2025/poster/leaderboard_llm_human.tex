@@ -1,0 +1,22 @@
+\begin{table}[ht!]
+\centering
+\tiny
+\resizebox{0.75\columnwidth}{!}{%
+\begin{tabular}{@{}l l l >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{2cm}@{}}
+\toprule
+Model & \begin{tabular}[c]{@{}l@{}}Information\\ provided\end{tabular} & Prompt & \begin{tabular}[c]{@{}l@{}}Dataset\\($N$=422)\end{tabular} & \begin{tabular}[c]{@{}l@{}}Market\\($N$=76)\end{tabular} & \begin{tabular}[c]{@{}l@{}}Overall\\($N$=498)\end{tabular} \\
+\midrule
+Superforecaster median forecast & -- & -- & 0.118 & 0.074 & 0.096 \\
+Public median forecast           & -- & -- & 0.153 & 0.089 & 0.121 \\
+Claude-3-5-Sonnet-20240620       & Freeze values & Scratchpad & 0.138 & 0.107 & 0.122 \\
+Claude-3-5-Sonnet-20240620       & News with freeze values & Scratchpad & 0.142 & 0.112 & 0.127 \\
+GPT-4-Turbo-2024-04-09          & Freeze values & Zero shot  & 0.162 & 0.095 & 0.128 \\
+Claude-3-5-Sonnet-20240620       & Freeze values & Zero shot  & 0.145 & 0.117 & 0.131 \\
+GPT-4                          & Freeze values & Zero shot  & 0.167 & 0.096 & 0.132 \\
+GPT-4o                         & News with freeze values & Scratchpad & 0.162 & 0.105 & 0.133 \\
+Claude-3-5-Sonnet-20240620       & -- & Scratchpad & 0.138 & 0.133 & 0.136 \\
+GPT-4o                         & Freeze values & Scratchpad & 0.161 & 0.113 & 0.137 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

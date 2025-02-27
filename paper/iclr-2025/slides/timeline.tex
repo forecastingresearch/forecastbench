@@ -1,0 +1,38 @@
+\begin{figure}[htb]
+  \centering
+  \resizebox{0.6\textwidth}{!}{%
+  \begin{tikzpicture}[font=\small]
+  \definecolor{lightblue}{RGB}{173, 216, 230}
+  \definecolor{lightpink}{RGB}{255, 182, 193}
+
+  \node (forecasts) [multidocument,outer sep=1pt] at (13.1,0) {Forecasts};
+
+  \draw[fill=lightblue,draw=lightblue,opacity=0.5] (1, 0) rectangle (12, -0.5);
+  \node[align=center] at (5.55, -0.25) {Public forecast period};
+
+  \begin{scope}
+    \path[fill=lightpink, pattern=north east lines, pattern color=lightpink] (9, 0) rectangle (12, -0.5);
+  \end{scope}
+  \node[align=center] at (10.5, -0.25) {LLM forecast period};
+
+  % Main timeline
+  \draw[thick, -{>[scale=1]},-latex'] (0, 0) -- (forecasts.west);
+
+  % D-7
+  \draw[thick] (1, -0.5) -- (1, 0.4);
+  \node[below, align=center] at (1, -0.5) {LLM \& Public\\question sets\\created};
+  \node[above, align=center] at (1, 0.4) {$D-10$\\\texttt{0:00} UTC};
+
+  % D
+  \draw[thick] (9, -0.5) -- (9, 0.4);
+  \node[below, align=center] at (9, -0.5) {LLM question set\\ released};
+  \node[above, align=center] at (9, 0.4) {$D$\\\texttt{0:00} UTC};
+
+  % D
+  \draw[thick] (12, -0.5) -- (12, 0.4);
+  \node[below, align=center] at (12, -0.5) {LLM \& Public\\forecasts due};
+  \node[above, align=center] at (12, 0.4) {\texttt{23:59} UTC};
+\end{tikzpicture}}
+   \caption{Timeline from question set generation to forecast due date, $D$.}
+
+\end{figure}

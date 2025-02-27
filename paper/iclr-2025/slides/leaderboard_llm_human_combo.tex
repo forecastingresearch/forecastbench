@@ -1,0 +1,78 @@
+\begin{table}[ht!]
+\centering
+\resizebox{\textwidth}{!}{%
+\Large
+\begin{tabular}{@{}l l l l >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{3cm} >{\centering\arraybackslash}m{2cm} >{\centering\arraybackslash}m{2cm}@{}}
+\toprule
+& & & & \multicolumn{3}{c}{Brier Score $\downarrow$} \\ \cmidrule(lr){5-7}
+Model & Organization & \begin{tabular}[c]{@{}l@{}}Information\\ provided\end{tabular} & Prompt & \begin{tabular}[c]{@{}l@{}}Dataset\\($N$=1,754)\end{tabular} & \begin{tabular}[c]{@{}l@{}}Market\\($N$=296)\end{tabular} & \begin{tabular}[c]{@{}l@{}}Overall\\($N$=2,050)\end{tabular} & \begin{tabular}[c]{@{}l@{}}Confidence\\ Interval\end{tabular} & \begin{tabular}[c]{@{}l@{}}Pairwise\\$p$-value\\comparing\\to No. 1\end{tabular} & \begin{tabular}[c]{@{}l@{}}Pct. more \\accurate\\ than No. 1\end{tabular} \\
+\midrule
+Superforecaster median forecast & ForecastBench & -- & -- & 0.091 & 0.062 & 0.076 & [0.067, 0.086] & -- & 0\% \\
+Public median forecast & ForecastBench & -- & -- & 0.119 & 0.072 & 0.096 & [0.086, 0.105] & <0.001 & 23\% \\
+GPT-4o & OpenAI & Freeze values & Scratchpad & 0.175 & 0.085 & 0.130 & [0.119, 0.141] & <0.001 & 24\% \\
+Claude-3-5-Sonnet-20240620 & Anthropic & Freeze values & Scratchpad & 0.154 & 0.107 & 0.131 & [0.118, 0.143] & <0.001 & 24\% \\
+GPT-4-Turbo-2024-04-09 & OpenAI & Freeze values & Scratchpad & 0.164 & 0.101 & 0.133 & [0.121, 0.145] & <0.001 & 23\% \\
+GPT-4o & OpenAI & News with freeze values & Scratchpad & 0.171 & 0.104 & 0.137 & [0.125, 0.149] & <0.001 & 20\% \\
+Gemini-1.5-Pro & Google & Freeze values & Scratchpad & 0.152 & 0.130 & 0.141 & [0.130, 0.152] & <0.001 & 21\% \\
+Gemini-1.5-Pro & Google & News with freeze values & Scratchpad & 0.154 & 0.133 & 0.143 & [0.133, 0.154] & <0.001 & 21\% \\
+Claude-3-5-Sonnet-20240620 & Anthropic & News with freeze values & Scratchpad & 0.160 & 0.130 & 0.145 & [0.132, 0.158] & <0.001 & 20\% \\
+Claude-3-5-Sonnet-20240620 & Anthropic & Freeze values & Zero shot & 0.174 & 0.119 & 0.146 & [0.133, 0.160] & <0.001 & 22\% \\
+%% Gemini-1.5-Pro & Google & -- & Scratchpad & 0.152 & 0.143 & 0.148 & [0.137, 0.158] & <0.001 & 20\% \\
+%% GPT-4-Turbo-2024-04-09 & OpenAI & -- & Scratchpad & 0.164 & 0.132 & 0.148 & [0.138, 0.158] & <0.001 & 17\% \\
+%% Gemini-1.5-Pro & Google & News & Scratchpad & 0.154 & 0.143 & 0.148 & [0.137, 0.160] & <0.001 & 21\% \\
+%% Claude-3-5-Sonnet-20240620 & Anthropic & -- & Scratchpad & 0.154 & 0.143 & 0.149 & [0.137, 0.160] & <0.001 & 20\% \\
+%% GPT-4o & OpenAI & -- & Scratchpad & 0.175 & 0.122 & 0.149 & [0.138, 0.159] & <0.001 & 19\% \\
+%% Claude-3-Opus-20240229 & Anthropic & Freeze values & Zero shot & 0.173 & 0.124 & 0.149 & [0.135, 0.162] & <0.001 & 21\% \\
+%% GPT-4o & OpenAI & News & Scratchpad & 0.171 & 0.127 & 0.149 & [0.138, 0.160] & <0.001 & 18\% \\
+%% GPT-4-Turbo-2024-04-09 & OpenAI & Freeze values & Zero shot & 0.200 & 0.100 & 0.150 & [0.138, 0.162] & <0.001 & 24\% \\
+%% Qwen1.5-110B-Chat & Qwen & Freeze values & Scratchpad & 0.171 & 0.131 & 0.151 & [0.140, 0.162] & <0.001 & 16\% \\
+%% Claude-3-5-Sonnet-20240620 & Anthropic & News & Scratchpad & 0.160 & 0.149 & 0.154 & [0.143, 0.166] & <0.001 & 19\% \\
+%% Imputed Forecaster & ForecastBench & -- & -- & 0.250 & 0.059 & 0.155 & [0.147, 0.163] & <0.001 & 22\% \\
+%% GPT-4 & OpenAI & Freeze values & Zero shot & 0.213 & 0.099 & 0.156 & [0.144, 0.168] & <0.001 & 21\% \\
+%% Gemini-1.5-Pro & Google & Freeze values & Zero shot & 0.205 & 0.110 & 0.157 & [0.144, 0.171] & <0.001 & 20\% \\
+%% Claude-3-5-Sonnet-20240620 & Anthropic & News & Superforecaster 2 & 0.167 & 0.149 & 0.158 & [0.146, 0.169] & <0.001 & 17\% \\
+%% GPT-4 & OpenAI & Freeze values & Scratchpad & 0.190 & 0.125 & 0.158 & [0.145, 0.171] & <0.001 & 19\% \\
+%% Claude-3-Opus-20240229 & Anthropic & Freeze values & Scratchpad & 0.185 & 0.134 & 0.159 & [0.148, 0.171] & <0.001 & 18\% \\
+%% LLM Crowd & ForecastBench & News & -- & 0.241 & 0.080 & 0.161 & [0.153, 0.168] & <0.001 & 18\% \\
+%% GPT-4-Turbo-2024-04-09 & OpenAI & News with freeze values & Scratchpad & 0.209 & 0.114 & 0.161 & [0.149, 0.173] & <0.001 & 20\% \\
+%% LLM Crowd & ForecastBench & News & -- & 0.242 & 0.083 & 0.162 & [0.155, 0.170] & <0.001 & 18\% \\
+%% LLM Crowd & ForecastBench & News & -- & 0.243 & 0.082 & 0.162 & [0.155, 0.170] & <0.001 & 18\% \\
+%% Gemini-1.5-Pro & Google & News & Superforecaster 1 & 0.176 & 0.151 & 0.164 & [0.153, 0.175] & <0.001 & 19\% \\
+%% Mistral-Large-Latest & Mistral AI & Freeze values & Scratchpad & 0.185 & 0.143 & 0.164 & [0.154, 0.175] & <0.001 & 16\% \\
+%% GPT-4 & OpenAI & -- & Scratchpad & 0.190 & 0.140 & 0.165 & [0.156, 0.174] & <0.001 & 15\% \\
+%% Qwen1.5-110B-Chat & Qwen & -- & Scratchpad & 0.171 & 0.161 & 0.166 & [0.156, 0.175] & <0.001 & 15\% \\
+%% Gemini-1.5-Pro & Google & -- & Zero shot & 0.205 & 0.128 & 0.167 & [0.154, 0.179] & <0.001 & 19\% \\
+%% Gemini-1.5-Flash & Google & Freeze values & Scratchpad & 0.179 & 0.154 & 0.167 & [0.153, 0.180] & <0.001 & 18\% \\
+%% Claude-2.1 & Anthropic & -- & Scratchpad & 0.228 & 0.105 & 0.167 & [0.157, 0.177] & <0.001 & 20\% \\
+%% Llama-3-70b-Chat-Hf & Meta & Freeze values & Zero shot & 0.205 & 0.132 & 0.168 & [0.155, 0.182] & <0.001 & 19\% \\
+%% Llama-3-70b-Chat-Hf & Meta & Freeze values & Scratchpad & 0.208 & 0.129 & 0.169 & [0.158, 0.179] & <0.001 & 17\% \\
+%% Claude-3-Opus-20240229 & Anthropic & -- & Zero shot & 0.173 & 0.165 & 0.169 & [0.156, 0.183] & <0.001 & 18\% \\
+%% Gemini-1.5-Flash & Google & Freeze values & Zero shot & 0.217 & 0.122 & 0.169 & [0.155, 0.183] & <0.001 & 23\% \\
+%% GPT-4-Turbo-2024-04-09 & OpenAI & -- & Zero shot & 0.200 & 0.139 & 0.169 & [0.157, 0.182] & <0.001 & 19\% \\
+%% GPT-4-Turbo-2024-04-09 & OpenAI & News & Scratchpad & 0.209 & 0.131 & 0.170 & [0.159, 0.180] & <0.001 & 17\% \\
+%% Gemini-1.5-Flash & Google & -- & Scratchpad & 0.179 & 0.161 & 0.170 & [0.159, 0.181] & <0.001 & 16\% \\
+%% GPT-4-Turbo-2024-04-09 & OpenAI & News & Superforecaster 2 & 0.202 & 0.139 & 0.170 & [0.160, 0.181] & <0.001 & 17\% \\
+%% Qwen1.5-110B-Chat & Qwen & News with freeze values & Scratchpad & 0.198 & 0.146 & 0.172 & [0.161, 0.183] & <0.001 & 16\% \\
+%% Claude-3-5-Sonnet-20240620 & Anthropic & -- & Zero shot & 0.174 & 0.171 & 0.172 & [0.158, 0.187] & <0.001 & 17\% \\
+%% Mistral-Large-Latest & Mistral AI & Freeze values & Zero shot & 0.203 & 0.145 & 0.174 & [0.160, 0.188] & <0.001 & 19\% \\
+%% Claude-2.1 & Anthropic & Freeze values & Scratchpad & 0.228 & 0.120 & 0.174 & [0.162, 0.186] & <0.001 & 20\% \\
+%% GPT-4o & OpenAI & News & Superforecaster 3 & 0.206 & 0.145 & 0.175 & [0.165, 0.186] & <0.001 & 16\% \\
+\bottomrule
+\end{tabular}
+}
+\begin{minipage}{\textwidth}
+{\tiny
+    \textit{Notes:} \\
+    \vspace{-2mm}
+    1. This shows performance on all 200 standard questions from the human question set \textit{plus} those combination questions from the LLM question set where humans\\\vspace{-2mm}provided forecasts on both components ($Q1$ and $Q2$). LLM scores are only for this combined question set. Human forecasts for combination questions are generated\\\vspace{-2mm}from their forecasts on the component questions by assuming independence (which is not always the case, putting humans at a disadvantage). Evaluated at the\\\vspace{-2mm} 7-, 30-, 90-, and 180-day forecast horizons.\\
+    \vspace{-2mm} % reduces space between this line and the next one
+    2. For resolved market questions, forecasts are compared against ground truth while for unresolved market questions, they are compared to community aggregates.\\
+    \vspace{-2mm} % reduces space between this line and the next one
+    3. The overall score is calculated as the average of the mean dataset Brier score and the mean market Brier score.\\
+    \vspace{-2mm} % reduces space between this line and the next one
+    4. Pairwise $p$-value comparing to No. 1 (bootstrapped): The $p$-value calculated by bootstrapping the differences in overall score between each model and the best\\ \vspace{-2mm} forecaster under the null hypothesis that there's no difference.\\
+    \vspace{-2mm}
+    5. Pct. more accurate than No. 1: The percent of questions where this forecaster had a better overall score than the best forecaster.\\
+}
+\end{minipage}
+\end{table}

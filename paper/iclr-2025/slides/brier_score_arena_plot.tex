@@ -1,0 +1,32 @@
+\begin{figure}[htb]
+    \centering
+    \begin{minipage}{\textwidth}
+    \begin{subfigure}[t]{0.475\textwidth}
+        \centering
+        \begin{tikzpicture}
+            \node[anchor=south west,inner sep=0] (image) at (0,0) {
+                \includegraphics[width=\textwidth]{../arena_v_overall.png}
+            };
+            \begin{scope}[x={(image.south east)},y={(image.north west)}]
+                % Add x-axis label
+                \node[below,scale=0.8] at (0.5,0) {Chatbot Arena score (higher is better)};
+                \node[rotate=90,left,scale=0.8] at (-0.02,.85) {Brier score (lower is better)};
+            \end{scope}
+        \end{tikzpicture}
+    \end{subfigure}%
+    \hspace*{1em}%
+    \begin{subfigure}[t]{0.475\textwidth}
+        \centering
+        \begin{tikzpicture}
+            \node[anchor=south west,inner sep=0] (image) at (0,0) {
+                \includegraphics[width=\textwidth]{../tc_v_overall.png}
+            };
+            \begin{scope}[x={(image.south east)},y={(image.north west)}]
+                % Add x-axis label
+                \node[below,scale=0.8] at (0.5,0) {Log training compute (FLOP)};
+                \node[rotate=90,left,scale=0.8] at (-0.02,.85) {Brier score (lower is better)};
+            \end{scope}
+        \end{tikzpicture}
+    \end{subfigure}
+    \end{minipage}
+\end{figure}

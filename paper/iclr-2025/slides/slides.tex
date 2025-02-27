@@ -1,0 +1,281 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{upquote}
+\usepackage{amsmath}
+\usepackage[copyright]{ccicons}
+\usepackage{svg}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{textcomp}
+\usepackage{subcaption}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, shapes.symbols, shadows, patterns}
+
+\tikzstyle{start} = [rectangle, draw, text centered, rounded corners, align=center, minimum height=2em]
+\tikzstyle{process} = [rectangle, draw, text centered, minimum height=2em]
+\tikzstyle{data}=[trapezium, draw, text centered, trapezium left angle=60, trapezium right angle=120, minimum height=2em]
+\tikzstyle{connector} = [draw, -latex']
+\tikzstyle{cloud} = [cloud, draw, text centered, cloud puffs=10, cloud ignores aspect, minimum height=2em]
+\tikzset{
+  multidocument/.style={
+    shape=tape,
+    draw,
+    fill=white,
+    outer sep=3pt,
+    tape bend top=none,
+    double copy shadow},
+  singledocument/.style={
+    shape=tape,
+    draw,
+    fill=white,
+    tape bend top=none},
+  database/.style={
+    cylinder,
+    shape border rotate=90,
+    aspect=0.1,
+    align=center,
+    draw}
+}
+
+\usepackage{float}
+
+\usetheme{Boadilla}
+
+\title[ForecastBench]{ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities}
+\author[ForecastBench Team]{Ezra Karger\inst{1,2} \and Houtan Bastani\inst{1} \and Chen Yueh-Han\inst{3}\\\and Zachary Jacobs\inst{1} \and Danny Halawi\inst{4} \and Fred Zhang\inst{4} \and Philip E. Tetlock\inst{1,5}}
+\institute[]{
+  \inst{1} Forecasting Research Institute
+  \inst{2} Federal Reserve Bank of Chicago
+  \inst{3} New York University\\
+  \inst{4} University of California, Berkeley
+  \inst{5} University of Pennsylvania
+}
+\date[ICLR 2025]{ICLR 2025: April 24-28}
+
+\AtBeginSection[]
+{
+  \begin{frame}
+    \frametitle{Outline}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+%\begin{frame}
+%  \frametitle{Outline}
+%  \tableofcontents
+%\end{frame}
+
+\section{A dynamic forecasting benchmark}
+
+\begin{frame}
+  \frametitle{Motivation}
+  \begin{itemize}
+  \item Forecasting is important and useful
+    \begin{itemize}
+    \item Evolution of a pandemic
+    \item Economic indicators
+    \item Geopolitical events
+    \item ...
+    \end{itemize}
+  \item Human forecasting is time-consuming and expensive $\rightarrow$ LLM forecasters
+    \begin{itemize}
+    \item When will LLMs forecast as well as humans?
+    \end{itemize}
+  \item Previous forecasting benchmarks have been static
+    \begin{itemize}
+    \item Made obsolete once training cutoffs are after question resolution dates
+    \item Knowledge cutoffs are imprecise
+    \item Risk test set contamination
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{ForecastBench}
+  \begin{itemize}
+  \item Continuously updated with questions about future events $\rightarrow$ immune to look-ahead bias
+  \item Periodic surveys of the general public and superforecasters $\rightarrow$ human comparison
+  \item Fully automated benchmark with open source codebase
+  \item Publicly available leaderboards updated nightly
+  \item Datasets released regularly
+    \begin{itemize}
+    \item forecast questions
+    \item forecasts by LLMs and humans, with rationales
+    \item resolutions
+    \end{itemize}
+  \item Will be maintained at least until mid-2027 thanks to a grant from \href{https://www.openphilanthropy.org/}{Open Philanthropy}!
+    \begin{block}{Links}
+      \begin{itemize}
+      \item Benchmark: \href{https://www.forecastbench.org/}{https://www.forecastbench.org}
+      \item Code (MIT License): \href{https://github.com/forecastingresearch/forecastbench}{https://github.com/forecastingresearch/forecastbench}
+      \item Data (CC-BY-SA-4.0 License):
+        \begin{itemize}
+        \item \href{https://github.com/forecastingresearch/forecastbench-datasets}{https://github.com/forecastingresearch/forecastbench-datasets}
+        \item \href{https://huggingface.co/datasets/forecastingresearch/forecastbench-datasets}{https://huggingface.co/datasets/forecastingresearch/forecastbench-datasets}
+        \end{itemize}
+      \end{itemize}
+    \end{block}
+  \end{itemize}
+\end{frame}
+
+
+\section{Automated system}
+
+\begin{frame}
+  \frametitle{Automated System}
+  Our automated system manages the benchmark, from updating the question bank, to generating and releasing question sets, to resolving forecasts and updating the leaderboard.
+  \begin{itemize}
+  \item \textbf{Question Bank}: updated nightly
+  \item \textbf{Question Sets}: generated every 2 weeks
+  \item \textbf{Eliciting Forecasts}: every 2 weeks from LLMs, periodically from the general public and superforecasters
+  \item \textbf{Leaderboard}: updated nightly
+  \end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}
+  \frametitle{Question Bank}
+  The Question Bank stores all questions to sample from. There are 2 types of questions:
+  \begin{enumerate}
+  \item \textbf{Market questions}: pulled from 4 forecasting platforms: Manifold, Metaculus, Polymarket, and the RAND Forecasting Initiative.
+    \item \textbf{Dataset questions}: generated from 5 datasets: ACLED, DBnomics, FRED, Wikipedia, and Yahoo! Finance.
+  \end{enumerate}
+\input{question_bank.tex}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Question Sets}
+  Every two weeks we sample 1,000 questions from the Question Bank to create the LLM Question Set.
+  \begin{itemize}
+  \item 500 standard questions: 250 market and 250 dataset questions.
+  \item 500 \textit{combination} questions: 250 market and 250 dataset questions.
+    \begin{itemize}
+      \item Each combination question is just a pair of standard questions from the same source
+      \item We ask for forecasts on the Boolean combinations of these questions: $P(Q1\cap Q2)$, $P(\neg Q1\cap Q2)$, $P(Q1\cap \neg Q2)$, and $P(\neg Q1\cap \neg Q2)$
+    \end{itemize}
+  \end{itemize}
+
+  We sample 200 questions from the LLM Question Set to create the Human Question Set.
+  \begin{itemize}
+  \item 200 standard questions: 100 market and 100 dataset questions.
+  \item No combination questions. Their combination forecasts are generated by treating $Q1$ and $Q2$ as independent, putting them at a disadvantage for these forecasts.
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Eliciting forecasts (1/2)}
+  \input{timeline.tex}
+  \begin{itemize}
+  \item LLMs
+    \begin{itemize}
+    \item Forecast all 1,000 questions in the Question Set within 24 hours
+    \item 17 models including GPT-4o, Claude Sonnet 3.5, Gemini 1.5 Pro, Qwen1.5 110B Chat, ...
+    \item Prompting strategies: zero-shot, scratchpad, scratchpad with retrieval (i.e., news)
+      \begin{itemize}
+      \item For market questions, with or without crowd forecasts provided (what we term ``freeze values'')
+      \end{itemize}
+    \end{itemize}
+  \item General public and superforecasters
+    \begin{itemize}
+    \item Forecast 200 questions sampled from the Question Set
+    \item Surveys take 10 days to run
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Eliciting forecasts (2/2): Forecast Sets}
+  Forecasts are returned in \textbf{Forecast sets}. Each question requires a different number of forecasts to be produced.\\\ \\
+  \resizebox{\textwidth}{!}{%
+    \begin{tabular}{l p{8cm} c}
+      \textbf{Question Type} & \textbf{Users forecast\ldots} & \textbf{\textnumero\ of Forecasts} \\ \hline
+      Standard market questions & \ldots the final outcome & 1  \\ \hline
+      Combination market questions & \ldots the final outcome for all Boolean combinations of the questions & 4  \\ \hline
+      Standard dataset questions & \ldots the outcome $n$ days in the future, where $n \in N, N=\{7,30,90,180,365,1095,1825,3650\}$ & 8  \\ \hline
+      Combination dataset questions & \ldots the outcome for all Boolean combinations of the questions at all forecast horizons in $N$ & 32  \\ \hline
+    \end{tabular}%
+  }
+
+  \ \\$\Rightarrow$ for each Question Set, LLMs provide approximately $11,250$ forecasts in the corresponding Forecast Set: $250\times (1+4+8+32)$.
+\end{frame}
+
+
+
+
+\begin{frame}
+  \frametitle{Leaderboard}
+  The forecast sets produced bi-weekly are resolved every night and the leaderboard is updated.
+  \begin{itemize}
+  \item Market questions are scored against the crowd forecast until resolution, when they're scored against ground truth.
+  \item Dataset questions are resolved against ground truth as datasets are updated and revised.
+  \end{itemize}
+
+\end{frame}
+
+
+\section{Results}
+
+
+\begin{frame}[fragile=singleslide]
+  \frametitle{LLM/Human Leaderboard (top 10)}
+  \input{leaderboard_llm_human.tex}
+\end{frame}
+
+
+\begin{frame}[fragile=singleslide]
+  \frametitle{LLM Leaderboard (top 10)}
+  \input{leaderboard_llm.tex}
+\end{frame}
+
+
+\begin{frame}[fragile=singleslide]
+  \frametitle{LLM/Human Combo Leaderboard (top 10)}
+  \input{leaderboard_llm_human_combo.tex}
+\end{frame}
+
+\begin{frame}[fragile=singleslide]
+  \frametitle{When could AI achieve superforecaster-level capabilities?}
+  \input{brier_score_arena_plot.tex}
+\end{frame}
+
+
+\begin{frame}
+  \begin{center}
+    \vfill
+    {\LARGE Contact us to benchmark your model!}
+    \vfill
+    {\LARGE \texttt{forecastbench@forecastingresearch.org}}
+    \vfill
+    {\LARGE \href{https://www.forecastbench.org/}{\texttt{https://www.forecastbench.org}}}
+    \vfill
+  \end{center}
+  \vfill
+  \begin{columns}[T]
+    \column{0.2\textwidth}
+    \column{0.09\textwidth}
+
+    \ccbysa
+    \column{0.71\textwidth}
+    \tiny
+    Copyright © 2024-2025 Forecasting Research Institute \\
+    License: \href{http://creativecommons.org/licenses/by-sa/4.0/}{Creative
+      Commons Attribution-ShareAlike 4.0}
+  \end{columns}
+\end{frame}
+
+\end{document}

@@ -1,0 +1,81 @@
+\begin{figure}[htb]
+  \centering
+  % Make 14 TikZ "x-units" = \twocolwid in real width
+  \begin{tikzpicture}[font=\scriptsize, x=\twocolwid/16, y=3cm]
+    \definecolor{lightblue}{RGB}{173, 216, 230}
+    \definecolor{lightpink}{RGB}{255, 182, 193}
+
+    % Place "Forecasts" at x=13.1 in TikZ coords
+    \node (forecasts) [multidocument,outer sep=1pt] at (13.1,0) {Forecasts};
+
+    % Public forecast period: rectangle from x=1 to x=12
+    \draw[fill=lightblue,draw=lightblue,opacity=0.5] (1,0) rectangle (12,-0.5);
+    \node[align=center] at (5.55,-0.25) {Public forecast period};
+
+    % LLM forecast period
+    \begin{scope}
+      \path[fill=lightpink, pattern=north east lines, pattern color=lightpink] (9,0) rectangle (12,-0.5);
+    \end{scope}
+    \node[align=center] at (10.5,-0.25) {LLM forecast period};
+
+    % Main timeline arrow
+    \draw[thick, -{>[scale=1]}, -latex'] (0,0) -- (forecasts.west);
+
+    % D-10
+    \draw[thick] (1,-0.5) -- (1,0.4);
+    \node[below, align=center] at (1,-0.5) {LLM \& Public\\question sets\\created};
+    \node[above, align=center] at (1,0.4) {$D-10$\\\texttt{0:00} UTC};
+
+    % D
+    \draw[thick] (9,-0.5) -- (9,0.4);
+    \node[below, align=center] at (9,-0.5) {LLM question set\\ released};
+    \node[above, align=center] at (9,0.4) {$D$\\\texttt{0:00} UTC};
+
+    % D
+    \draw[thick] (12,-0.5) -- (12,0.4);
+    \node[below, align=center] at (12,-0.5) {LLM \& Public\\forecasts due};
+    \node[above, align=center] at (12,0.4) {\texttt{23:59} UTC};
+  \end{tikzpicture}
+\end{figure}
+
+
+
+
+
+
+
+%% \begin{figure}[htb]
+%%   \centering
+%%   \begin{tikzpicture}[font=\scriptsize]
+%%   \definecolor{lightblue}{RGB}{173, 216, 230}
+%%   \definecolor{lightpink}{RGB}{255, 182, 193}
+
+%%   \node (forecasts) [multidocument,outer sep=1pt] at (13.1,0) {\scriptsize Forecasts};
+
+%%   \draw[fill=lightblue,draw=lightblue,opacity=0.5] (1, 0) rectangle (12, -0.5);
+%%   \node[align=center] at (5.55, -0.25) {\scriptsize Public forecast period};
+
+%%   \begin{scope}
+%%     \path[fill=lightpink, pattern=north east lines, pattern color=lightpink] (9, 0) rectangle (12, -0.5);
+%%   \end{scope}
+%%   \node[align=center] at (10.5, -0.25) {\scriptsize LLM forecast period};
+
+%%   % Main timeline
+%%   \draw[thick, -{>[scale=1]},-latex'] (0, 0) -- (forecasts.west);
+
+%%   % D-7
+%%   \draw[thick] (1, -0.5) -- (1, 0.4);
+%%   \node[below, align=center] at (1, -0.5) {\scriptsize LLM \& Public\\question sets\\created};
+%%   \node[above, align=center] at (1, 0.4) {\scriptsize $D-10$\\\texttt{0:00} UTC};
+
+%%   % D
+%%   \draw[thick] (9, -0.5) -- (9, 0.4);
+%%   \node[below, align=center] at (9, -0.5) {\scriptsize LLM question set\\ released};
+%%   \node[above, align=center] at (9, 0.4) {\scriptsize $D$\\\texttt{0:00} UTC};
+
+%%   % D
+%%   \draw[thick] (12, -0.5) -- (12, 0.4);
+%%   \node[below, align=center] at (12, -0.5) {\scriptsize LLM \& Public\\forecasts due};
+%%   \node[above, align=center] at (12, 0.4) {\scriptsize \texttt{23:59} UTC};
+%% \end{tikzpicture}
+%% \end{figure}

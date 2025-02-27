@@ -1,0 +1,283 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LaTeX poster template
+% Created by Nathaniel Johnston
+% August 2009
+% http://www.nathanieljohnston.com/2009/08/latex-poster-template/
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[final]{beamer}
+\usepackage[scale=1.24]{beamerposter}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage{subcaption}
+\usepackage{array}
+\usepackage{booktabs}
+%-----------------------------------------------------------
+% Define the column width and poster size
+% To set effective sepwid, onecolwid and twocolwid values, first choose how many columns you want and how much separation you want between columns
+% The separation I chose is 0.024 and I want 4 columns
+% Then set onecolwid to be (1-(4+1)*0.024)/4 = 0.22
+% Set twocolwid to be 2*onecolwid + sepwid = 0.464
+%-----------------------------------------------------------
+
+\newlength{\sepwid}
+\setlength{\paperwidth}{48in}
+\setlength{\paperheight}{27in}
+\setlength{\sepwid}{0.024\paperwidth}
+
+%% Four columns
+%% \newlength{\onecolwid}
+%% \newlength{\twocolwid}
+%% \newlength{\threecolwid}
+%% \setlength{\onecolwid}{0.22\paperwidth}
+%% \setlength{\twocolwid}{0.464\paperwidth}
+%% \setlength{\threecolwid}{0.708\paperwidth}
+
+%% Five columns
+\setlength{\sepwid}{0.024\paperwidth}
+\newlength{\onecolwid}
+\setlength{\onecolwid}{0.171\paperwidth}
+\newlength{\twocolwid}
+\setlength{\twocolwid}{0.366\paperwidth}
+\newlength{\threecolwid}
+\setlength{\threecolwid}{0.562\paperwidth}
+\newlength{\fourcolwid}
+\setlength{\fourcolwid}{0.757\paperwidth}
+\newlength{\fivecolwid}
+\setlength{\fivecolwid}{0.952\paperwidth}
+
+\setlength{\topmargin}{-0.5in}
+\usetheme{confposter}
+\usepackage{exscale}
+
+%-----------------------------------------------------------
+% The next part fixes a problem with figure numbering. Thanks Nishan!
+% When including a figure in your poster, be sure that the commands are typed in the following order:
+% \begin{figure}
+% \includegraphics[...]{...}
+% \caption{...}
+% \end{figure}
+% That is, put the \caption after the \includegraphics
+%-----------------------------------------------------------
+
+\usecaptiontemplate{
+\small
+\structure{\insertcaptionname~\insertcaptionnumber:}
+\insertcaption}
+
+%-----------------------------------------------------------
+% Define colours (see beamerthemeconfposter.sty to change these colour definitions)
+%-----------------------------------------------------------
+
+%\setbeamercolor{block title}{fg=iclrgreen,bg=white}
+%\setbeamercolor{block body}{fg=black,bg=white}
+%\setbeamercolor{block alerted title}{fg=white,bg=dblue!70}
+%\setbeamercolor{block alerted body}{fg=black,bg=dblue!10}
+
+
+
+
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, shapes.symbols, shadows, patterns}
+
+\tikzstyle{start} = [rectangle, draw, text centered, rounded corners, align=center, minimum height=2em]
+\tikzstyle{process} = [rectangle, draw, text centered, minimum height=2em]
+\tikzstyle{data}=[trapezium, draw, text centered, trapezium left angle=60, trapezium right angle=120, minimum height=2em]
+\tikzstyle{connector} = [draw, -latex']
+\tikzstyle{cloud} = [cloud, draw, text centered, cloud puffs=10, cloud ignores aspect, minimum height=2em]
+\tikzset{
+  multidocument/.style={
+    shape=tape,
+    draw,
+    fill=white,
+    outer sep=3pt,
+    tape bend top=none,
+    double copy shadow},
+  singledocument/.style={
+    shape=tape,
+    draw,
+    fill=white,
+    tape bend top=none},
+  database/.style={
+    cylinder,
+    shape border rotate=90,
+    aspect=0.1,
+    align=center,
+    draw}
+}
+\usetikzlibrary{positioning}
+
+\usepackage{float}
+
+
+
+%-----------------------------------------------------------
+% Name and authors of poster/paper/research
+%-----------------------------------------------------------
+
+\title[ForecastBench]{ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities}
+\author[ForecastBench Team]{Ezra Karger\inst{1,2} \and Houtan Bastani\inst{1} \and Chen Yueh-Han\inst{3} \and Zachary Jacobs\inst{1} \and Danny Halawi\inst{4} \and Fred Zhang\inst{4} \and Philip E. Tetlock\inst{1,5}}
+\institute[]{
+  \inst{1} Forecasting Research Institute
+  \inst{2} Federal Reserve Bank of Chicago
+  \inst{3} New York University
+  \inst{4} University of California, Berkeley
+  \inst{5} University of Pennsylvania
+}
+\date[ICLR 2025]{ICLR 2025: April 24-28}
+
+%-----------------------------------------------------------
+% Start the poster itself
+%-----------------------------------------------------------
+
+\begin{document}
+\begin{frame}[t]
+  \begin{columns}[t]
+
+    \begin{column}{\sepwid}\end{column}
+
+    \begin{column}{\onecolwid}
+
+      \setbeamercolor{block alerted title}{fg=black,bg=iclrblue}
+      \setbeamercolor{block alerted body}{fg=black,bg=white}
+      \begin{alertblock}{Motivation}
+        Like math and coding, forecasting is a useful testbed of LLM reasoning ability.
+        \vskip2ex
+        Forecasting is a real-world task that guides the decisions of individuals and organizations on a daily basis.
+      \end{alertblock}
+
+      \vskip2ex
+
+      \begin{block}{Benchmark Features}
+        \begin{itemize}
+        \item Continuously updated with questions about future events\\
+          $\Rightarrow$ \textbf{immune to look-ahead bias}
+        \item Periodic surveys of the general public and superforecasters\\
+          $\Rightarrow$ \textbf{human comparison}
+        \item Fully automated with open source codebase\\
+          $\Rightarrow$ \textbf{verifiable}
+        \item Publicly available leaderboards\\
+          $\Rightarrow$ \textbf{updated nightly}
+        \item Datasets released regularly to GitHub and Hugging Face\\
+          $\Rightarrow$ \textbf{train your models}
+        \item Maintained until at least mid-2027, thanks to a grant from \href{https://www.openphilanthropy.org/}{Open Philanthropy}!\\
+          $\Rightarrow$ \textbf{stable}
+        \end{itemize}
+      \end{block}
+
+      \vskip2ex
+
+      \begin{block}{Models Tested}
+        GPT-3.5-Turbo-Instruct, GPT-4, GPT-4o, Llama-2-70B, Llama-3-7B, Llama-3-
+70B, Mistral-7B, Mixtral-8x7B, Mixtral-8x22B, Mistral-Large,
+Qwen1.5-110B-Chat, Claude-2.1, Claude-3-Haiku, Claude-3.5-
+Sonnet, Claude-3-Opus, Gemini 1.5 Flash, and Gemini 1.5 Pro.
+      \end{block}
+
+
+      \vskip2ex
+
+      \setbeamercolor{block alerted title}{fg=black,bg=iclryellow}
+      \setbeamercolor{block alerted body}{fg=black,bg=white}
+      \begin{alertblock}{Participate}
+        Benchmark your model's forecasting abilities in one of our bi-weekly forecasting rounds.\\
+        \vskip2ex
+        To participate, email us:\\ \texttt{forecastbench@forecastingresearch.org}
+      \end{alertblock}
+
+    \end{column}
+
+
+
+    \begin{column}{\sepwid}\end{column}
+
+
+
+
+    \begin{column}{\twocolwid}
+      \begin{block}{LLMs not yet at superforecaster level}
+        \input{leaderboard_llm_human.tex}
+      \end{block}
+
+      \vskip2ex
+
+      \begin{block}{When could AI achieve superforecaster-level capabilities?}
+        \input{brier_score_arena_plot.tex}
+      \end{block}
+
+      \vskip2ex
+
+      \setbeamercolor{block alerted title}{fg=black,bg=iclrblue}
+      \setbeamercolor{block alerted body}{fg=black,bg=white}
+      \begin{alertblock}{Find Us}
+        Website: \href{https://www.forecastbench.org/}{\texttt{https://www.forecastbench.org}}
+        \vskip2ex
+        Code (MIT License):
+        \raisebox{-0.15em}{\includegraphics[height=1em]{github.png}}\hspace{0.5em}\href{https://github.com/forecastingresearch/forecastbench}{\texttt{https://github.com/forecastingresearch/forecastbench}}
+        \vskip2ex
+        Datasets (CC-BY-SA-4.0 License):\\
+        \raisebox{-0.15em}{\includegraphics[height=1em]{github.png}}\hspace{0.5em}\href{https://github.com/forecastingresearch/forecastbench-datasets}{\texttt{https://github.com/forecastingresearch/forecastbench-datasets}} \\
+        \raisebox{-0.15em}{\includegraphics[height=1em]{huggingface.png}}\hspace{0.5em}\href{https://huggingface.co/datasets/forecastingresearch/forecastbench-datasets}{\texttt{https://huggingface.co/datasets/forecastingresearch/forecastbench-datasets}}
+      \end{alertblock}
+      \vskip2.5ex
+    \end{column}
+
+
+    \begin{column}{\sepwid}\end{column}
+
+
+
+    \begin{column}{\twocolwid}
+      \begin{block}{Automated Benchmark}
+        \input{question_bank.tex}
+        The Question Bank contains:
+        \begin{enumerate}
+        \item \textbf{Market questions}: pulled from 4 forecasting platforms: Manifold, Metaculus, Polymarket, and the RAND Forecasting Initiative.
+        \item \textbf{Dataset questions}: generated from 5 datasets: ACLED, DBnomics, FRED, Wikipedia, and Yahoo! Finance.
+        \end{enumerate}
+      \end{block}
+
+      \vskip2ex
+
+      \begin{block}{Question Sets}
+          Sample 1,000 questions from the Question Bank to create the Question Set.
+  \begin{itemize}
+  \item 500 standard questions: 250 market and 250 dataset questions.
+  \item 500 \textit{combination} questions: 250 market and 250 dataset questions.
+    \begin{itemize}
+      \item Each combination question is a pair of standard questions
+      \item LLMs forecast: $P(Q1\cap Q2)$, $P(\neg Q1\cap Q2)$, $P(Q1\cap \neg Q2)$, and $P(\neg Q1\cap \neg Q2)$
+    \end{itemize}
+  \end{itemize}
+      \end{block}
+
+
+      \vskip2ex
+
+\begin{block}{Forecasting Timeline}
+  \input{timeline.tex}\ \\\
+  \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{l p{0.5\columnwidth} c}
+      \textbf{Question Type} & \textbf{LLMs forecast\ldots} & \textbf{\textnumero\ of Forecasts} \\ \hline
+      Standard market questions & \ldots the final outcome & 1  \\ \hline
+      Combination market questions & \ldots the final outcome for all Boolean combinations of the questions & 4  \\ \hline
+      Standard dataset questions & \ldots the outcome $n$ days in the future, where $n \in N, N=\{7,30,90,180,365,1095,1825,3650\}$ & 8  \\ \hline
+      Combination dataset questions & \ldots the outcome for all Boolean combinations of the questions at all forecast horizons in $N$ & 32  \\ \hline
+    \end{tabular}%
+  }
+    \ \\\ \\ $\Rightarrow$ LLMs make $\sim 11,250$ forecasts.
+\end{block}
+
+
+    \end{column}
+
+
+
+    \begin{column}{\sepwid}\end{column}
+
+
+
+ \end{columns}
+\end{frame}
+\end{document}

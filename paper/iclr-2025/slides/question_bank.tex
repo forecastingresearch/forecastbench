@@ -1,0 +1,28 @@
+\begin{figure}[htb]
+  \centering
+    \resizebox{0.6\textwidth}{!}{%
+\begin{tikzpicture}
+\node (start) [start] at (-0.3,0) {Daily, \texttt{0:00} UTC};
+\node (questions) [process] at (3,0) {Update Questions};
+\node (question_files_outer_sep_top) [multidocument,outer sep=4.2pt] at (3,-1.12) {Question Files};
+\node (question_files_outer_sep_bottom) [multidocument,outer sep=2.4pt] at (3,-1.12) {Question Files};
+\node (resolutions) [process] at (6.5,0) {Update Resolutions};
+\node (resolution_files_outer_sep_top) [multidocument,outer sep=4.2pt] at (6.5,-1.1) {Resolution Files};
+\node (resolution_files_outer_sep_bottom) [multidocument,outer sep=2.4pt] at (6.5,-1.1) {Resolution Files};
+\node (metadata) [process] at (10,0) {Update Metadata};
+\node (metadata_file) [singledocument] at (10,-0.95) {Metadata File};
+\node (metadata_file_outer_sep) [singledocument,outer sep=2.4pt] at (10,-0.95) {Metadata File};
+\node (question_bank) [database] at (6.5,-2.5) {Question\\Bank};
+\draw [connector] (start) -- (questions);
+\draw [connector] (questions) -- (question_files_outer_sep_top);
+\draw [connector] (questions) -- (resolutions);
+\draw [connector] (resolutions) -- (resolution_files_outer_sep_top);
+\draw [connector] (resolutions) -- (metadata);
+\draw [connector] (metadata) -- (metadata_file);
+\draw [connector] (metadata_file_outer_sep.south) --  (question_bank.east) ;
+\draw [connector] (resolution_files_outer_sep_bottom.south) --  (question_bank.north) ;
+\draw [connector] (question_files_outer_sep_bottom.south) --  (question_bank.west) ;
+\end{tikzpicture}}
+   \caption{The Question Bank updating flowchart.}
+    \label{fig:question_processing}
+\end{figure}
