@@ -112,6 +112,15 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": True,
     },
+    "gpt-4.5-preview-2025-02-27": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-4.5-preview-2025-02-27",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": False,
+    },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
     "llama-3p3-70B-Instruct-Turbo": {
         "source": TOGETHER_AI_SOURCE,
