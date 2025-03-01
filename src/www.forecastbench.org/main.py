@@ -371,7 +371,7 @@ def main():
     make_paper()
 
     shutil.copy("styles.css", LOCAL_FOLDER)
-    # upload(build_env)
+    upload(build_env)
 
     # No need to upload the below files as they don't change regularly.
     # Copy them locally so site looks good in case we're testing locally.
