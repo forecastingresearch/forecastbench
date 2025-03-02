@@ -28,7 +28,7 @@ deploy : main.py .gcloudignore requirements.txt Dockerfile
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 8h \
+		--task-timeout 12h \
 		--memory 2Gi \
 		--max-retries 0 \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
