@@ -316,6 +316,8 @@ def driver(_):
 
     forecast_due_date = pd.to_datetime(forecast_due_date)
     last_date_for_data = pd.to_datetime(forecast_due_date) - pd.to_timedelta(1, unit="D")
+    logger.info(f"Forecast due date: {forecast_due_date}")
+    logger.info(f"Last date for data: {last_date_for_data}")
 
     df = prepare_df_and_set_null_values(
         df=df[

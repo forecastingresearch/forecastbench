@@ -16,6 +16,7 @@ __pycache__/
 
 src/base_eval/llm_baselines/manager/Dockerfile
 src/base_eval/llm_baselines/worker/Dockerfile
+src/base_eval/naive_and_dummy_forecasters/Dockerfile
 src/questions/polymarket/fetch/Dockerfile
 src/curate_questions/publish_question_set/Dockerfile
 src/leaderboard/Dockerfile
