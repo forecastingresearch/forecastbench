@@ -170,17 +170,34 @@ def create_resolution_file(question, resolved):
             filename=remote_filename,
         )
 
+    if os.path.exists(local_filename):
+        os.remove(local_filename)
     gcp.storage.download_no_error_message_on_404(
         bucket_name=env.QUESTION_BANK_BUCKET,
         filename=remote_filename,
         local_filename=local_filename,
     )
-    df = pd.read_json(
-        local_filename,
-        lines=True,
-        dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
-        convert_dates=False,
-    )
+
+    if os.path.exists(local_filename):
+        df = pd.read_json(
+            local_filename,
+            lines=True,
+            dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
+            convert_dates=False,
+        )
+    else:
+        df = pd.DataFrame(
+            {
+                col: pd.Series(
+                    dtype=(
+                        constants.RESOLUTION_FILE_COLUMN_DTYPE[col]
+                        if col in constants.RESOLUTION_FILE_COLUMN_DTYPE
+                        else "object"
+                    )
+                )
+                for col in constants.RESOLUTION_FILE_COLUMNS
+            }
+        )
 
     if question["nullify_question"]:
         logger.warning(
