@@ -1045,10 +1045,13 @@ def driver(_):
     for res in results:
         files.update(res)
 
+    mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
+    mirrors = [mirrors] if mirrors else []
     git.clone_and_push_files(
         repo_url=keys.API_GITHUB_DATASET_REPO_URL,
         files=files,
         commit_message="leaderboard: automatic update html & csv files.",
+        mirrors=mirrors,
     )
 
 

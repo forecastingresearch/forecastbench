@@ -51,6 +51,8 @@ def driver(_):
         os.remove(soft_link_filename)
     os.symlink(question_set, soft_link_filename)
 
+    mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
+    mirrors = [mirrors] if mirrors else []
     git.clone_and_push_files(
         repo_url=keys.API_GITHUB_DATASET_REPO_URL,
         files={
@@ -58,6 +60,7 @@ def driver(_):
             soft_link_filename: f"{remote_folder}/{soft_link_question_set}",
         },
         commit_message=f"publish {question_set}.",
+        mirrors=mirrors,
     )
 
     logger.info("Done.")

@@ -40,13 +40,14 @@ def clone(repo_url):
     return repo, local_repo_dir, tmp_key_file_path
 
 
-def clone_and_push_files(repo_url, files, commit_message):
+def clone_and_push_files(repo_url, files, commit_message, mirrors):
     """Clone a repository and push the files to it.
 
     Params:
     - repo_url: something like `git@github.com:forecastingresearch/...`
     - files: a dict of files to push; the key is the local path, the value is the repository path
     - commit_message: commit message
+    - mirrors: a list of repository mirrors to push to
     """
     repo, local_repo_dir, tmp_key_file_path = clone(repo_url=repo_url)
 
@@ -61,13 +62,21 @@ def clone_and_push_files(repo_url, files, commit_message):
     error_encountered = False
     author = Actor("ForecastBench bot", "benchmark@forecastingresearch.org")
     committer = Actor("ForecastBench bot", "benchmark@forecastingresearch.org")
+    ssh_env = {"GIT_SSH_COMMAND": f"ssh -i {tmp_key_file_path} -o StrictHostKeyChecking=no"}
     try:
         repo.index.commit(commit_message, author=author, committer=committer)
         origin = repo.remote(name="origin")
-        origin.push(env={"GIT_SSH_COMMAND": f"ssh -i {tmp_key_file_path}"})
+        origin.push(env=ssh_env)
+        for index, mirror_url in enumerate(mirrors):
+            mirror = repo.create_remote(f"mirror_{index}", url=mirror_url)
+            mirror.push(env={"GIT_SSH_COMMAND": f"ssh -i {tmp_key_file_path}"})
+            mirror.push(env=ssh_env)
+            repo.delete_remote(mirror.name)
+            logger.info(f"Pushed to {mirror_url} (mirror) with commit message: {commit_message}")
     except Exception as e:
         error_encountered = True
-        logger.error(f"encountered error when pushing to git: {e.message}")
+        message = e.message if hasattr(e, "message") else str(e)
+        logger.error(f"encountered error when pushing to git: {message}")
 
     os.remove(tmp_key_file_path)
     shutil.rmtree(local_repo_dir, ignore_errors=True)

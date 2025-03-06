@@ -96,12 +96,15 @@ def upload_resolution_set(df, forecast_due_date, question_set_filename):
             destination_folder=upload_folder,
         )
         logger.info(f"Uploaded Resolution File {local_filename} to {upload_folder}.")
+        mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
+        mirrors = [mirrors] if mirrors else []
         git.clone_and_push_files(
             repo_url=keys.API_GITHUB_DATASET_REPO_URL,
             files={
                 local_filename: f"{upload_folder}/{basename}",
             },
             commit_message=f"resolution set: automatic update for {question_set_filename}.",
+            mirrors=mirrors,
         )
 
 
