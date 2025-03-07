@@ -69,7 +69,6 @@ def clone_and_push_files(repo_url, files, commit_message, mirrors):
         origin.push(env=ssh_env)
         for index, mirror_url in enumerate(mirrors):
             mirror = repo.create_remote(f"mirror_{index}", url=mirror_url)
-            mirror.push(env={"GIT_SSH_COMMAND": f"ssh -i {tmp_key_file_path}"})
             mirror.push(env=ssh_env)
             repo.delete_remote(mirror.name)
             logger.info(f"Pushed to {mirror_url} (mirror) with commit message: {commit_message}")
