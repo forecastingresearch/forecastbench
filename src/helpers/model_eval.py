@@ -135,9 +135,13 @@ def get_response_from_oai_model(
         Returns:
             str: Response string from the API call.
         """
-        is_reasoning_model = constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.get(model_name, {}).get(
-            "reasoning_model", False
-        )
+
+        def get_bool_param_from_model_def(p):
+            return constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.get(model_name, {}).get(p, False)
+
+        is_reasoning_model = get_bool_param_from_model_def("reasoning_model")
+        use_web_search = get_bool_param_from_model_def("use_web_search")
+
         if is_reasoning_model and system_prompt:
             print(system_prompt)
             logger.error("OpenAI reasoning models do NOT support system prompts.")
@@ -148,16 +152,24 @@ def get_response_from_oai_model(
 
         params = {
             "model": model_name,
-            "messages": model_input,
         }
-        if not is_reasoning_model:
-            params["temperature"] = temperature
-            params["max_tokens"] = max_tokens
+        if use_web_search:
+            params["input"] = prompt
+            params["tools"] = [{"type": "web_search_preview"}]
+            params["tool_choice"] = {"type": "web_search_preview"}
+            if not is_reasoning_model:
+                params["temperature"] = temperature
 
-        response = oai.chat.completions.create(**params)
+            response = oai.responses.create(**params)
+            return response.output_text
+        else:
+            params["messages"] = model_input
+            if not is_reasoning_model:
+                params["temperature"] = temperature
+                params["max_tokens"] = max_tokens
 
-        # logger.info(f"full prompt: {prompt}")
-        return response.choices[0].message.content
+            response = oai.chat.completions.create(**params)
+            return response.choices[0].message.content
 
     return get_response_with_retry(api_call, wait_time, "OpenAI API request exceeded rate limit.")
 
@@ -683,6 +695,11 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
         file_prompt_type = prompt_type
         if with_freeze_values:
             file_prompt_type += "_with_freeze_values"
+
+        # Only possible for some OpenAI models
+        if models[model].get("use_web_search", False):
+            file_prompt_type += "_with_web_search"
+
         new_file_name = f"{directory}/{forecast_due_date}.{org}.{model}_{file_prompt_type}.json"
         if test_or_prod == "TEST":
             new_file_name = (
