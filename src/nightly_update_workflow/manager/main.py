@@ -4,8 +4,11 @@ import logging
 import os
 import sys
 
+import pandas as pd
+from tabulate import tabulate
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import cloud_run, question_curation, slack  # noqa: E402
+from helpers import cloud_run, constants, env, question_curation, slack  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,6 +24,59 @@ def call_worker(dict_to_use, task_count, timeout=cloud_run.timeout_1h):
         task_count=task_count,
         timeout=timeout,
     )
+
+
+def summarize_question_bank():
+    """Send a message to Slack with the updated status of the question bank."""
+    dfmeta = pd.read_json(
+        f"gs://{env.QUESTION_BANK_BUCKET}/{constants.META_DATA_FILENAME}",
+        lines=True,
+    )
+    df = pd.DataFrame()
+    for source in sorted(question_curation.ALL_SOURCES):
+        logger.info(f"downloading {source} question file.")
+        dfq = pd.read_json(
+            f"gs://{env.QUESTION_BANK_BUCKET}/{source}_questions.jsonl",
+            lines=True,
+            convert_dates=False,
+        )
+        dfq = dfq[~dfq["resolved"]].reset_index(drop=True)
+        dfq["source"] = source
+        dfq["id"] = dfq["id"].astype(str)
+
+        dfq_valid = pd.merge(
+            dfq,
+            dfmeta,
+            how="inner",
+            on=["id", "source"],
+        )
+        dfq_valid = dfq_valid[dfq_valid["valid_question"]]
+
+        df = pd.concat(
+            [
+                df,
+                pd.DataFrame(
+                    [
+                        {
+                            "source": source,
+                            "N unresolved": len(dfq),
+                            "N valid unresolved": len(dfq_valid),
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
+
+    sum_row = {
+        col: df[col].sum() if pd.api.types.is_numeric_dtype(df[col]) else "Total"
+        for col in df.columns
+    }
+    df = pd.concat([df, pd.DataFrame([sum_row])], ignore_index=True)
+    for col in df.select_dtypes(include=["number"]).columns:
+        df[col] = df[col].map(lambda x: f"{x:,}")
+    df_str = tabulate(df, headers="keys", tablefmt="psql", showindex=False)
+    slack.send_message(message=f"```{df_str}```")
 
 
 def main():
@@ -56,6 +112,8 @@ def main():
         name=dict_to_use_metadata,
         exit_on_error=False,
     )
+
+    summarize_question_bank()
 
     dict_to_use_create_question_set = "create_question_set"
     operation_create_question_set = call_worker(
