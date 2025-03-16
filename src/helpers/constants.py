@@ -103,16 +103,16 @@ DEEPSEEK_ORG = "DeepSeek"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
-    "o3-mini-2025-01-31": {
+    "gpt-4o-2024-11-20": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
-        "full_name": "o3-mini-2025-01-31",
-        "token_limit": 200000,
+        "full_name": "gpt-4o-2024-11-20",
+        "token_limit": 128000,
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": True,
+        "reasoning_model": False,
         # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
+        "use_web_search": True,
     },
     "gpt-4.5-preview-2025-02-27": {
         "source": OAI_SOURCE,
@@ -123,7 +123,7 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": False,
         # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": True,
+        "use_web_search": False,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
     "llama-3p3-70B-Instruct-Turbo": {
