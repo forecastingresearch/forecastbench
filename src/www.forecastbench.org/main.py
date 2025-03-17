@@ -220,6 +220,16 @@ def make_datasets():
     make_forecast_sets_index()
     today_iso = dates.get_date_today_as_iso().replace("-", "--")
     dataset_link = "https://github.com/forecastingresearch/forecastbench-datasets"
+    superforecaster_link = (
+        f"{dataset_link}/"
+        "blob/main/datasets/forecast_sets/2024-07-21/"
+        "2024-07-21.ForecastBench.human_super_individual.json"
+    )
+    public_link = (
+        f"{dataset_link}/"
+        "blob/main/datasets/forecast_sets/2024-07-21/"
+        "2024-07-21.ForecastBench.human_public_individual.json"
+    )
     content = f"""
     <main>
     <h2>Question and Resolution Sets</h2>
@@ -231,8 +241,8 @@ def make_datasets():
       </p>
 
     <h2>Forecast Sets</h2>
-      <p>Superforecaster Forecasts (forthcoming)</p>
-      <p>General Public Forecasts (forthcoming)</p>
+      <p><a href="{superforecaster_link}">Superforecaster Forecasts</a></p>
+      <p><a href="{public_link}">General Public Forecasts</a></p>
       <p><a href="datasets_forecast_sets_index.html">LLM and Aggregated Human Forecasts</a></p>
     </main>
 """
