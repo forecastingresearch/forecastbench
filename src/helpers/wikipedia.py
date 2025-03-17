@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Wikipedia constants."""
-
 import hashlib
 import json
 import logging
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from enum import Enum
 
@@ -169,23 +169,37 @@ def upload_hash_mapping():
 
 def make_resolution_df():
     """Prepare data for resolution."""
-    files = gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=source)
-    files = [f for f in files if f.endswith(".jsonl")]
-    df = pd.DataFrame()
-    for f in tqdm(files, f"downloading `{source}` resoultion files"):
-        if f.startswith(f"{source}/"):
-            df_tmp = pd.read_json(
-                f"gs://{env.QUESTION_BANK_BUCKET}/{f}",
-                lines=True,
-                dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
-                convert_dates=False,
-            )
-            # The Wikipedia folder contains files that aren't resolution files.
-            # That should be changed at some point. For now, test that it's a resolution file
-            # by checking the columns
-            if set(df_tmp.columns) == set(constants.RESOLUTION_FILE_COLUMNS):
-                df = pd.concat([df, df_tmp], ignore_index=True)
+    files = [
+        f
+        for f in gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=source)
+        if f.startswith(f"{source}/") and f.endswith(".jsonl")
+    ]
 
+    def process_file(f):
+        """Prepare individual resolution file."""
+        df_tmp = pd.read_json(
+            f"gs://{env.QUESTION_BANK_BUCKET}/{f}",
+            lines=True,
+            dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
+            convert_dates=False,
+        )
+        if set(df_tmp.columns) == set(constants.RESOLUTION_FILE_COLUMNS):
+            return df_tmp
+        return None
+
+    with ThreadPoolExecutor() as executor:
+        results = list(
+            tqdm(
+                executor.map(
+                    process_file,
+                    files,
+                ),
+                total=len(files),
+                desc=f"downloading `{source}` resolution files",
+            )
+        )
+    dfs = [df for df in results if df is not None]
+    df = pd.concat(dfs, ignore_index=True)
     df["date"] = pd.to_datetime(df["date"])
     df["id"] = df["id"].astype(str)
     return df

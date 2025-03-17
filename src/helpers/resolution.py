@@ -6,6 +6,7 @@ import os
 import pickle
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from typing import Union
 
 import numpy as np
@@ -129,20 +130,28 @@ def standardize_direction(val):
 
 def make_resolution_df(source):
     """Prepare data for resolution."""
-    files = gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=source)
-    df = pd.concat(
-        [
-            pd.read_json(
-                f"gs://{env.QUESTION_BANK_BUCKET}/{f}",
-                lines=True,
-                dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
-                convert_dates=False,
+    files = [
+        f
+        for f in gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=source)
+        if f.startswith(f"{source}/")
+    ]
+    with ThreadPoolExecutor() as executor:
+        dfs = list(
+            tqdm(
+                executor.map(
+                    lambda f: pd.read_json(
+                        f"gs://{env.QUESTION_BANK_BUCKET}/{f}",
+                        lines=True,
+                        dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
+                        convert_dates=False,
+                    ),
+                    files,
+                ),
+                total=len(files),
+                desc=f"downloading `{source}` resolution files",
             )
-            for f in tqdm(files, f"downloading `{source}` resoultion files")
-            if f.startswith(f"{source}/")
-        ],
-        ignore_index=True,
-    )
+        )
+    df = pd.concat(dfs, ignore_index=True)
     df = make_columns_hashable(df)
     df["date"] = pd.to_datetime(df["date"])
     df["id"] = df["id"].astype(str)
