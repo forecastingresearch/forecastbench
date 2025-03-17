@@ -732,6 +732,7 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
 
 def worker(
     index,
+    n_questions,
     model_name,
     save_dict,
     questions_to_eval,
@@ -744,7 +745,7 @@ def worker(
     if save_dict[index] != "":
         return
 
-    logger.info(f"Starting {model_name} - {index}")
+    logger.info(f"Starting {model_name} - {index + 1}/{n_questions}")
 
     if rate_limit:
         start_time = datetime.now()
@@ -969,6 +970,7 @@ def executor(
     with ThreadPoolExecutor(max_workers=env.NUM_CPUS) as executor:
         worker_with_args = partial(
             worker,
+            n_questions=len(questions_to_eval),
             model_name=model_name,
             save_dict=save_dict,
             questions_to_eval=questions_to_eval,
