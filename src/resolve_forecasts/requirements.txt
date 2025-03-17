@@ -4,3 +4,4 @@ pandas
 tqdm
 gcsfs==2024.3.1
 GitPython
+scipy

@@ -101,8 +101,11 @@ def main():
     )
 
     dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
+    timeout_resolve = cloud_run.timeout_1h * 2
     operation_resolve_and_leaderboard = call_worker(
-        dict_to_use=dict_to_use_resolve_and_leaderboard, task_count=1
+        dict_to_use=dict_to_use_resolve_and_leaderboard,
+        task_count=1,
+        timeout=timeout_resolve,
     )
 
     dict_to_use_metadata = "metadata"
