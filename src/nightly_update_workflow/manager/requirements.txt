@@ -5,3 +5,4 @@ slack_sdk
 pandas >= 2.2.2
 tqdm
 tabulate
+gcsfs==2024.3.1
