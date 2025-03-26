@@ -95,29 +95,32 @@ GOOGLE_SOURCE = "GOOGLE"
 MISTRAL_SOURCE = "MISTRAL"
 XAI_SOURCE = "XAI"
 
-OAI_ORG = "OpenAI"
 ANTHROPIC_ORG = "Anthropic"
-META_ORG = "Meta"
-GOOGLE_ORG = "Google"
 DEEPSEEK_ORG = "DeepSeek"
+GOOGLE_ORG = "Google"
+META_ORG = "Meta"
+MISTRAL_ORG = "Mistral"
+OAI_ORG = "OpenAI"
+QWEN_ORG = "Qwen"
+XAI_ORG = "xAI"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
-    "gpt-4o-2024-11-20": {
+    "o3-mini-2025-01-31": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
-        "full_name": "gpt-4o-2024-11-20",
-        "token_limit": 128000,
+        "full_name": "o3-mini-2025-01-31",
+        "token_limit": 200000,
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": False,
+        "reasoning_model": True,
         # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": True,
+        "use_web_search": False,
     },
-    "gpt-4.5-preview-2025-02-27": {
+    "gpt-4o-2024-05-13": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
-        "full_name": "gpt-4.5-preview-2025-02-27",
+        "full_name": "gpt-4o-2024-05-13",
         "token_limit": 128000,
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
@@ -144,6 +147,19 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "deepseek-ai/DeepSeek-V3",
         "token_limit": 16384,
     },
+    "QwQ-32B-Preview": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": QWEN_ORG,
+        "full_name": "Qwen/QwQ-32B-Preview",
+        "token_limit": 32768,
+    },
+    # Mistral
+    "mistral-large-2407": {
+        "source": MISTRAL_SOURCE,
+        "org": MISTRAL_ORG,
+        "full_name": "mistral-large-2407",
+        "token_limit": 131000,
+    },
     # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
     "claude-3-7-sonnet-20250219": {
         "source": ANTHROPIC_SOURCE,
@@ -162,6 +178,26 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "org": ANTHROPIC_ORG,
         "full_name": "claude-3-5-sonnet-20240620",
         "token_limit": 200000,
+    },
+    # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
+    "grok-2-1212": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-2-1212",
+        "token_limit": 131072,
+    },
+    # google context window from: https://ai.google.dev/gemini-api/docs/models/gemini
+    "gemini-2.5-pro-exp-03-25": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "gemini-2.5-pro-exp-03-25",
+        "token_limit": 1000000,
+    },
+    "gemini-2.0-flash-lite-001": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "models/gemini-2.0-flash-lite-001",
+        "token_limit": 1048576,
     },
 }
 
