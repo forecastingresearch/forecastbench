@@ -32,7 +32,7 @@ Dig into the details of ForecastBench on the [wiki](https://github.com/forecasti
 
 #### Local setup
 1. `git clone --recurse-submodules <repo-url>.git`
-1. `cd llm-benchmark`
+1. `cd forecastbench`
 1. `cp variables.example.mk variables.mk` and set the values accordingly
 1. Setup your Python virtual environment
    1. `make setup-python-env`
