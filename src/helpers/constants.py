@@ -135,6 +135,18 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         "token_limit": 131072,
     },
+    "llama-4-Maverick-17B-128E-Instruct-FP8": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": META_ORG,
+        "full_name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+        "token_limit": 524288,
+    },
+    "llama-4-Scout-17B-16E-Instruct": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": META_ORG,
+        "full_name": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+        "token_limit": 327680,
+    },
     "DeepSeek-R1": {
         "source": TOGETHER_AI_SOURCE,
         "org": DEEPSEEK_ORG,
