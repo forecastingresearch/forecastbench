@@ -117,6 +117,17 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
         "use_web_search": False,
     },
+    "gpt-4.1-2025-04-14": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-4.1-2025-04-14",
+        "token_limit": 1047576,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": False,
+        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
+        "use_web_search": False,
+    },
     "gpt-4o-2024-05-13": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -192,23 +203,29 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "token_limit": 200000,
     },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
-    "grok-2-1212": {
+    "grok-3-beta": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
-        "full_name": "grok-2-1212",
+        "full_name": "grok-3-beta",
         "token_limit": 131072,
     },
-    # google context window from: https://ai.google.dev/gemini-api/docs/models/gemini
-    "gemini-2.5-pro-exp-03-25": {
-        "source": GOOGLE_SOURCE,
-        "org": GOOGLE_ORG,
-        "full_name": "gemini-2.5-pro-exp-03-25",
-        "token_limit": 1000000,
+    "grok-3-mini-beta": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-3-mini-beta",
+        "token_limit": 131072,
     },
-    "gemini-2.0-flash-lite-001": {
+    # google context window from: https://ai.google.dev/gemini-api/docs/models
+    "gemini-2.5-pro-preview-03-25": {
         "source": GOOGLE_SOURCE,
         "org": GOOGLE_ORG,
-        "full_name": "models/gemini-2.0-flash-lite-001",
+        "full_name": "gemini-2.5-pro-preview-03-25",
+        "token_limit": 1048576,
+    },
+    "gemini-2.0-flash": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "models/gemini-2.0-flash",
         "token_limit": 1048576,
     },
 }
