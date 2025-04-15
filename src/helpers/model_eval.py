@@ -200,8 +200,8 @@ def get_response_from_xai_model(model_name, prompt, max_tokens, temperature, wai
         # return completion.choices[0].message
         return response.choices[0].message.content
 
-    # Grok is time limited to 1 RPS
-    time.sleep(1)
+    # Grok is time limited to 5 RPS
+    time.sleep(0.2)
 
     return get_response_with_retry(api_call, wait_time, "xAI API request exceeded rate limit.")
 
