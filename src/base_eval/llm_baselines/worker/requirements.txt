@@ -7,7 +7,7 @@ openai
 together
 mistralai==0.4.2
 papermill
-google-generativeai
+google-genai>=1.0.0
 google-cloud-storage
 google-api-python-client
 requests

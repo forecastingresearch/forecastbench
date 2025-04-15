@@ -12,9 +12,10 @@ from datetime import datetime
 from functools import partial
 
 import anthropic
-import google.generativeai as google_ai
 import openai
 import together
+from google import genai
+from google.genai import types
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 
@@ -36,7 +37,7 @@ anthropic_async_client = anthropic.AsyncAnthropic(api_key=keys.API_KEY_ANTHROPIC
 oai_async_client = openai.AsyncOpenAI(api_key=keys.API_KEY_OPENAI)
 oai = openai.OpenAI(api_key=keys.API_KEY_OPENAI)
 together.api_key = keys.API_KEY_TOGETHERAI
-google_ai.configure(api_key=keys.API_KEY_GOOGLE)
+google_ai_client = genai.Client(api_key=keys.API_KEY_GOOGLE)
 togetherai_client = openai.OpenAI(
     api_key=keys.API_KEY_TOGETHERAI,
     base_url="https://api.together.xyz/v1",
@@ -343,13 +344,11 @@ def get_response_from_google_model(model_name, prompt, max_tokens, temperature, 
     Returns:
         str: Response string from the API call.
     """
-    model = google_ai.GenerativeModel(model_name)
-
-    response = model.generate_content(
-        prompt,
-        generation_config=google_ai.types.GenerationConfig(
+    response = google_ai_client.models.generate_content(
+        model=model_name,
+        contents=prompt,
+        config=types.GenerateContentConfig(
             candidate_count=1,
-            max_output_tokens=max_tokens,
             temperature=temperature,
         ),
     )
@@ -439,12 +438,11 @@ async def get_async_response(
                 )
                 return response.content[0].text
             elif model_source == constants.GOOGLE_SOURCE:
-                model = google_ai.GenerativeModel(model_name)
-                response = await model.generate_content_async(
-                    prompt,
-                    generation_config=google_ai.types.GenerationConfig(
+                response = await google_ai_client.aio.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
                         candidate_count=1,
-                        max_output_tokens=max_tokens,
                         temperature=temperature,
                     ),
                 )
