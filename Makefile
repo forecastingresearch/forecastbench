@@ -48,7 +48,7 @@ clean:
 .venv:
 	python3 -m venv .venv
 
-install-requirements:
+install-requirements: .venv
 	@. ${ROOT_DIR}.venv/bin/activate && ${ROOT_DIR}/.venv/bin/python3 -m pip install -r requirements.txt
 	@find src -type d | while read dir; do \
 		if [ -f "$$dir/Makefile" ] && [ -f "$$dir/requirements.txt" ]; then \
@@ -125,7 +125,6 @@ yfinance-fetch:
 
 yfinance-update-questions:
 	make -C src/questions/yfinance/update_questions
-
 
 polymarket: polymarket-fetch polymarket-update-questions
 
