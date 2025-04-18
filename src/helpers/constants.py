@@ -106,6 +106,28 @@ XAI_ORG = "xAI"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
+    "o3-2025-04-16": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "o3-2025-04-16",
+        "token_limit": 200000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
+        "use_web_search": False,
+    },
+    "o4-mini-2025-04-16": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "o3-2025-04-16",
+        "token_limit": 200000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
+        "use_web_search": False,
+    },
     "o3-mini-2025-01-31": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -222,10 +244,10 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "gemini-2.5-pro-preview-03-25",
         "token_limit": 1048576,
     },
-    "gemini-2.0-flash": {
+    "gemini-2.5-flash-preview-04-17": {
         "source": GOOGLE_SOURCE,
         "org": GOOGLE_ORG,
-        "full_name": "models/gemini-2.0-flash",
+        "full_name": "models/gemini-2.5-flash-preview-04-17",
         "token_limit": 1048576,
     },
 }
