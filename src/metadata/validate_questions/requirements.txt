@@ -7,3 +7,4 @@ openai
 together
 mistralai==0.4.2
 scipy
+google-genai>=1.0.0
