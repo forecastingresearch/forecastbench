@@ -63,7 +63,7 @@ def _construct_questions(dff, dfq):
         dataset_name = dff[dff["id"] == id]["dataset_name"].iloc[0]
         series_name = dff[dff["id"] == id]["series_name"].iloc[0]
         question = row["question_text"]
-        url = f"https://db.nomics.world/{id}"
+        url = f"https://db.nomics.world/{row['id']}"
         background = (
             f"The history of {dataset_name} - {series_name} from {provider_name} is available at "
             f"{url}."
@@ -106,6 +106,9 @@ def _construct_questions(dff, dfq):
                 dfq.loc[dfq["id"] == id, "freeze_datetime_value"] = float(
                     series_values[series_values != "NA"].iloc[-1]
                 )
+                dfq.loc[dfq["id"] == id, "url"] = url
+                dfq.loc[dfq["id"] == id, "background"] = background
+
     new_series = new_series if new_series is not None else pd.DataFrame()
     return new_series
 
