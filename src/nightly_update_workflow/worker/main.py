@@ -14,7 +14,7 @@ metadata = [
 ]
 resolve_and_leaderboard = [
     [
-        ("func-resolve-forecasts", True, cloud_run.timeout_1h),
+        ("func-resolve-forecasts", True, cloud_run.timeout_1h * 2),
         ("func-leaderboard", True, cloud_run.timeout_1h),
     ]
 ]
@@ -34,7 +34,7 @@ def get_naive_and_dummy_forecasters():
     return (
         [
             [
-                ("func-baseline-naive-and-dummy-forecasters", True, cloud_run.timeout_1h),
+                ("func-baseline-naive-and-dummy-forecasters", True, cloud_run.timeout_1h * 2),
             ],
         ]
         if question_curation.is_today_question_set_publication_date()
@@ -68,7 +68,7 @@ def get_publish_question_set_make_llm_baseline():
         [
             [
                 ("func-question-set-publish", True, cloud_run.timeout_1h),
-                ("func-baseline-llm-forecasts-manager", True, cloud_run.timeout_1h * 8),
+                ("func-baseline-llm-forecasts-manager", True, cloud_run.timeout_1h * 24),
             ],
         ]
         if question_curation.is_today_question_set_publication_date()

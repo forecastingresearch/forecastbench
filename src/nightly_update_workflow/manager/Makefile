@@ -20,7 +20,7 @@ deploy : main.py requirements.txt  Procfile
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 8h \
+		--task-timeout 12h \
 		--memory 512Mi \
 		--max-retries 0 \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
