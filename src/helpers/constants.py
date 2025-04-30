@@ -106,32 +106,10 @@ XAI_ORG = "xAI"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
-    "o3-2025-04-16": {
-        "source": OAI_SOURCE,
-        "org": OAI_ORG,
-        "full_name": "o3-2025-04-16",
-        "token_limit": 200000,
-        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
-        # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": True,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
-    },
     "o4-mini-2025-04-16": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
-        "full_name": "o3-2025-04-16",
-        "token_limit": 200000,
-        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
-        # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": True,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
-    },
-    "o3-mini-2025-01-31": {
-        "source": OAI_SOURCE,
-        "org": OAI_ORG,
-        "full_name": "o3-mini-2025-01-31",
+        "full_name": "o4-mini-2025-04-16",
         "token_limit": 200000,
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
@@ -161,6 +139,17 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
         "use_web_search": False,
     },
+    "gpt_4_turbo_0409": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-4-turbo-2024-04-09",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": False,
+        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
+        "use_web_search": False,
+    },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
     "llama-3p3-70B-Instruct-Turbo": {
         "source": TOGETHER_AI_SOURCE,
@@ -180,23 +169,29 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
         "token_limit": 327680,
     },
-    "DeepSeek-R1": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": DEEPSEEK_ORG,
-        "full_name": "deepseek-ai/DeepSeek-R1",
-        "token_limit": 128000,
-    },
-    "DeepSeek-V3": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": DEEPSEEK_ORG,
-        "full_name": "deepseek-ai/DeepSeek-V3",
-        "token_limit": 16384,
-    },
-    "QwQ-32B-Preview": {
+    "Qwen3-235B-A22B-fp8-tput": {
         "source": TOGETHER_AI_SOURCE,
         "org": QWEN_ORG,
-        "full_name": "Qwen/QwQ-32B-Preview",
+        "full_name": "Qwen/Qwen3-235B-A22B-fp8-tput",
+        "token_limit": 128000,
+    },
+    "qwen_2p5_72b": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": QWEN_ORG,
+        "full_name": "Qwen/Qwen2.5-72B-Instruct-Turbo",
         "token_limit": 32768,
+    },
+    "llama-3p1-405B-Instruct-Turbo": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": META_ORG,
+        "full_name": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+        "token_limit": 130815,
+    },
+    "llama-3p2-3B-Instruct-Turbo": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": META_ORG,
+        "full_name": "meta-llama/Llama-3.2-3B-Instruct-Turbo",
+        "token_limit": 131072,
     },
     # Mistral
     "mistral-large-2407": {
@@ -224,6 +219,18 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "claude-3-5-sonnet-20240620",
         "token_limit": 200000,
     },
+    "claude_3_opus": {
+        "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
+        "full_name": "claude-3-opus-20240229",
+        "token_limit": 200000,
+    },
+    "claude_3_haiku": {
+        "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
+        "full_name": "claude-3-haiku-20240307",
+        "token_limit": 200000,
+    },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
     "grok-3-beta": {
         "source": XAI_SOURCE,
@@ -236,19 +243,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "org": XAI_ORG,
         "full_name": "grok-3-mini-beta",
         "token_limit": 131072,
-    },
-    # google context window from: https://ai.google.dev/gemini-api/docs/models
-    "gemini-2.5-pro-preview-03-25": {
-        "source": GOOGLE_SOURCE,
-        "org": GOOGLE_ORG,
-        "full_name": "gemini-2.5-pro-preview-03-25",
-        "token_limit": 1048576,
-    },
-    "gemini-2.5-flash-preview-04-17": {
-        "source": GOOGLE_SOURCE,
-        "org": GOOGLE_ORG,
-        "full_name": "models/gemini-2.5-flash-preview-04-17",
-        "token_limit": 1048576,
     },
 }
 
