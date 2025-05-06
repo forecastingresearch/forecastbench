@@ -7,6 +7,7 @@ from datetime import timedelta
 
 import numpy as np
 import pandas as pd
+from termcolor import colored
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import dates, resolution  # noqa: E402
@@ -84,9 +85,13 @@ def resolve(source, df, dfq, dfr):
                 # Print warning if market resolved to something other than 0 or 1. This can be
                 # valid, just want to be aware when this happens to ensure we're handling it
                 # correctly.
+                url = dfq[dfq["id"] == mid]["url"].iloc[0]
                 logger.warning(
-                    f"`{source}` question {mid} resolved to {resolved_value} (not 0 or 1). "
-                    "Check to ensure data pulled correctly."
+                    colored(
+                        f"`{source}` question {mid} resolved to {resolved_value} (not 0 or 1). "
+                        f"Check to ensure data pulled correctly.\n     {url}",
+                        "red",
+                    )
                 )
 
             if resolution_date <= forecast_due_date:
@@ -94,9 +99,13 @@ def resolve(source, df, dfq, dfr):
                 df_standard.loc[df_standard["id"] == mid, "resolved_to"] = np.nan
                 rd = resolution_date.strftime("%Y-%m-%d")
                 fd = forecast_due_date.strftime("%Y-%m-%d")
+                url = dfq[dfq["id"] == mid]["url"].iloc[0]
                 logger.warning(
-                    f"`{source} question {mid}; was resolved on {rd} but the forecast date is "
-                    f"{fd}. Nullifying!"
+                    colored(
+                        f"`{source} question {mid}; was resolved on {rd} but the forecast date is "
+                        f"{fd}. Nullifying!\n     {url}",
+                        "red",
+                    )
                 )
     df_standard.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
 
