@@ -1,6 +1,5 @@
 """Resolve forecasting questions."""
 
-import argparse
 import itertools
 import json
 import logging
@@ -31,8 +30,6 @@ from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-RUN_LOCALLY_WITH_MOCK_DATA = False
 
 required_forecast_file_keys = [
     "organization",
@@ -88,34 +85,31 @@ def upload_resolution_set(df, forecast_due_date, question_set_filename):
         json.dump(json_data, json_file, indent=4)
     logger.info(f"Wrote Resolution File {local_filename}.")
 
-    if not RUN_LOCALLY_WITH_MOCK_DATA:
-        upload_folder = "datasets/resolution_sets"
-        gcp.storage.upload(
-            bucket_name=env.PUBLIC_RELEASE_BUCKET,
-            local_filename=local_filename,
-            destination_folder=upload_folder,
-        )
-        logger.info(f"Uploaded Resolution File {local_filename} to {upload_folder}.")
-        mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
-        mirrors = [mirrors] if mirrors else []
-        git.clone_and_push_files(
-            repo_url=keys.API_GITHUB_DATASET_REPO_URL,
-            files={
-                local_filename: f"{upload_folder}/{basename}",
-            },
-            commit_message=f"resolution set: automatic update for {question_set_filename}.",
-            mirrors=mirrors,
-        )
+    upload_folder = "datasets/resolution_sets"
+    gcp.storage.upload(
+        bucket_name=env.PUBLIC_RELEASE_BUCKET,
+        local_filename=local_filename,
+        destination_folder=upload_folder,
+    )
+    logger.info(f"Uploaded Resolution File {local_filename} to {upload_folder}.")
+    mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
+    mirrors = [mirrors] if mirrors else []
+    git.clone_and_push_files(
+        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
+        files={
+            local_filename: f"{upload_folder}/{basename}",
+        },
+        commit_message=f"resolution set: automatic update for {question_set_filename}.",
+        mirrors=mirrors,
+    )
 
 
 def download_and_read_forecast_file(filename):
     """Download forecast file."""
-    local_filename = filename
-    if not RUN_LOCALLY_WITH_MOCK_DATA:
-        local_filename = "/tmp/tmp.json"
-        gcp.storage.download(
-            bucket_name=env.FORECAST_SETS_BUCKET, filename=filename, local_filename=local_filename
-        )
+    local_filename = "/tmp/tmp.json"
+    gcp.storage.download(
+        bucket_name=env.FORECAST_SETS_BUCKET, filename=filename, local_filename=local_filename
+    )
 
     with open(local_filename, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -128,12 +122,12 @@ def upload_processed_forecast_file(data, forecast_due_date, filename):
     local_filename = "/tmp/tmp.json"
     with open(local_filename, "w") as f:
         f.write(json.dumps(data, indent=4))
-    if not RUN_LOCALLY_WITH_MOCK_DATA:
-        gcp.storage.upload(
-            bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
-            local_filename=local_filename,
-            filename=filename,
-        )
+
+    gcp.storage.upload(
+        bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
+        local_filename=local_filename,
+        filename=filename,
+    )
 
 
 def resolve_questions(df, resolution_values):
@@ -243,9 +237,7 @@ def get_resolutions_for_llm_question_set(forecast_due_date, resolution_values):
     filename = f"{forecast_due_date}-llm.json"
     logger.info(f"Getting resolutions for {filename}.")
 
-    df_orig_question_set = resolution.download_and_read_question_set_file(
-        filename, run_locally=RUN_LOCALLY_WITH_MOCK_DATA
-    )
+    df_orig_question_set = resolution.download_and_read_question_set_file(filename)
     df = df_orig_question_set[["id", "source", "resolution_dates"]].copy()
     logger.info(f"LLM question set starting with {len(df):,} questions.")
 
@@ -307,9 +299,7 @@ def get_resolutions_for_human_question_set(forecast_due_date, df_llm_resolutions
     Assumes human questions are a subset of llm questions.
     """
     filename = f"{forecast_due_date}-human.json"
-    df_orig_question_set = resolution.download_and_read_question_set_file(
-        filename, run_locally=RUN_LOCALLY_WITH_MOCK_DATA
-    )
+    df_orig_question_set = resolution.download_and_read_question_set_file(filename)
     df = pd.merge(df_llm_resolutions, df_orig_question_set, on=["id", "source"]).reset_index(
         drop=True
     )
@@ -590,28 +580,17 @@ def check_and_prepare_forecast_file(df, forecast_due_date, organization):
 @decorator.log_runtime
 def driver(request):
     """Resolve forecasts."""
-    if RUN_LOCALLY_WITH_MOCK_DATA:
-        # Only use the value in `request` when running locally
-        json_data = request.get_json()
-        forecast_sets = [json_data["mock_forecast_set"]]
-    else:
-        forecast_sets = gcp.storage.list(env.FORECAST_SETS_BUCKET)
-        forecast_sets = [f for f in forecast_sets if f.endswith(".json")]
+    forecast_sets = gcp.storage.list(env.FORECAST_SETS_BUCKET)
+    forecast_sets = [f for f in forecast_sets if f.endswith(".json")]
 
     if not forecast_sets:
         logger.warning("No forecast sets to evaluate.")
         return
 
-    if RUN_LOCALLY_WITH_MOCK_DATA:
-        # Running locally, using mock data.
-        resolution_values = resolution.get_and_pickle_resolution_values(
-            filename="mock_resolution_values.pkl", save_pickle_file=True
-        )
-    else:
-        resolution_values = resolution.get_and_pickle_resolution_values(
-            filename="resolution_values.pkl",
-            save_pickle_file=False,
-        )
+    resolution_values = resolution.get_and_pickle_resolution_values(
+        filename="resolution_values.pkl",
+        save_pickle_file=False,
+    )
 
     resolved_values_for_question_sources = {}
     for f in forecast_sets:
@@ -697,34 +676,4 @@ def driver(request):
 
 if __name__ == "__main__":
     """Local dev."""
-    parser = argparse.ArgumentParser(description="Run the script with optional flags.")
-    parser.add_argument(
-        "--use-mock-data", action="store_true", help="Use mock data instead of GCP data."
-    )
-    args = parser.parse_args()
-
-    if not args.use_mock_data:
-        driver(None)
-    else:
-        mock_date = "2024-05-18"
-        RUN_LOCALLY_WITH_MOCK_DATA = True
-
-        class MockRequest:
-            """Class to mock requsets for local dev."""
-
-            def __init__(self, json_data):
-                """Mock __init__ from request class."""
-                self._json = json_data
-
-            def get_json(self, silent=False):
-                """Mock get_json from request class."""
-                return self._json
-
-        mock_request = MockRequest(
-            {
-                "mock_question_set": f"{mock_date}-llm-mock.json",
-                "mock_forecast_set": f"{mock_date}.ForecastBench.llm-random-forecast.json",
-            }
-        )
-
-        driver(mock_request)
+    driver(None)
