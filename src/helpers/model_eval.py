@@ -1222,17 +1222,11 @@ def generate_data_source_forecasts(model, results, question, index, prompt_type)
 
 def generate_non_data_source_forecast(model, results, question, index, prompt_type):
     """Generate a forecast for questions not from data sources."""
-    resolution_date = question["market_info_close_datetime"]
-    if question["combination_of"] != "N/A":
-        resolution_date = max(
-            question["combination_of"][0]["market_info_close_datetime"],
-            question["combination_of"][1]["market_info_close_datetime"],
-        )
     forecast_data = {
         "id": question["id"],
         "source": question["source"],
         "forecast": results[model][index]["forecast"],
-        "resolution_date": resolution_date,
+        "resolution_date": None,
         "reasoning": None if prompt_type == "zero_shot" else results[model][index]["reasoning"],
     }
     # if "with_news" not in prompt_type:
