@@ -61,6 +61,10 @@ def resolve(source, df, dfq, dfr):
     df_standard["resolved_to"] = df_standard["value"]
     df_standard = df_standard.drop(columns=["date", "value", "yesterday"])
 
+    # Set all resolution dates to yesterday
+    df_combo["resolution_date"] = pd.to_datetime(yesterday)
+    df_standard["resolution_date"] = pd.to_datetime(yesterday)
+
     # Get market values at forecast_due_date
     # These values are assigned to any forecasts the organization may have omitted.
     df_standard = pd.merge(
@@ -77,9 +81,10 @@ def resolve(source, df, dfq, dfr):
     for mid in dfq.loc[dfq["resolved"], "id"]:
         if (df_standard["id"] == mid).any():
             resolved_value = dfr.loc[dfr["id"] == mid, "value"].iat[-1]
-            resolution_date = dfr.loc[dfr["id"] == mid, "date"].iat[-1]
+            resolution_date = resolution.get_market_resolution_date(dfq[dfq["id"] == mid])
             df_standard.loc[df_standard["id"] == mid, "resolved"] = True
             df_standard.loc[df_standard["id"] == mid, "resolved_to"] = resolved_value
+            df_standard.loc[df_standard["id"] == mid, "resolution_date"] = resolution_date
 
             if resolved_value != 0 and resolved_value != 1:
                 # Print warning if market resolved to something other than 0 or 1. This can be
@@ -94,7 +99,7 @@ def resolve(source, df, dfq, dfr):
                     )
                 )
 
-            if resolution_date <= forecast_due_date:
+            if resolution_date <= forecast_due_date.date():
                 # Discard all forecasts that resolved <= forecast_due_date
                 df_standard.loc[df_standard["id"] == mid, "resolved_to"] = np.nan
                 rd = resolution_date.strftime("%Y-%m-%d")
@@ -107,6 +112,8 @@ def resolve(source, df, dfq, dfr):
                         "red",
                     )
                 )
+
+    df_standard["resolution_date"] = pd.to_datetime(df_standard["resolution_date"], errors="coerce")
     df_standard.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
 
     # Setup combo resolutions given df_standard
@@ -131,15 +138,22 @@ def resolve(source, df, dfq, dfr):
                 col=col,
             )
 
-        df_combo.at[index, "resolved"] = resolution.is_combo_question_resolved(
+        resolution_date = resolution.get_combo_question_resolution_date(
             is_resolved0=id0_data["resolved"],
             is_resolved1=id1_data["resolved"],
             dir0=dir0,
             dir1=dir1,
             resolved_to0=id0_data["resolved_to"],
             resolved_to1=id1_data["resolved_to"],
+            resolution_date0=id0_data["resolution_date"],
+            resolution_date1=id1_data["resolution_date"],
         )
+        if resolution_date:
+            df_combo.at[index, "resolved"] = True
+            df_combo.at[index, "resolution_date"] = resolution_date
 
     df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
-    df = pd.concat([df, df_standard, df_combo], ignore_index=True)
+
+    df_source = pd.concat([df_standard, df_combo]).drop_duplicates()
+    df = pd.concat([df, df_source], ignore_index=True)
     return df

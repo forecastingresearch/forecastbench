@@ -60,20 +60,7 @@ def get_leaderboard_entry(df):
     """Create the leaderboard entry for the given dataframe."""
     # Masks
     data_mask = df["source"].isin(question_curation.DATA_SOURCES)
-
-    # Market sources should be reduced to the value at a single date. This is because we always
-    # evaluate to the latest market value or the resolution value for a market and orgs only
-    # forecast the outcome. Hence they get the same score at every period.
-    market_source_mask = df["source"].isin(question_curation.MARKET_SOURCES)
-    market_drop_duplicates_mask = ~df.duplicated(
-        [
-            "id",
-            "source",
-            "direction",
-        ]
-    )
-    market_mask = market_source_mask & market_drop_duplicates_mask
-
+    market_mask = df["source"].isin(question_curation.MARKET_SOURCES)
     resolved_mask = df["resolved"].astype(bool)
     unresolved_mask = ~resolved_mask
 
@@ -373,7 +360,9 @@ def get_pairwise_p_values(df, n_replications):
                 indicator=True,
             ).query('_merge == "left_only"')
 
+            print("Missing in Comparison")
             print(missing_in_comparison)
+            print("Missing in Best")
             print(missing_in_best)
 
             raise ValueError(
@@ -545,12 +534,28 @@ def add_to_llm_and_human_combo_leaderboards(
                 # If either forecast set is empty, it means one of the questions was dropped as N/A
                 # and hence is not in the processed forecast file.
                 continue
-            resolution_dates = set(df_forecast0["resolution_date"]).intersection(
-                set(df_forecast1["resolution_date"])
-            )
+
+            # Resolution dates won't ususally intersect for market combos. Hence only create one
+            # entry and get the actual resolution date from
+            # `resolution.get_combo_question_resolution_date()`
+            resolution_dates = [None]
+            if source in resolution.DATA_SOURCES:
+                resolution_dates = set(df_forecast0["resolution_date"]).intersection(
+                    set(df_forecast1["resolution_date"])
+                )
+
             for resolution_date in resolution_dates:
-                df_forecast0_tmp = df_forecast0[df_forecast0["resolution_date"] == resolution_date]
-                df_forecast1_tmp = df_forecast1[df_forecast1["resolution_date"] == resolution_date]
+                if source in resolution.DATA_SOURCES:
+                    df_forecast0_tmp = df_forecast0[
+                        df_forecast0["resolution_date"] == resolution_date
+                    ]
+                    df_forecast1_tmp = df_forecast1[
+                        df_forecast1["resolution_date"] == resolution_date
+                    ]
+                else:
+                    df_forecast0_tmp = df_forecast0
+                    df_forecast1_tmp = df_forecast1
+
                 if len(df_forecast0_tmp) != 1 or len(df_forecast1_tmp) != 1:
                     raise ValueError("`generate_combo_forecasts`: should not arrive here.")
 
@@ -561,18 +566,29 @@ def add_to_llm_and_human_combo_leaderboards(
                     resolved_to = resolution.combo_change_sign(
                         df_forecast0_tmp["resolved_to"].iloc[0], dir0
                     ) * resolution.combo_change_sign(df_forecast1_tmp["resolved_to"].iloc[0], dir1)
-                    resolved = (
-                        resolution.is_combo_question_resolved(
+
+                    res_date = (
+                        resolution.get_combo_question_resolution_date(
                             is_resolved0=df_forecast0_tmp["resolved"].iloc[0],
                             is_resolved1=df_forecast1_tmp["resolved"].iloc[0],
                             dir0=dir0,
                             dir1=dir1,
                             resolved_to0=df_forecast0_tmp["resolved_to"].iloc[0],
                             resolved_to1=df_forecast1_tmp["resolved_to"].iloc[0],
+                            resolution_date0=df_forecast0_tmp["resolution_date"].iloc[0],
+                            resolution_date1=df_forecast1_tmp["resolution_date"].iloc[0],
                         )
                         if source in resolution.MARKET_SOURCES
-                        else True
+                        else None
                     )
+                    resolved = source in resolution.DATA_SOURCES or bool(res_date)
+
+                    if not resolved or source in resolution.DATA_SOURCES:
+                        res_date = max(
+                            df_forecast0_tmp["resolution_date"].iloc[0],
+                            df_forecast1_tmp["resolution_date"].iloc[0],
+                        )
+
                     imputed = (
                         df_forecast0_tmp["imputed"].iloc[0] or df_forecast1_tmp["imputed"].iloc[0]
                     )
@@ -583,7 +599,7 @@ def add_to_llm_and_human_combo_leaderboards(
                         "direction": (dir0, dir1),
                         "forecast_due_date": df_forecast0_tmp["forecast_due_date"].iloc[0],
                         "market_value_on_due_date": np.nan,
-                        "resolution_date": resolution_date,
+                        "resolution_date": res_date,
                         "resolved_to": resolved_to,
                         "resolved": resolved,
                         "forecast": forecast,

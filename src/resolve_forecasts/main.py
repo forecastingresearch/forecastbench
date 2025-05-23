@@ -13,6 +13,7 @@ import markets
 import numpy as np
 import pandas as pd
 import wikipedia
+from pandas._libs.tslibs.np_datetime import OutOfBoundsDatetime
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
@@ -412,7 +413,7 @@ def score_forecasts(df, df_question_resolutions):
     """Score the forecasts in df."""
     logger.info("Scoring forecasts.")
 
-    # Split dataframe into market questions and non-market questions
+    # Split dataframe into market questions and dataset questions
     df_market_sources = df[df["source"].isin(resolution.MARKET_SOURCES)].copy()
     df_data_sources = df[df["source"].isin(resolution.DATA_SOURCES)].copy()
 
@@ -488,6 +489,15 @@ def get_resolution_values_for_forecast_due_date(
     return resolved_values_for_question_sources
 
 
+def convert_and_bound_dates(date_str):
+    """Safely convert dates to datetime, setting max date for dates that are too large."""
+    try:
+        return pd.to_datetime(date_str)
+    except (OutOfBoundsDatetime, OverflowError):
+        # Max date pandas can handle
+        return pd.Timestamp("2262-04-11")
+
+
 def check_and_prepare_forecast_file(df, forecast_due_date, organization):
     """Check and prepare the organization's forecast file.
 
@@ -527,14 +537,13 @@ def check_and_prepare_forecast_file(df, forecast_due_date, organization):
             "forecasts."
         )
 
-    # Drop invalid resolution dates
+    # Drop invalid resolution dates for dataset questions
     df_len = len(df)
     forecast_due_date_date = dates.convert_iso_str_to_date(forecast_due_date)
     valid_resolution_dates = [
         (forecast_due_date_date + timedelta(days=horizon)).strftime("%Y-%m-%d")
         for horizon in constants.FORECAST_HORIZONS_IN_DAYS
     ]
-    df.loc[df["source"].isin(resolution.MARKET_SOURCES), "resolution_date"] = None
     df["resolution_date"] = df["resolution_date"].str.slice(0, 10)  # Remove timestamps if present
     df = df[
         df["source"].isin(resolution.MARKET_SOURCES)
@@ -543,7 +552,9 @@ def check_and_prepare_forecast_file(df, forecast_due_date, organization):
             & (df["resolution_date"].isin(valid_resolution_dates))
         )
     ]
-    df["resolution_date"] = pd.to_datetime(df["resolution_date"])
+
+    df["resolution_date"] = df["resolution_date"].apply(convert_and_bound_dates)
+
     if df_len != len(df):
         logger.warning(
             f"Preparing {organization} dataframe: Dropped {df_len-len(df)} rows because of invalid "
@@ -555,12 +566,15 @@ def check_and_prepare_forecast_file(df, forecast_due_date, organization):
 
     # Make columns hashable
     df = resolution.make_columns_hashable(df)
-    df_tmp = df.drop_duplicates(
+
+    # Ensure no duplicate forecasts for dataset questions
+    df_data = df[df["source"].isin(resolution.DATA_SOURCES)]
+    df_tmp = df_data.drop_duplicates(
         subset=["id", "source", "resolution_date", "direction"], keep="first", ignore_index=True
     )
-    if len(df_tmp) != len(df):
+    if len(df_tmp) != len(df_data):
         dropped_rows = (
-            df.merge(
+            df_data.merge(
                 df_tmp,
                 on=["id", "source", "resolution_date", "direction"],
                 how="left",

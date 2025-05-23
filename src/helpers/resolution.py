@@ -7,6 +7,7 @@ import pickle
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from typing import Union
 
 import numpy as np
@@ -51,6 +52,28 @@ def split_dataframe_on_source(df, source):
     return df[mask].copy(), df[~mask].copy()
 
 
+def get_market_resolution_date(row):
+    """Return the minimum of the market close date and the resolution date.
+
+    This is used to create the resolution file. What we care about is when the market closed or, if
+    resolution happened before the close date, then the resolution date.
+    """
+
+    def to_date_or_max(s):
+        """Convert a string representation of a date to a date.
+
+        If not able to convert, e.g. "N/A" is passed, return the max date.
+        """
+        try:
+            return dates.convert_zulu_to_datetime(s).date()
+        except (ValueError, TypeError):
+            return date.max
+
+    close_date = to_date_or_max(row["market_info_close_datetime"].iloc[0])
+    resolution_date = to_date_or_max(row["market_info_resolution_datetime"].iloc[0])
+    return min(close_date, resolution_date)
+
+
 def is_combo(row):
     """Tell whether or not id is a combo question."""
     if isinstance(row, pd.Series) and "id" in row.index:
@@ -60,38 +83,114 @@ def is_combo(row):
     raise ValueError(f"Problem in `is_combo` with {row}. This type is not handled: {type(row)}")
 
 
-def _is_combo_question_resolved_helper(is_resolved, direction, resolved_to):
-    """Determine whether or not a combo question has resolved for a single direction."""
-    return is_resolved and (
-        (direction == 1 and not resolved_to) or (direction == -1 and resolved_to)
-    )
+def get_combo_question_resolution_date(
+    is_resolved0,
+    is_resolved1,
+    dir0,
+    dir1,
+    resolved_to0,
+    resolved_to1,
+    resolution_date0,
+    resolution_date1,
+):
+    """Return the resolution date if a combo question has resolved. Return None otherwise."""
+    try:
+        return _get_combo_question_resolution_date_helper(
+            is_resolved0,
+            is_resolved1,
+            dir0,
+            dir1,
+            resolved_to0,
+            resolved_to1,
+            resolution_date0,
+            resolution_date1,
+        )
+    except ValueError:
+        pass
+    return None
 
 
-def is_combo_question_resolved(is_resolved0, is_resolved1, dir0, dir1, resolved_to0, resolved_to1):
-    """Determine whether or not a combo question has resolved.
+def _get_combo_question_resolution_date_helper(
+    is_resolved0,
+    is_resolved1,
+    dir0,
+    dir1,
+    resolved_to0,
+    resolved_to1,
+    resolution_date0,
+    resolution_date1,
+):
+    """Determine when a combo forecast question is resolved based on two sub-questions.
 
     Combo questions are asked in 4 directions: (1,1), (1,-1), (-1,1), (-1,-1).
 
     If neither question has resolved, the combo question has not resolved. If both have resolved,
     the combo question has resolved.
 
-    However, if only one question has resolved, then 2 of the 4 directions of the combo question
-    have resolved. e.g. if q2 resolves No, then questions with directions (1,1) and (-1,1) have
-    resolved to 0; no matter the outcome of q1, the score for these two questions will not change.
+    However, if only one question has resolved, then 2 of the 4 directions of the combo question may
+    have resolved, depending on the direction of the forecast and the direction of resolution.
+    e.g. if q2 resolves No, then questions with directions (1,1) and (-1,1) have resolved to 0; no
+    matter the outcome of q1, the score for these two questions will not change.
     """
-    if (is_resolved0 and is_resolved1) or np.isnan(resolved_to0) or np.isnan(resolved_to1):
-        return True
-    return bool(
-        _is_combo_question_resolved_helper(
-            is_resolved=is_resolved0,
-            direction=dir0,
-            resolved_to=resolved_to0,
+    if not is_resolved0 and not is_resolved1:
+        return None
+
+    def same_dir(is_resolved, direction, resolved_to):
+        return bool(
+            is_resolved
+            and ((direction == 1 and resolved_to == 1) or (direction == -1 and resolved_to == 0))
         )
-        or _is_combo_question_resolved_helper(
-            is_resolved=is_resolved1,
-            direction=dir1,
-            resolved_to=resolved_to1,
+
+    def diff_dir(is_resolved, direction, resolved_to):
+        return bool(
+            is_resolved
+            and ((direction == 1 and resolved_to == 0) or (direction == -1 and resolved_to == 1))
         )
+
+    zero_same_dir = same_dir(is_resolved0, dir0, resolved_to0)
+    zero_diff_dir = diff_dir(is_resolved0, dir0, resolved_to0)
+    one_same_dir = same_dir(is_resolved1, dir1, resolved_to1)
+    one_diff_dir = diff_dir(is_resolved1, dir1, resolved_to1)
+
+    # When one or more questions resolve NaN
+    if np.isnan(resolved_to0) and np.isnan(resolved_to1):
+        return min(resolution_date0, resolution_date1)
+    elif np.isnan(resolved_to0):
+        if one_diff_dir:
+            return min(resolution_date0, resolution_date1)
+        else:
+            return resolution_date0
+    elif np.isnan(resolved_to1):
+        if zero_diff_dir:
+            return min(resolution_date0, resolution_date1)
+        else:
+            return resolution_date1
+
+    # When no questions resolve NaN
+    # When both questions have resolved
+    if zero_same_dir and one_same_dir:
+        return max(resolution_date0, resolution_date1)
+
+    if zero_diff_dir and one_diff_dir:
+        return min(resolution_date0, resolution_date1)
+
+    if zero_same_dir and one_diff_dir:
+        return resolution_date1
+
+    if one_same_dir and zero_diff_dir:
+        return resolution_date0
+
+    # When only one question has resolved
+    if zero_diff_dir:
+        return resolution_date0
+
+    if one_diff_dir:
+        return resolution_date1
+
+    raise ValueError(
+        "\n\nCombo question should have a resolution date:\n"
+        f"{(zero_same_dir, zero_diff_dir, is_resolved0, dir0, resolved_to0)}\n"
+        f"{(one_same_dir, one_diff_dir, is_resolved1, dir1, resolved_to1)}\n\n"
     )
 
 
