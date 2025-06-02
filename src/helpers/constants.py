@@ -106,28 +106,6 @@ XAI_ORG = "xAI"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
-    "o4-mini-2025-04-16": {
-        "source": OAI_SOURCE,
-        "org": OAI_ORG,
-        "full_name": "o4-mini-2025-04-16",
-        "token_limit": 200000,
-        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
-        # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": True,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
-    },
-    "gpt-4.1-2025-04-14": {
-        "source": OAI_SOURCE,
-        "org": OAI_ORG,
-        "full_name": "gpt-4.1-2025-04-14",
-        "token_limit": 1047576,
-        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
-        # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": False,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
-    },
     "gpt-4o-2024-05-13": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -151,47 +129,23 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "use_web_search": False,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
-    "llama-3p3-70B-Instruct-Turbo": {
+    "Llama-3-8b-chat-hf": {
         "source": TOGETHER_AI_SOURCE,
         "org": META_ORG,
-        "full_name": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-        "token_limit": 131072,
+        "full_name": "meta-llama/Llama-3-8b-chat-hf",
+        "token_limit": 8192,
     },
-    "llama-4-Maverick-17B-128E-Instruct-FP8": {
+    "Llama-3-70b-chat-hf": {
         "source": TOGETHER_AI_SOURCE,
         "org": META_ORG,
-        "full_name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-        "token_limit": 524288,
-    },
-    "llama-4-Scout-17B-16E-Instruct": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": META_ORG,
-        "full_name": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
-        "token_limit": 327680,
+        "full_name": "meta-llama/Llama-3-70b-chat-hf",
+        "token_limit": 8192,
     },
     "Qwen3-235B-A22B-fp8-tput": {
         "source": TOGETHER_AI_SOURCE,
         "org": QWEN_ORG,
         "full_name": "Qwen/Qwen3-235B-A22B-fp8-tput",
         "token_limit": 128000,
-    },
-    "qwen_2p5_72b": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": QWEN_ORG,
-        "full_name": "Qwen/Qwen2.5-72B-Instruct-Turbo",
-        "token_limit": 32768,
-    },
-    "llama-3p1-405B-Instruct-Turbo": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": META_ORG,
-        "full_name": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
-        "token_limit": 130815,
-    },
-    "llama-3p2-3B-Instruct-Turbo": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": META_ORG,
-        "full_name": "meta-llama/Llama-3.2-3B-Instruct-Turbo",
-        "token_limit": 131072,
     },
     # Mistral
     "mistral-large-2407": {
@@ -201,18 +155,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "token_limit": 131000,
     },
     # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
-    "claude-3-7-sonnet-20250219": {
-        "source": ANTHROPIC_SOURCE,
-        "org": ANTHROPIC_ORG,
-        "full_name": "claude-3-7-sonnet-20250219",
-        "token_limit": 200000,
-    },
-    "claude-3-5-sonnet-20241022": {
-        "source": ANTHROPIC_SOURCE,
-        "org": ANTHROPIC_ORG,
-        "full_name": "claude-3-5-sonnet-20241022",
-        "token_limit": 200000,
-    },
     "claude-3-5-sonnet-20240620": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
@@ -232,16 +174,16 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "token_limit": 200000,
     },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
-    "grok-3-beta": {
+    "grok-3": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
-        "full_name": "grok-3-beta",
+        "full_name": "grok-3",
         "token_limit": 131072,
     },
-    "grok-3-mini-beta": {
+    "grok-3-mini": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
-        "full_name": "grok-3-mini-beta",
+        "full_name": "grok-3-mini",
         "token_limit": 131072,
     },
 }
