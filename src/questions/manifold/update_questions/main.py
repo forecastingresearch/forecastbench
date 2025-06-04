@@ -193,7 +193,13 @@ def _update_questions_and_resolved_values(dfq, dff):
         df_dates = pd.DataFrame(date_range, columns=["date"])
         df_dates["date"] = df_dates["date"].dt.date
         df = pd.merge(left=df_dates, right=df, on="date", how="left")
-        df = df.ffill()
+
+        if market["isResolved"]:
+            # The last date was set to the resolution value. This could be NaN, so don't forward
+            # fill it, because the question has actually been nullified.
+            df.iloc[:-1] = df.iloc[:-1].ffill()
+        else:
+            df = df.ffill()
 
         df["id"] = market["id"]
         df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
