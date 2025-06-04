@@ -219,7 +219,7 @@ def fetch_all_questions(dfq):
         dfr = dfr.sort_values(by="date")
         date_diff = dfr["date"].diff().dt.days
         contiguous_dates = date_diff.iloc[1:].eq(1).all()
-        if not contiguous_dates:
+        if dfr.empty or not contiguous_dates:
             unresolved_ids.add(mid)
 
     logger.info(f"Number of unresolved questions in dfq: {len(unresolved_ids)}")
