@@ -111,10 +111,18 @@ def get_leaderboard_entry(df):
         LEADERBOARD_DECIMAL_PLACES,
     )
 
-    # % imputed
-    pct_imputed = int(
-        np.round(df[(data_mask & resolved_mask) | market_mask]["imputed"].mean() * 100)
+    df = df[(data_mask & resolved_mask) | market_mask].sort_values(
+        by=[
+            "source",
+            "id",
+            "direction",
+            "resolution_date",
+        ],
+        ignore_index=True,
     )
+
+    # % imputed
+    pct_imputed = int(np.round(df["imputed"].mean() * 100))
 
     return {
         "data": data_resolved_score,
@@ -309,11 +317,11 @@ def get_pairwise_p_values(df, n_replications):
     best_model = df.at[0, "model"]
     logger.info(f"p-value comparison best performer is: {best_organization} {best_model}.")
 
-    df_best = pd.DataFrame(df.at[0, "df"])
+    df_best = resolution.make_columns_hashable(pd.DataFrame(df.at[0, "df"]))
     observed_overall_score_best = df.at[0, "overall"]
 
     for index in range(1, len(df)):
-        df_comparison = pd.DataFrame(df.at[index, "df"])
+        df_comparison = resolution.make_columns_hashable(pd.DataFrame(df.at[index, "df"]))
         observed_overall_score_comparison = df.at[index, "overall"]
 
         # first merge on the questions to then get the diff between the scores
@@ -591,6 +599,16 @@ def add_to_llm_and_human_combo_leaderboards(
             df_only_human_question_set, forecast_due_date
         )
 
+    # Ensure same sorting of combo dfs because we drop duplicate market entries in `get_leaderboard_entry`
+    df_only_human_question_set = df_only_human_question_set.sort_values(
+        by=[
+            "source",
+            "id",
+            "direction",
+            "resolution_date",
+        ],
+        ignore_index=True,
+    )
     leaderboard_combo = add_to_leaderboard(
         leaderboard=leaderboard_combo,
         org_and_model=org_and_model,
