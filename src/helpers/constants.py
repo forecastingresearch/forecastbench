@@ -129,12 +129,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "use_web_search": False,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
-    "Llama-3-8b-chat-hf": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": META_ORG,
-        "full_name": "meta-llama/Llama-3-8b-chat-hf",
-        "token_limit": 8192,
-    },
     "Llama-3-70b-chat-hf": {
         "source": TOGETHER_AI_SOURCE,
         "org": META_ORG,
