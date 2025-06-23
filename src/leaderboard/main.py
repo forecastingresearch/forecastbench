@@ -1,21 +1,28 @@
 """Create leaderboard."""
 
-import itertools
 import json
 import logging
 import os
+import pickle
 import sys
-from datetime import datetime
-from multiprocessing import Pool
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+import pyfixest as pf
+from jinja2 import Template
+from scipy.stats import norm
+from statsmodels.stats.multitest import multipletests
 from termcolor import colored
+from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
     constants,
+    dates,
     decorator,
     env,
     git,
@@ -30,427 +37,65 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %d, %Y")
-BASELINE_ORG_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Naive Forecast"}
-SUPERFORECASTER_MODEL = {
-    "organization": constants.BENCHMARK_NAME,
-    "model": "Superforecaster median forecast",
-}
-GENERAL_PUBLIC_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Public median forecast"}
+LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %-d, %Y")
 
-CONFIDENCE_LEVEL = 0.95
+BASELINE_ORG_NAIVE_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Naive Forecaster"}
+
 LEADERBOARD_DECIMAL_PLACES = 3
 
+IMPUTED_CUTOFF_PCT = 5
 
-def download_and_read_processed_forecast_file(filename):
-    """Download forecast file."""
-    local_filename = "/tmp/tmp.json"
-    gcp.storage.download(
-        bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
-        filename=filename,
-        local_filename=local_filename,
-    )
-    with open(local_filename, "r", encoding="utf-8") as f:
-        data = json.load(f)
+MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 90
 
-    return data
+MODEL_RELEASE_DATE_CUTOFF = 365
+
+N_REPLICATES = 1999 if not env.RUNNING_LOCALLY else 2
+
+df_release_dates = pd.read_csv("model_release_dates.csv")
+df_release_dates["release_date"] = pd.to_datetime(df_release_dates["release_date"], errors="coerce")
 
 
-def get_leaderboard_entry(df):
-    """Create the leaderboard entry for the given dataframe."""
-    # Masks
-    data_mask = df["source"].isin(question_curation.DATA_SOURCES)
-    market_mask = df["source"].isin(question_curation.MARKET_SOURCES)
-    resolved_mask = df["resolved"].astype(bool)
-    unresolved_mask = ~resolved_mask
+def download_and_read_processed_forecast_file(filename: str) -> Dict[str, Any]:
+    """Download a processed forecast file from Cloud Storage and parse its JSON content.
 
-    def get_scores(df, mask):
-        scores = df[mask]["score"]
-        return scores.mean(), len(scores)
+    Args:
+        filename (str): Name of the file to retrieve from the processed forecast sets bucket.
 
-    # Datasets
-    data_resolved_score, n_data_resolved = get_scores(df, data_mask & resolved_mask)
-    data_resolved_std_dev = df[data_mask & resolved_mask]["score"].std(ddof=1)
-    data_resolved_se = data_resolved_std_dev / np.sqrt(n_data_resolved)
-
-    # Markets
-    market_resolved_score, n_market_resolved = get_scores(df, market_mask & resolved_mask)
-    market_unresolved_score, n_market_unresolved = get_scores(df, market_mask & unresolved_mask)
-    market_overall_score, n_market_overall = get_scores(df, market_mask)
-    market_overall_std_dev = df[market_mask]["score"].std(ddof=1)
-    market_overall_se = market_overall_std_dev / np.sqrt(n_market_overall)
-
-    # Overall Resolved
-    overall_resolved_score = (data_resolved_score + market_resolved_score) / 2
-    n_overall_resolved = n_data_resolved + n_market_resolved
-
-    # Overall
-    overall_score = (data_resolved_score + market_overall_score) / 2
-    n_overall = n_data_resolved + n_market_overall
-    overall_se = np.sqrt(data_resolved_se**2 + market_overall_se**2) / 2
-
-    # Overall CI
-    conservative_dof = min(n_data_resolved, n_market_overall) - 1
-    confidence_interval = np.round(
-        stats.t.interval(
-            confidence=CONFIDENCE_LEVEL, df=conservative_dof, loc=overall_score, scale=overall_se
-        ),
-        LEADERBOARD_DECIMAL_PLACES,
-    )
-
-    df = df[(data_mask & resolved_mask) | market_mask].sort_values(
-        by=[
-            "source",
-            "id",
-            "direction",
-            "resolution_date",
-        ],
-        ignore_index=True,
-    )
-
-    # % imputed
-    pct_imputed = int(np.round(df["imputed"].mean() * 100))
-
-    return {
-        "data": data_resolved_score,
-        "n_data": n_data_resolved,
-        "market_resolved": market_resolved_score,
-        "n_market_resolved": n_market_resolved,
-        "market_unresolved": market_unresolved_score,
-        "n_market_unresolved": n_market_unresolved,
-        "market_overall": market_overall_score,
-        "n_market_overall": n_market_overall,
-        "overall_resolved": overall_resolved_score,
-        "n_overall_resolved": n_overall_resolved,
-        "overall": overall_score,
-        "confidence_interval_overall": confidence_interval,
-        "n_overall": n_overall,
-        "pct_imputed": pct_imputed,
-        "df": df.copy(),
-    }
-
-
-def get_permutation_p_value(
-    df_data,
-    n_best_data,
-    n_comparison_data,
-    df_market,
-    n_best_market,
-    n_comparison_market,
-    observed_difference,
-    n_replications,
-):
-    """Get the p-value comparing comparison to best using the Permutation Test."""
-    permutation_differences = []
-    for _ in range(n_replications):
-        permuted_data_scores = np.random.permutation(df_data["score"])
-        comparison_data_sample = permuted_data_scores[:n_comparison_data]
-        best_data_sample = permuted_data_scores[n_comparison_data:]
-
-        permuted_market_scores = np.random.permutation(df_market["score"])
-        comparison_market_sample = permuted_market_scores[:n_comparison_market]
-        best_market_sample = permuted_market_scores[n_comparison_market:]
-
-        comparison_overall_mean = (
-            np.mean(comparison_data_sample) + np.mean(comparison_market_sample)
-        ) / 2
-        best_overall_mean = (np.mean(best_data_sample) + np.mean(best_market_sample)) / 2
-        permutation_differences.append(comparison_overall_mean - best_overall_mean)
-
-    permutation_differences = np.array(permutation_differences)
-    return np.round(
-        np.mean(permutation_differences > observed_difference), LEADERBOARD_DECIMAL_PLACES
-    )
-
-
-def get_bootstrap_p_value(
-    df_data,
-    n_best_data,
-    n_comparison_data,
-    df_market,
-    n_best_market,
-    n_comparison_market,
-    observed_difference,
-    n_replications,
-):
-    """Get the p-value comparing comparison to best by Bootstrapping."""
-    bootstrap_differences = []
-    for _ in range(n_replications):
-        df_best_data_resample = df_data["score"].sample(
-            n=n_best_data, replace=True, ignore_index=True
-        )
-        df_best_market_resample = df_market["score"].sample(
-            n=n_best_market, replace=True, ignore_index=True
-        )
-
-        df_comparison_data_resample = df_data["score"].sample(
-            n=n_comparison_data, replace=True, ignore_index=True
-        )
-        df_comparison_market_resample = df_market["score"].sample(
-            n=n_comparison_market, replace=True, ignore_index=True
-        )
-
-        comparison_overall_mean = (
-            df_comparison_data_resample.mean() + df_comparison_market_resample.mean()
-        ) / 2
-        best_overall_mean = (df_best_data_resample.mean() + df_best_market_resample.mean()) / 2
-        bootstrap_differences.append(comparison_overall_mean - best_overall_mean)
-
-    bootstrap_differences = np.array(bootstrap_differences)
-    return np.round(
-        np.mean(bootstrap_differences > observed_difference),
-        LEADERBOARD_DECIMAL_PLACES,
-    )
-
-
-def get_p_values(d):
-    """Get p values comparing comparison to best to see if they're significantly different."""
-    n_replications = 10000
-    df = pd.DataFrame(d)
-    df = df.sort_values(by=["overall"], ignore_index=True)
-
-    # Only get pairwise p-values for now, skip treating questions as indpendent.
-    # Keeping the code because it may come in handy when we run a new round with a different
-    # question set.
-    df = get_pairwise_p_values(df, n_replications)
-    df.drop(columns="df", inplace=True)
-    return df
-
-    p_val_bootstrap_col_name = "p-value_bootstrap"
-    p_val_permutation_col_name = "p-value_permutation"
-    df[p_val_bootstrap_col_name] = None
-    df[p_val_permutation_col_name] = None
-
-    # Get best performer
-    best_organization = df.at[0, "organization"]
-    best_model = df.at[0, "model"]
-    logger.info(f"p-value comparison best performer is: {best_organization} {best_model}.")
-
-    df_best = pd.DataFrame(df.at[0, "df"])
-    observed_overall_score_best = df.at[0, "overall"]
-
-    df_best_data = df_best[
-        (df_best["source"].isin(resolution.DATA_SOURCES)) & df_best["resolved"].astype(bool)
-    ]
-    df_best_market = df_best[df_best["source"].isin(resolution.MARKET_SOURCES)]
-
-    n_best_data = len(df_best_data)
-    n_best_market = len(df_best_market)
-
-    for index in range(1, len(df)):
-        df_comparison = pd.DataFrame(df.at[index, "df"])
-        observed_overall_score_comparison = df.at[index, "overall"]
-
-        df_comparison_data = df_comparison[
-            (df_comparison["source"].isin(resolution.DATA_SOURCES))
-            & df_comparison["resolved"].astype(bool)
-        ]
-        df_comparison_market = df_comparison[
-            df_comparison["source"].isin(resolution.MARKET_SOURCES)
-        ]
-
-        n_comparison_data = len(df_comparison_data)
-        n_comparison_market = len(df_comparison_market)
-
-        df_data = pd.concat([df_best_data, df_comparison_data], ignore_index=True)
-        df_market = pd.concat([df_best_market, df_comparison_market], ignore_index=True)
-
-        observed_difference = observed_overall_score_comparison - observed_overall_score_best
-
-        df.at[index, p_val_bootstrap_col_name] = get_bootstrap_p_value(
-            df_data=df_data,
-            n_best_data=n_best_data,
-            n_comparison_data=n_comparison_data,
-            df_market=df_market,
-            n_best_market=n_best_market,
-            n_comparison_market=n_comparison_market,
-            observed_difference=observed_difference,
-            n_replications=n_replications,
-        )
-        df.at[index, p_val_permutation_col_name] = get_permutation_p_value(
-            df_data=df_data,
-            n_best_data=n_best_data,
-            n_comparison_data=n_comparison_data,
-            df_market=df_market,
-            n_best_market=n_best_market,
-            n_comparison_market=n_comparison_market,
-            observed_difference=observed_difference,
-            n_replications=n_replications,
-        )
-
-    df.drop(columns="df", inplace=True)
-    return df
-
-
-def get_pairwise_p_values(df, n_replications):
-    """Calculate p-values on Brier differences on individual questions.
-
-    From Ezra: this improves precision because, for any two groups, forecasting accuracy is very
-    correlated on the set of questions. Treating them as independent overstates
-    imprecision. Instead, we can bootstrap the questions by focusing on the difference in scores on
-    a question-by-question basis.
-
-    A nice example of this is that if group A is always epsilon more accurate than group B on every
-    question, we can be quite confident A is a better forecaster, even if epsilon is arbitrarily
-    small and even if the standard deviation of accuracy for group A's forecasts is high.
+    Returns:
+        Dict[str, Any]: A mapping from the filename to its loaded JSON data.
     """
-    p_val_bootstrap_col_name = "p-value_pairwise_bootstrap"
-    df[p_val_bootstrap_col_name] = None
-    better_than_super_col_name = "pct_better_than_no1"
-    df[better_than_super_col_name] = 0.0
-
-    # Get best performer
-    best_organization = df.at[0, "organization"]
-    best_model = df.at[0, "model"]
-    logger.info(f"p-value comparison best performer is: {best_organization} {best_model}.")
-
-    df_best = resolution.make_columns_hashable(pd.DataFrame(df.at[0, "df"]))
-    observed_overall_score_best = df.at[0, "overall"]
-
-    for index in range(1, len(df)):
-        df_comparison = resolution.make_columns_hashable(pd.DataFrame(df.at[index, "df"]))
-        observed_overall_score_comparison = df.at[index, "overall"]
-
-        # first merge on the questions to then get the diff between the scores
-        df_merged = pd.merge(
-            df_best.copy(),
-            df_comparison,
-            on=[
-                "id",
-                "source",
-                "direction",
-                "forecast_due_date",
-                "resolved",
-                "resolution_date",
-            ],
-            how="inner",
-            suffixes=[
-                "_best",
-                "_comparison",
-            ],
+    with tempfile.NamedTemporaryFile(dir="/tmp", delete=True) as tmp:
+        gcp.storage.download(
+            bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
+            filename=filename,
+            local_filename=tmp.name,
         )
-        df_merged = df_merged[["id", "source", "resolved", "score_comparison", "score_best"]]
+        with open(tmp.name, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-        if not (len(df_best) == len(df_comparison) and len(df_best) == len(df_merged)):
-            missing_in_comparison = df_best.merge(
-                df_comparison,
-                on=[
-                    "id",
-                    "source",
-                    "direction",
-                    "forecast_due_date",
-                    "resolved",
-                    "resolution_date",
-                ],
-                how="left",
-                indicator=True,
-            ).query('_merge == "left_only"')
-
-            missing_in_best = df_comparison.merge(
-                df_best,
-                on=[
-                    "id",
-                    "source",
-                    "direction",
-                    "forecast_due_date",
-                    "resolved",
-                    "resolution_date",
-                ],
-                how="left",
-                indicator=True,
-            ).query('_merge == "left_only"')
-
-            print("Missing in Comparison")
-            print(missing_in_comparison)
-            print("Missing in Best")
-            print(missing_in_best)
-
-            raise ValueError(
-                "Problem with merge in `get_pairwise_p_values()`. Comparing org: "
-                f"{df.at[index, 'organization']}, model: {df.at[index, 'model']} "
-                f"n_best: {len(df_best)}, n_comparison: {len(df_comparison)}, "
-                f"n_merged: {len(df_merged)}"
-            )
-
-        df_merged_data = df_merged[
-            (df_merged["source"].isin(resolution.DATA_SOURCES)) & df_merged["resolved"].astype(bool)
-        ].reset_index(drop=True)
-        df_merged_market = df_merged[
-            df_merged["source"].isin(resolution.MARKET_SOURCES)
-        ].reset_index(drop=True)
-
-        df_merged_data_diff = df_merged_data["score_comparison"] - df_merged_data["score_best"]
-        df_merged_market_diff = (
-            df_merged_market["score_comparison"] - df_merged_market["score_best"]
-        )
-
-        observed_difference = observed_overall_score_comparison - observed_overall_score_best
-        assert (
-            abs(
-                observed_difference
-                - ((df_merged_data_diff.mean() + df_merged_market_diff.mean()) / 2)
-            )
-            < 1e-15
-        ), "Observed difference in scores is incorrect in `get_pairwise_p_values()`."
-
-        # Shift mean of scores to 0 for the null hypothesis that comparison and best scores are
-        # identical and hence their difference is 0
-        df_merged_data_diff -= df_merged_data_diff.mean()
-        df_merged_market_diff -= df_merged_market_diff.mean()
-
-        assert (
-            (df_merged_data_diff.mean() + df_merged_market_diff.mean()) / 2
-        ) < 1e-15, "Observed difference in scores is incorrect in `get_pairwise_p_values()`."
-
-        n_data = len(df_merged_data_diff)
-        n_market = len(df_merged_market_diff)
-
-        # Bootstrap p-value
-        overall_diff = []
-        for _ in range(n_replications):
-            df_data_diff_bootstrapped = df_merged_data_diff.sample(
-                n=n_data, replace=True, ignore_index=True
-            )
-            df_market_diff_bootstrapped = df_merged_market_diff.sample(
-                n=n_market, replace=True, ignore_index=True
-            )
-            overall_diff.append(
-                (df_data_diff_bootstrapped.mean() + df_market_diff_bootstrapped.mean()) / 2
-            )
-        overall_diff = np.array(overall_diff)
-
-        df.at[index, p_val_bootstrap_col_name] = np.round(
-            np.mean(overall_diff >= observed_difference), LEADERBOARD_DECIMAL_PLACES
-        )
-
-        # Percent better than supers
-        df_combo = pd.concat([df_merged_data, df_merged_market], ignore_index=True)
-        df.at[index, better_than_super_col_name] = (
-            np.round(
-                np.mean(df_combo["score_comparison"] < df_combo["score_best"]),
-                LEADERBOARD_DECIMAL_PLACES,
-            )
-            * 100
-        )
-
-    return df
+    return {filename: data}
 
 
-def add_to_leaderboard(leaderboard, org_and_model, df, forecast_due_date):
-    """Add scores to the leaderboard."""
-    leaderboard_entry = [org_and_model | get_leaderboard_entry(df)]
-    leaderboard["overall"] = leaderboard.get("overall", []) + leaderboard_entry
-
-
-def add_to_llm_leaderboard(*args, **kwargs):
-    """Wrap `add_to_leaderboard` for easy reading of driver."""
-    add_to_leaderboard(*args, **kwargs)
-
-
-def download_question_set_save_in_cache(forecast_due_date, cache):
+def download_question_set_save_in_cache(
+    forecast_due_date: str,
+    cache: Dict[str, Dict[str, Any]],
+) -> None:
     """Time-saving function to only download files once per run.
 
-    Save question files in cache.
+    This function checks the cache for the specified forecast_due_date and, for each question set
+    type ('human' and 'llm'), downloads and stores the question set file if it has not already been
+    loaded.
+
+    Args:
+        forecast_due_date (str): Identifier for the forecast due date (e.g., "2024-07-21"), used to
+            construct question set filenames like "{forecast_due_date}-human.json" and
+            "{forecast_due_date}-llm.json".
+        cache (Dict[str, Dict[str, Any]]): Nested cache structure where the first-level
+            keys are forecast_due_date strings and the second-level keys are source types
+            ('human' or 'llm'), mapping to the loaded question set data.
+
+    Returns:
+        None: The cache is modified in-place to include any newly downloaded question sets.
     """
     if forecast_due_date not in cache:
         cache[forecast_due_date] = {}
@@ -462,633 +107,1142 @@ def download_question_set_save_in_cache(forecast_due_date, cache):
             )
 
 
-def add_to_llm_and_human_leaderboard(leaderboard, org_and_model, df, forecast_due_date, cache):
-    """Parse the forecasts to include only those questions that were in the human question set."""
-    download_question_set_save_in_cache(forecast_due_date, cache)
-    df_human_question_set = cache[forecast_due_date]["human"].copy()
-    df_only_human_question_set = pd.merge(
-        df,
-        df_human_question_set[["id", "source"]],
-        on=["id", "source"],
-    ).reset_index(drop=True)
-    add_to_leaderboard(
-        leaderboard=leaderboard,
+def get_masks(df: pd.DataFrame) -> Dict[str, pd.Series]:
+    """Generate boolean masks for dataset and market filters, including resolution status.
+
+    Args:
+        df (pd.DataFrame): The forecast set.
+
+    Returns:
+        Dict[str, pd.Series]: Mapping of mask names to boolean Series:
+            - "dataset":      questions from DATA_SOURCES that are resolved.
+            - "market":       all questions from MARKET_SOURCES.
+            - "market_resolved":   market questions that are resolved.
+            - "market_unresolved": market questions that are unresolved.
+    """
+    data_mask = df["source"].isin(question_curation.DATA_SOURCES)
+    market_mask = df["source"].isin(question_curation.MARKET_SOURCES)
+    resolved_mask = df["resolved"].astype(bool)
+    return {
+        "dataset": data_mask & resolved_mask,
+        "market": market_mask,
+        "market_resolved": market_mask & resolved_mask,
+        "market_unresolved": market_mask & ~resolved_mask,
+    }
+
+
+def get_df_info(
+    df: pd.DataFrame,
+    org_and_model: Dict[str, str],
+    forecast_due_date: str,
+) -> Optional[pd.DataFrame]:
+    """Preprocess a forecast set DataFrame for a given model and due date.
+
+    Args:
+        df (pd.DataFrame): Forecast set.
+        org_and_model (Dict[str, str]): The organization and model associated with the forecast set.
+        forecast_due_date (str): Forecast due date in 'YYYY-MM-DD' format.
+
+    Returns:
+        Optional[pd.DataFrame]: The processed DataFrame or None if the imputed percentage exceeds
+            the defined cutoff.
+    """
+    # Ignore if too many imputed resolved market questions
+    if org_and_model.get("organization") != constants.BENCHMARK_NAME:
+        if df["imputed"].mean() * 100 > IMPUTED_CUTOFF_PCT:
+            return None
+
+    df = resolution.make_columns_hashable(df)
+
+    # Drop market unresolved questions
+    masks = get_masks(df)
+    df = df[masks["dataset"] | masks["market_resolved"]]
+
+    # Remove combos
+    df = df[~df["id"].apply(resolution.is_combo)]
+
+    # Set formats of columns and add columns useful for processing
+    df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
+    df["forecast_due_date"] = pd.to_datetime(forecast_due_date).date()
+    df["horizon"] = (df["resolution_date"] - df["forecast_due_date"]).apply(
+        lambda delta: delta.days
+    )
+
+    # Set primary key
+    df["question_pk"] = ""
+    masks = get_masks(df)
+    df.loc[masks["dataset"], "question_pk"] = (
+        df["forecast_due_date"].astype(str)
+        + "_"
+        + df["source"].astype(str)
+        + "_"
+        + df["id"].astype(str)
+        + "_"
+        + df["horizon"].astype(str)
+    )
+
+    df.loc[masks["market_resolved"], "question_pk"] = (
+        df["forecast_due_date"].astype(str)
+        + "_"
+        + df["source"].astype(str)
+        + "_"
+        + df["id"].astype(str)
+    )
+
+    df["organization"] = org_and_model["organization"]
+    df["model"] = org_and_model["model"]
+    df["model_pk"] = df["organization"] + "_" + df["model"]
+
+    return df.sort_values(by=["forecast_due_date", "source", "id"], ignore_index=True)
+
+
+def append_leaderboard_entry(
+    leaderboard_entries: List[pd.DataFrame],
+    org_and_model: Dict[str, str],
+    df: pd.DataFrame,
+    forecast_due_date: str,
+) -> None:
+    """Append each model's processed forecast set to the leaderboard_entry list.
+
+    Args:
+        entries (List[pd.DataFrame]): List collecting processed forecast set DataFrames.
+        org_and_model (Dict[str, str]): The organization and model associated with the forecast set.
+        df (pd.DataFrame): Forecast set.
+        forecast_due_date (str): Forecast due date in 'YYYY-MM-DD' format.
+
+    Returns:
+        None: Modifies `entries` in place. Logs a warning if processing is skipped.
+    """
+    processed = get_df_info(
+        df=df,
         org_and_model=org_and_model,
-        df=df_only_human_question_set,
         forecast_due_date=forecast_due_date,
     )
+    if processed is None:
+        logger.warning(
+            f"Ignoring {org_and_model['organization']} {org_and_model['model']}—"
+            "imputed cutoff exceeded."
+        )
+        return
+
+    leaderboard_entries.append(processed)
 
 
-def add_to_llm_and_human_combo_leaderboards(
-    leaderboard_combo, org_and_model, df, forecast_due_date, cache, is_human_forecast_set
-):
-    """Parse the forecasts to include only those questions that were in the human question set."""
-    download_question_set_save_in_cache(forecast_due_date, cache)
-    df_human_question_set = cache[forecast_due_date]["human"].copy()
-    df_llm_question_set = cache[forecast_due_date]["llm"].copy()
-    if "combos" not in cache[forecast_due_date]:
-        human_possible_combos = []
-        for _, row in df_llm_question_set[
-            df_llm_question_set["id"].apply(resolution.is_combo)
-        ].iterrows():
-            id0, id1 = row["id"]
-            source = row["source"]
-            df_source = df_human_question_set[df_human_question_set["source"] == source]
-            if {id0, id1}.issubset(df_source["id"]):
-                human_possible_combos.append({"source": source, "id": row["id"]})
-        cache[forecast_due_date]["combos"] = human_possible_combos
-    human_combos = cache[forecast_due_date]["combos"].copy()
+def upload_leaderboard(files: Dict[str, str]) -> None:
+    """Upload leaderboard files to Cloud Storage and push updates to Git.
 
-    df_only_human_question_set = pd.merge(
-        df,
-        df_human_question_set[["id", "source"]],
-        on=["id", "source"],
-    ).reset_index(drop=True)
+    Args:
+        files (Dict[str, str]): Mapping of local file paths to their basenames.
 
-    # Add pertinent combos from llm forecast file to llm df
-    if not is_human_forecast_set:
-        df_llm_combos = df[
-            df.apply(
-                lambda row: (row["id"], row["source"])
-                in [(combo["id"], combo["source"]) for combo in human_combos],
-                axis=1,
-            )
-        ]
-        df_only_human_question_set = pd.concat(
-            [df_only_human_question_set, df_llm_combos], ignore_index=True
+    Returns:
+        None
+    """
+    if env.RUNNING_LOCALLY:
+        # Don't upload anything when running locally
+        return
+
+    # Upload files to GCP bucket
+    destination_folder = "leaderboards"
+    for local_filename in files.keys():
+        gcp.storage.upload(
+            bucket_name=env.PUBLIC_RELEASE_BUCKET,
+            local_filename=local_filename,
+            destination_folder=destination_folder,
         )
 
-    def generate_combo_forecasts(df, forecast_due_date):
-        """Generate combo forecasts."""
-        # Remove combos in df, if any
-        df = df[~df["id"].apply(resolution.is_combo)]
-
-        # Generate combos from the df
-        for combo in human_combos:
-            source = combo["source"]
-            id0, id1 = combo["id"]
-            df_source = df[df["source"] == source]
-            df_forecast0 = df_source[df_source["id"] == id0]
-            df_forecast1 = df_source[df_source["id"] == id1]
-            if df_forecast0.empty or df_forecast1.empty:
-                # If either forecast set is empty, it means one of the questions was dropped as N/A
-                # and hence is not in the processed forecast file.
-                continue
-
-            # Resolution dates won't ususally intersect for market combos. Hence only create one
-            # entry and get the actual resolution date from
-            # `resolution.get_combo_question_resolution_date()`
-            resolution_dates = [None]
-            if source in resolution.DATA_SOURCES:
-                resolution_dates = set(df_forecast0["resolution_date"]).intersection(
-                    set(df_forecast1["resolution_date"])
-                )
-
-            for resolution_date in resolution_dates:
-                if source in resolution.DATA_SOURCES:
-                    df_forecast0_tmp = df_forecast0[
-                        df_forecast0["resolution_date"] == resolution_date
-                    ]
-                    df_forecast1_tmp = df_forecast1[
-                        df_forecast1["resolution_date"] == resolution_date
-                    ]
-                else:
-                    df_forecast0_tmp = df_forecast0
-                    df_forecast1_tmp = df_forecast1
-
-                if len(df_forecast0_tmp) != 1 or len(df_forecast1_tmp) != 1:
-                    raise ValueError("`generate_combo_forecasts`: should not arrive here.")
-
-                for dir0, dir1 in list(itertools.product([1, -1], repeat=2)):
-                    forecast = resolution.combo_change_sign(
-                        df_forecast0_tmp["forecast"].iloc[0], dir0
-                    ) * resolution.combo_change_sign(df_forecast1_tmp["forecast"].iloc[0], dir1)
-                    resolved_to = resolution.combo_change_sign(
-                        df_forecast0_tmp["resolved_to"].iloc[0], dir0
-                    ) * resolution.combo_change_sign(df_forecast1_tmp["resolved_to"].iloc[0], dir1)
-
-                    res_date = (
-                        resolution.get_combo_question_resolution_date(
-                            is_resolved0=df_forecast0_tmp["resolved"].iloc[0],
-                            is_resolved1=df_forecast1_tmp["resolved"].iloc[0],
-                            dir0=dir0,
-                            dir1=dir1,
-                            resolved_to0=df_forecast0_tmp["resolved_to"].iloc[0],
-                            resolved_to1=df_forecast1_tmp["resolved_to"].iloc[0],
-                            resolution_date0=df_forecast0_tmp["resolution_date"].iloc[0],
-                            resolution_date1=df_forecast1_tmp["resolution_date"].iloc[0],
-                        )
-                        if source in resolution.MARKET_SOURCES
-                        else None
-                    )
-                    resolved = source in resolution.DATA_SOURCES or bool(res_date)
-
-                    if not resolved or source in resolution.DATA_SOURCES:
-                        res_date = max(
-                            df_forecast0_tmp["resolution_date"].iloc[0],
-                            df_forecast1_tmp["resolution_date"].iloc[0],
-                        )
-
-                    imputed = (
-                        df_forecast0_tmp["imputed"].iloc[0] or df_forecast1_tmp["imputed"].iloc[0]
-                    )
-                    score = (forecast - resolved_to) ** 2
-                    new_row = {
-                        "id": (id0, id1),
-                        "source": source,
-                        "direction": (dir0, dir1),
-                        "forecast_due_date": df_forecast0_tmp["forecast_due_date"].iloc[0],
-                        "market_value_on_due_date": np.nan,
-                        "resolution_date": res_date,
-                        "resolved_to": resolved_to,
-                        "resolved": resolved,
-                        "forecast": forecast,
-                        "imputed": imputed,
-                        "score": score,
-                    }
-                    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        return df
-
-    if is_human_forecast_set:
-        # This is a human forecast set. Hence combos need to be generated for leaderboard_combo.
-        df_only_human_question_set = generate_combo_forecasts(
-            df_only_human_question_set, forecast_due_date
-        )
-
-    # Ensure same sorting of combo dfs because we drop duplicate market entries in `get_leaderboard_entry`
-    df_only_human_question_set = df_only_human_question_set.sort_values(
-        by=[
-            "source",
-            "id",
-            "direction",
-            "resolution_date",
-        ],
-        ignore_index=True,
-    )
-    leaderboard_combo = add_to_leaderboard(
-        leaderboard=leaderboard_combo,
-        org_and_model=org_and_model,
-        df=df_only_human_question_set,
-        forecast_due_date=forecast_due_date,
+    # Push to git
+    git_files = {k: f"{destination_folder}/{v}" for k, v in files.items()}
+    mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
+    mirrors = [mirrors] if mirrors else []
+    git.clone_and_push_files(
+        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
+        files=git_files,
+        commit_message="leaderboard: automatic update html & csv files.",
+        mirrors=mirrors,
     )
 
 
-def make_and_upload_html_table(df, title, basename):
-    """Make and upload HTLM leaderboard."""
+def write_leaderboard(
+    df: pd.DataFrame,
+    primary_scoring_func: Callable[..., any],
+) -> Dict[str, str]:
+    """Generate HTML and CSV leaderboard files and return their paths.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+        primary_scoring_func (Callable): Function used to compute the primary overall score;
+            its __name__ determines which columns to format and sort by.
+
+    Returns:
+        Dict[str, str]: A mapping of local file paths to their basenames:
+            {
+                "/tmp/<basename>.html": "<basename>.html",
+                "/tmp/<basename>.csv":  "<basename>.csv"
+            }.
+    """
+    logger.info("Making HTML and CSV leaderboard file.")
+
     # Replace NaN with empty strings for display
-    logger.info(f"Making HTML leaderboard file: {title} {basename}.")
     df = df.fillna("")
-
-    # Add ranking
-    df = df.sort_values(by=["overall"], ignore_index=True)
-    df.insert(loc=0, column="Ranking", value="")
-    df["score_diff"] = df["overall"] - df["overall"].shift(1)
-    for index, row in df.iterrows():
-        if row["score_diff"] != 0:
-            prev_rank = index + 1
-        df.loc[index, "Ranking"] = prev_rank
-    df.drop(columns="score_diff", inplace=True)
 
     # Round columns to 3 decimal places
     numeric_cols = df.select_dtypes(include="number").columns
     df[numeric_cols] = df[numeric_cols].round(3)
 
-    # Rename columns
+    # Add rank
+    df["Rank"] = df[f"{primary_scoring_func.__name__}_overall"].rank(
+        ascending=True,
+        method="min",
+    )
+
     for col in [
-        "n_data",
-        "n_market_resolved",
-        "n_market_unresolved",
-        "n_market_overall",
+        "n_market",
+        "n_dataset",
         "n_overall",
-        "n_overall_resolved",
+        "Rank",
     ]:
-        if df[col].min() != df[col].max():
-            msg = (
-                f"Error making leaderboard {title}: in col {col}: min ({df[col].min()}) not equal "
-                f"to max ({df[col].max()})."
-            )
-            logger.error(msg)
-            raise ValueError(msg)
+        df[col] = df[col].astype(int)
 
-    n_data = df["n_data"].max()
-    n_market_resolved = df["n_market_resolved"].max()
-    n_market_unresolved = df["n_market_unresolved"].max()
-    n_market_overall = df["n_market_overall"].max()
-    n_overall = df["n_overall"].max()
-    n_overall_resolved = df["n_overall_resolved"].max()
+    # Format CI
+    df[f"{primary_scoring_func.__name__}_ci_lower"] = (
+        df[f"{primary_scoring_func.__name__}_ci_lower"].round(3).astype(str)
+    )
+    df[f"{primary_scoring_func.__name__}_ci_upper"] = (
+        df[f"{primary_scoring_func.__name__}_ci_upper"].round(3).astype(str)
+    )
+    df[f"{primary_scoring_func.__name__}_ci"] = (
+        "["
+        + df[f"{primary_scoring_func.__name__}_ci_lower"]
+        + ", "
+        + df[f"{primary_scoring_func.__name__}_ci_upper"]
+        + "]"
+    )
 
-    df["pct_imputed"] = df["pct_imputed"].round(0).astype(int).astype(str) + "%"
-    df["pct_better_than_no1"] = df["pct_better_than_no1"].round(0).astype(int).astype(str) + "%"
-
-    def get_p_value_display(p):
-        if not isinstance(p, (float, int)):
-            return str(p)
-        if p < 0.001:
-            return "<0.001"
-        if p < 0.01:
-            return "<0.01"
-        if p < 0.05:
-            return "<0.05"
-        return f"{p:.{LEADERBOARD_DECIMAL_PLACES}f}"
-
-    df["p-value_pairwise_bootstrap"] = df["p-value_pairwise_bootstrap"].apply(get_p_value_display)
+    df = df.sort_values(by=f"{primary_scoring_func.__name__}_overall", ignore_index=True)
+    df["p_value_one_sided"] = df["p_value_one_sided"].apply(
+        lambda p: (
+            "<0.001" if p < 0.001 else "<0.01" if p < 0.01 else "<0.05" if p < 0.05 else f"{p:.2f}"
+        )
+    )
+    # Set the p-value for the best to N/A
+    df.loc[0, "p_value_one_sided"] = "—"
 
     df = df[
         [
-            "Ranking",
+            "Rank",
             "organization",
             "model",
-            "data",
-            "market_resolved",
-            "market_unresolved",
-            "market_overall",
-            "overall_resolved",
-            "overall",
-            "confidence_interval_overall",
-            "p-value_pairwise_bootstrap",
-            "pct_better_than_no1",
-            "pct_imputed",
+            f"{primary_scoring_func.__name__}_dataset",
+            "n_dataset",
+            f"{primary_scoring_func.__name__}_market",
+            "n_market",
+            f"{primary_scoring_func.__name__}_overall",
+            "n_overall",
+            f"{primary_scoring_func.__name__}_ci",
+            "p_value_one_sided",
+            "pct_times_best_performer",
+            "pct_times_top_5_percentile",
+            "peer_score_overall",
+            "brier_skill_score_overall",
         ]
-    ]
-    df = df.rename(
+    ].rename(
         columns={
             "organization": "Organization",
             "model": "Model",
-            "data": f"Dataset Score (N={n_data:,})",
-            "market_resolved": f"Market Score (resolved) (N={n_market_resolved:,})",
-            "market_unresolved": f"Market Score (unresolved) (N={n_market_unresolved:,})",
-            "market_overall": f"Market Score (overall) (N={n_market_overall:,})",
-            "overall_resolved": f"Overall Resolved Score (N={n_overall_resolved:,})",
-            "overall": f"Overall Score (N={n_overall:,})",
-            "confidence_interval_overall": "Overall Score 95% CI",
-            "p-value_pairwise_bootstrap": "Pairwise p-value comparing to No. 1 (bootstrapped)",
-            "pct_better_than_no1": "Pct. more accurate than No. 1",
-            "pct_imputed": "Pct. Imputed",
-            # "std_dev": Std. Dev.", # DELETE
-            # "z_score_wrt_naive_mean": "Z-score",
+            f"{primary_scoring_func.__name__}_dataset": "Dataset",
+            "n_dataset": "N dataset",
+            f"{primary_scoring_func.__name__}_market": "Market",
+            "n_market": "N market",
+            f"{primary_scoring_func.__name__}_overall": "Overall",
+            "n_overall": "N",
+            f"{primary_scoring_func.__name__}_ci": "95% CI",
+            "p_value_one_sided": "P-value to Best",
+            "pct_times_best_performer": "Pct times № 1",
+            "pct_times_top_5_percentile": "Pct times top 5%",
+            "peer_score_overall": "Peer",
+            "brier_skill_score_overall": "BSS",
         }
     )
 
-    column_descriptions = """
-        <div style="display: flex; align-items: center;">
-          <a data-bs-toggle="collapse" data-bs-target="#descriptionCollapse" aria-expanded="false"
-             aria-controls="descriptionCollapse" style="text-decoration: none; color: inherit;
-             display: flex; align-items: center; cursor: pointer;">
-            <i class="bi bi-chevron-right rotate" id="toggleArrow" style="margin-left: 5px;"></i>
-            <span>Column descriptions</span>
-          </a>
-        </div>
-        <div class="collapse mt-3" id="descriptionCollapse" style="padding: 0px;">
-          <div class="card card-body">
-            <ul>
-              <li><b>Ranking</b>: The position of the model in the leaderboard as ordered by
-                                  Overall Score</li>
-              <li><b>Organization</b>: The group responsible for the model or forecasts</li>
-              <li><b>Model</b>: The LLM model & prompt info or the human group and forecast
-                                aggregation method
-                  <ul>
-                    <li>zero shot: used a zero-shot prompt</li>
-                    <li>scratchpad: used a scratchpad prompt with instructions that outline a
-                                    procedure the model should use to reason about the question</li>
-                    <li>with freeze values: means that, for questions from market sources, the prompt
-                                            was supplemented with the aggregate human forecast from
-                                            the relevant platform on the day the question set was
-                                            generated</li>
-                    <li>with news: means that the prompt was supplemented with relevant news
-                                   summaries obtained through an automated process</li>
-                  </ul>
-              <li><b>Dataset Score</b>: The average Brier score across all questions sourced from
-                                        datasets</li>
-              <li><b>Market Score (resolved)</b>: The average Brier score across all resolved
-                                                  questions sourced from prediction markets and
-                                                  forecast aggregation platforms</li>
-              <li><b>Market Score (unresolved)</b>: The average Brier score across all unresolved
-                                                    questions sourced from prediction markets and
-                                                    forecast aggregation platforms</li>
-              <li><b>Market Score (overall)</b>: The average Brier score across all questions
-                                                 sourced from prediction markets and forecast
-                                                 aggregation platforms</li>
-              <li><b>Overall Resolved Score</b>: The average of the Dataset Score and the Market
-                                                 Score (resolved) columns</li>
-              <li><b>Overall Score</b>: The average of the Dataset Score and the Market Score
-                                        (overall) columns</li>
-              <li><b>Overall Score 95% CI</b>: The 95% confidence interval for the Overall
-                                               Score</li>
-              <li><b>Pairwise p-value comparing to No. 1 (bootstrapped)</b>: The p-value calculated
-                              by bootstrapping the differences in overall score between each model
-                              and the best forecaster (the group with rank 1) under the null
-                              hypothesis that there's no difference.</li>
-              <li><b>Pct. more accurate than No. 1</b>: The percent of questions where this
-                              forecaster had a better overall score than the best forecaster (with
-                              rank 1)</li>
-              <li><b>Pct. imputed</b>: The percent of questions for which this forecaster did not
-                              provide a forecast and hence had a forecast value imputed (0.5 for
-                              dataset questions and the aggregate human forecast on the forecast
-                              due date for questions sourced from prediction markets or forecast
-                              aggregation platforms)</li>
-            </ul>
-          </div>
-        </div>
-        <script>
-        var toggleArrow = document.getElementById('toggleArrow');
-        var toggleLink = document.querySelector('[data-bs-toggle="collapse"]');
-
-        toggleLink.addEventListener('click', function () {
-          if (toggleArrow.classList.contains('rotate-down')) {
-            toggleArrow.classList.remove('rotate-down');
-          } else {
-            toggleArrow.classList.add('rotate-down');
+    template = Template(
+        """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.semanticui.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/components/icon.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.semanticui.min.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.7/js/dataTables.semanticui.min.js"></script>
+  <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+  <style>
+    body {
+        font-family: Arial,
+        sans-serif;
+        padding: 20px;
+    }
+    .n-count {
+        color: #b9b9b9;
+    }
+    #dataTable td:nth-child({{ sorting_column_number }}) {
+        background-color: #feffeb;
+    }
+    h1 {
+        font-size: 1.5em;
+        font-weight: 600;
+        margin-bottom: 0.75em;
+        text-align: center;
+    }
+    .dataTables_wrapper {
+        width: 100%;
+    }
+    #dataTable {
+        width: 100% !important;
+    }
+    #dataTable tbody tr:hover {
+      background-color: #f1f1f1 !important;
+      cursor: pointer;
+    }
+    .info.circle.icon {
+        color: rgba(185, 185, 185, 0.7) !important;
+    }
+    .updated-date {
+         font-size: 10px;
+         text-align: center;
+         margin-top: -10px;
+    }
+  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <h1>{{ title }}</h1>
+  <p class="updated-date">{{ leaderboard_update_date }}</p>
+  <table id="dataTable" class="ui celled table">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Organization</th>
+        <th>Model</th>
+        <th>Dataset (N)</th>
+        <th><!-- N dataset --></th>
+        <th>Market (N)</th>
+        <th><!-- N market --></th>
+        <th>Overall (N)</th>
+        <th><!-- N --></th>
+        <th>95% CI</th>
+        <th>P-value to Best</th>
+        <th>Pct times № 1</th>
+        <th>Pct times top 5%</th>
+        <th>Peer</th>
+        <th>BSS</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>
+      $(document).ready(function(){
+        const rawData = {{ data }};
+        const cols = {{ columns }};
+        const columns = cols.map(name => {
+          const col = { data: name, title: name };
+          if (['N dataset','N market','N'].includes(name)) col.visible = false;
+          if (name==='Dataset') {
+            col.title = 'Dataset (N) <i class="info circle icon" '
+                        + ' data-html="{{ col_desc_dataset }}"></i>';
+            col.render = function(d,t,row){
+                return t==='display'?parseFloat(d).toFixed(3)+
+                           ' <span class="n-count">('+
+                           Number(row['N dataset']).toLocaleString()+')</span>':d; };
+            col.orderSequence = ['asc','desc'];
+          }
+          if (name==='Market') {
+            col.title = 'Market (N) <i class="info circle icon" '
+                        + ' data-html="{{ col_desc_market }}"></i>';
+            col.render = function(d,t,row){
+                return t==='display'?parseFloat(d).toFixed(3) +
+                ' <span class="n-count">('+
+                Number(row['N market']).toLocaleString()+')</span>':d; };
+            col.orderSequence = ['asc','desc'];
+          }
+          if (name==='Overall') {
+            col.title = 'Overall (N) <i class="info circle icon" '
+                        + ' data-html="{{ col_desc_overall }}"></i>';
+            col.render = function(d,t,row){
+                return t==='display'?parseFloat(d).toFixed(3) +
+                ' <span class="n-count">('+
+                Number(row['N']).toLocaleString()+')</span>':d; };
+            col.orderSequence = ['asc','desc'];
+          }
+          if (name==='P-value to Best') {
+            col.title = 'P-value to Best <i class="info circle icon" '
+                        + ' data-html="{{ col_desc_p_val }}"></i>';
+            col.orderable=false;
+          }
+          if (name==='Pct times № 1') {
+            col.title = 'Pct times № 1 <i class="info circle icon" '
+                        + ' data-html="{{ col_desc_pct_times_num_1 }}"></i>';
+            col.render = function(d,t){ return t==='display'?Math.round(d)+'%':d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          if (name==='Pct times top 5%') {
+            col.title = 'Pct times top 5% <i class="info circle icon" '
+                        + ' data-html="{{ col_desc_pct_top_5_percentile }}"></i>';
+            col.render = function(d,t){ return t==='display'?Math.round(d)+'%':d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          if (name==='95% CI') {
+            col.title = '95% CI <i class="info circle icon" data-html="{{ col_desc_ci }}"></i>';
+            col.orderable=false;
+          }
+          if (name==="Peer") {
+            col.title = 'Peer <i class="info circle icon" data-html="{{ col_desc_peer }}"></i>';
+            col.render = function(d,t){ return t==='display'?parseFloat(d).toFixed(3):d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          if (name==="BSS") {
+            col.title = 'BSS <i class="info circle icon" data-html="{{ col_desc_bss }}"></i>';
+            col.render = function(d,t){ return t==='display'?parseFloat(d).toFixed(3):d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          return col;
+        });
+        $('#dataTable').DataTable({
+          data: rawData,
+          columns: columns,
+          order: [[ cols.indexOf('Overall'), 'asc' ]],
+          responsive: true,
+          paging: false,
+          info: true,
+          search: { regex:true, smart:true },
+          initComplete: function() {
+            $('.info.circle.icon').popup({ html: true} );
           }
         });
-        </script>
-    """
-
-    # Remove lengths from df
-    df = df[[c for c in df.columns if not c.startswith("n_")]]
-
-    html_code = df.to_html(
-        classes="table table-striped table-bordered", index=False, table_id="myTable"
-    )
-    html_code = (
-        """<!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <title>LLM Data Table</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-              integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-              crossorigin="anonymous">
-        <link rel="stylesheet" type="text/css"
-              href="https://cdn.datatables.net/2.1.6/css/dataTables.jqueryui.min.css">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-        <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
-        <script type="text/javascript" charset="utf8"
-                src="https://cdn.datatables.net/2.1.6/js/dataTables.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-        <style>
-            body {
-              font-size: 10px;
-            }
-            table.dataTable {
-              font-size: 10px;
-            }
-            .dataTables_wrapper .dataTables_length,
-            .dataTables_wrapper .dataTables_filter,
-            .dataTables_wrapper .dataTables_info,
-            .dataTables_wrapper .dataTables_paginate {
-                font-size: 10px;
-            }
-            .dataTables_length {
-              display: none;
-            }
-            .dataTables_paginate {
-              display: none;
-            }
-            .dataTables_info {
-              display: none;
-            }
-            .dataTables_wrapper {
-              margin-bottom: 20px; /* Add bottom margin */
-            }
-            .highlight {
-              background-color: #eeebe0 !important;
-            }
-            h1 {
-              text-align: center;
-              margin-top: 10px;
-              font-family: 'Arial', sans-serif;
-              font-size: 16px;
-           }
-           .rotate {
-             transition: transform 0.3s ease;
-           }
-           .rotate-down {
-             transform: rotate(90deg);
-           }
-           .right-align {
-             text-align: right;
-           }
-          .updated-date {
-               font-size: 10px;
-               text-align: center;
-               color: #6c757d; /* Bootstrap muted text color */
-               margin-top: -10px;
-           }
-        </style>
-    </head>
-    <body>
-        <div class="container mt-4">
-    """
-        + "<h1>"
-        + title
-        + "</h1>"
-        + '<p class="updated-date">'
-        + LEADERBOARD_UPDATED_DATE_STR
-        + "</p>"
-        + column_descriptions
-        + html_code
-        + """
-        </div>
-        <script>
-        $(document).ready(function() {
-            var table = $('#myTable').DataTable({
-                "pageLength": -1,
-                "lengthMenu": [[-1], ["All"]],
-                "order": [[8, 'asc']],
-                "paging": false,
-                "info": false,
-                "search": {
-                    "regex": true,
-                    "smart": true
-                },
-                "columnDefs": [
-                    {
-                        "targets": 10,
-                        "className": "right-align"
-                    },
-                    {
-                        "targets": '_all',
-                        "searchable": true
-                    }
-                ]
-            });
-        table.column(8).nodes().to$().addClass('highlight');
-        });
-        </script>
-    </body>
+      });
+  </script>
+  </body>
 </html>"""
     )
 
-    # Create HTML file
-    local_filename_html = f"/tmp/{basename}.html"
-    with open(local_filename_html, "w") as file:
-        file.write(html_code)
+    html = template.render(
+        title=f"{constants.BENCHMARK_NAME} Leaderboard",
+        data=df.to_dict(orient="records"),
+        columns=json.dumps(df.columns.tolist()),
+        leaderboard_update_date=LEADERBOARD_UPDATED_DATE_STR,
+        sorting_column_number=6,
+        col_desc_dataset=(
+            "Average difficulty-adjusted Brier score on dataset-sourced questions. "
+            "Lower scores are better."
+        ),
+        col_desc_market=(
+            "Average difficulty-adjusted Brier score on market-sourced questions. "
+            "Lower scores are better."
+        ),
+        col_desc_overall=(
+            "Average difficulty-adjusted Brier score across all questions. "
+            "Lower scores are better."
+        ),
+        col_desc_ci="Bootstrapped 95% confidence interval for the Overall score.",
+        col_desc_p_val=(
+            "One-sided p-value comparing each model to the top-ranked model based on "
+            f"{N_REPLICATES:,} simulations, with<br>"
+            "H₀: This model performs at least as well as the top-ranked model.<br>"
+            "H₁: The top-ranked model outperforms this model."
+        ),
+        col_desc_pct_times_num_1=(
+            f"Percentage of {N_REPLICATES:,} simulations in which this model was the best "
+            "performer."
+        ),
+        col_desc_pct_top_5_percentile=(
+            f"Percentage of {N_REPLICATES:,} simulations in which this model ranked in the top 5%."
+        ),
+        col_desc_peer=(
+            "Peer score relative to the average Brier score on each question. "
+            "Higher scores are better."
+        ),
+        col_desc_bss=(
+            "Brier Skill Score using the ForecastBench Naive Forecaster. "
+            "Higher scores are better."
+        ),
+    )
 
-    # Create CSV file
+    basename = "leaderboard"
+    local_filename_html = f"/tmp/{basename}.html"
+    with open(local_filename_html, "w", encoding="utf-8") as f:
+        f.write(html)
+
     local_filename_csv = f"/tmp/{basename}.csv"
     df.to_csv(local_filename_csv, index=False)
 
-    # Upload files to Cloud
-    destination_folder = "leaderboards"
-    gcp.storage.upload(
-        bucket_name=env.PUBLIC_RELEASE_BUCKET,
-        local_filename=local_filename_html,
-        destination_folder=f"{destination_folder}/html",
-    )
-    gcp.storage.upload(
-        bucket_name=env.PUBLIC_RELEASE_BUCKET,
-        local_filename=local_filename_csv,
-        destination_folder=f"{destination_folder}/csv",
-    )
-
     return {
-        local_filename_html: f"{destination_folder}/html/{basename}.html",
-        local_filename_csv: f"{destination_folder}/csv/{basename}.csv",
+        local_filename_html: f"{basename}.html",
+        local_filename_csv: f"{basename}.csv",
     }
 
 
-def make_leaderboard(d, title, basename):
-    """Get p-values and make leaderboard."""
-    logger.info(colored(f"Making leaderboard: {title}", "red"))
-    df = get_p_values(d)
-    files = make_and_upload_html_table(
-        df=df,
-        title=title,
-        basename=basename,
+def combine_forecasting_rounds(leaderboard: List[pd.DataFrame]) -> pd.DataFrame:
+    """Combine all processed forecast DataFrames into a single DataFrame.
+
+    Args:
+        leaderboard (List[pd.DataFrame]): List of DataFrames, each containing processed
+            forecasts for one model and forecast due date.
+
+    Returns:
+        pd.DataFrame: Concatenated DataFrame of all forecasts.
+    """
+    forecasts = [entry.copy() for entry in leaderboard]
+    df = pd.concat(forecasts).reset_index(drop=True)
+    return df
+
+
+def brier_score(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute the Brier score for each forecast entry.
+
+    Args:
+        df (pd.DataFrame): Combined forecast set.
+
+    Returns:
+        pd.DataFrame: A new DataFrame with an added 'brier_score' column:
+    """
+    df = df.copy()
+    df["brier_score"] = (df["forecast"] - df["resolved_to"]) ** 2
+    return df
+
+
+def two_way_fixed_effects(df: pd.DataFrame) -> pd.DataFrame:
+    """Generate the difficulty adjusted Brier score.
+
+    Calculate "question difficulty" by estimating a two-way fixed effect model:
+
+      brier{i, j} = a_i + b_j + u_{i,j}
+
+    where i = forecaster, and j = question. Question difficulty is estimated with b_j. In
+    pyfixest, question_pk should be provided as the first FE variable, to ensure we have an
+    estimate for each question_pk (otherwise one question may be dropped to avoid perfect
+    multicolinearity).
+
+    Args:
+        df (pd.DataFrame): Combined forecast set.
+
+    Returns:
+        pd.DataFrame: A new DataFrame with an added 'two_way_fixed_effects' column.
+    """
+    df = df.copy()
+    orig_cols = df.columns.tolist()
+
+    # Drop models that were released more than `MODEL_RELEASE_DATE_CUTOFF` days ago. Also drop some
+    # dummy ForecastBench models
+    df_fe = pd.merge(
+        df,
+        df_release_dates,
+        how="inner",
+        on="model",
     )
-    logger.info(colored("Done.", "red"))
-    return files
+    date_mask = (
+        pd.to_datetime(df_fe["forecast_due_date"]) - pd.to_datetime(df_fe["release_date"])
+    ).dt.days < MODEL_RELEASE_DATE_CUTOFF
+    drop_benchmark_models = [
+        "Always 0",
+        "Always 1",
+        "Always 0.5",
+        "Random Uniform",
+        # Drop Imputed Forecaster so as not to:
+        # * double count the crowd forecast for market questions (the Naive Forecaster uses the
+        #   value at t-1).
+        # * consider its 0.5 forecast for dataset questions
+        "Imputed Forecaster",
+    ]
+    benchmark_mask = (df_fe["organization"] == constants.BENCHMARK_NAME) & (
+        ~df_fe["model"].isin(drop_benchmark_models)
+    )
+    df_fe = df_fe[(date_mask | benchmark_mask)].reset_index(drop=True)
 
-
-def worker(task):
-    """Pool worker for leaderboard creation."""
-    try:
-        return make_leaderboard(
-            d=task["d"],
-            title=task["title"],
-            basename=task["basename"],
+    mod = pf.feols("brier_score ~ 1 | question_pk + model_pk", data=df_fe)
+    dict_question_fe = mod.fixef()["C(question_pk)"]
+    if len(dict_question_fe) != len(df["question_pk"].unique()):
+        raise ValueError(
+            f"Estimated num. of question fixed effects ({len(dict_question_fe)}) not equal to num. "
+            f"of questions ({len(df['question_pk'].unique())})"
         )
-    except Exception as e:
-        msg = f"Error processing task {task['title']}: {e}"
-        logger.error(msg)
-        raise ValueError(msg)
+
+    df["question_fe"] = df["question_pk"].map(dict_question_fe)
+    df["two_way_fixed_effects"] = df["brier_score"] - df["question_fe"]
+    return df[orig_cols + ["two_way_fixed_effects"]]
+
+
+def peer_score(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute peer scores by comparing each forecast's Brier score to the question's average.
+
+    Args:
+        df (pd.DataFrame): Combined forecast set.
+
+    Returns:
+        pd.DataFrame: pd.DataFrame: A new DataFrame with an added 'peer_score' column.
+    """
+    df = df.copy()
+    orig_cols = df.columns.tolist()
+
+    # For each question, calculate average Brier score
+    df["question_avg_brier"] = df.groupby("question_pk")["brier_score"].transform("mean")
+
+    # Calculate peer score (positive is better than average)
+    df["peer_score"] = df["question_avg_brier"] - df["brier_score"]
+    return df[orig_cols + ["peer_score"]]
+
+
+def brier_skill_score(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute the Brier Skill Score in absolute terms.
+
+    Args:
+        df (pd.DataFrame): Combined forecast set.
+
+    Returns:
+        pd.DataFrame: pd.DataFrame: A new DataFrame with an added 'brier_skill_score' column.
+    """
+    df = df.copy()
+    orig_cols = df.columns.tolist()
+
+    # Get reference model's predictions
+    mask_ref_model = (df["organization"] == BASELINE_ORG_NAIVE_MODEL["organization"]) & (
+        df["model"] == BASELINE_ORG_NAIVE_MODEL["model"]
+    )
+    ref_data = df.loc[mask_ref_model,].copy()
+    assert len(ref_data) > 0, "Reference model not found in data"
+
+    # Create mapping of question_id to reference brier score
+    ref_brier_by_question = ref_data.set_index("question_pk")["brier_score"].to_dict()
+
+    # Ensure the naive forecaster has forecast on all questions across all question sets
+    assert (
+        df["question_pk"].isin(ref_brier_by_question).all()
+    ), "Reference model must predict all questions across all question sets"
+
+    # Calculate Brier skill score per question
+    df["ref_brier"] = df["question_pk"].map(ref_brier_by_question)
+    df["brier_skill_score"] = df["ref_brier"] - df["brier_score"]
+
+    return df[orig_cols + ["brier_skill_score"]]
+
+
+def score_models(
+    df: pd.DataFrame, scoring_funcs: List[Callable[[pd.DataFrame], pd.DataFrame]]
+) -> pd.DataFrame:
+    """Score models using the scoring functions in `scoring_funcs`.
+
+    Args:
+        df (pd.DataFrame): Combined forecast set.
+        scoring_funcs (List[Callable[[pd.DataFrame], pd.DataFrame]]): List of scoring functions.
+
+    Returns:
+        pd.DataFrame: Leaderboard DataFrame with:
+            - For each scoring function: '{func_name}_dataset', '{func_name}_market', and
+              '{func_name}_overall'
+            - Count columns for dataset, market, and all questions
+            - The 'organization', 'model', 'model_pk' associated with a forecast set
+    """
+    df = df.copy()
+
+    if len(scoring_funcs) == 0:
+        raise ValueError("Must provide at least one scoring function.")
+
+    if not all([callable(f) for f in scoring_funcs]):
+        raise ValueError("`scoring_funcs` must contain callable scoring functions.")
+
+    # This can be any of the above, just choose the first as we require at least one scoring
+    # function in the list.
+    col_to_count_to_calculate_n = scoring_funcs[0].__name__
+
+    results = []
+    for question_type in ["dataset", "market"]:
+        df_qt = df[get_masks(df)[question_type]].reset_index(drop=True)
+        df_qt = brier_score(df_qt)
+        for func in scoring_funcs:
+            name = func.__name__
+            df_qt = func(df_qt).rename(columns={name: f"{name}_{question_type}"})
+
+        # Calculate the mean score for the question type for each model
+        # Also count the N for the question type
+        question_type_result = (
+            df_qt.groupby(
+                [
+                    "organization",
+                    "model",
+                    "model_pk",
+                ]
+            )
+            .agg(
+                **{
+                    f"{func.__name__}_{question_type}": (f"{func.__name__}_{question_type}", "mean")
+                    for func in scoring_funcs
+                },
+                **{
+                    f"n_{question_type}": (
+                        f"{col_to_count_to_calculate_n}_{question_type}",
+                        "count",
+                    )
+                },
+            )
+            .reset_index()
+        )
+        results.append(question_type_result)
+
+    assert len(results) == 2, "Results should only have 2 entries."
+    df_leaderboard = results[0].merge(
+        results[1],
+        on=[
+            "organization",
+            "model",
+            "model_pk",
+        ],
+        how="outer",
+    )
+
+    for func in scoring_funcs:
+        name = func.__name__
+        df_leaderboard[f"{name}_overall"] = (
+            df_leaderboard[f"{name}_dataset"] + df_leaderboard[f"{name}_market"]
+        ) / 2
+
+    df_leaderboard["n_overall"] = df_leaderboard["n_dataset"] + df_leaderboard["n_market"]
+    return df_leaderboard
 
 
 @decorator.log_runtime
-def driver(_):
-    """Create new leaderboard."""
-    cache = {}
-    llm_leaderboard = {}
-    llm_and_human_leaderboard = {}
-    llm_and_human_combo_leaderboard = {}
-    files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
-    files = [file for file in files if file.endswith(".json")]
-    logger.info(f"Have access to {env.NUM_CPUS}.")
-    for f in files:
-        logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
+def generate_simulated_leaderboards(
+    df: pd.DataFrame,
+    primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
+    N: int = N_REPLICATES,
+) -> pd.DataFrame:
+    """Generate simulated leaderboards by bootstrap sampling.
 
-        data = download_and_read_processed_forecast_file(filename=f)
+    Args:
+        df (pd.DataFrame): Combined forecast set to sample from.
+        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]):
+            Function to compute the primary overall score.
+        N (int): Number of bootstrap replicates to generate.
+
+    Returns:
+        pd.DataFrame: Simulated scores with each column representing a replicate.
+    """
+    logger.info(colored(f"Generate {N} simulated leaderboards", "red"))
+    df = df.copy()
+    if not callable(primary_scoring_func):
+        raise ValueError("The primary scoring function must be callable.")
+
+    def question_level_bootstrap(df):
+        questions = df["question_pk"].drop_duplicates()
+        questions_bs = questions.sample(frac=1, replace=True)
+        return df.set_index("question_pk").loc[questions_bs]
+
+    scores_list = []
+    for i in tqdm(range(N), desc="generating simulated leaderboards"):
+        df_bs = (
+            df.groupby(["forecast_due_date", "source"])
+            .apply(question_level_bootstrap, include_groups=False)
+            .reset_index()
+        )
+        df_simulated_leaderboard = score_models(df=df_bs, scoring_funcs=[primary_scoring_func])
+        scores = df_simulated_leaderboard.set_index("model_pk")[
+            f"{primary_scoring_func.__name__}_overall"
+        ]
+        scores_list.append(scores.rename(f"bootstrap_{i}"))
+
+    df_simulated_scores = pd.concat(scores_list, axis=1)
+    return df_simulated_scores
+
+
+def get_confidence_interval(
+    df_leaderboard: pd.DataFrame,
+    df_simulated_scores: pd.DataFrame,
+    primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
+    method: str = "percentile",
+    show_histograms: bool = False,
+) -> pd.DataFrame:
+    """Calculate confidence intervals for leaderboard scores.
+
+    Args:
+        df_leaderboard (pd.DataFrame): Leaderboard.
+        df_simulated_scores (pd.DataFrame): Bootstrapped replicates of overall scores.
+        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]):
+            Function to compute the primary overall score.
+        method (str): CI calculation method, either 'percentile' or 'bca'.
+        show_histograms (bool): Whether to display simulated score histograms.
+
+    Returns:
+        pd.DataFrame: Leaderboard with added lower and upper CI columns.
+    """
+    logger.info(colored("Calculating CIs", "red"))
+
+    if env.RUNNING_LOCALLY and show_histograms:
+        models = [
+            # list model_pk's to plot
+        ]
+        if models:
+            import plotly.graph_objects as go
+
+            fig = go.Figure()
+            for model in models:
+                fig.add_trace(
+                    go.Histogram(
+                        x=df_simulated_scores.loc[model].values, name=str(model), opacity=0.7
+                    )
+                )
+            fig.update_layout(
+                barmode="overlay",
+                title="Simulated Score Distributions",
+                xaxis_title="Score",
+                yaxis_title="Count",
+            )
+            fig.show()
+
+    alpha = 0.05
+    lower_alpha = alpha / 2
+    upper_alpha = 1 - lower_alpha
+    method = method.lower()
+    if method == "bca":
+        # BCa notation from page 190 of https://hastie.su.domains/CASI/index.html
+        theta_hat = df_leaderboard[f"{primary_scoring_func.__name__}_overall"].values
+        bs = df_simulated_scores.reindex(df_leaderboard["model_pk"]).values
+        p0 = np.mean(bs < theta_hat[:, None], axis=1)
+        z0 = norm.ppf(p0)
+        z_alpha = norm.ppf([lower_alpha, upper_alpha])
+        alphas = norm.cdf(2 * z0[:, None] + z_alpha)
+        lower = pd.Series(
+            [np.percentile(bs[i], alphas[i, 0] * 100) for i in range(bs.shape[0])],
+            index=df_simulated_scores.index,
+        )
+        upper = pd.Series(
+            [np.percentile(bs[i], alphas[i, 1] * 100) for i in range(bs.shape[0])],
+            index=df_simulated_scores.index,
+        )
+    elif method == "percentile":
+        lower = df_simulated_scores.quantile(lower_alpha, axis=1)
+        upper = df_simulated_scores.quantile(upper_alpha, axis=1)
+    else:
+        raise ValueError(f"Value passed for method ({method}) is not valid.")
+
+    df_leaderboard[f"{primary_scoring_func.__name__}_ci_lower"] = (
+        df_leaderboard["model_pk"].map(lower).values
+    )
+    df_leaderboard[f"{primary_scoring_func.__name__}_ci_upper"] = (
+        df_leaderboard["model_pk"].map(upper).values
+    )
+    return df_leaderboard
+
+
+def get_comparison_to_best_model(
+    df_leaderboard: pd.DataFrame,
+    df_simulated_scores: pd.DataFrame,
+    primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
+    is_centered: bool = False,
+    bh_adjust_p_vals: bool = False,
+) -> pd.DataFrame:
+    """Compute one-sided p-values comparing each model to the best performer.
+
+    Args:
+        df_leaderboard (pd.DataFrame): Leaderboard.
+        df_simulated_scores (pd.DataFrame): Bootstrapped replicates of overall scores.
+        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]):
+            Function to compute the primary overall score.
+        is_centered (bool): Center p-value calculation on observed score differences.
+        bh_adjust_p_vals (bool): Apply Benjamini-Hochberg adjustment if True.
+
+    Returns:
+        pd.DataFrame: Leaderboard with updated p_value_one_sided (and adjusted) columns.
+    """
+    logger.info(colored("Comparing to best model", "red"))
+    if not callable(primary_scoring_func):
+        raise ValueError("The primary scoring function must be callable.")
+
+    overall_score_col = f"{primary_scoring_func.__name__}_overall"
+    if overall_score_col not in df_leaderboard.columns:
+        raise ValueError(f"Metric {overall_score_col} not found in leaderboard DataFrame.")
+
+    if primary_scoring_func.__name__ != "two_way_fixed_effects":
+        raise ValueError(
+            "This function only works for the 2 way fixed effects model. For other models, ensure "
+            "the best model is identified by `best_idx` (2wfe best model has the lowest score, "
+            "other scoring functions may identify the best model as the one with the highest "
+            "score.)"
+        )
+
+    observed_best_idx = df_leaderboard[overall_score_col].idxmin()
+    observed_best_model_pk = df_leaderboard.loc[observed_best_idx, "model_pk"]
+    observed_best_mean_score = df_leaderboard.loc[observed_best_idx, overall_score_col]
+
+    sim_best_scores = df_simulated_scores.loc[observed_best_model_pk]
+
+    if is_centered:
+        observed_diffs = observed_best_mean_score - df_leaderboard[overall_score_col]
+        observed_diff_dict = dict(zip(df_leaderboard["model_pk"], observed_diffs))
+        p_value_one_sided = {
+            model_pk: np.mean(
+                ((sim_best_scores.values - sim_comp_scores.values) - observed_diff_dict[model_pk])
+                <= observed_diff_dict[model_pk]
+            )
+            for model_pk, sim_comp_scores in df_simulated_scores.iterrows()
+        }
+    else:
+        comparison_df = df_simulated_scores.le(sim_best_scores, axis=1)
+        p_value_one_sided = comparison_df.mean(axis=1)
+
+    df_leaderboard["p_value_one_sided"] = df_leaderboard["model_pk"].map(p_value_one_sided)
+    df_leaderboard.loc[observed_best_idx, "p_value_one_sided"] = -1
+
+    if bh_adjust_p_vals:
+        # P-value adjustment for multiple tests to avoid the multiple comparisons problem.
+        # Drop best row for p-value adjustment
+        mask = df_leaderboard.index != observed_best_idx
+        _, bh_adj_pvals, _, _ = multipletests(
+            pvals=df_leaderboard.loc[mask, "p_value_one_sided"],
+            alpha=0.05,
+            method="fdr_bh",
+        )
+        df_leaderboard.loc[mask, "p_value_one_sided_bh_adj"] = bh_adj_pvals
+        df_leaderboard.loc[observed_best_idx, "p_value_one_sided_bh_adj"] = -1
+
+    return df_leaderboard
+
+
+def get_simulation_performance_metrics(
+    df_leaderboard: pd.DataFrame,
+    df_simulated_scores: pd.DataFrame,
+) -> pd.DataFrame:
+    """Calculate model metrics in the simulation data.
+
+    Args:
+        df_leaderboard (pd.DataFrame): Leaderboard.
+        df_simulated_scores (pd.DataFrame): Bootstrapped replicates.
+
+    Returns:
+        pd.DataFrame: Leaderboard with two new columns:
+            - pct_times_best_performer: percent of simulations each model was best.
+            - pct_times_top_5_percentile: percent of simulations each model was in top 5th percentile.
+    """
+    metrics = {
+        "pct_times_best_performer": lambda df: df.idxmin(axis=0).value_counts(),
+        "pct_times_top_5_percentile": lambda df: df.le(df.quantile(0.05, axis=0)).sum(axis=1),
+    }
+
+    for col, func in metrics.items():
+        counts = func(df_simulated_scores)
+        pct = counts / df_simulated_scores.columns.size * 100
+        df_leaderboard[col] = df_leaderboard["model_pk"].map(pct).fillna(0)
+
+    return df_leaderboard
+
+
+def make_leaderboard(
+    leaderboard_entries: List[pd.DataFrame],
+) -> Dict[str, str]:
+    """Create and write the full leaderboard from processed entries.
+
+    Args:
+        leaderboard_entries (List[pd.DataFrame]): Processed forecasts by model and date.
+
+    Returns:
+        None
+    """
+    logger.info(colored("Making leaderboard", "red"))
+
+    df = combine_forecasting_rounds(leaderboard_entries)
+
+    # The scoring functions to consider
+    primary_scoring_func = two_way_fixed_effects
+    scoring_funcs = [
+        primary_scoring_func,
+        peer_score,
+        brier_skill_score,
+    ]
+
+    # Score
+    df_leaderboard = score_models(df=df, scoring_funcs=scoring_funcs)
+
+    df_simulated_scores = generate_simulated_leaderboards(
+        df=df,
+        primary_scoring_func=primary_scoring_func,
+        N=N_REPLICATES,
+    )
+
+    # CIs
+    df_leaderboard = get_confidence_interval(
+        df_leaderboard=df_leaderboard,
+        df_simulated_scores=df_simulated_scores,
+        primary_scoring_func=primary_scoring_func,
+    )
+
+    # Compare to best model
+    df_leaderboard = get_comparison_to_best_model(
+        df_leaderboard=df_leaderboard,
+        df_simulated_scores=df_simulated_scores,
+        primary_scoring_func=primary_scoring_func,
+        is_centered=False,
+    )
+
+    # Simulation performance measures
+    df_leaderboard = get_simulation_performance_metrics(
+        df_leaderboard=df_leaderboard,
+        df_simulated_scores=df_simulated_scores,
+    )
+
+    # Write leaderboard
+    files = write_leaderboard(
+        df=df_leaderboard,
+        primary_scoring_func=primary_scoring_func,
+    )
+
+    upload_leaderboard(files)
+
+
+def get_valid_files(only_keep_date: str = "") -> List[str]:
+    """Return valid processed forecast filenames based on inclusion criteria.
+
+    Valid filres are those where the forecast_due_date was at least
+    `MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED` days ago.
+
+    Args:
+        only_keep_date (str): If provided, only include files starting with this date.
+
+    Returns:
+        List[str]: Filenames that meet the age or date-prefix requirements.
+    """
+    files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
+    files = [f for f in files if f.endswith(".json")]
+    if only_keep_date:
+        return [f for f in files if f.startswith(only_keep_date)]
+
+    # Get unique, valid, date-named folders
+    date_folders = set()
+    for f in files:
+        if "/" not in f:
+            continue
+        try:
+            folder = f.split("/", 1)[0]
+            datetime.strptime(folder, "%Y-%m-%d")
+            date_folders.add(folder)
+        except ValueError:
+            raise ValueError(
+                f"Problem with file organizaiton on {env.PROCESSED_FORECAST_SETS_BUCKET}"
+            )
+
+    # Only keep folders older than `MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED` days
+    cutoff = dates.get_date_today() - timedelta(days=MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED)
+    date_folders = {d for d in date_folders if datetime.strptime(d, "%Y-%m-%d").date() <= cutoff}
+
+    files = [f for f in files if f.split("/")[0] in date_folders]
+    return files
+
+
+def read_local_file_and_run(only_keep_date: str = "") -> bool:
+    """Load cached leaderboard entries and run processing if cache exists.
+
+    Only works when running locally.
+
+    Args:
+        only_keep_date (str): Date string for the cached pickle filename.
+
+    Returns:
+        bool: True if local cache was found and processed, False otherwise.
+    """
+    if not env.RUNNING_LOCALLY:
+        return False
+
+    pickle_file = f"leaderboard_{only_keep_date}.pkl"
+    if not os.path.exists(pickle_file):
+        return False
+
+    with open(pickle_file, "rb") as file:
+        leaderboard_entries = pickle.load(file)
+
+    make_leaderboard(leaderboard_entries=leaderboard_entries)
+    return True
+
+
+def download_and_compile_processed_forecast_files() -> List[pd.DataFrame]:
+    """Download and compile processed forecast files into entries list.
+
+    Args:
+        None
+
+    Returns:
+        List[pd.DataFrame]: List of DataFrames for each processed forecast file,
+            ready for leaderboard aggregation.
+    """
+    files = get_valid_files()
+    with ThreadPoolExecutor() as executor:
+        dfs = list(
+            tqdm(
+                executor.map(
+                    download_and_read_processed_forecast_file,
+                    files,
+                ),
+                total=len(files),
+                desc="downloading processed forecast files",
+            )
+        )
+        executor.shutdown(wait=True)
+
+    leaderboard_entries = []
+    for d in dfs:
+        f, data = next(iter(d.items()))
+        logger.info(f"Scoring forecasts in `{f}`...")
+
         if not data or not isinstance(data, dict):
-            logger.warning(f"Problem processing {f}. First `continue`.")
+            logger.warning(colored(f"Problem processing {f}. First `continue`.", "yellow"))
             continue
 
         organization = data.get("organization")
         model = data.get("model")
-        question_set_filename = data.get("question_set")
         forecast_due_date = data.get("forecast_due_date")
         forecasts = data.get("forecasts")
-        if (
-            not organization
-            or not model
-            or not question_set_filename
-            or not forecast_due_date
-            or not forecasts
-        ):
-            logger.warning(f"Problem processing {f}. Second `continue`.")
+        if not organization or not model or not forecast_due_date or not forecasts:
+            logger.warning(colored(f"Problem processing {f}. Second `continue`.", "yellow"))
             continue
 
         df = pd.DataFrame(forecasts)
         if df.empty:
-            logger.warning(f"Problem processing {f}. Third `continue`.")
+            logger.warning(colored(f"Problem processing {f}. Third `continue`.", "yellow"))
             continue
 
-        df_sanity_check = df["score"] - ((df["forecast"] - df["resolved_to"]) ** 2)
-        mask_sanity_check = df_sanity_check.abs() > 1e-8
-        if any(mask_sanity_check):
-            print(df_sanity_check[mask_sanity_check])
-            raise ValueError(f"Sanity Check failed for {f}. Should be close to 0.")
-
-        df = resolution.make_columns_hashable(df)
-        df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
-        df["forecast_due_date"] = pd.to_datetime(df["forecast_due_date"]).dt.date
-
-        org_and_model = {"organization": organization, "model": model}
-        is_human_forecast_set = (
-            org_and_model == SUPERFORECASTER_MODEL or org_and_model == GENERAL_PUBLIC_MODEL
-        )
-        if not is_human_forecast_set:
-            add_to_llm_leaderboard(llm_leaderboard, org_and_model, df, forecast_due_date)
-        add_to_llm_and_human_leaderboard(
-            llm_and_human_leaderboard,
-            org_and_model,
-            df,
-            forecast_due_date,
-            cache,
+        append_leaderboard_entry(
+            leaderboard_entries=leaderboard_entries,
+            org_and_model={"organization": organization, "model": model},
+            df=df,
+            forecast_due_date=forecast_due_date,
         )
 
-        add_to_llm_and_human_combo_leaderboards(
-            llm_and_human_combo_leaderboard,
-            org_and_model,
-            df,
-            forecast_due_date,
-            cache,
-            is_human_forecast_set,
-        )
+    return leaderboard_entries
 
-    def get_z_score(df):
-        # mask = (df["organization"] == BASELINE_ORG_MODEL["organization"]) & (
-        #     df["model"] == BASELINE_ORG_MODEL["model"]
-        # )
-        # naive_baseline_mean = df[mask]["overall"].values[0]
-        # naive_std_dev = df[mask]["std_dev"].values[0]
-        # df["z_score_wrt_naive_mean"] = (df["overall"] - naive_baseline_mean) / naive_std_dev
-        return df
 
-    title = "Leaderboard: overall"
-    tasks = [
-        {
-            "d": llm_leaderboard["overall"],
-            "title": title,
-            "basename": "leaderboard_overall",
-        },
-        {
-            "d": llm_and_human_leaderboard["overall"],
-            "title": f"Human {title}",
-            "basename": "human_leaderboard_overall",
-        },
-        {
-            "d": llm_and_human_combo_leaderboard["overall"],
-            "title": f"Human Combo {title}",
-            "basename": "human_combo_leaderboard_overall",
-        },
-    ]
+@decorator.log_runtime
+def driver(_: Any) -> None:
+    """Create a new leaderboard.
 
-    logger.info(f"Using {env.NUM_CPUS} cpus for worker pool.")
-    with Pool(processes=env.NUM_CPUS) as pool:
-        results = pool.map(worker, tasks)
+    Args:
+        _ (Any): Unused placeholder argument for GCP Cloud Run Job.
 
-    files = {}
-    for res in results:
-        files.update(res)
+    Returns:
+        None: Exits the process on completion.
+    """
+    if env.RUNNING_LOCALLY:
+        only_keep_date = ""  # e.g. "2024-07-21"
+        local_run_successful = read_local_file_and_run(only_keep_date=only_keep_date)
+        if local_run_successful:
+            # End processing if we ran on pickled resolution files
+            return
 
-    mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
-    mirrors = [mirrors] if mirrors else []
-    git.clone_and_push_files(
-        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
-        files=files,
-        commit_message="leaderboard: automatic update html & csv files.",
-        mirrors=mirrors,
-    )
+    leaderboard_entries = download_and_compile_processed_forecast_files()
+
+    if env.RUNNING_LOCALLY:
+        with open(f"leaderboard_{only_keep_date}.pkl", "wb") as f:
+            pickle.dump(leaderboard_entries, f)
+
+    make_leaderboard(leaderboard_entries=leaderboard_entries)
+    logger.info(colored("Done.", "red"))
 
 
 if __name__ == "__main__":

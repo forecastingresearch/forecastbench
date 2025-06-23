@@ -15,7 +15,7 @@ metadata = [
 resolve_and_leaderboard = [
     [
         ("func-resolve-forecasts", True, cloud_run.timeout_1h * 2),
-        ("func-leaderboard", True, cloud_run.timeout_1h),
+        ("func-leaderboard", True, cloud_run.timeout_1h * 2),
     ]
 ]
 

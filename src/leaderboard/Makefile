@@ -18,7 +18,7 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 
 NUM_CPUS = 4
 
-deploy : main.py requirements.txt Dockerfile
+deploy : main.py requirements.txt Dockerfile model_release_dates.csv
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
@@ -29,7 +29,7 @@ deploy : main.py requirements.txt Dockerfile
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 1h \
+		--task-timeout 2h \
 		--memory 8Gi \
 		--cpu $(NUM_CPUS) \
 		--max-retries 0 \

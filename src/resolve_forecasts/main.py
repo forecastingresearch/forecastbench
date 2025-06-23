@@ -380,7 +380,7 @@ def print_question_set_breakdown(human_or_llm, forecast_due_date, df, df_orig_qu
             logger.warning(f" N/A resolution for {row['source']} {row['id']}")
 
 
-def impute_missing_forecasts(df):
+def impute_missing_forecasts(df, organization):
     """
     Fill in np.nan forecast values with context-appropriate forecasts.
 
@@ -389,29 +389,32 @@ def impute_missing_forecasts(df):
     * data questions: 0.5
     * market questions: the market value at forecast_due_date (i.e. the naive forecast)
     """
+    logger.info("Impute mising forecasts.")
     df["forecast"] = df["forecast"].astype(float)
     n_orig = df["forecast"].isna().sum()
+
     df["imputed"] = False
     df.loc[df["forecast"].isna(), "imputed"] = True
+
     if n_orig == 0:
         logger.info("No missing values → nothing to impute.")
         return df
-    logger.info(f"Imputing {n_orig:,} missing values.")
 
-    # For data tasks, apply a forecast of 0.5 to missing forecasts
-    df.loc[(df["source"].isin(resolution.DATA_SOURCES)) & (df["forecast"].isna()), "forecast"] = 0.5
+    logger.info(f" Found {n_orig:,} missing values to impute.")
 
-    # For market tasks, apply a forecast of the market value at forecast_due_date
-    df.loc[(df["source"].isin(resolution.MARKET_SOURCES)) & (df["forecast"].isna()), "forecast"] = (
-        df["market_value_on_due_date"]
-    )
+    df.loc[df["imputed"], "forecast"] = 0.5
+    if organization == constants.BENCHMARK_NAME:
+        # The imputed forecaster and the naive forecaster get the market value on the due date.
+        df.loc[(df["source"].isin(resolution.MARKET_SOURCES)) & df["imputed"], "forecast"] = df[
+            "market_value_on_due_date"
+        ]
 
     return df
 
 
-def score_forecasts(df, df_question_resolutions):
-    """Score the forecasts in df."""
-    logger.info("Scoring forecasts.")
+def set_resolution_dates(df, df_question_resolutions):
+    """Set resolution dates."""
+    logger.info("Setting resolution dates.")
 
     # Split dataframe into market questions and dataset questions
     df_market_sources = df[df["source"].isin(resolution.MARKET_SOURCES)].copy()
@@ -450,10 +453,6 @@ def score_forecasts(df, df_question_resolutions):
     )
 
     df = pd.concat([df_market_sources, df_data_sources], ignore_index=True)
-
-    df = impute_missing_forecasts(df)
-
-    df["score"] = (df["forecast"] - df["resolved_to"]) ** 2
     return df
 
 
@@ -603,7 +602,7 @@ def driver(request):
 
     resolution_values = resolution.get_and_pickle_resolution_values(
         filename="resolution_values.pkl",
-        save_pickle_file=False,
+        save_pickle_file=env.RUNNING_LOCALLY,
     )
 
     resolved_values_for_question_sources = {}
@@ -676,7 +675,8 @@ def driver(request):
             df=df, forecast_due_date=forecast_due_date, organization=organization
         )
 
-        df = score_forecasts(df=df, df_question_resolutions=df_question_resolutions)
+        df = set_resolution_dates(df=df, df_question_resolutions=df_question_resolutions)
+        df = impute_missing_forecasts(df=df, organization=organization)
 
         # Convert to json then load to keep pandas json conversion
         # df.to_dict has different variable conversions and hence is undesireable
