@@ -123,7 +123,9 @@ def get_data(dfq):
     all_active_binary_questions = [
         q
         for q in fetch_questions()
-        if q["state"] == "active" and q["type"] == "Forecast::YesNoQuestion"
+        if q["state"] == "active"
+        and q["type"] == "Forecast::YesNoQuestion"
+        and q["answers"][0]["predictions_count"] > 0
     ]
 
     # Convert all_new_questions to a set of IDs for faster lookup
