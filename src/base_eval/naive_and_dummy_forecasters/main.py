@@ -479,13 +479,12 @@ def driver(_):
         last_date_for_data=last_date_for_data,
     )
 
-    logger.info("Downloading latest data...")
+    logger.info("Downloading latest resolution data...")
     resolution_values = resolution.get_and_pickle_resolution_values(
         filename="resolution_values.pkl",
-        # sources_to_get=resolution.DATA_SOURCES,
-        # save_pickle_file=True,
+        save_pickle_file=env.RUNNING_LOCALLY,
     )
-    logger.info("Done downloading data.")
+    logger.info("Done downloading resolution data.")
 
     # truncate resolution values to last date of data to consider for the forecast
     for source in resolution_values:
