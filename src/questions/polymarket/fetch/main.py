@@ -302,7 +302,12 @@ def fetch_all_questions(dfq):
         current_prob = price_history[-1]["p"] if len(price_history) > 1 else np.nan
         resolved_datetime = resolved_datetime_str = "N/A"
 
-        end_date = q["endDate"] if "endDate" in q else q["events"][0]["endDate"]
+        try:
+            end_date = q["endDate"] if "endDate" in q else q["events"][0]["endDate"]
+        except KeyError:
+            # endDate unexpectedly missing from:
+            # https://polymarket.com/event/will-trump-meet-with-khamenei-before-august
+            continue
         market_closed_datetime_str = dates.convert_zulu_to_iso(end_date)
         market_closed_datetime = datetime.fromisoformat(market_closed_datetime_str).replace(
             tzinfo=None
