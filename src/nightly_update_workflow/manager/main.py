@@ -98,7 +98,15 @@ def main():
         operation=operation,
         name=dict_to_use,
         exit_on_error=True,
+        additional_slack_message_on_error=(
+            "‼️ IMPORTANT: TODAY THE QUESTION SET MUST BE CREATED ‼️"
+            if question_curation.is_today_question_curation_date()
+            else ""
+        ),
     )
+
+    if question_curation.is_today_question_curation_date():
+        slack.send_message(message="Question set successfully created 😊")
 
     dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
     timeout_resolve = cloud_run.timeout_1h * 2
@@ -153,15 +161,25 @@ def main():
         name=dict_to_use_publish_question_set,
         exit_on_error=True,
         timeout=timeout_publish_question_set,
+        additional_slack_message_on_error=(
+            "‼️ IMPORTANT: TODAY IS THE DAY LLMS ARE FORECASTING ‼️"
+            if question_curation.is_today_question_set_publication_date()
+            else ""
+        ),
     )
 
     cloud_run.block_and_check_job_result(
         operation=operation_naive_and_dummy_forecasters,
         name=dict_to_use_naive_and_dummy_forecasters,
         exit_on_error=True,
+        additional_slack_message_on_error=(
+            "‼️ IMPORTANT: TODAY IS THE DAY LLMS ARE FORECASTING ‼️"
+            if question_curation.is_today_question_set_publication_date()
+            else ""
+        ),
     )
 
-    slack.send_message(message="Nightly update succeeded.")
+    slack.send_message(message="Nightly update succeeded 😊")
 
 
 if __name__ == "__main__":

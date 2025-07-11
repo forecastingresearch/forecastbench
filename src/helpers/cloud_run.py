@@ -72,7 +72,13 @@ def run_job(job_name, env_vars=None, task_count=1, timeout=timeout_1h):
     return operation
 
 
-def block_and_check_job_result(operation, name, exit_on_error, timeout=timeout_1h):
+def block_and_check_job_result(
+    operation,
+    name,
+    exit_on_error,
+    timeout=timeout_1h,
+    additional_slack_message_on_error="",
+):
     """Blocking check for result of Cloud Run job specified in `operation`."""
     try:
         execution = operation.result(timeout=timeout)
@@ -102,4 +108,6 @@ def block_and_check_job_result(operation, name, exit_on_error, timeout=timeout_1
         logger.error(message)
         if exit_on_error:
             slack.send_message(message=message)
+            if additional_slack_message_on_error:
+                slack.send_message(message=additional_slack_message_on_error)
             sys.exit(1)
