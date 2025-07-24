@@ -8,20 +8,20 @@ from helpers import cloud_run, dates, question_curation  # noqa: E402
 
 metadata = [
     [
-        ("func-metadata-tag-questions", False, cloud_run.timeout_1h),
-        ("func-metadata-validate-questions", False, cloud_run.timeout_1h),
+        ("func-metadata-tag-questions", False, cloud_run.timeout_1h, 1),
+        ("func-metadata-validate-questions", False, cloud_run.timeout_1h, 1),
     ]
 ]
 resolve_and_leaderboard = [
     [
-        ("func-resolve-forecasts", True, cloud_run.timeout_1h * 2),
-        ("func-leaderboard", True, cloud_run.timeout_1h * 2),
+        ("func-resolve-forecasts", True, cloud_run.timeout_1h * 2, 50),
+        ("func-leaderboard", True, cloud_run.timeout_1h * 2, 1),
     ]
 ]
 
 website = [
     [
-        ("func-website", True, cloud_run.timeout_1h),
+        ("func-website", True, cloud_run.timeout_1h, 1),
     ]
 ]
 
@@ -34,7 +34,7 @@ def get_naive_and_dummy_forecasters():
     return (
         [
             [
-                ("func-baseline-naive-and-dummy-forecasters", True, cloud_run.timeout_1h * 2),
+                ("func-baseline-naive-and-dummy-forecasters", True, cloud_run.timeout_1h * 2, 1),
             ],
         ]
         if question_curation.is_today_question_set_publication_date()
@@ -50,7 +50,7 @@ def get_create_question_set():
     return (
         [
             [
-                ("func-question-set-create", True, cloud_run.timeout_1h),
+                ("func-question-set-create", True, cloud_run.timeout_1h, 1),
             ],
         ]
         if question_curation.is_today_question_curation_date()
@@ -67,8 +67,8 @@ def get_publish_question_set_make_llm_baseline():
     return (
         [
             [
-                ("func-question-set-publish", True, cloud_run.timeout_1h),
-                ("func-baseline-llm-forecasts-manager", True, cloud_run.timeout_1h * 24),
+                ("func-question-set-publish", True, cloud_run.timeout_1h, 1),
+                ("func-baseline-llm-forecasts-manager", True, cloud_run.timeout_1h * 24, 1),
             ],
         ]
         if question_curation.is_today_question_set_publication_date()
@@ -97,8 +97,8 @@ def get_fetch_and_update():
         ]
     return [
         [
-            (f"func-data-{source}-fetch", True, cloud_run.timeout_1h),
-            (f"func-data-{source}-update-questions", True, cloud_run.timeout_1h),
+            (f"func-data-{source}-fetch", True, cloud_run.timeout_1h, 1),
+            (f"func-data-{source}-update-questions", True, cloud_run.timeout_1h, 1),
         ]
         for source in sources
     ]
@@ -111,10 +111,11 @@ def sequential_cloud_run_jobs(functions_to_call):
     * The first entry is the Cloud Run Job to call.
     * The second is a boolean saying whether or not to quit processing if an error is encountered.
     """
-    for function, exit_on_error, timeout in functions_to_call:
+    for function, exit_on_error, timeout, task_count in functions_to_call:
         operation = cloud_run.run_job(
             job_name=function,
             timeout=timeout,
+            task_count=task_count,
         )
         cloud_run.block_and_check_job_result(
             operation=operation,

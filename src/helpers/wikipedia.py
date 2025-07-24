@@ -195,44 +195,6 @@ def upload_hash_mapping():
     )
 
 
-def make_resolution_df():
-    """Prepare data for resolution."""
-    files = [
-        f
-        for f in gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=source)
-        if f.startswith(f"{source}/") and f.endswith(".jsonl")
-    ]
-
-    def process_file(f):
-        """Prepare individual resolution file."""
-        df_tmp = pd.read_json(
-            f"gs://{env.QUESTION_BANK_BUCKET}/{f}",
-            lines=True,
-            dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
-            convert_dates=False,
-        )
-        if set(df_tmp.columns) == set(constants.RESOLUTION_FILE_COLUMNS):
-            return df_tmp
-        return None
-
-    with ThreadPoolExecutor() as executor:
-        results = list(
-            tqdm(
-                executor.map(
-                    process_file,
-                    files,
-                ),
-                total=len(files),
-                desc=f"downloading `{source}` resolution files",
-            )
-        )
-    dfs = [df for df in results if df is not None]
-    df = pd.concat(dfs, ignore_index=True)
-    df["date"] = pd.to_datetime(df["date"])
-    df["id"] = df["id"].astype(str)
-    return df
-
-
 def ffill_dfr(dfr):
     """
     Forward fill dfr to yesterday.

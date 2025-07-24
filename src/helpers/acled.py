@@ -136,9 +136,35 @@ def download_dff_and_prepare_dfr() -> tuple:
     )
 
 
-def make_resolution_df():
-    """Prepare data for resolution."""
-    dfr, _, _ = download_dff_and_prepare_dfr()
+def read_dff_and_prepare_dfr(local_question_bank_dir: str) -> pd.DataFrame:
+    """
+    Read fetch file and create dfr.
+
+    Args:
+        local_question_bank_dir (str): the location where the question bank was unzipped.
+
+    Returns:
+        dfr (pd.DataFrame): the ACLED resolution values.
+    """
+    filenames = data_utils.generate_filenames(source=source)
+    source_fetch_file = filenames.get("jsonl_fetch")
+    local_filename = f"{local_question_bank_dir}/{source_fetch_file}"
+
+    df = pd.read_json(
+        local_filename,
+        lines=True,
+        dtype=FETCH_COLUMN_DTYPE,
+        convert_dates=False,
+    )
+
+    df = df[["country", "event_date", "event_type", "fatalities"]].copy()
+    df["event_date"] = pd.to_datetime(df["event_date"])
+    dfr = (
+        pd.get_dummies(df, columns=["event_type"], prefix="", prefix_sep="")
+        .groupby(["country", "event_date"])
+        .sum()
+        .reset_index()
+    )
     return dfr
 
 

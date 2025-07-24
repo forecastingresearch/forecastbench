@@ -5,9 +5,7 @@ import logging
 import os
 import pickle
 import sys
-import tempfile
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
@@ -22,7 +20,7 @@ from tqdm import tqdm
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
     constants,
-    dates,
+    data_utils,
     decorator,
     env,
     git,
@@ -45,35 +43,12 @@ LEADERBOARD_DECIMAL_PLACES = 3
 
 IMPUTED_CUTOFF_PCT = 5
 
-MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 90
-
 MODEL_RELEASE_DATE_CUTOFF = 365
 
 N_REPLICATES = 1999 if not env.RUNNING_LOCALLY else 2
 
 df_release_dates = pd.read_csv("model_release_dates.csv")
 df_release_dates["release_date"] = pd.to_datetime(df_release_dates["release_date"], errors="coerce")
-
-
-def download_and_read_processed_forecast_file(filename: str) -> Dict[str, Any]:
-    """Download a processed forecast file from Cloud Storage and parse its JSON content.
-
-    Args:
-        filename (str): Name of the file to retrieve from the processed forecast sets bucket.
-
-    Returns:
-        Dict[str, Any]: A mapping from the filename to its loaded JSON data.
-    """
-    with tempfile.NamedTemporaryFile(dir="/tmp", delete=True) as tmp:
-        gcp.storage.download(
-            bucket_name=env.PROCESSED_FORECAST_SETS_BUCKET,
-            filename=filename,
-            local_filename=tmp.name,
-        )
-        with open(tmp.name, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-    return {filename: data}
 
 
 def download_question_set_save_in_cache(
@@ -1098,45 +1073,6 @@ def make_leaderboard(
     upload_leaderboard(files)
 
 
-def get_valid_files(only_keep_date: str = "") -> List[str]:
-    """Return valid processed forecast filenames based on inclusion criteria.
-
-    Valid filres are those where the forecast_due_date was at least
-    `MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED` days ago.
-
-    Args:
-        only_keep_date (str): If provided, only include files starting with this date.
-
-    Returns:
-        List[str]: Filenames that meet the age or date-prefix requirements.
-    """
-    files = gcp.storage.list(env.PROCESSED_FORECAST_SETS_BUCKET)
-    files = [f for f in files if f.endswith(".json")]
-    if only_keep_date:
-        return [f for f in files if f.startswith(only_keep_date)]
-
-    # Get unique, valid, date-named folders
-    date_folders = set()
-    for f in files:
-        if "/" not in f:
-            continue
-        try:
-            folder = f.split("/", 1)[0]
-            datetime.strptime(folder, "%Y-%m-%d")
-            date_folders.add(folder)
-        except ValueError:
-            raise ValueError(
-                f"Problem with file organizaiton on {env.PROCESSED_FORECAST_SETS_BUCKET}"
-            )
-
-    # Only keep folders older than `MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED` days
-    cutoff = dates.get_date_today() - timedelta(days=MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED)
-    date_folders = {d for d in date_folders if datetime.strptime(d, "%Y-%m-%d").date() <= cutoff}
-
-    files = [f for f in files if f.split("/")[0] in date_folders]
-    return files
-
-
 def read_local_file_and_run(only_keep_date: str = "") -> bool:
     """Load cached leaderboard entries and run processing if cache exists.
 
@@ -1162,7 +1098,9 @@ def read_local_file_and_run(only_keep_date: str = "") -> bool:
     return True
 
 
-def download_and_compile_processed_forecast_files() -> List[pd.DataFrame]:
+def download_and_compile_processed_forecast_files(
+    bucket: str, only_keep_date: str = ""
+) -> List[pd.DataFrame]:
     """Download and compile processed forecast files into entries list.
 
     Args:
@@ -1172,41 +1110,19 @@ def download_and_compile_processed_forecast_files() -> List[pd.DataFrame]:
         List[pd.DataFrame]: List of DataFrames for each processed forecast file,
             ready for leaderboard aggregation.
     """
-    files = get_valid_files()
-    with ThreadPoolExecutor() as executor:
-        dfs = list(
-            tqdm(
-                executor.map(
-                    download_and_read_processed_forecast_file,
-                    files,
-                ),
-                total=len(files),
-                desc="downloading processed forecast files",
-            )
-        )
-        executor.shutdown(wait=True)
-
+    forecast_files, valid_dates = resolution.get_valid_forecast_files_and_dates(bucket=bucket)
+    local_forecast_set_dir = data_utils.get_local_file_dir(bucket=bucket)
     leaderboard_entries = []
-    for d in dfs:
-        f, data = next(iter(d.items()))
-        logger.info(f"Scoring forecasts in `{f}`...")
-
-        if not data or not isinstance(data, dict):
-            logger.warning(colored(f"Problem processing {f}. First `continue`.", "yellow"))
+    for f in forecast_files:
+        logger.info(f"Ranking {f}")
+        data = resolution.read_forecast_file(filename=f"{local_forecast_set_dir}/{f}")
+        if data is None:
             continue
 
         organization = data.get("organization")
         model = data.get("model")
         forecast_due_date = data.get("forecast_due_date")
-        forecasts = data.get("forecasts")
-        if not organization or not model or not forecast_due_date or not forecasts:
-            logger.warning(colored(f"Problem processing {f}. Second `continue`.", "yellow"))
-            continue
-
-        df = pd.DataFrame(forecasts)
-        if df.empty:
-            logger.warning(colored(f"Problem processing {f}. Third `continue`.", "yellow"))
-            continue
+        df = data.get("df")
 
         append_leaderboard_entry(
             leaderboard_entries=leaderboard_entries,
@@ -1228,19 +1144,12 @@ def driver(_: Any) -> None:
     Returns:
         None: Exits the process on completion.
     """
-    if env.RUNNING_LOCALLY:
-        only_keep_date = ""  # e.g. "2024-07-21"
-        local_run_successful = read_local_file_and_run(only_keep_date=only_keep_date)
-        if local_run_successful:
-            # End processing if we ran on pickled resolution files
-            return
-
-    leaderboard_entries = download_and_compile_processed_forecast_files()
-
-    if env.RUNNING_LOCALLY:
-        with open(f"leaderboard_{only_keep_date}.pkl", "wb") as f:
-            pickle.dump(leaderboard_entries, f)
-
+    logger.info(colored("Making leaderboard.", "red"))
+    only_keep_date = ""
+    leaderboard_entries = download_and_compile_processed_forecast_files(
+        bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
+        only_keep_date=only_keep_date,
+    )
     make_leaderboard(leaderboard_entries=leaderboard_entries)
     logger.info(colored("Done.", "red"))
 

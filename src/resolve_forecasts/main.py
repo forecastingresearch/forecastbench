@@ -5,7 +5,8 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
+from typing import Any
 
 import acled
 import data
@@ -14,10 +15,12 @@ import numpy as np
 import pandas as pd
 import wikipedia
 from pandas._libs.tslibs.np_datetime import OutOfBoundsDatetime
+from termcolor import colored
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
     constants,
+    data_utils,
     dates,
     decorator,
     env,
@@ -105,19 +108,6 @@ def upload_resolution_set(df, forecast_due_date, question_set_filename):
     )
 
 
-def download_and_read_forecast_file(filename):
-    """Download forecast file."""
-    local_filename = "/tmp/tmp.json"
-    gcp.storage.download(
-        bucket_name=env.FORECAST_SETS_BUCKET, filename=filename, local_filename=local_filename
-    )
-
-    with open(local_filename, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    return data if all(key in data for key in required_forecast_file_keys) else None
-
-
 def upload_processed_forecast_file(data, forecast_due_date, filename):
     """Upload processed forecast file."""
     local_filename = "/tmp/tmp.json"
@@ -145,7 +135,7 @@ def resolve_questions(df, resolution_values):
     )
     err_msg_pre = "Error in `resolve_questions()`:"
     for source in df["source"].unique():
-        logger.info(f"Resolving {source}.")
+        logger.info(colored(f"Resolving {source}.", "yellow"))
         source_data = resolution_values.get(source, {})
         dfq = source_data.get("dfq", {}).copy()
         dfr = source_data.get("dfr", {}).copy()
@@ -591,70 +581,58 @@ def check_and_prepare_forecast_file(df, forecast_due_date, organization):
 
 
 @decorator.log_runtime
-def driver(request):
-    """Resolve forecasts."""
-    forecast_sets = gcp.storage.list(env.FORECAST_SETS_BUCKET)
-    forecast_sets = [f for f in forecast_sets if f.endswith(".json")]
+def driver(_: Any) -> None:
+    """Resolve forecasts.
 
-    if not forecast_sets:
-        logger.warning("No forecast sets to evaluate.")
-        return
+    Env:
+        - CLOUD_RUN_TASK_INDEX: automatically set by Cloud Run Jobs.
 
-    resolution_values = resolution.get_and_pickle_resolution_values(
-        filename="resolution_values.pkl",
-        save_pickle_file=env.RUNNING_LOCALLY,
+    Args:
+        _ (Any): Unused placeholder argument for GCP Cloud Run Job.
+
+    Returns:
+        None: Exits the process on completion.
+    """
+    task_num = 0
+    try:
+        env_var = os.getenv("CLOUD_RUN_TASK_INDEX")
+        task_num = int(env_var)
+    except Exception as e:
+        logger.error(f"Improperly set environment variable: CLOUD_RUN_TASK_INDEX = {env_var}")
+        logger.error(e)
+        return f"Error: {str(e)}", 400
+
+    forecast_files, valid_dates = resolution.get_valid_forecast_files_and_dates(
+        bucket=env.FORECAST_SETS_BUCKET
     )
 
-    resolved_values_for_question_sources = {}
-    for f in forecast_sets:
-        logger.info(f"Downloading, reading, and scoring forecasts in `{f}`...")
+    if task_num >= len(valid_dates):
+        logger.info(f"task number {task_num} not needed, winding down...")
+        return "OK", 200
 
-        data = download_and_read_forecast_file(filename=f)
-        if not data or not isinstance(data, dict):
+    my_date = valid_dates[task_num]
+    forecast_files = [f for f in forecast_files if f.startswith(my_date)]
+
+    logger.info(f"\nProcessing forecasts for {my_date}.\n")
+
+    resolution_values = resolution.get_resolution_values()
+
+    local_forecast_set_dir = data_utils.get_local_file_dir(bucket=env.FORECAST_SETS_BUCKET)
+    resolved_values_for_question_sources = {}
+    for f in forecast_files:
+        logger.info(f"Resolving {f}")
+        data = resolution.read_forecast_file(filename=f"{local_forecast_set_dir}/{f}")
+        if data is None:
             continue
 
         organization = data.get("organization")
         model = data.get("model")
-        question_set_filename = data.get("question_set")
         forecast_due_date = data.get("forecast_due_date")
-        forecast_due_date_datetime = datetime.strptime(forecast_due_date, "%Y-%m-%d")
-        if (
-            forecast_due_date_datetime + timedelta(days=min(constants.FORECAST_HORIZONS_IN_DAYS))
-        ).date() >= dates.get_date_today():
-            logger.warning(
-                f"It is too soon to evaluate {f} which was submitted on {forecast_due_date}."
-            )
-            continue
-        forecasts = data.get("forecasts")
-        if (
-            not organization
-            or not model
-            or not question_set_filename
-            or not forecast_due_date
-            or not forecasts
-        ):
-            continue
-
-        if forecast_due_date != question_set_filename[:10]:
-            logger.error(
-                f"In {f}: forecast_due_date: {forecast_due_date}. "
-                f"question_set_filename: {question_set_filename}."
-            )
-            continue
-
-        team_forecast = {
-            "organization": organization,
-            "model": model,
-            "question_set": question_set_filename,
-            "forecast_due_date": forecast_due_date,
-        }
+        question_set_filename = data.get("question_set")
+        df = data.get("df")
 
         is_human_question_set = "human" in question_set_filename
         human_llm_key = "human" if is_human_question_set else "llm"
-
-        df = pd.DataFrame(forecasts)
-        if df.empty:
-            continue
 
         try:
             resolved_values_for_question_sources = get_resolution_values_for_forecast_due_date(
@@ -664,7 +642,7 @@ def driver(request):
                 resolution_values=resolution_values,
             )
         except ValueError as e:
-            logger.error(f"EXCEPTION caught {str(e)}")
+            logger.exception(f"EXCEPTION caught {e}")
             return f"Error: {str(e)}", 400
 
         df_question_resolutions = resolved_values_for_question_sources[forecast_due_date][
@@ -672,22 +650,37 @@ def driver(request):
         ].copy()
 
         df = check_and_prepare_forecast_file(
-            df=df, forecast_due_date=forecast_due_date, organization=organization
+            df=df,
+            forecast_due_date=forecast_due_date,
+            organization=organization,
         )
 
-        df = set_resolution_dates(df=df, df_question_resolutions=df_question_resolutions)
-        df = impute_missing_forecasts(df=df, organization=organization)
+        df = set_resolution_dates(
+            df=df,
+            df_question_resolutions=df_question_resolutions,
+        )
+        df = impute_missing_forecasts(
+            df=df,
+            organization=organization,
+        )
 
-        # Convert to json then load to keep pandas json conversion
-        # df.to_dict has different variable conversions and hence is undesireable
-        team_forecast["forecasts"] = json.loads(df.to_json(orient="records", date_format="iso"))
+        team_forecast = {
+            "organization": organization,
+            "model": model,
+            "forecast_due_date": forecast_due_date,
+            "question_set": question_set_filename,
+            # Convert to json then load to keep pandas json conversion
+            # df.to_dict has different variable conversions and hence is undesireable
+            "forecasts": json.loads(df.to_json(orient="records", date_format="iso")),
+        }
         upload_processed_forecast_file(
-            data=team_forecast, forecast_due_date=forecast_due_date, filename=f
+            data=team_forecast,
+            forecast_due_date=forecast_due_date,
+            filename=f,
         )
 
-    logger.info("Done.")
+    logger.info(colored("Done.", "red"))
 
 
 if __name__ == "__main__":
-    """Local dev."""
     driver(None)

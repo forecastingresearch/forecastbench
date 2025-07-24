@@ -10,7 +10,7 @@ import pandas as pd
 from . import constants, env
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
-from utils import gcp  # noqa: E402
+from utils import archiving, gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -70,7 +70,8 @@ def get_last_modified_time_of_dfq_from_cloud_storage(source):
     """
     filenames = generate_filenames(source)
     return gcp.storage.get_last_modified_time(
-        bucket_name=env.QUESTION_BANK_BUCKET, filename=filenames["jsonl_question"]
+        bucket_name=env.QUESTION_BANK_BUCKET,
+        filename=filenames["jsonl_question"],
     )
 
 
@@ -129,6 +130,43 @@ def get_data_from_cloud_storage(
         return results[0]
 
     return tuple(results)
+
+
+def get_local_file_dir(bucket: str) -> str:
+    """
+    Return the local file directory that contains the files in `bucket`.
+
+    This function will either
+    * download a tarball that contains all files in the bucket, or
+    * return the mount directory of the bucket if it has been mounted with GCS-FUSE.
+
+    Args:
+        bucket(str): the name of the bucket.
+
+    Returns:
+        (str): the directory that contais the files.
+    """
+    mount_dir = f"{env.BUCKET_MOUNT_POINT}/{bucket}"
+    if os.path.exists(mount_dir):
+        logger.info(f"Mount dir found: {mount_dir}.")
+        return mount_dir
+
+    logger.info("Mount dir not found. Downloading tarball.")
+    local_dir = "/tmp"
+    filename = f"{bucket}.tar.gz"
+    local_filename = f"/{local_dir}/{filename}"
+    gcp.storage.download(
+        bucket_name=bucket,
+        filename=filename,
+        local_filename=local_filename,
+    )
+    dir_to_rm_before_extract = f"{local_dir}/{bucket}"
+    archiving.tar_gz.extract(
+        archive_name=local_filename,
+        rm_dir_before_extract=dir_to_rm_before_extract,
+        extract_dir=local_dir,
+    )
+    return f"/{local_dir}/{bucket}"
 
 
 def upload_questions(dfq, source):
