@@ -79,6 +79,18 @@ def summarize_question_bank():
     slack.send_message(message=f"```{df_str}```")
 
 
+def compress_bucket(bucket):
+    """Compress the given bucket."""
+    return cloud_run.call_worker(
+        job_name="nightly-bucket-compression",
+        env_vars={
+            "BUCKET_TO_COMPRESS": bucket,
+        },
+        task_count=1,
+        timeout=cloud_run.timeout_1h,
+    )
+
+
 def main():
     """Manage nightly run."""
     dict_to_use_publish_question_set = "publish_question_set_make_llm_baseline"
@@ -88,6 +100,9 @@ def main():
         task_count=1,
         timeout=timeout_publish_question_set,
     )
+
+    operation_compress_question_sets_bucket = compress_bucket(bucket=env.QUESTION_SETS_BUCKET)
+    operation_compress_forecast_sets_bucket = compress_bucket(bucket=env.FORECAST_SETS_BUCKET)
 
     dict_to_use = "fetch_and_update"
     task_count = len(question_curation.FREEZE_QUESTION_DATA_SOURCES) + len(
@@ -107,6 +122,8 @@ def main():
 
     if question_curation.is_today_question_curation_date():
         slack.send_message(message="Question set successfully created 😊")
+
+    operation_compress_question_bank_bucket = compress_bucket(bucket=env.QUESTION_BANK_BUCKET)
 
     dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
     timeout_resolve = cloud_run.timeout_1h * 2
@@ -140,6 +157,10 @@ def main():
         operation=operation_resolve_and_leaderboard,
         name=dict_to_use_resolve_and_leaderboard,
         exit_on_error=True,
+    )
+
+    operation_compress_processed_forecast_sets_bucket = compress_bucket(
+        bucket=env.PROCESSED_FORECAST_SETS_BUCKET
     )
 
     cloud_run.block_and_check_job_result(
@@ -177,6 +198,28 @@ def main():
             if question_curation.is_today_question_set_publication_date()
             else ""
         ),
+    )
+
+    cloud_run.block_and_check_job_result(
+        operation=operation_compress_question_sets_bucket,
+        name=env.QUESTION_SETS_BUCKET,
+        exit_on_error=False,
+    )
+    cloud_run.block_and_check_job_result(
+        operation=operation_compress_forecast_sets_bucket,
+        name=env.FORECAST_SETS_BUCKET,
+        exit_on_error=False,
+    )
+    cloud_run.block_and_check_job_result(
+        operation=operation_compress_question_bank_bucket,
+        name=env.QUESTION_BANK_BUCKET,
+        exit_on_error=False,
+    )
+
+    cloud_run.block_and_check_job_result(
+        operation=operation_compress_processed_forecast_sets_bucket,
+        name=env.QUESTION_BANK_BUCKET,
+        exit_on_error=False,
     )
 
     slack.send_message(message="Nightly update succeeded 😊")

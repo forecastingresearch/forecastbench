@@ -67,7 +67,7 @@ deploy: orchestration questions metadata resolve leaderboard curate-questions we
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
-orchestration: nightly-worker-job nightly-manager-job
+orchestration: nightly-worker-job nightly-manager-job compress_buckets
 
 metadata: tag-questions validate-questions
 
@@ -186,3 +186,6 @@ llm-baseline-manager:
 
 llm-baseline-worker:
 	make -C src/base_eval/llm_baselines/worker
+
+compress_buckets:
+	make -C src/nightly_update_workflow/compress_buckets
