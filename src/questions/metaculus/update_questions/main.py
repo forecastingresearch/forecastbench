@@ -37,6 +37,11 @@ filenames = data_utils.generate_filenames(source=source)
 QUESTION_LIMIT = 10000 - (len(metaculus.CATEGORIES) + 1)
 N_API_CALLS = 0
 
+# The maximum timestamp pandas can handle
+# Set this as the max possible date, even when questions resolve later:
+# * e.g. https://www.metaculus.com/questions/1535/
+MAX_PANDAS_TS = pd.Timestamp.max.tz_localize("UTC")
+
 
 @backoff.on_exception(
     backoff.expo,
@@ -123,7 +128,12 @@ def _update_questions_and_resolved_values(dfq, dff):
                         forecast["start_time"]
                     ),
                     "end_datetime": (
-                        dates.convert_epoch_time_in_sec_to_datetime(forecast["end_time"])
+                        min(
+                            pd.Timestamp(
+                                dates.convert_epoch_time_in_sec_to_datetime(forecast["end_time"])
+                            ),
+                            MAX_PANDAS_TS,
+                        ).to_pydatetime()
                         if forecast["end_time"] is not None
                         else dates.get_datetime_today()
                     ),
