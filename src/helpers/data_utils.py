@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import shutil
 import sys
 
 import pandas as pd
@@ -262,3 +263,34 @@ def list_files(directory):
         if os.path.isfile(file_path):
             filenames.append(filename)
     return filenames
+
+
+def get_workspace_dir(
+    bucket: str = "", folder: str = "scratch", recreate_folder: bool = False
+) -> str:
+    """
+    Create or prepare a workspace directory.
+
+    Args:
+        bucket (str): Optional GCP bucket name. If provided and
+                      `/{env.BUCKET_MOUNT_POINT}/{bucket}` exists, use it as base
+                      directory; otherwise use the current directory.
+        folder (str): Name of the subdirectory to create under the base directory.
+        recreate_folder (bool): If True and the target directory exists, remove it first before
+                      creating a new one; if False and the directory exists, raise FileExistsError.
+
+    Returns:
+        str: The full path to the workspace directory.
+    """
+    mount_dir = f"{env.BUCKET_MOUNT_POINT}/{bucket}"
+    base = mount_dir if bucket and os.path.isdir(mount_dir) else "."
+    path = os.path.join(base, folder)
+    if os.path.exists(path):
+        if not recreate_folder:
+            raise FileExistsError(
+                f"Directory {path} already exists. Pass `recreate=True` to overwrite."
+            )
+        shutil.rmtree(path)
+    logger.info(f"Creating {path}")
+    os.makedirs(path)
+    return path

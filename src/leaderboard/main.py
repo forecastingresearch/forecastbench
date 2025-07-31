@@ -1,21 +1,23 @@
 """Create leaderboard."""
 
+import inspect
 import json
 import logging
 import os
-import pickle
+import shutil
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 import pyfixest as pf
 from jinja2 import Template
+from joblib import Parallel, delayed
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 from termcolor import colored
-from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
@@ -804,29 +806,56 @@ def generate_simulated_leaderboards(
         pd.DataFrame: Simulated scores with each column representing a replicate.
     """
     logger.info(colored(f"Generate {N} simulated leaderboards", "red"))
-    df = df.copy()
     if not callable(primary_scoring_func):
         raise ValueError("The primary scoring function must be callable.")
+
+    df = df.copy()
+
+    this_func_name = inspect.currentframe().f_code.co_name
+    workspace_dir = data_utils.get_workspace_dir(
+        bucket=env.WORKSPACE_BUCKET,
+        folder=this_func_name,
+        recreate_folder=True,
+    )
 
     def question_level_bootstrap(df):
         questions = df["question_pk"].drop_duplicates()
         questions_bs = questions.sample(frac=1, replace=True)
         return df.set_index("question_pk").loc[questions_bs]
 
-    scores_list = []
-    for i in tqdm(range(N), desc="generating simulated leaderboards"):
+    def bootstrap_and_score(idx):
+        logger.info(f"[replicate {idx+1}/{N}] starting...")
+        out_path = Path(workspace_dir) / f"bootstrap_{idx}.parquet"
+        if out_path.exists():
+            return out_path
         df_bs = (
             df.groupby(["forecast_due_date", "source"])
             .apply(question_level_bootstrap, include_groups=False)
             .reset_index()
         )
         df_simulated_leaderboard = score_models(df=df_bs, scoring_funcs=[primary_scoring_func])
-        scores = df_simulated_leaderboard.set_index("model_pk")[
-            f"{primary_scoring_func.__name__}_overall"
-        ]
-        scores_list.append(scores.rename(f"bootstrap_{i}"))
 
-    df_simulated_scores = pd.concat(scores_list, axis=1)
+        df_simulated_leaderboard.set_index("model_pk")[
+            f"{primary_scoring_func.__name__}_overall"
+        ].rename(f"bootstrap_{idx}").to_frame().to_parquet(out_path)
+        return out_path
+
+    logger.info(f"Simulating using {env.NUM_CPUS} CPU(s).")
+    paths = Parallel(
+        n_jobs=env.NUM_CPUS,
+        backend="loky",
+        verbose=5,
+        batch_size=min(20, N),
+    )(delayed(bootstrap_and_score)(i) for i in range(N))
+    logger.info("Done simulating!")
+
+    df_simulated_scores = pd.concat([pd.read_parquet(p).squeeze() for p in paths], axis=1)
+    logger.info("Done creating df_simulated_scores!")
+
+    # cleanup
+    shutil.rmtree(workspace_dir)
+
+    logger.info(f"Simulated {df_simulated_scores.shape[1]} / {N}.")
     return df_simulated_scores
 
 
@@ -1073,34 +1102,7 @@ def make_leaderboard(
     upload_leaderboard(files)
 
 
-def read_local_file_and_run(only_keep_date: str = "") -> bool:
-    """Load cached leaderboard entries and run processing if cache exists.
-
-    Only works when running locally.
-
-    Args:
-        only_keep_date (str): Date string for the cached pickle filename.
-
-    Returns:
-        bool: True if local cache was found and processed, False otherwise.
-    """
-    if not env.RUNNING_LOCALLY:
-        return False
-
-    pickle_file = f"leaderboard_{only_keep_date}.pkl"
-    if not os.path.exists(pickle_file):
-        return False
-
-    with open(pickle_file, "rb") as file:
-        leaderboard_entries = pickle.load(file)
-
-    make_leaderboard(leaderboard_entries=leaderboard_entries)
-    return True
-
-
-def download_and_compile_processed_forecast_files(
-    bucket: str, only_keep_date: str = ""
-) -> List[pd.DataFrame]:
+def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFrame]:
     """Download and compile processed forecast files into entries list.
 
     Args:
@@ -1145,10 +1147,8 @@ def driver(_: Any) -> None:
         None: Exits the process on completion.
     """
     logger.info(colored("Making leaderboard.", "red"))
-    only_keep_date = ""
     leaderboard_entries = download_and_compile_processed_forecast_files(
         bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
-        only_keep_date=only_keep_date,
     )
     make_leaderboard(leaderboard_entries=leaderboard_entries)
     logger.info(colored("Done.", "red"))

@@ -9,3 +9,5 @@ GitPython
 pyfixest>=0.30.2
 Jinja2>=3.1.6
 statsmodels>=0.14.5
+joblib
+pyarrow
