@@ -3,6 +3,7 @@
 upload*
 plotly_charts
 *.html
+*.js
 *.json
 *.jsonl
 *.csv

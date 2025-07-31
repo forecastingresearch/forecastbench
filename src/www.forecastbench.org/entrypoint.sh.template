@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+pwd
+ls -la
+bundle exec jekyll build --destination "/tmp/_site"
+gsutil cp -r /tmp/_site/* gs://WEBSITE_BUCKET/

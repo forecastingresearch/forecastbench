@@ -214,10 +214,6 @@ def upload_leaderboard(files: Dict[str, str]) -> None:
     Returns:
         None
     """
-    if env.RUNNING_LOCALLY:
-        # Don't upload anything when running locally
-        return
-
     # Upload files to GCP bucket
     destination_folder = "leaderboards"
     for local_filename in files.keys():
@@ -239,108 +235,16 @@ def upload_leaderboard(files: Dict[str, str]) -> None:
     )
 
 
-def write_leaderboard(
-    df: pd.DataFrame,
-    primary_scoring_func: Callable[..., any],
-) -> Dict[str, str]:
-    """Generate HTML and CSV leaderboard files and return their paths.
+def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) -> None:
+    """Generate HTML and CSV leaderboard files and upload to Bucket & git repo.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
-        primary_scoring_func (Callable): Function used to compute the primary overall score;
-            its __name__ determines which columns to format and sort by.
+        sorting_column_number (int): column to sort by.
 
     Returns:
-        Dict[str, str]: A mapping of local file paths to their basenames:
-            {
-                "/tmp/<basename>.html": "<basename>.html",
-                "/tmp/<basename>.csv":  "<basename>.csv"
-            }.
+        None.
     """
-    logger.info("Making HTML and CSV leaderboard file.")
-
-    # Replace NaN with empty strings for display
-    df = df.fillna("")
-
-    # Round columns to 3 decimal places
-    numeric_cols = df.select_dtypes(include="number").columns
-    df[numeric_cols] = df[numeric_cols].round(3)
-
-    # Add rank
-    df["Rank"] = df[f"{primary_scoring_func.__name__}_overall"].rank(
-        ascending=True,
-        method="min",
-    )
-
-    for col in [
-        "n_market",
-        "n_dataset",
-        "n_overall",
-        "Rank",
-    ]:
-        df[col] = df[col].astype(int)
-
-    # Format CI
-    df[f"{primary_scoring_func.__name__}_ci_lower"] = (
-        df[f"{primary_scoring_func.__name__}_ci_lower"].round(3).astype(str)
-    )
-    df[f"{primary_scoring_func.__name__}_ci_upper"] = (
-        df[f"{primary_scoring_func.__name__}_ci_upper"].round(3).astype(str)
-    )
-    df[f"{primary_scoring_func.__name__}_ci"] = (
-        "["
-        + df[f"{primary_scoring_func.__name__}_ci_lower"]
-        + ", "
-        + df[f"{primary_scoring_func.__name__}_ci_upper"]
-        + "]"
-    )
-
-    df = df.sort_values(by=f"{primary_scoring_func.__name__}_overall", ignore_index=True)
-    df["p_value_one_sided"] = df["p_value_one_sided"].apply(
-        lambda p: (
-            "<0.001" if p < 0.001 else "<0.01" if p < 0.01 else "<0.05" if p < 0.05 else f"{p:.2f}"
-        )
-    )
-    # Set the p-value for the best to N/A
-    df.loc[0, "p_value_one_sided"] = "—"
-
-    df = df[
-        [
-            "Rank",
-            "organization",
-            "model",
-            f"{primary_scoring_func.__name__}_dataset",
-            "n_dataset",
-            f"{primary_scoring_func.__name__}_market",
-            "n_market",
-            f"{primary_scoring_func.__name__}_overall",
-            "n_overall",
-            f"{primary_scoring_func.__name__}_ci",
-            "p_value_one_sided",
-            "pct_times_best_performer",
-            "pct_times_top_5_percentile",
-            "peer_score_overall",
-            "brier_skill_score_overall",
-        ]
-    ].rename(
-        columns={
-            "organization": "Organization",
-            "model": "Model",
-            f"{primary_scoring_func.__name__}_dataset": "Dataset",
-            "n_dataset": "N dataset",
-            f"{primary_scoring_func.__name__}_market": "Market",
-            "n_market": "N market",
-            f"{primary_scoring_func.__name__}_overall": "Overall",
-            "n_overall": "N",
-            f"{primary_scoring_func.__name__}_ci": "95% CI",
-            "p_value_one_sided": "P-value to Best",
-            "pct_times_best_performer": "Pct times № 1",
-            "pct_times_top_5_percentile": "Pct times top 5%",
-            "peer_score_overall": "Peer",
-            "brier_skill_score_overall": "BSS",
-        }
-    )
-
     template = Template(
         """<!DOCTYPE html>
 <html lang="en">
@@ -510,7 +414,7 @@ def write_leaderboard(
         data=df.to_dict(orient="records"),
         columns=json.dumps(df.columns.tolist()),
         leaderboard_update_date=LEADERBOARD_UPDATED_DATE_STR,
-        sorting_column_number=6,
+        sorting_column_number=sorting_column_number,
         col_desc_dataset=(
             "Average difficulty-adjusted Brier score on dataset-sourced questions. "
             "Lower scores are better."
@@ -555,10 +459,342 @@ def write_leaderboard(
     local_filename_csv = f"/tmp/{basename}.csv"
     df.to_csv(local_filename_csv, index=False)
 
+    upload_leaderboard(
+        files={
+            local_filename_html: f"{basename}.html",
+            local_filename_csv: f"{basename}.csv",
+        }
+    )
+
+
+def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
+    """Generate JS file for website Leaderboard page.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+
+    Returns:
+        None.
+    """
+    template = Template(
+        """
+        $(function()
+        {
+            const data = {{ data }};
+            const cols = ["Rank", "Organization", "Model", "Dataset", "N dataset",
+                          "Market", "N market", "Overall", "N", "95% CI", "P-value to Best",
+                          "Pct times № 1", "Pct times top 5%", "Peer", "BSS"];
+            const columns = cols.map(name => {
+                const col = { data: name, title: name };
+                if (["N dataset", "N market", "N"].includes(name)) col.visible = false;
+
+                if (name === "Dataset") {
+                  col.title = "Dataset (N)";
+                  col.render = (d, t, row) =>
+                    t === "display"
+                      ? parseFloat(d).toFixed(3) +
+                        ' <span class="n-count">(' +
+                        Number(row["N dataset"]).toLocaleString() +
+                        ")</span>"
+                      : d;
+                  col.orderSequence = ["asc", "desc"];
+                }
+
+                if (name === "Market") {
+                  col.title = "Market (N)";
+                  col.render = (d, t, row) =>
+                    t === "display"
+                      ? parseFloat(d).toFixed(3) +
+                        ' <span class="n-count">(' +
+                        Number(row["N market"]).toLocaleString() +
+                        ")</span>"
+                      : d;
+                  col.orderSequence = ["asc", "desc"];
+                }
+
+                if (name === "Overall") {
+                  col.title = "Overall (N)";
+                  col.render = (d, t, row) =>
+                    t === "display"
+                      ? parseFloat(d).toFixed(3) +
+                        ' <span class="n-count">(' +
+                        Number(row["N"]).toLocaleString() +
+                        ")</span>"
+                      : d;
+                  col.orderSequence = ["asc", "desc"];
+                }
+
+                if (name === "P-value to Best") col.orderable = false;
+
+                if (name === "Pct times № 1") {
+                  col.render = (d, t) => (t === "display" ? Math.round(d) + "%" : d);
+                  col.orderSequence = ["desc", "asc"];
+                }
+
+                if (name === "Pct times top 5%") {
+                  col.render = (d, t) => (t === "display" ? Math.round(d) + "%" : d);
+                  col.orderSequence = ["desc", "asc"];
+                }
+
+                if (name === "95% CI") col.orderable = false;
+
+                if (name === "Peer" || name === "BSS") {
+                  col.render = (d, t) => (t === "display" ? parseFloat(d).toFixed(3) : d);
+                  col.orderSequence = ["desc", "asc"];
+                }
+
+                return col;
+            });
+
+            $('#leaderboard-table-full').html(`
+               <table id="lb" class="display compact hover" style="width:100%">
+               <thead>
+                 <tr>
+                   <th>Rank</th>
+                   <th>Organization</th>
+                   <th>Model</th>
+                   <th>Dataset (N)</th>
+                   <th><!-- N dataset --></th>
+                   <th>Market (N)</th>
+                   <th><!-- N market --></th>
+                   <th>Overall (N)</th>
+                   <th><!-- N --></th>
+                   <th>95% CI</th>
+                   <th>P-value to Best</th>
+                   <th>Pct times № 1</th>
+                   <th>Pct times top 5%</th>
+                   <th>Peer</th>
+                   <th>BSS</th>
+                 </tr>
+               </thead>
+               <tbody></tbody>
+             </table>
+             `);
+             $("#lb").DataTable({
+               data: data,
+               columns: columns,
+               order: [[cols.indexOf("Overall"), "asc"]],
+               responsive: true,
+               paging: true,
+               pageLength:25,
+               lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
+               info: true,
+               dom:'<"top"lfr>t<"bottom"ip>',
+               search: { regex: true, smart: true }
+           });
+        });
+        """
+    )
+    js = template.render(
+        data=df.to_dict(orient="records"),
+    )
     return {
-        local_filename_html: f"{basename}.html",
-        local_filename_csv: f"{basename}.csv",
+        "filename": "leaderboard_full.js",
+        "js": js,
     }
+
+
+def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
+    """Generate JS file for website Home page.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+
+    Returns:
+        None.
+    """
+    template = Template(
+        """
+        $(function()
+        {
+            const data = {{ data }};
+            $('#leaderboard-table').html(`
+            <table id="lb" class="display stripe hover" style="width:100%">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Organization</th>
+                  <th>Model</th>
+                  <th>Overall</th>
+                </tr>
+              </thead>
+            </table>
+            `);
+            $('#lb').DataTable({
+              data:data,
+              columns:[
+                {data:'Rank'},
+                {data:'Organization'},
+                {data:'Model'},
+                {data:'Overall',render:d=>parseFloat(d).toFixed(3)}
+              ],
+              order:[[3,'asc']],
+              pageLength:10,
+              lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
+              paging:true,
+              info:true,
+              dom:'<"top"lfr>t<"bottom"ip>',
+              responsive:true
+            });
+          });
+        """
+    )
+
+    js = template.render(
+        data=df[["Rank", "Organization", "Model", "Overall"]].to_dict(orient="records"),
+    )
+
+    return {
+        "filename": "leaderboard_compact.js",
+        "js": js,
+    }
+
+
+def upload_js_file_to_website_bucket(filename: str, js: str) -> None:
+    """
+    Upload a JavaScript file into the website bucket's assets/js directory.
+
+    Args:
+        filename (str): The name of the JS file to create (e.g., "leaderboard_compact.js").
+        js (str): The JavaScript content to write into the file.
+
+    Returns:
+        None
+    """
+    local_filename = f"/tmp/{filename}"
+    with open(local_filename, "w", encoding="utf-8") as f:
+        f.write(js)
+
+    destination_folder = "assets/js"
+    gcp.storage.upload(
+        bucket_name=env.WEBSITE_BUCKET,
+        local_filename=local_filename,
+        destination_folder=destination_folder,
+    )
+
+
+def write_leaderboard_js_files(df) -> None:
+    """Wrap functions to create JS files for website.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+
+    Returns:
+        None.
+    """
+    compact = write_leaderboard_js_file_compact(df=df)
+    full = write_leaderboard_js_file_full(df=df)
+
+    for lb in [compact, full]:
+        upload_js_file_to_website_bucket(
+            filename=lb["filename"],
+            js=lb["js"],
+        )
+
+
+def write_leaderboard(
+    df: pd.DataFrame,
+    primary_scoring_func: Callable[..., any],
+) -> None:
+    """Generate HTML and CSV leaderboard files for git and JS files for website.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+        primary_scoring_func (Callable): Function used to compute the primary overall score;
+            its __name__ determines which columns to format and sort by.
+
+    Returns:
+        None.
+    """
+    logger.info("Making HTML and CSV leaderboard file.")
+
+    # Replace NaN with empty strings for display
+    df = df.fillna("")
+
+    # Round columns to 3 decimal places
+    numeric_cols = df.select_dtypes(include="number").columns
+    df[numeric_cols] = df[numeric_cols].round(3)
+
+    # Add rank
+    df["Rank"] = df[f"{primary_scoring_func.__name__}_overall"].rank(
+        ascending=True,
+        method="min",
+    )
+
+    for col in [
+        "n_market",
+        "n_dataset",
+        "n_overall",
+        "Rank",
+    ]:
+        df[col] = df[col].astype(int)
+
+    # Format CI
+    df[f"{primary_scoring_func.__name__}_ci_lower"] = (
+        df[f"{primary_scoring_func.__name__}_ci_lower"].round(3).astype(str)
+    )
+    df[f"{primary_scoring_func.__name__}_ci_upper"] = (
+        df[f"{primary_scoring_func.__name__}_ci_upper"].round(3).astype(str)
+    )
+    df[f"{primary_scoring_func.__name__}_ci"] = (
+        "["
+        + df[f"{primary_scoring_func.__name__}_ci_lower"]
+        + ", "
+        + df[f"{primary_scoring_func.__name__}_ci_upper"]
+        + "]"
+    )
+
+    df = df.sort_values(by=f"{primary_scoring_func.__name__}_overall", ignore_index=True)
+    df["p_value_one_sided"] = df["p_value_one_sided"].apply(
+        lambda p: (
+            "<0.001" if p < 0.001 else "<0.01" if p < 0.01 else "<0.05" if p < 0.05 else f"{p:.2f}"
+        )
+    )
+    # Set the p-value for the best to N/A
+    df.loc[0, "p_value_one_sided"] = "—"
+
+    df = df[
+        [
+            "Rank",
+            "organization",
+            "model",
+            f"{primary_scoring_func.__name__}_dataset",
+            "n_dataset",
+            f"{primary_scoring_func.__name__}_market",
+            "n_market",
+            f"{primary_scoring_func.__name__}_overall",
+            "n_overall",
+            f"{primary_scoring_func.__name__}_ci",
+            "p_value_one_sided",
+            "pct_times_best_performer",
+            "pct_times_top_5_percentile",
+            "peer_score_overall",
+            "brier_skill_score_overall",
+        ]
+    ].rename(
+        columns={
+            "organization": "Organization",
+            "model": "Model",
+            f"{primary_scoring_func.__name__}_dataset": "Dataset",
+            "n_dataset": "N dataset",
+            f"{primary_scoring_func.__name__}_market": "Market",
+            "n_market": "N market",
+            f"{primary_scoring_func.__name__}_overall": "Overall",
+            "n_overall": "N",
+            f"{primary_scoring_func.__name__}_ci": "95% CI",
+            "p_value_one_sided": "P-value to Best",
+            "pct_times_best_performer": "Pct times № 1",
+            "pct_times_top_5_percentile": "Pct times top 5%",
+            "peer_score_overall": "Peer",
+            "brier_skill_score_overall": "BSS",
+        }
+    )
+
+    write_leaderboard_html_file(
+        df=df,
+        sorting_column_number=6,
+    )
+    write_leaderboard_js_files(df)
 
 
 def combine_forecasting_rounds(leaderboard: List[pd.DataFrame]) -> pd.DataFrame:
@@ -1094,12 +1330,10 @@ def make_leaderboard(
     )
 
     # Write leaderboard
-    files = write_leaderboard(
+    write_leaderboard(
         df=df_leaderboard,
         primary_scoring_func=primary_scoring_func,
     )
-
-    upload_leaderboard(files)
 
 
 def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFrame]:

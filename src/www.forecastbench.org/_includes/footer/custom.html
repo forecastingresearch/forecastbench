@@ -1,0 +1,7 @@
+<!-- start custom footer snippets -->
+{% if page.footer_scripts %}
+  {% for script in page.footer_scripts %}
+    <script src="{{ script | relative_url }}"></script>
+  {% endfor %}
+{% endif %}
+<!-- end custom footer snippets -->

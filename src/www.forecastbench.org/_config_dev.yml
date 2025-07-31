@@ -1,0 +1,7 @@
+header:
+  announcement:
+    text: "Site under development. Not real data."
+    background_color: "#c0392b"
+    text_color: "#ffffff"
+
+staging: true

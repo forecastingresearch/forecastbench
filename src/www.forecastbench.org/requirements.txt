@@ -1,5 +1,0 @@
-google-cloud-storage
-google-cloud-secret-manager
-GitPython
-pytz
-python-dateutil

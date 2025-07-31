@@ -1,0 +1,24 @@
+<!-- start custom head snippets -->
+
+<link rel="icon" type="image/png" href="{{ '/assets/images/logo/IconTransparentBCROP.png' | relative_url }}" sizes="192x192">
+
+{% if page.head_css %}
+  {% for script in page.head_css %}
+    <link rel="stylesheet" href="{{ script | relative_url }}">
+  {% endfor %}
+{% endif %}
+
+{% if page.head_scripts %}
+  {% for script in page.head_scripts %}
+    <script src="{{ script | relative_url }}"></script>
+  {% endfor %}
+{% endif %}
+
+
+{% if site.staging %}
+    <meta name="robots" content="noindex, nofollow">
+{% endif %}
+
+<!-- insert favicons. use https://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->

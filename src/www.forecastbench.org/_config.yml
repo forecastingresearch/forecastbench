@@ -1,0 +1,49 @@
+theme: "minimal-mistakes-jekyll"
+minimal_mistakes_skin: "air" #"default" # "air", "contrast", "dirt"
+
+locale: "en-US"
+title: "ForecastBench"
+description: "A dynamic, continuously-updated forecasting benchmark."
+name: "Forecasting Research Institute"
+url: "https://www.forecastbench.org"
+repository: "forecastingresearch/forecastbench"
+logo: "/assets/images/logo/IconTransparentBCROP.png"
+og_image: "/assets/images/logo/TextColor2.png"
+
+header_anchors: false
+
+defaults:
+  # _pages
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: splash
+      author_profile: false
+
+atom_feed:
+  hide: true
+
+search: false
+copyright_begin: 2024
+fri: Forecasting Research Institute
+fri_motto: "Advancing the science of forecasting for the public good"
+fri_url: "https://forecastingresearch.org/"
+
+footer:
+  links:
+    - label: "@Research_FRI"
+      icon: "fab fa-fw fa-x-twitter"
+      url: "https://x.com/Research_FRI"
+    - label: "Code"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/forecastingresearch/forecastbench"
+    - label: "Datasets"
+      icon: ""
+      url: "https://huggingface.co/datasets/forecastingresearch/forecastbench-datasets"
+    - label: "Wiki"
+      icon: "fa-brands fa-wikipedia-w"
+      url: https://github.com/forecastingresearch/forecastbench/wiki/
+    - label: "forecastbench@forecastingresearch.org"
+      icon: "fas fa-fw fa-envelope"
+      url: "mailto:forecastbench@forecastingresearch.org"
