@@ -12,6 +12,8 @@ UPLOAD_DIR = upload
 Procfile:
 	cp -r $(ROOT_DIR)src/helpers/Procfile .
 
+NUM_CPUS=2
+
 deploy : main.py .gcloudignore requirements.txt Procfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
@@ -24,10 +26,11 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 		--tasks 1 \
 		--parallelism 1 \
 		--task-timeout 540s \
-		--memory 2Gi \
+		--memory 8Gi \
+		--cpu $(NUM_CPUS) \
 		--max-retries 0 \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
-		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS) \
 		--source $(UPLOAD_DIR)
 
 clean :
