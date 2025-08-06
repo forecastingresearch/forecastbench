@@ -35,6 +35,9 @@ pip-delete-this-directory.txt
 *.pik
 *.pickle
 
+# Parquet files
+*.parquet
+
 # pyenv
 .python-version
 

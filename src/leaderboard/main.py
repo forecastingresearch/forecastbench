@@ -53,6 +53,12 @@ df_release_dates = pd.read_csv("model_release_dates.csv")
 df_release_dates["release_date"] = pd.to_datetime(df_release_dates["release_date"], errors="coerce")
 
 
+ALWAYS_05_MODEL = {
+    "organization": "ForecastBench",
+    "model": "Always 0.5",
+}
+
+
 def download_question_set_save_in_cache(
     forecast_due_date: str,
     cache: Dict[str, Dict[str, Any]],
@@ -417,14 +423,17 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
         sorting_column_number=sorting_column_number,
         col_desc_dataset=(
             "Average difficulty-adjusted Brier score on dataset-sourced questions. "
+            "Rescaled so that Always 0.5 has a score of 0.25. "
             "Lower scores are better."
         ),
         col_desc_market=(
             "Average difficulty-adjusted Brier score on market-sourced questions. "
+            "Rescaled so that Always 0.5 has a score of 0.25. "
             "Lower scores are better."
         ),
         col_desc_overall=(
             "Average difficulty-adjusted Brier score across all questions. "
+            "Rescaled so that Always 0.5 has a score of 0.25. "
             "Lower scores are better."
         ),
         col_desc_ci="Bootstrapped 95% confidence interval for the Overall score.",
@@ -942,13 +951,17 @@ def brier_skill_score(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def score_models(
-    df: pd.DataFrame, scoring_funcs: List[Callable[[pd.DataFrame], pd.DataFrame]]
+    df: pd.DataFrame,
+    scoring_funcs: List[Callable[[pd.DataFrame], pd.DataFrame]],
+    primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
 ) -> pd.DataFrame:
     """Score models using the scoring functions in `scoring_funcs`.
 
     Args:
         df (pd.DataFrame): Combined forecast set.
         scoring_funcs (List[Callable[[pd.DataFrame], pd.DataFrame]]): List of scoring functions.
+        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]): Function to compute the
+                     primary overall score.
 
     Returns:
         pd.DataFrame: Leaderboard DataFrame with:
@@ -956,6 +969,7 @@ def score_models(
               '{func_name}_overall'
             - Count columns for dataset, market, and all questions
             - The 'organization', 'model', 'model_pk' associated with a forecast set
+            - Rescaled scores for those calculated by the `primary_scoring_func`
     """
     df = df.copy()
 
@@ -1021,6 +1035,11 @@ def score_models(
         ) / 2
 
     df_leaderboard["n_overall"] = df_leaderboard["n_dataset"] + df_leaderboard["n_market"]
+
+    df_leaderboard = rescale_difficulty_adjusted_brier(
+        df_leaderboard=df_leaderboard,
+        primary_scoring_func=primary_scoring_func,
+    )
     return df_leaderboard
 
 
@@ -1034,8 +1053,8 @@ def generate_simulated_leaderboards(
 
     Args:
         df (pd.DataFrame): Combined forecast set to sample from.
-        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]):
-            Function to compute the primary overall score.
+        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]): Function to compute the
+                     primary overall score.
         N (int): Number of bootstrap replicates to generate.
 
     Returns:
@@ -1069,7 +1088,11 @@ def generate_simulated_leaderboards(
             .apply(question_level_bootstrap, include_groups=False)
             .reset_index()
         )
-        df_simulated_leaderboard = score_models(df=df_bs, scoring_funcs=[primary_scoring_func])
+        df_simulated_leaderboard = score_models(
+            df=df_bs,
+            scoring_funcs=[primary_scoring_func],
+            primary_scoring_func=primary_scoring_func,
+        )
 
         df_simulated_leaderboard.set_index("model_pk")[
             f"{primary_scoring_func.__name__}_overall"
@@ -1107,8 +1130,8 @@ def get_confidence_interval(
     Args:
         df_leaderboard (pd.DataFrame): Leaderboard.
         df_simulated_scores (pd.DataFrame): Bootstrapped replicates of overall scores.
-        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]):
-            Function to compute the primary overall score.
+        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]): Function to compute the
+                     primary overall score.
         method (str): CI calculation method, either 'percentile' or 'bca'.
         show_histograms (bool): Whether to display simulated score histograms.
 
@@ -1276,6 +1299,37 @@ def get_simulation_performance_metrics(
     return df_leaderboard
 
 
+def rescale_difficulty_adjusted_brier(
+    df_leaderboard: pd.DataFrame,
+    primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
+) -> pd.DataFrame:
+    """Rescale scores such that Always 0.5 has an average score of 0.25.
+
+    Args:
+        df_leaderboard (pd.DataFrame): Leaderboard.
+        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]):
+            Function used to compute the primary overall score.
+
+    Returns:
+        pd.DataFrame: Leaderboard with updated scores.
+    """
+    columns_to_rescale = [
+        f"{primary_scoring_func.__name__}_dataset",
+        f"{primary_scoring_func.__name__}_market",
+        f"{primary_scoring_func.__name__}_overall",
+    ]
+
+    for col in columns_to_rescale:
+        always_0p5_score = df_leaderboard.loc[
+            (df_leaderboard["organization"] == ALWAYS_05_MODEL["organization"])
+            & (df_leaderboard["model"] == ALWAYS_05_MODEL["model"]),
+            col,
+        ].iloc[0]
+        df_leaderboard[col] += 0.25 - always_0p5_score
+
+    return df_leaderboard
+
+
 def make_leaderboard(
     leaderboard_entries: List[pd.DataFrame],
 ) -> Dict[str, str]:
@@ -1300,7 +1354,11 @@ def make_leaderboard(
     ]
 
     # Score
-    df_leaderboard = score_models(df=df, scoring_funcs=scoring_funcs)
+    df_leaderboard = score_models(
+        df=df,
+        scoring_funcs=scoring_funcs,
+        primary_scoring_func=primary_scoring_func,
+    )
 
     df_simulated_scores = generate_simulated_leaderboards(
         df=df,
