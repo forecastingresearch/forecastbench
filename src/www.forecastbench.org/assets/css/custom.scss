@@ -340,3 +340,23 @@ a.site-title:focus {
 }
 
 
+
+
+
+/* Info and pagination on same line */
+.info-pagination-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.info-pagination-wrapper .dataTables_info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.info-pagination-wrapper .dataTables_paginate {
+  flex-shrink: 0;
+}

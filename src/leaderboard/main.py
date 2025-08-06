@@ -23,6 +23,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from helpers import (  # noqa: E402
     constants,
     data_utils,
+    dates,
     decorator,
     env,
     git,
@@ -57,6 +58,8 @@ ALWAYS_05_MODEL = {
     "organization": "ForecastBench",
     "model": "Always 0.5",
 }
+
+LAST_UPDATED_DATE = dates.get_date_today_as_iso()
 
 
 def download_question_set_save_in_cache(
@@ -588,15 +591,21 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                pageLength:25,
                lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
                info: true,
-               dom:'<"top"lfr>t<"bottom"ip>',
-               search: { regex: true, smart: true }
+               dom:'<"top"lfr>t<"bottom"<"info-pagination-wrapper"ip>>',
+               search: { regex: true, smart: true },
+               infoCallback: function(settings, start, end, max, total, pre) {
+                   return pre + '<br>last updated {{ last_updated_date }}';
+               }
            });
         });
         """
     )
+
     js = template.render(
         data=df.to_dict(orient="records"),
+        last_updated_date=LAST_UPDATED_DATE,
     )
+
     return {
         "filename": "leaderboard_full.js",
         "js": js,
@@ -642,8 +651,11 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
               lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
               paging:true,
               info:true,
-              dom:'<"top"lfr>t<"bottom"ip>',
-              responsive:true
+              dom:'<"top"lfr>t<"bottom"<"info-pagination-wrapper"ip>>',
+              responsive:true,
+              infoCallback: function(settings, start, end, max, total, pre) {
+                  return pre + '<br>last updated {{ last_updated_date }}';
+              }
             });
           });
         """
@@ -651,6 +663,7 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
 
     js = template.render(
         data=df[["Rank", "Organization", "Model", "Overall"]].to_dict(orient="records"),
+        last_updated_date=LAST_UPDATED_DATE,
     )
 
     return {
