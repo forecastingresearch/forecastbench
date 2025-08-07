@@ -94,7 +94,7 @@ def compress_bucket(bucket):
 def main():
     """Manage nightly run."""
     dict_to_use_publish_question_set = "publish_question_set_make_llm_baseline"
-    timeout_publish_question_set = cloud_run.timeout_1h * 8
+    timeout_publish_question_set = cloud_run.timeout_1h * 12
     operation_publish_question_set = call_worker(
         dict_to_use=dict_to_use_publish_question_set,
         task_count=1,
@@ -126,10 +126,11 @@ def main():
     operation_compress_question_bank_bucket = compress_bucket(bucket=env.QUESTION_BANK_BUCKET)
 
     dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
+    timeout_resolve_and_leaderboard = cloud_run.timeout_1h * 4
     operation_resolve_and_leaderboard = call_worker(
         dict_to_use=dict_to_use_resolve_and_leaderboard,
         task_count=1,
-        timeout=cloud_run.timeout_1h * 3,
+        timeout=timeout_resolve_and_leaderboard,
     )
 
     dict_to_use_metadata = "metadata"
@@ -156,6 +157,7 @@ def main():
         operation=operation_resolve_and_leaderboard,
         name=dict_to_use_resolve_and_leaderboard,
         exit_on_error=True,
+        timeout=timeout_resolve_and_leaderboard,
     )
 
     operation_compress_processed_forecast_sets_bucket = compress_bucket(
