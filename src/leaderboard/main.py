@@ -117,6 +117,20 @@ def get_masks(df: pd.DataFrame) -> Dict[str, pd.Series]:
     }
 
 
+def set_model_pk(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Set the model primary key.
+
+    Args:
+        df (pd.DataFrame): Forecast set.
+
+    Returns:
+        df (pd.DataFrame): Forecast set with `model_pk` field.
+    """
+    df["model_pk"] = df["organization"] + "_" + df["model"]
+    return df
+
+
 def get_df_info(
     df: pd.DataFrame,
     org_and_model: Dict[str, str],
@@ -177,7 +191,7 @@ def get_df_info(
 
     df["organization"] = org_and_model["organization"]
     df["model"] = org_and_model["model"]
-    df["model_pk"] = df["organization"] + "_" + df["model"]
+    df = set_model_pk(df)
 
     return df.sort_values(by=["forecast_due_date", "source", "id"], ignore_index=True)
 
@@ -327,6 +341,7 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
         <th>P-value to Best</th>
         <th>Pct times № 1</th>
         <th>Pct times top 5%</th>
+        <th>x% oracle equiv</th>
         <th>Peer</th>
         <th>BSS</th>
       </tr>
@@ -386,6 +401,11 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
           }
           if (name==='95% CI') {
             col.title = '95% CI <i class="info circle icon" data-html="{{ col_desc_ci }}"></i>';
+            col.orderable=false;
+          }
+          if (name==='x% oracle equiv') {
+            col.title = 'x% oracle equiv <i class="info circle icon" '
+                        + ' data-html="{{ col_desc_x_pct_oracle }}"></i>';
             col.orderable=false;
           }
           if (name==="Peer") {
@@ -453,6 +473,11 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
         col_desc_pct_top_5_percentile=(
             f"Percentage of {N_REPLICATES:,} simulations in which this model ranked in the top 5%."
         ),
+        col_desc_x_pct_oracle=(
+            "This model is better than a refrence model that forecasts x% when the question "
+            "resolves to 1 and (1-x)% when the question resolved to 0. x moves in increments of 1 "
+            "from 0 - 100 inclusive. The 100% forecaster can be viewed as an oracle."
+        ),
         col_desc_peer=(
             "Peer score relative to the average Brier score on each question. "
             "Higher scores are better."
@@ -495,7 +520,8 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
             const data = {{ data }};
             const cols = ["Rank", "Organization", "Model", "Dataset", "N dataset",
                           "Market", "N market", "Overall", "N", "95% CI", "P-value to Best",
-                          "Pct times № 1", "Pct times top 5%", "Peer", "BSS"];
+                          "Pct times № 1", "Pct times top 5%", "x% oracle equiv",
+                          "Peer", "BSS"];
             const columns = cols.map(name => {
                 const col = { data: name, title: name };
                 if (["N dataset", "N market", "N"].includes(name)) col.visible = false;
@@ -536,7 +562,7 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                   col.orderSequence = ["asc", "desc"];
                 }
 
-                if (name === "P-value to Best") col.orderable = false;
+                if (name === "P-value to Best" || name === "x% oracle equiv") col.orderable = false;
 
                 if (name === "Pct times № 1") {
                   col.render = (d, t) => (t === "display" ? Math.round(d) + "%" : d);
@@ -575,6 +601,7 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                    <th>P-value to Best</th>
                    <th>Pct times № 1</th>
                    <th>Pct times top 5%</th>
+                   <th>x% oracle equiv</th>
                    <th>Peer</th>
                    <th>BSS</th>
                  </tr>
@@ -772,6 +799,8 @@ def write_leaderboard(
             "<0.001" if p < 0.001 else "<0.01" if p < 0.01 else "<0.05" if p < 0.05 else f"{p:.2f}"
         )
     )
+    df["x_pct_oracle_equivalent"] = df["x_pct_oracle_equivalent"].map("{:.0%}".format)
+
     # Set the p-value for the best to N/A
     df.loc[0, "p_value_one_sided"] = "—"
 
@@ -790,6 +819,7 @@ def write_leaderboard(
             "p_value_one_sided",
             "pct_times_best_performer",
             "pct_times_top_5_percentile",
+            "x_pct_oracle_equivalent",
             "peer_score_overall",
             "brier_skill_score_overall",
         ]
@@ -807,6 +837,7 @@ def write_leaderboard(
             "p_value_one_sided": "P-value to Best",
             "pct_times_best_performer": "Pct times № 1",
             "pct_times_top_5_percentile": "Pct times top 5%",
+            "x_pct_oracle_equivalent": "x% oracle equiv",
             "peer_score_overall": "Peer",
             "brier_skill_score_overall": "BSS",
         }
@@ -1343,6 +1374,150 @@ def rescale_difficulty_adjusted_brier(
     return df_leaderboard
 
 
+def get_x_pct_oracle_model_name(pct: float):
+    """
+    Get the name of the pct forecaster.
+
+    Args:
+        pct (float): the x% of `add_x_pct_oracles`.
+
+    Returns:
+        str: the model name associated with `pct`.
+    """
+    return f"{round(pct*100, 1)}% forecaster"
+
+
+def get_x_pct_oracle_increments() -> List[float]:
+    """
+    Get the increments for the x% oracles.
+
+    Args:
+        None.
+
+    Returns:
+        List[float]: the threshholds for the x% oracles.
+    """
+    return [round(i * 0.005, 3) for i in range(201)]
+
+
+def add_x_pct_oracles(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add x% oracles to the combined forecast set.
+
+    Args:
+        df (pd.DataFrame): Combined forecast set.
+
+    Returns:
+        pd.DataFrame: Combined forecast set with x% oracles.
+    """
+    # Copy a model that has forecast on every question
+    dummy_model_to_copy = BASELINE_ORG_NAIVE_MODEL
+
+    df_dummy = df[
+        (df["organization"] == dummy_model_to_copy["organization"])
+        & (df["model"] == dummy_model_to_copy["model"])
+    ].reset_index(drop=True)
+
+    for pct in get_x_pct_oracle_increments():
+        x_pct_oracle = df_dummy.copy()
+        x_pct_oracle["model"] = get_x_pct_oracle_model_name(pct)
+        x_pct_oracle["organization"] = constants.BENCHMARK_NAME
+        x_pct_oracle = set_model_pk(df=x_pct_oracle)
+        x_pct_oracle["forecast"] = -1.0
+        x_pct_oracle.loc[x_pct_oracle["resolved_to"] == 1, "forecast"] = pct
+        x_pct_oracle.loc[x_pct_oracle["resolved_to"] == 0, "forecast"] = 1 - pct
+        df_unset = x_pct_oracle[x_pct_oracle["forecast"] < 0]
+        if not df_unset.empty:
+            logger.warning(
+                df_unset[
+                    [
+                        "forecast_due_date",
+                        "model",
+                        "forecast",
+                        "resolved",
+                        "source",
+                        "id",
+                        "resolved_to",
+                    ]
+                ]
+            )
+            pd.set_option("display.max_columns", None)
+            pd.set_option("display.width", None)
+
+            for _, row in df_unset.iterrows():
+                print()
+                print(row.to_string())
+
+            raise ValueError("One of the resolved_to values was not 0 or 1")
+
+        df = pd.concat([df, x_pct_oracle], ignore_index=True)
+
+    return df
+
+
+def get_x_pct_oracle_equivalent(
+    df_leaderboard: pd.DataFrame,
+    primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
+) -> pd.DataFrame:
+    """Set the value for the pct forecaster equivalent column.
+
+    Args:
+        df_leaderboard (pd.DataFrame): Leaderboard.
+        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]):
+            Function used to compute the primary overall score.
+
+    Returns:
+        pd.DataFrame: Leaderboard with pct forecaster equivalent column
+    """
+    sorting_col = f"{primary_scoring_func.__name__}_overall"
+    df_leaderboard["x_pct_oracle_equivalent"] = -1.0
+
+    for pct in get_x_pct_oracle_increments():
+        x_pct_model_name = get_x_pct_oracle_model_name(pct)
+        x_pct_ref_model = df_leaderboard[
+            (df_leaderboard["organization"] == constants.BENCHMARK_NAME)
+            & (df_leaderboard["model"] == x_pct_model_name)
+        ]
+        if x_pct_ref_model.empty:
+            raise ValueError(f"Problem finding x% model for {x_pct_model_name}, using `pct={pct}`.")
+        threshold = x_pct_ref_model[sorting_col].iloc[0]
+        df_leaderboard.loc[df_leaderboard[sorting_col] <= threshold, "x_pct_oracle_equivalent"] = (
+            pct
+        )
+
+    df_leaderboard["x_pct_oracle_equivalent"] = (
+        np.ceil(df_leaderboard["x_pct_oracle_equivalent"] * 100) / 100
+    )
+
+    df_unset = df_leaderboard[df_leaderboard["x_pct_oracle_equivalent"] < 0]
+    if not df_unset.empty:
+        logger.warning(df_unset)
+        raise ValueError("Unable to set the x% oracle equivalents for the above models.")
+
+    return df_leaderboard
+
+
+def remove_x_pct_oracles(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Remove the x% forecasters from the dataframe.
+
+    Args:
+        df (pd.DataFrame): The combined forecast set or the leaderboard.
+
+    Returns:
+        pd.DataFrame: The same dataframe without the x% forecasters.
+    """
+    for pct in get_x_pct_oracle_increments():
+        df = df[
+            ~(
+                (df["organization"] == constants.BENCHMARK_NAME)
+                & (df["model"] == get_x_pct_oracle_model_name(pct))
+            )
+        ]
+
+    return df.reset_index(drop=True)
+
+
 def make_leaderboard(
     leaderboard_entries: List[pd.DataFrame],
 ) -> Dict[str, str]:
@@ -1357,6 +1532,7 @@ def make_leaderboard(
     logger.info(colored("Making leaderboard", "red"))
 
     df = combine_forecasting_rounds(leaderboard_entries)
+    df = add_x_pct_oracles(df=df)
 
     # The scoring functions to consider
     primary_scoring_func = two_way_fixed_effects
@@ -1373,6 +1549,17 @@ def make_leaderboard(
         primary_scoring_func=primary_scoring_func,
     )
 
+    # x% oracle equivalent
+    df_leaderboard = get_x_pct_oracle_equivalent(
+        df_leaderboard=df_leaderboard,
+        primary_scoring_func=primary_scoring_func,
+    )
+
+    # Remove x% oracles
+    df = remove_x_pct_oracles(df=df)
+    df_leaderboard = remove_x_pct_oracles(df=df_leaderboard)
+
+    # Get simulated scores
     df_simulated_scores = generate_simulated_leaderboards(
         df=df,
         primary_scoring_func=primary_scoring_func,
