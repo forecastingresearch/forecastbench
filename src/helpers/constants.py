@@ -142,18 +142,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "moonshotai/Kimi-K2-Instruct",
         "token_limit": 128000,
     },
-    "Llama-4-Scout-17B-16E-Instruct": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": META_ORG,
-        "full_name": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
-        "token_limit": 1048576,
-    },
-    "Llama-4-Maverick-17B-128E-Instruct-FP8": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": META_ORG,
-        "full_name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-        "token_limit": 1048576,
-    },
     # Mistral
     "mistral-large-2411": {
         "source": MISTRAL_SOURCE,
@@ -180,25 +168,13 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "claude-sonnet-4-20250514",
         "token_limit": 200000,
     },
-    "claude-opus-4-20250514": {
+    "claude-opus-4-1-20250805": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
-        "full_name": "claude-opus-4-20250514",
+        "full_name": "claude-opus-4-1-20250805",
         "token_limit": 200000,
     },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
-    "grok-4-0709": {
-        "source": XAI_SOURCE,
-        "org": XAI_ORG,
-        "full_name": "grok-4-0709",
-        "token_limit": 256000,
-    },
-    "grok-3-mini": {
-        "source": XAI_SOURCE,
-        "org": XAI_ORG,
-        "full_name": "grok-3-mini",
-        "token_limit": 131072,
-    },
 }
 
 MODEL_TOKEN_LIMITS = dict()
