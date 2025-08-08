@@ -69,6 +69,51 @@ ALWAYS_05_MODEL = {
 
 LAST_UPDATED_DATE = dates.get_date_today_as_iso()
 
+TOOLTIP_COLUMN_DESCRIPTIONS = {
+    "Organization": "The company or research organization that developed the model.",
+    "Model": "The name of the model that was used to generate the forecasts.",
+    "Dataset": (
+        "Average difficulty-adjusted Brier score on dataset questions. "
+        "Rescaled so that Always 0.5 has a score of 0.25. "
+        "Lower scores are better."
+    ),
+    "Market": (
+        "Average difficulty-adjusted Brier score on market questions. "
+        "Rescaled so that Always 0.5 has a score of 0.25. "
+        "Lower scores are better."
+    ),
+    "Overall": (
+        "Average difficulty-adjusted Brier score across all questions. "
+        "Rescaled so that the Always 0.5 forecaster has a score of 0.25. "
+        "Lower scores are better."
+    ),
+    "95% CI": "Bootstrapped 95% confidence interval for the Overall score.",
+    "P-value to best": (
+        "One-sided p-value comparing each model to the top-ranked model based on "
+        f"{N_REPLICATES:,} simulations, with<br>"
+        "H₀: This model performs at least as well as the top-ranked model.<br>"
+        "H₁: The top-ranked model outperforms this model."
+    ),
+    "Pct times № 1": (
+        f"Percentage of {N_REPLICATES:,} simulations in which this model was the best " "performer."
+    ),
+    "Pct times top 5%": (
+        f"Percentage of {N_REPLICATES:,} simulations in which this model ranked in the top 5%."
+    ),
+    "x% oracle equiv": (
+        "This model is most similar to a reference model that forecasts x% when the question "
+        "resolves to 1 and (1-x)% when the question resolved to 0. x moves in increments of 1 "
+        "from 0 - 100 inclusive. The 100% forecaster can be viewed as an oracle."
+    ),
+    "Peer": (
+        "Peer score relative to the average Brier score on each question. "
+        "Higher scores are better."
+    ),
+    "BSS": (
+        "Brier Skill Score using the ForecastBench Naive Forecaster. " "Higher scores are better."
+    ),
+}
+
 
 def download_question_set_save_in_cache(
     forecast_due_date: str,
@@ -346,7 +391,7 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
         <th>Overall (N)</th>
         <th><!-- N --></th>
         <th>95% CI</th>
-        <th>P-value to Best</th>
+        <th>P-value to best</th>
         <th>Pct times № 1</th>
         <th>Pct times top 5%</th>
         <th>x% oracle equiv</th>
@@ -365,7 +410,7 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
           if (['N dataset','N market','N'].includes(name)) col.visible = false;
           if (name==='Dataset') {
             col.title = 'Dataset (N) <i class="info circle icon" '
-                        + ' data-html="{{ col_desc_dataset }}"></i>';
+                        + ' data-html="{{ col_desc["Dataset"] }}"></i>';
             col.render = function(d,t,row){
                 return t==='display'?parseFloat(d).toFixed(3)+
                            ' <span class="n-count">('+
@@ -374,7 +419,7 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
           }
           if (name==='Market') {
             col.title = 'Market (N) <i class="info circle icon" '
-                        + ' data-html="{{ col_desc_market }}"></i>';
+                        + ' data-html="{{ col_desc["Market"] }}"></i>';
             col.render = function(d,t,row){
                 return t==='display'?parseFloat(d).toFixed(3) +
                 ' <span class="n-count">('+
@@ -383,46 +428,46 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
           }
           if (name==='Overall') {
             col.title = 'Overall (N) <i class="info circle icon" '
-                        + ' data-html="{{ col_desc_overall }}"></i>';
+                        + ' data-html="{{ col_desc["Overall"] }}"></i>';
             col.render = function(d,t,row){
                 return t==='display'?parseFloat(d).toFixed(3) +
                 ' <span class="n-count">('+
                 Number(row['N']).toLocaleString()+')</span>':d; };
             col.orderSequence = ['asc','desc'];
           }
-          if (name==='P-value to Best') {
-            col.title = 'P-value to Best <i class="info circle icon" '
-                        + ' data-html="{{ col_desc_p_val }}"></i>';
+          if (name==='P-value to best') {
+            col.title = 'P-value to best <i class="info circle icon" '
+                        + ' data-html="{{ col_desc["P-value to best"] }}"></i>';
             col.orderable=false;
           }
           if (name==='Pct times № 1') {
             col.title = 'Pct times № 1 <i class="info circle icon" '
-                        + ' data-html="{{ col_desc_pct_times_num_1 }}"></i>';
+                        + ' data-html="{{ col_desc["Pct times № 1"] }}"></i>';
             col.render = function(d,t){ return t==='display'?Math.round(d)+'%':d; };
             col.orderSequence = ['desc','asc'];
           }
           if (name==='Pct times top 5%') {
             col.title = 'Pct times top 5% <i class="info circle icon" '
-                        + ' data-html="{{ col_desc_pct_top_5_percentile }}"></i>';
+                        + ' data-html="{{ col_desc["Pct times top 5%"] }}"></i>';
             col.render = function(d,t){ return t==='display'?Math.round(d)+'%':d; };
             col.orderSequence = ['desc','asc'];
           }
           if (name==='95% CI') {
-            col.title = '95% CI <i class="info circle icon" data-html="{{ col_desc_ci }}"></i>';
+            col.title = '95% CI <i class="info circle icon" data-html="{{ col_desc["95% CI"] }}"></i>';
             col.orderable=false;
           }
           if (name==='x% oracle equiv') {
             col.title = 'x% oracle equiv <i class="info circle icon" '
-                        + ' data-html="{{ col_desc_x_pct_oracle }}"></i>';
+                        + ' data-html="{{ col_desc["x% oracle equiv"] }}"></i>';
             col.orderable=false;
           }
           if (name==="Peer") {
-            col.title = 'Peer <i class="info circle icon" data-html="{{ col_desc_peer }}"></i>';
+            col.title = 'Peer <i class="info circle icon" data-html="{{ col_desc["Peer"] }}"></i>';
             col.render = function(d,t){ return t==='display'?parseFloat(d).toFixed(3):d; };
             col.orderSequence = ['desc','asc'];
           }
           if (name==="BSS") {
-            col.title = 'BSS <i class="info circle icon" data-html="{{ col_desc_bss }}"></i>';
+            col.title = 'BSS <i class="info circle icon" data-html="{{ col_desc["BSS"] }}"></i>';
             col.render = function(d,t){ return t==='display'?parseFloat(d).toFixed(3):d; };
             col.orderSequence = ['desc','asc'];
           }
@@ -452,48 +497,7 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
         columns=json.dumps(df.columns.tolist()),
         leaderboard_update_date=LEADERBOARD_UPDATED_DATE_STR,
         sorting_column_number=sorting_column_number,
-        col_desc_dataset=(
-            "Average difficulty-adjusted Brier score on dataset-sourced questions. "
-            "Rescaled so that Always 0.5 has a score of 0.25. "
-            "Lower scores are better."
-        ),
-        col_desc_market=(
-            "Average difficulty-adjusted Brier score on market-sourced questions. "
-            "Rescaled so that Always 0.5 has a score of 0.25. "
-            "Lower scores are better."
-        ),
-        col_desc_overall=(
-            "Average difficulty-adjusted Brier score across all questions. "
-            "Rescaled so that Always 0.5 has a score of 0.25. "
-            "Lower scores are better."
-        ),
-        col_desc_ci="Bootstrapped 95% confidence interval for the Overall score.",
-        col_desc_p_val=(
-            "One-sided p-value comparing each model to the top-ranked model based on "
-            f"{N_REPLICATES:,} simulations, with<br>"
-            "H₀: This model performs at least as well as the top-ranked model.<br>"
-            "H₁: The top-ranked model outperforms this model."
-        ),
-        col_desc_pct_times_num_1=(
-            f"Percentage of {N_REPLICATES:,} simulations in which this model was the best "
-            "performer."
-        ),
-        col_desc_pct_top_5_percentile=(
-            f"Percentage of {N_REPLICATES:,} simulations in which this model ranked in the top 5%."
-        ),
-        col_desc_x_pct_oracle=(
-            "This model is better than a refrence model that forecasts x% when the question "
-            "resolves to 1 and (1-x)% when the question resolved to 0. x moves in increments of 1 "
-            "from 0 - 100 inclusive. The 100% forecaster can be viewed as an oracle."
-        ),
-        col_desc_peer=(
-            "Peer score relative to the average Brier score on each question. "
-            "Higher scores are better."
-        ),
-        col_desc_bss=(
-            "Brier Skill Score using the ForecastBench Naive Forecaster. "
-            "Higher scores are better."
-        ),
+        col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
     )
 
     basename = "leaderboard"
@@ -527,7 +531,7 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
         {
             const data = {{ data }};
             const cols = ["Rank", "Organization", "Model", "Dataset", "N dataset",
-                          "Market", "N market", "Overall", "N", "95% CI", "P-value to Best",
+                          "Market", "N market", "Overall", "N", "95% CI", "P-value to best",
                           "Pct times № 1", "Pct times top 5%", "x% oracle equiv",
                           "Peer", "BSS"];
             const columns = cols.map(name => {
@@ -570,7 +574,7 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                   col.orderSequence = ["asc", "desc"];
                 }
 
-                if (name === "P-value to Best" || name === "x% oracle equiv") col.orderable = false;
+                if (name === "P-value to best" || name === "x% oracle equiv") col.orderable = false;
 
                 if (name === "Pct times № 1") {
                   col.render = (d, t) => (t === "display" ? Math.round(d) + "%" : d);
@@ -597,36 +601,36 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                <thead>
                  <tr>
                    <th>Rank</th>
-                   <th>Organization</th>
-                   <th>Model</th>
-                   <th>Dataset (N)</th>
+                   <th class="column-header-tooltip" data-tooltip="Organization">Organization</th>
+                   <th class="column-header-tooltip" data-tooltip="Model">Model</th>
+                   <th class="column-header-tooltip" data-tooltip="Dataset (N)">Dataset (N)</th>
                    <th><!-- N dataset --></th>
-                   <th>Market (N)</th>
+                   <th class="column-header-tooltip" data-tooltip="Market (N)">Market (N)</th>
                    <th><!-- N market --></th>
-                   <th>Overall (N)</th>
+                   <th class="column-header-tooltip" data-tooltip="Overall (N)">Overall (N)</th>
                    <th><!-- N --></th>
-                   <th>95% CI</th>
-                   <th>P-value to Best</th>
-                   <th>Pct times № 1</th>
-                   <th>Pct times top 5%</th>
-                   <th>x% oracle equiv</th>
-                   <th>Peer</th>
-                   <th>BSS</th>
+                   <th class="column-header-tooltip" data-tooltip="95% CI">95% CI</th>
+                   <th class="column-header-tooltip" data-tooltip="P-value to best">P-value to best</th>
+                   <th class="column-header-tooltip" data-tooltip="Pct times № 1">Pct times № 1</th>
+                   <th class="column-header-tooltip" data-tooltip="Pct times top 5%">Pct times top 5%</th>
+                   <th class="column-header-tooltip" data-tooltip="x% oracle equiv">x% oracle equiv</th>
+                   <th class="column-header-tooltip" data-tooltip="Peer">Peer</th>
+                   <th class="column-header-tooltip" data-tooltip="BSS">BSS</th>
                  </tr>
                </thead>
                <tbody></tbody>
              </table>
              `);
-             $("#lb").DataTable({
+             const table = $("#lb").DataTable({
                data: data,
                columns: columns,
                order: [[cols.indexOf("Overall"), "asc"]],
-               responsive: true,
-               paging: true,
                pageLength:25,
                lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
+               paging: true,
                info: true,
                dom:'<"top"lfr>t<"bottom"<"info-pagination-wrapper"ip>>',
+               responsive: true,
                search: { regex: true, smart: true },
                createdRow: function(row, data, dataIndex) {
                  if ({{ model_highlight_rows | tojson }}.includes(data.Model)) {
@@ -637,7 +641,24 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                    return pre + '<br>last updated {{ last_updated_date }}';
                }
            });
+           // Initialize tooltips after table is created
+           initializeTooltips();
         });
+        // Tooltip content object (defined globally for access)
+        const tooltipContent = {
+          'Organization': `{{ col_desc["Organization"] }}`,
+          'Model': `{{ col_desc["Model"] }}`,
+          'Dataset (N)': `{{ col_desc["Dataset"] }}`,
+          'Market (N)': `{{ col_desc["Market"] }}`,
+          'Overall (N)': `{{ col_desc["Overall"] }}`,
+          '95% CI': `{{ col_desc["95% CI"] }}`,
+          'P-value to best': `{{ col_desc["P-value to best"] }}`,
+          'Pct times № 1': `{{ col_desc["Pct times № 1"] }}`,
+          'Pct times top 5%': `{{ col_desc["Pct times top 5%"] }}`,
+          'x% oracle equiv': `{{ col_desc["x% oracle equiv"] }}`,
+          'Peer': `{{ col_desc["Peer"] }}`,
+          'BSS': `{{ col_desc["BSS"] }}`
+        };
         """
     )
 
@@ -645,6 +666,7 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
         data=df.to_dict(orient="records"),
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
+        col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
     )
 
     return {
@@ -672,14 +694,14 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
               <thead>
                 <tr>
                   <th>Rank</th>
-                  <th>Organization</th>
-                  <th>Model</th>
-                  <th>Overall</th>
+                  <th class="column-header-tooltip" data-tooltip="Organization">Organization</th>
+                  <th class="column-header-tooltip" data-tooltip="Model">Model</th>
+                  <th class="column-header-tooltip" data-tooltip="Overall">Overall</th>
                 </tr>
               </thead>
             </table>
             `);
-            $('#lb').DataTable({
+            const table = $('#lb').DataTable({
               data:data,
               columns:[
                 {data:'Rank'},
@@ -703,7 +725,15 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
                   return pre + '<br>last updated {{ last_updated_date }}';
               }
             });
+            // Initialize tooltips after table is created
+            initializeTooltips();
           });
+        // Tooltip content object (defined globally for access)
+        const tooltipContent = {
+          'Organization': `{{ col_desc["Organization"] }}`,
+          'Model': `{{ col_desc["Model"] }}`,
+          'Overall': `{{ col_desc["Overall"] }}`
+        };
         """
     )
 
@@ -711,6 +741,7 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
         data=df[["Rank", "Organization", "Model", "Overall"]].to_dict(orient="records"),
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
+        col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
     )
 
     return {
@@ -854,7 +885,7 @@ def write_leaderboard(
             f"{primary_scoring_func.__name__}_overall": "Overall",
             "n_overall": "N",
             f"{primary_scoring_func.__name__}_ci": "95% CI",
-            "p_value_one_sided": "P-value to Best",
+            "p_value_one_sided": "P-value to best",
             "pct_times_best_performer": "Pct times № 1",
             "pct_times_top_5_percentile": "Pct times top 5%",
             "x_pct_oracle_equivalent": "x% oracle equiv",

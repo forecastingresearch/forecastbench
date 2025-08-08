@@ -1,0 +1,38 @@
+.tooltip {
+  position: absolute;
+  background: rgba(0, 1, 12, 0.85);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+  max-width: 300px;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tooltip.show {
+  opacity: 1;
+}
+
+.tooltip-arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: rgba(0, 1, 12, 0.85);
+  transform: rotate(45deg);
+}
+
+/* Column header tooltip trigger */
+.column-header-tooltip {
+  cursor: help;
+  position: relative;
+}
+
+.column-header-tooltip:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
