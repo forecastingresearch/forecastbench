@@ -42,6 +42,14 @@ LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %-d, %Y
 
 BASELINE_ORG_NAIVE_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Naive Forecaster"}
 
+HUMAN_SUPERFORECASTER = {
+    "organization": constants.BENCHMARK_NAME,
+    "model": "Superforecaster median forecast",
+}
+HUMAN_GENERAL_PUBLIC = {"organization": constants.BENCHMARK_NAME, "model": "Public median forecast"}
+
+HUMAN_MODELS_TO_HIGHLIGHT = [HUMAN_SUPERFORECASTER["model"], HUMAN_GENERAL_PUBLIC["model"]]
+
 LEADERBOARD_DECIMAL_PLACES = 3
 
 IMPUTED_CUTOFF_PCT = 5
@@ -620,6 +628,11 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                info: true,
                dom:'<"top"lfr>t<"bottom"<"info-pagination-wrapper"ip>>',
                search: { regex: true, smart: true },
+               createdRow: function(row, data, dataIndex) {
+                 if ({{ model_highlight_rows | tojson }}.includes(data.Model)) {
+                   $(row).css('background-color', '#fdece8');
+                 }
+               },
                infoCallback: function(settings, start, end, max, total, pre) {
                    return pre + '<br>last updated {{ last_updated_date }}';
                }
@@ -631,6 +644,7 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
     js = template.render(
         data=df.to_dict(orient="records"),
         last_updated_date=LAST_UPDATED_DATE,
+        model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
     )
 
     return {
@@ -680,6 +694,11 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
               info:true,
               dom:'<"top"lfr>t<"bottom"<"info-pagination-wrapper"ip>>',
               responsive:true,
+              createdRow: function(row, data, dataIndex) {
+                 if ({{ model_highlight_rows | tojson }}.includes(data.Model)) {
+                   $(row).css('background-color', '#fdece8');
+                 }
+               },
               infoCallback: function(settings, start, end, max, total, pre) {
                   return pre + '<br>last updated {{ last_updated_date }}';
               }
@@ -691,6 +710,7 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
     js = template.render(
         data=df[["Rank", "Organization", "Model", "Overall"]].to_dict(orient="records"),
         last_updated_date=LAST_UPDATED_DATE,
+        model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
     )
 
     return {
