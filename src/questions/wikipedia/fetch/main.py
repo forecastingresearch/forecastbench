@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+import time
 from datetime import datetime
 
 import pandas as pd
@@ -37,8 +38,10 @@ def get_edit_history_urls(page_title):
     last_seen_dates = set()
 
     while True:
+        time.sleep(1)
+
         history_url = base_history_url + offset
-        response = requests.get(history_url)
+        response = requests.get(history_url, headers=wikipedia.HEADERS)
         soup = BeautifulSoup(response.text, "html.parser")
         edits = soup.find_all("li", attrs={"data-mw-revid": True})
 
@@ -91,6 +94,7 @@ def download_tables(page):
     df = None
     for edit_date, url in tqdm(edit_history, f"Downloading edit histories for {page_title}"):
         try:
+            time.sleep(1)
             dfw = download_wikipedia_table(url=url, table_index=table_index)
             if n_rows_to_keep is not None:
                 dfw = dfw.iloc[:n_rows_to_keep]

@@ -23,7 +23,7 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 1000s \
+		--task-timeout 1h \
 		--memory 2Gi \
 		--max-retries 0 \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \

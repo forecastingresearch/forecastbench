@@ -4,6 +4,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 BENCHMARK_NAME = "ForecastBench"
+BENCHMARK_EMAIL = "forecastbench@forecastingresearch.org"
+BENCHMARK_URL = "https://www.forecastbench.org"
 
 BENCHMARK_START_YEAR = 2024
 BENCHMARK_START_MONTH = 5

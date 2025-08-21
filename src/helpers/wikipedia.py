@@ -22,6 +22,10 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+HEADERS = {
+    "User-Agent": f"{constants.BENCHMARK_NAME}Bot/0.0 ({constants.BENCHMARK_URL}; {constants.BENCHMARK_EMAIL})"
+}
+
 WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATETIME = (
     constants.QUESTION_BANK_DATA_STORAGE_START_DATETIME - timedelta(days=360 * 4)
 )
