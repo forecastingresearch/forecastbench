@@ -6,3 +6,4 @@ gcsfs==2025.7.0
 GitPython
 scipy
 termcolor
+slack_sdk

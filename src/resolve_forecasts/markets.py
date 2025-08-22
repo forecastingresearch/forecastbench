@@ -10,7 +10,7 @@ import pandas as pd
 from termcolor import colored
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from helpers import dates, resolution  # noqa: E402
+from helpers import dates, resolution, slack  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -87,17 +87,22 @@ def resolve(source, df, dfq, dfr):
             df_standard.loc[df_standard["id"] == mid, "resolution_date"] = resolution_date
 
             if resolved_value != 0 and resolved_value != 1:
-                # Print warning if market resolved to something other than 0 or 1. This can be
-                # valid, just want to be aware when this happens to ensure we're handling it
-                # correctly.
+                # Sometimes this happens, e.g.:
+                #   https://manifold.markets/bens/will-anyone-be-fired-or-resign-for
+                # Sometimes data was pulled incorrectly. Print a warning message to check data was
+                # pulled correctly.
+                #
+                # Set to np.nan for resolution purposes.
                 url = dfq[dfq["id"] == mid]["url"].iloc[0]
-                logger.warning(
-                    colored(
-                        f"`{source}` question {mid} resolved to {resolved_value} (not 0 or 1). "
-                        f"Check to ensure data pulled correctly.\n     {url}",
-                        "red",
-                    )
+                message = (
+                    f"`{source}` question {mid} resolved to {resolved_value} (not 0 or 1). "
+                    "Resolving to NaN for now. Check to ensure data pulled correctly.\n"
+                    f"{url}\n"
                 )
+                logger.warning(colored(message, "red"))
+                df_standard.loc[df_standard["id"] == mid, "resolved_to"] = np.nan
+                if not pd.isna(resolved_value):
+                    slack.send_message(message=message)
 
             if resolution_date <= forecast_due_date.date():
                 # Discard all forecasts that resolved <= forecast_due_date
