@@ -5,5 +5,5 @@ pandas
 pandas-market-calendars
 tqdm
 GitPython
-prophet
+prophet==1.1.6
 scipy
