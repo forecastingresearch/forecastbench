@@ -571,6 +571,7 @@ PAGES = [
             "id": "Player",
             "value": "Rating",
         },
+        "resolution_file_value_column_dtype": int,
         "question": (
             (
                 "According to Wikipedia, will {id} have an Elo rating on {resolution_date} that's "
@@ -597,6 +598,7 @@ PAGES = [
             "id": "Player",
             "value": "Rank",
         },
+        "resolution_file_value_column_dtype": int,
         "question": (
             (
                 "According to Wikipedia, will {id} have a FIDE ranking on {resolution_date} as "
@@ -624,6 +626,7 @@ PAGES = [
             "id": "Name",
             "value": "Event",
         },
+        "resolution_file_value_column_dtype": str,
         "question": (
             (
                 "According to Wikipedia, will {id} still hold the world record for {value} in "
@@ -666,6 +669,7 @@ PAGES = [
             "id": "Common name",
             "value": "Vaccine(s)",
         },
+        "resolution_file_value_column_dtype": str,
         "question": (
             (
                 "According to Wikipedia, will a vaccine have been developed for {id} by "
