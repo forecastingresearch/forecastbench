@@ -192,16 +192,11 @@ def get_response_from_xai_model(model_name, prompt, max_tokens, temperature, wai
 
     def api_call():
         response = xai_client.chat.completions.create(
-            model="grok-beta",
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
-            max_tokens=max_tokens,
         )
-        # return completion.choices[0].message
         return response.choices[0].message.content
-
-    # Grok is time limited to 5 RPS
-    time.sleep(0.2)
 
     return get_response_with_retry(api_call, wait_time, "xAI API request exceeded rate limit.")
 
@@ -301,7 +296,6 @@ def get_response_from_together_ai_model(model_name, prompt, max_tokens, temperat
                     {"role": "user", "content": prompt},
                 ],
                 temperature=temperature,
-                max_tokens=max_tokens,
             )
             response = chat_completion.choices[0].message.content
             return response
@@ -344,15 +338,24 @@ def get_response_from_google_model(model_name, prompt, max_tokens, temperature, 
     Returns:
         str: Response string from the API call.
     """
-    response = google_ai_client.models.generate_content(
-        model=model_name,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            candidate_count=1,
-            temperature=temperature,
-        ),
+
+    def api_call():
+        response = google_ai_client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                candidate_count=1,
+                temperature=temperature,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                    disable=True,
+                ),
+            ),
+        )
+        return response.text
+
+    return get_response_with_retry(
+        api_call, wait_time, "Google AI API request exceeded rate limit."
     )
-    return response.text
 
 
 def get_response_from_model(
