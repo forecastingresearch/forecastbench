@@ -106,9 +106,43 @@ MISTRAL_ORG = "Mistral"
 OAI_ORG = "OpenAI"
 QWEN_ORG = "Qwen"
 XAI_ORG = "xAI"
+ZAI_ORG = "Z.ai"
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/
+    "gpt-5-2025-08-07": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-5-2025-08-07",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
+        "use_web_search": False,
+    },
+    "gpt-5-mini-2025-08-07": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-5-mini-2025-08-07",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
+        "use_web_search": False,
+    },
+    "gpt-5-nano-2025-08-07": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-5-nano-2025-08-07",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
+        "use_web_search": False,
+    },
     "gpt-4.1-2025-04-14": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -117,17 +151,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": False,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
-    },
-    "o4-mini-2025-04-16": {
-        "source": OAI_SOURCE,
-        "org": OAI_ORG,
-        "full_name": "o4-mini-2025-04-16",
-        "token_limit": 200000,
-        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
-        # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": True,
         # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
         "use_web_search": False,
     },
@@ -143,6 +166,12 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "org": MOONSHOT_ORG,
         "full_name": "moonshotai/Kimi-K2-Instruct",
         "token_limit": 128000,
+    },
+    "GLM-4.5-Air-FP8": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": ZAI_ORG,
+        "full_name": "zai-org/GLM-4.5-Air-FP8",
+        "token_limit": 131072,
     },
     # Mistral
     "mistral-large-2411": {
@@ -177,6 +206,31 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "token_limit": 200000,
     },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
+    "grok-4-0709": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-4-0709",
+        "token_limit": 256000,
+    },
+    "grok-3-mini": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-3-mini",
+        "token_limit": 131072,
+    },
+    # google context window from: https://ai.google.dev/gemini-api/docs/models
+    "gemini-2.5-pro": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "gemini-2.5-pro",
+        "token_limit": 1048576,
+    },
+    "gemini-2.5-flash": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "models/gemini-2.5-flash",
+        "token_limit": 1048576,
+    },
 }
 
 MODEL_TOKEN_LIMITS = dict()
