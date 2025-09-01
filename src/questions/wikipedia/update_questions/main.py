@@ -25,8 +25,6 @@ def create_resolution_file(dff, page, wid, question_key: pd.Series):
 
     filename is: `{source}/{wid}.jsonl`
     """
-    max_date = dff["date"].max()
-
     id_field = page["fields"]["id"]
     value_field = page["fields"]["value"]
 
@@ -43,24 +41,41 @@ def create_resolution_file(dff, page, wid, question_key: pd.Series):
     df.rename(columns={id_field: "id", value_field: "value"}, inplace=True)
     df["id"] = wid
 
-    # The case where some item has dropped off the list, mark as resolved
-    if max_date > df["date"].max():
+    def fill_missing_with_nan(df, dff):
+        """Sometimes values drop out of the table then reappear.
+
+        This could be for valid reasons, e.g. someone had a world record, lost it, then got it
+        again.
+
+        This could be for invalid reasons: a name change, e.g. Erigaisi Arjun -> Arjun Erigaisi
+
+        Either way, fill these with nan. Invalid reasons will need to be caught by hand and
+        invalidated in `src/helpers/wikipedia.py` IDS_TO_NULLIFY.
+        """
+        # fill in nan where the item has dropped out of the table
         all_dates = dff["date"].sort_values().unique()
         all_dates = all_dates[all_dates >= constants.QUESTION_BANK_DATA_STORAGE_START_DATETIME]
-        df_dates = df["date"].unique()
-        resolved_date = next(date for date in all_dates if date not in df_dates)
-        df_new_row = pd.DataFrame(
-            [
+        next_after_df_max_date = all_dates[all_dates > df["date"].max()]
+        max_cutoff = (
+            next_after_df_max_date.min() if len(next_after_df_max_date) > 0 else df["date"].max()
+        )
+        all_dates = all_dates[(all_dates <= max_cutoff) & (all_dates >= df["date"].min())]
+        drop_out_dates = []
+        for drop_out_date in [date for date in all_dates if date not in df["date"].unique()]:
+            drop_out_dates.append(
                 {
                     "id": wid,
                     "value": None,
-                    "date": resolved_date,
+                    "date": drop_out_date,
                 }
-            ]
-        )
-        df = pd.concat([df, df_new_row], ignore_index=True)
+            )
+        df = pd.concat([df, pd.DataFrame(drop_out_dates)], ignore_index=True)
+        return df
+
+    df = fill_missing_with_nan(df=df, dff=dff)
+
     df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
-    df = df.sort_values(by="date")
+    df = df.sort_values(by="date", ignore_index=True)
 
     local_filename = f"/tmp/{wid}.jsonl"
     df.to_json(local_filename, orient="records", lines=True, date_format="iso")

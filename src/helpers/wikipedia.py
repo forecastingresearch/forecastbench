@@ -135,17 +135,33 @@ transform_id_mapping = {
 }
 
 
+IDS_TO_NULLIFY = set(
+    [
+        # Names on table: "R. Vaishali", "Vaishali Rameshbabu",
+        "98e72a2d4c6daa0b0d8aee1d02a8628bbacf713f0e44b02f80a12b1dae1c618f",  # ranking
+        "149b5a465d9640ee10afcd1c6dde90627a4b58918111c14455d369f304aae454",  # elo rating
+        # Names on table: "Erigaisi Arjun", "Arjun Erigaisi",
+        "b70970a0440d1b7dedde9220fb60ffe3f2ed8b00ef12b45341772046caa12092",  # ranking
+        "3ff636ffa947b8f0f3adb55964cd75294716abea2c27933ad89d7abff42d633e",  # elo rating
+        # Names on table: "Praggnanandhaa R", "R Praggnanandhaa",
+        "7687186d5e0807f8925a694beafb3d6e057978a9a01f0d1a3e0eaf1a49959e78",  # ranking
+        "d2cfcce09363ddad01df31559624e330557f69eabcab39ed3734c11a60f153c7",  # elo rating
+    ]
+)
+
+
 def transform_id(wid):
     """Transform old id to new id.
 
     Now that question sets have been created, we cannot replace old ids. Hence, this transformation
     function is necessary to handle bugs in id creation. See issue #123 for the first such bug.
     """
-    if wid in transform_id_mapping.keys():
+    new_id = transform_id_mapping.get(wid)
+    if new_id is not None:
         logger.info(
             f"In wikipedia.transform_ids(): Transforming {wid} --> {transform_id_mapping[wid]}."
         )
-        return transform_id_mapping[wid]
+        return new_id
     return wid
 
 
@@ -492,6 +508,10 @@ def backfill_for_forecast(mid, dfr):
 def resolve(mid, dfr, forecast_due_date, resolution_date):
     """Resolve Wikipedia forecast questions."""
     mid = transform_id(mid)
+    if mid in IDS_TO_NULLIFY:
+        logger.info(f"Forcing nullification of {mid}.")
+        return np.nan
+
     d = id_unhash(mid)
     if d is None:
         logger.error(f"Wikipedia: could NOT unhash {mid}")
@@ -507,7 +527,7 @@ def resolve(mid, dfr, forecast_due_date, resolution_date):
     if forecast_due_date_value is None:
         logger.info(
             f"Nullifying Wikipedia market {mid}. "
-            "The forecast question resolved between the freeze date and the forecast due date."
+            "The forecast question resolved between the freeze date and the forecast due date.\n"
         )
         return np.nan
 
