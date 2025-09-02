@@ -86,12 +86,8 @@ def get_edit_history(page_title):
     return edit_history
 
 
-def download_wikipedia_table(page_title, revid, table_index, session):
-    """Download tables from url.
-
-    If `table_index` is an int, download just that table from the url.
-    Otherwise, if `table_index` is a list, download those tables and concatenate.
-    """
+def download_wikipedia_table(page_title, edit_date, revid, table_index, session):
+    """Download tables from url."""
     url = f"https://en.wikipedia.org/api/rest_v1/page/html/{page_title}/{revid}"
     while True:
         response = session.get(url, timeout=30)
@@ -116,11 +112,12 @@ def download_wikipedia_table(page_title, revid, table_index, session):
         break
 
     tables = pd.read_html(BytesIO(response.content))
-    return (
-        tables[table_index]
-        if isinstance(table_index, int)
-        else pd.concat([tables[i] for i in table_index])
+    table_index_to_use = max(
+        [e for e in table_index if e["start_date"] <= edit_date.date()],
+        key=lambda e: e["start_date"],
     )
+    ti = table_index_to_use["table_index"]
+    return tables[ti] if isinstance(ti, int) else pd.concat([tables[i] for i in ti])
 
 
 def download_tables(page):
@@ -143,6 +140,7 @@ def download_tables(page):
         try:
             dfw = download_wikipedia_table(
                 page_title=page_title,
+                edit_date=edit_date,
                 revid=revid,
                 table_index=table_index,
                 session=session,

@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 
 import numpy as np
@@ -582,7 +582,12 @@ PAGES = [
     {
         "id_root": "FIDE_rankings_elo_rating",
         "page_title": "FIDE_rankings",
-        "table_index": [1, 3],
+        "table_index": [
+            {
+                "start_date": WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+                "table_index": [1, 3],
+            },
+        ],
         "question_type": QuestionType.ONE_PERCENT_MORE,
         "key": {
             "id",
@@ -609,7 +614,12 @@ PAGES = [
     {
         "id_root": "FIDE_rankings_ranking",
         "page_title": "FIDE_rankings",
-        "table_index": [1, 3],
+        "table_index": [
+            {
+                "start_date": WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+                "table_index": [1, 3],
+            },
+        ],
         "question_type": QuestionType.SAME_OR_LESS,
         "key": {
             "id",
@@ -636,7 +646,16 @@ PAGES = [
     {
         "id_root": "List_of_world_records_in_swimming",
         "page_title": "List_of_world_records_in_swimming",
-        "table_index": [0, 2],
+        "table_index": [
+            {
+                "start_date": WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+                "table_index": [0, 2],
+            },
+            {
+                "start_date": datetime(2025, 5, 4).date(),
+                "table_index": [0, 1],
+            },
+        ],
         "question_type": QuestionType.SAME,
         "key": {
             "id",
@@ -680,7 +699,12 @@ PAGES = [
     {
         "id_root": "List_of_infectious_diseases",
         "page_title": "List_of_infectious_diseases",
-        "table_index": 0,
+        "table_index": [
+            {
+                "start_date": WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+                "table_index": 0,
+            },
+        ],
         "question_type": QuestionType.MORE,
         "key": {
             "id",
@@ -721,3 +745,6 @@ PAGES = [
         "value_func": "get_value_List_of_infectious_diseases",
     },
 ]
+
+for page in PAGES:
+    page["table_index"].sort(key=lambda e: e["start_date"])
