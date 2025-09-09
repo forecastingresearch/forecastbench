@@ -40,13 +40,22 @@ logger = logging.getLogger(__name__)
 
 LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %-d, %Y")
 
-BASELINE_ORG_NAIVE_MODEL = {"organization": constants.BENCHMARK_NAME, "model": "Naive Forecaster"}
+BASELINE_ORG_NAIVE_MODEL = {
+    "organization": constants.BENCHMARK_NAME,
+    "model": "Naive Forecaster",
+    "model_organization": constants.BENCHMARK_NAME,
+}
 
 HUMAN_SUPERFORECASTER = {
     "organization": constants.BENCHMARK_NAME,
     "model": "Superforecaster median forecast",
+    "model_organization": constants.BENCHMARK_NAME,
 }
-HUMAN_GENERAL_PUBLIC = {"organization": constants.BENCHMARK_NAME, "model": "Public median forecast"}
+HUMAN_GENERAL_PUBLIC = {
+    "organization": constants.BENCHMARK_NAME,
+    "model": "Public median forecast",
+    "model_organization": constants.BENCHMARK_NAME,
+}
 
 HUMAN_MODELS_TO_HIGHLIGHT = [HUMAN_SUPERFORECASTER["model"], HUMAN_GENERAL_PUBLIC["model"]]
 
@@ -70,7 +79,8 @@ ALWAYS_05_MODEL = {
 LAST_UPDATED_DATE = dates.get_date_today_as_iso()
 
 TOOLTIP_COLUMN_DESCRIPTIONS = {
-    "Organization": "The company or research organization that developed the model.",
+    "Organization": "The team that submitted forecasts.",
+    "Model Organization": "The organization that developed the model.",
     "Model": "The name of the model that was used to generate the forecasts.",
     "Dataset": (
         "Average difficulty-adjusted Brier score on dataset questions. "
@@ -244,6 +254,7 @@ def get_df_info(
 
     df["organization"] = org_and_model["organization"]
     df["model"] = org_and_model["model"]
+    df["model_organization"] = org_and_model["model_organization"]
     df = set_model_pk(df)
 
     return df.sort_values(by=["forecast_due_date", "source", "id"], ignore_index=True)
@@ -383,6 +394,7 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
       <tr>
         <th>Rank</th>
         <th>Organization</th>
+        <th>Model Organization</th>
         <th>Model</th>
         <th>Dataset (N)</th>
         <th><!-- N dataset --></th>
@@ -530,13 +542,41 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
         $(function()
         {
             const data = {{ data }};
-            const cols = ["Rank", "Organization", "Model", "Dataset", "N dataset",
+            const cols = ["Rank", "Team", "Model Organization", "Model Organization Logo", "Model",
+                          "Dataset", "N dataset",
                           "Market", "N market", "Overall", "N", "95% CI", "P-value to best",
                           "Pct times № 1", "Pct times top 5%", "x% oracle equiv",
                           "Peer", "BSS"];
             const columns = cols.map(name => {
                 const col = { data: name, title: name };
-                if (["N dataset", "N market", "N"].includes(name)) col.visible = false;
+                if (name === "Rank") {
+                  col.className = 'dt-center';
+                }
+                if (name === "Team") {
+                  col.className = 'dt-center';
+                  col.render = d =>
+                      d
+                      ? `<img src="/assets/images/org_logos/${d}" alt="" style="height:20px">`
+                      : '';
+                }
+
+                if (name === "Model Organization") {
+                  col.title = "Org";
+                  col.className = 'dt-center';
+                  col.render = (d, t, row) => {
+                    if (t === 'display') {
+                      return row['Model Organization Logo']
+                        ? `<img src="/assets/images/org_logos/${row['Model Organization Logo']}"
+                                alt="${d}" style="height:20px">`
+                        : d;
+                    }
+                    return d; // Use text value for search/sort
+                  };
+                }
+
+                if (["N dataset", "N market", "N", "Model Organization Logo"].includes(name)) {
+                  col.visible = false;
+                }
 
                 if (name === "Dataset") {
                   col.title = "Dataset (N)";
@@ -601,7 +641,9 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                <thead>
                  <tr>
                    <th>Rank</th>
-                   <th class="column-header-tooltip" data-tooltip="Organization">Organization</th>
+                   <th class="column-header-tooltip" data-tooltip="Team">Team</th>
+                   <th class="column-header-tooltip" data-tooltip="Org">Org</th>
+                   <th><!-- Model Organization Logo --></th>
                    <th class="column-header-tooltip" data-tooltip="Model">Model</th>
                    <th class="column-header-tooltip" data-tooltip="Dataset (N)">Dataset (N)</th>
                    <th><!-- N dataset --></th>
@@ -646,7 +688,8 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
         });
         // Tooltip content object (defined globally for access)
         const tooltipContent = {
-          'Organization': `{{ col_desc["Organization"] }}`,
+          'Team': `{{ col_desc["Organization"] }}`,
+          'Org': `{{ col_desc["Model Organization"] }}`,
           'Model': `{{ col_desc["Model"] }}`,
           'Dataset (N)': `{{ col_desc["Dataset"] }}`,
           'Market (N)': `{{ col_desc["Market"] }}`,
@@ -694,7 +737,7 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
               <thead>
                 <tr>
                   <th>Rank</th>
-                  <th class="column-header-tooltip" data-tooltip="Organization">Organization</th>
+                  <th class="column-header-tooltip" data-tooltip="Model Organization">Org</th>
                   <th class="column-header-tooltip" data-tooltip="Model">Model</th>
                   <th class="column-header-tooltip" data-tooltip="Overall">Overall</th>
                 </tr>
@@ -704,8 +747,20 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
             const table = $('#lb').DataTable({
               data:data,
               columns:[
-                {data:'Rank'},
-                {data:'Organization'},
+                {data:'Rank', className: 'dt-center'},
+                {
+                  data:'Model Organization',
+                  className: 'dt-center',
+                  render: (d, type, row) => {
+                    if (type === 'display') {
+                      return row['Model Organization Logo']
+                        ? `<img src="/assets/images/org_logos/${row['Model Organization Logo']}"
+                                alt="${d}" style="height:20px">`
+                        : d;
+                    }
+                    return d; // Use text value for search/sort
+                  }
+                },
                 {data:'Model'},
                 {data:'Overall',render:d=>parseFloat(d).toFixed(3)}
               ],
@@ -730,7 +785,7 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
           });
         // Tooltip content object (defined globally for access)
         const tooltipContent = {
-          'Organization': `{{ col_desc["Organization"] }}`,
+          'Organization': `{{ col_desc["Model Organization"] }}`,
           'Model': `{{ col_desc["Model"] }}`,
           'Overall': `{{ col_desc["Overall"] }}`
         };
@@ -738,7 +793,9 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
     )
 
     js = template.render(
-        data=df[["Rank", "Organization", "Model", "Overall"]].to_dict(orient="records"),
+        data=df[
+            ["Rank", "Model Organization", "Model Organization Logo", "Model", "Overall"]
+        ].to_dict(orient="records"),
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
@@ -782,6 +839,9 @@ def write_leaderboard_js_files(df) -> None:
     Returns:
         None.
     """
+    df = df.copy()
+    df["Model Organization Logo"] = df["Model Organization"].map(constants.ORG_TO_LOGO).fillna("")
+    df["Team"] = df["Team"].apply(lambda x: constants.ORG_TO_LOGO.get(x, x))
     compact = write_leaderboard_js_file_compact(df=df)
     full = write_leaderboard_js_file_full(df=df)
 
@@ -859,6 +919,7 @@ def write_leaderboard(
         [
             "Rank",
             "organization",
+            "model_organization",
             "model",
             f"{primary_scoring_func.__name__}_dataset",
             "n_dataset",
@@ -876,7 +937,8 @@ def write_leaderboard(
         ]
     ].rename(
         columns={
-            "organization": "Organization",
+            "organization": "Team",
+            "model_organization": "Model Organization",
             "model": "Model",
             f"{primary_scoring_func.__name__}_dataset": "Dataset",
             "n_dataset": "N dataset",
@@ -896,7 +958,7 @@ def write_leaderboard(
 
     write_leaderboard_html_file(
         df=df,
-        sorting_column_number=6,
+        sorting_column_number=7,
     )
     write_leaderboard_js_files(df)
 
@@ -1092,6 +1154,7 @@ def score_models(
             df_qt.groupby(
                 [
                     "organization",
+                    "model_organization",
                     "model",
                     "model_pk",
                 ]
@@ -1117,6 +1180,7 @@ def score_models(
         results[1],
         on=[
             "organization",
+            "model_organization",
             "model",
             "model_pk",
         ],
@@ -1473,6 +1537,7 @@ def add_x_pct_oracles(df: pd.DataFrame) -> pd.DataFrame:
         x_pct_oracle = df_dummy.copy()
         x_pct_oracle["model"] = get_x_pct_oracle_model_name(pct)
         x_pct_oracle["organization"] = constants.BENCHMARK_NAME
+        x_pct_oracle["model_organization"] = constants.BENCHMARK_NAME
         x_pct_oracle = set_model_pk(df=x_pct_oracle)
         x_pct_oracle["forecast"] = -1.0
         x_pct_oracle.loc[x_pct_oracle["resolved_to"] == 1, "forecast"] = pct
@@ -1666,12 +1731,17 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
 
         organization = data.get("organization")
         model = data.get("model")
+        model_organization = data.get("model_organization")
         forecast_due_date = data.get("forecast_due_date")
         df = data.get("df")
 
         append_leaderboard_entry(
             leaderboard_entries=leaderboard_entries,
-            org_and_model={"organization": organization, "model": model},
+            org_and_model={
+                "organization": organization,
+                "model": model,
+                "model_organization": model_organization,
+            },
             df=df,
             forecast_due_date=forecast_due_date,
         )

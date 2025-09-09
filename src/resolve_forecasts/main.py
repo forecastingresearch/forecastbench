@@ -627,6 +627,7 @@ def driver(_: Any) -> None:
 
         organization = data.get("organization")
         model = data.get("model")
+        model_organization = data.get("model_organization")
         forecast_due_date = data.get("forecast_due_date")
         question_set_filename = data.get("question_set")
         df = data.get("df")
@@ -667,6 +668,7 @@ def driver(_: Any) -> None:
         team_forecast = {
             "organization": organization,
             "model": model,
+            "model_organization": model_organization,
             "forecast_due_date": forecast_due_date,
             "question_set": question_set_filename,
             # Convert to json then load to keep pandas json conversion

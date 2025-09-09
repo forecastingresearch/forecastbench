@@ -104,11 +104,27 @@ DEEPSEEK_ORG = "DeepSeek"
 MOONSHOT_ORG = "Moonshot"
 GOOGLE_ORG = "Google"
 META_ORG = "Meta"
-MISTRAL_ORG = "Mistral"
+MISTRAL_ORG = "Mistral AI"
+MISTRAL_ORG_1 = "Mistral"  # for some forecasts, "Mistral AI" was called "Mistral"
 OAI_ORG = "OpenAI"
 QWEN_ORG = "Qwen"
 XAI_ORG = "xAI"
 ZAI_ORG = "Z.ai"
+
+ORG_TO_LOGO = {
+    BENCHMARK_NAME: "fri.png",
+    ANTHROPIC_ORG: "anthropic.svg",
+    DEEPSEEK_ORG: "deepseek.svg",
+    MOONSHOT_ORG: "moonshot.svg",
+    GOOGLE_ORG: "deepmind.svg",
+    META_ORG: "meta.svg",
+    MISTRAL_ORG: "mistral.svg",
+    MISTRAL_ORG_1: "mistral.svg",
+    OAI_ORG: "openai.svg",
+    QWEN_ORG: "qwen.svg",
+    XAI_ORG: "xai.svg",
+    ZAI_ORG: "zai.svg",
+}
 
 ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
     # oai context window from: https://platform.openai.com/docs/models/

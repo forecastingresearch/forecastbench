@@ -438,14 +438,25 @@ def read_forecast_file(filename: str, f: Optional[TextIO] = None) -> Dict[str, A
 
     organization = data.get("organization")
     model = data.get("model")
+    model_organization = data.get("model_organization")
     forecast_due_date = data.get("forecast_due_date")
     question_set = data.get("question_set")
     forecasts = data.get("forecasts")
-    if not organization or not model or not forecast_due_date or not question_set or not forecasts:
+    if (
+        not organization
+        or not model
+        or not model_organization
+        or not forecast_due_date
+        or not question_set
+        or not forecasts
+    ):
         logger.error(colored(f"Problem processing {filename}. Missing required fields.", "yellow"))
         return retval_null
 
-    if forecast_due_date != question_set[:10]:
+    if question_set not in [
+        f"{forecast_due_date}-llm.json",
+        f"{forecast_due_date}-human.json",
+    ]:
         logger.error(
             colored(
                 f"In {filename}: forecast_due_date: {forecast_due_date}. "
@@ -498,10 +509,10 @@ def get_and_unpack_question_bank(
             dtype=dtype,
             convert_dates=False,
         )
-        if not df.empty:
-            # Allows us to use a dtype that may contain column names that are not in the df
-            dtype_modified = {k: v for k, v in dtype.items() if k in df.columns}
-            dfq = df.astype(dtype=dtype_modified) if dtype_modified else df
+        assert not df.empty, f"Could not read {local_filename}"
+        # Allows us to use a dtype that may contain column names that are not in the df
+        dtype_modified = {k: v for k, v in dtype.items() if k in df.columns}
+        dfq = df.astype(dtype=dtype_modified) if dtype_modified else df
         retval[source]["dfq"] = dfq
 
     # Resolution files
@@ -529,6 +540,7 @@ def get_and_unpack_question_bank(
             df_list = [
                 df for df in df_list if set(df.columns) == set(constants.RESOLUTION_FILE_COLUMNS)
             ]
+            assert len(df_list) > 0, f"Could not find a resolution file for {source}."
             dfr = pd.concat(df_list, ignore_index=True)
             dfr["date"] = pd.to_datetime(dfr["date"])
             dfr["id"] = dfr["id"].astype(str)
