@@ -66,6 +66,8 @@ RESOLUTION_FILE_COLUMN_DTYPE = {
     "date": str,
 }
 
+TEST_FORECAST_FILE_PREFIX = "TEST"
+
 # value is not included in dytpe because it's of type ANY
 RESOLUTION_FILE_COLUMNS = list(RESOLUTION_FILE_COLUMN_DTYPE.keys()) + ["value"]
 

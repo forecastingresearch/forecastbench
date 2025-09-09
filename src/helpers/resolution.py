@@ -381,7 +381,11 @@ def get_valid_forecast_files_and_dates(
                                      the folders they're in.
     """
     files = gcp.storage.list(bucket_name=bucket, mnt=env.BUCKET_MOUNT_POINT)
-    files = [f for f in files if f.endswith(".json")]
+    files = [
+        f
+        for f in files
+        if f.endswith(".json") and not f.startswith(constants.TEST_FORECAST_FILE_PREFIX)
+    ]
     if only_keep_date:
         return [f for f in files if f.startswith(only_keep_date)]
 

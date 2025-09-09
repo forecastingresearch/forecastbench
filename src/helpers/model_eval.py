@@ -704,7 +704,8 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
         new_file_name = f"{directory}/{forecast_due_date}.{org}.{model}_{file_prompt_type}.json"
         if test_or_prod == "TEST":
             new_file_name = (
-                f"{directory}/TEST.{forecast_due_date}.{org}.{model}_{file_prompt_type}.json"
+                f"{directory}/{constants.TEST_FORECAST_FILE_PREFIX}.{forecast_due_date}."
+                f"{org}.{model}_{file_prompt_type}.json"
             )
 
         model_name = (
