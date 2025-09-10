@@ -6,8 +6,6 @@ footer_scripts:
   - /assets/js/smooth/smooth-scroll.js
 ---
 
-
-<div class="page-title">{{ page.title }}</div>
 <section class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
@@ -85,5 +83,3 @@ The leaderboards from the ICLR 2025 paper are available both here and in the <a 
           </div>
       </div>
 </section>
-
-

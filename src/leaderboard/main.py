@@ -8,6 +8,7 @@ import shutil
 import sys
 import traceback
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -38,6 +39,34 @@ from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class LeaderboardType(str, Enum):
+    """Enumeration of leaderboard types.
+
+    This enum distinguishes between the two supported leaderboard variants:
+    * BASELINE: The baseline leaderboard: FB forecast files w/o freeze values.
+                Used when CLOUD_RUN_TASK_INDEX == 0.
+    * TOURNAMENT: The tournament leaderboard. All forecast files.
+                  Used when CLOUD_RUN_TASK_INDEX == 1.
+    """
+
+    BASELINE = "baseline"
+    TOURNAMENT = "tournament"
+
+
+try:
+    env_var = os.getenv("CLOUD_RUN_TASK_INDEX", 0)
+    TASK_NUMBER = int(env_var)
+    LEADERBOARD_TO_CREATE = list(LeaderboardType)[TASK_NUMBER]
+except (ValueError, IndexError) as e:
+    logger.error(
+        f"Improperly set environment variable: CLOUD_RUN_TASK_INDEX = {env_var}"
+        f"Valid values are in [0, {len(list(LeaderboardType))-1}]."
+    )
+    logger.error(e)
+    sys.exit(0)
+
 
 LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %-d, %Y")
 
@@ -197,6 +226,41 @@ def set_model_pk(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def filter_ForecastBench_freeze_value_file(org_and_model: Dict[str, str]) -> bool:
+    """Process a forecast file based on the leaderboard type and model criteria.
+
+    This function filters forecast files as we're creating two leaderboards:
+    * Baseline Leaderboard: FB files w/o freeze values
+    * Tournament Leaderboard: all forecast files
+
+    Args:
+        org_and_model (Dict[str, str]): Dictionary containing 'organization' and 'model' keys
+                                       identifying the forecast source.
+
+    Returns:
+        bool: True if the file should be filtered out:
+              * filter if this is the Baseline leaderboard and
+                * this is not a ForecastBench file
+                * this is a ForecastBench file with freeze values
+              * don't filter otherwise
+
+    Raises:
+        Exception: If CLOUD_RUN_TASK_INDEX environment variable is improperly formatted.
+    """
+    if LEADERBOARD_TO_CREATE == LeaderboardType.TOURNAMENT:
+        return False
+
+    if org_and_model["organization"] != constants.BENCHMARK_NAME:
+        return True
+
+    if any(
+        x in org_and_model["model"] for x in ("with freeze values", "with news", "with SECOND news")
+    ):
+        return True
+
+    return False
+
+
 def get_df_info(
     df: pd.DataFrame,
     org_and_model: Dict[str, str],
@@ -217,6 +281,9 @@ def get_df_info(
     if org_and_model.get("organization") != constants.BENCHMARK_NAME:
         if df["imputed"].mean() * 100 > IMPUTED_CUTOFF_PCT:
             return None
+
+    if filter_ForecastBench_freeze_value_file(org_and_model):
+        return None
 
     df = resolution.make_columns_hashable(df)
 
@@ -304,6 +371,9 @@ def upload_leaderboard(files: Dict[str, str]) -> None:
     Returns:
         None
     """
+    if env.RUNNING_LOCALLY:
+        return
+
     # Upload files to GCP bucket
     destination_folder = "leaderboards"
     for local_filename in files.keys():
@@ -528,7 +598,7 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
     )
 
-    basename = "leaderboard"
+    basename = f"leaderboard_{LEADERBOARD_TO_CREATE.value}"
     local_filename_html = f"/tmp/{basename}.html"
     with open(local_filename_html, "w", encoding="utf-8") as f:
         f.write(html)
@@ -544,7 +614,7 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
     )
 
 
-def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
+def write_leaderboard_js_file_full(df: pd.DataFrame) -> Dict[str, str]:
     """Generate JS file for website Leaderboard page.
 
     Args:
@@ -558,7 +628,8 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
         $(function()
         {
             const data = {{ data }};
-            const cols = ["Rank", "Team", "Model Organization", "Model Organization Logo", "Model",
+            const cols = ["Rank", {% if include_team %} "Team",{% endif %}
+                          "Model Organization", "Model Organization Logo", "Model",
                           "Dataset", "N dataset", "Dataset 95% CI",
                           "Market", "N market", "Market 95% CI",
                           "Overall", "N", "95% CI", "P-value to best",
@@ -660,7 +731,9 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                <thead>
                  <tr>
                    <th>Rank</th>
+                   {% if include_team %}
                    <th class="column-header-tooltip" data-tooltip="Team">Team</th>
+                   {% endif %}
                    <th class="column-header-tooltip" data-tooltip="Org">Org</th>
                    <th><!-- Model Organization Logo --></th>
                    <th class="column-header-tooltip" data-tooltip="Model">Model</th>
@@ -724,8 +797,7 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
           'x% oracle equiv': `{{ col_desc["x% oracle equiv"] }}`,
           'Peer': `{{ col_desc["Peer"] }}`,
           'BSS': `{{ col_desc["BSS"] }}`
-        };
-        """
+        };"""
     )
 
     js = template.render(
@@ -733,15 +805,16 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
+        include_team = leaderboard_type != LeaderboardType.BASELINE,
     )
 
     return {
-        "filename": "leaderboard_full.js",
+        "filename": f"leaderboard_{LEADERBOARD_TO_CREATE.value}_full.js",
         "js": js,
     }
 
 
-def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
+def write_leaderboard_js_file_compact(df: pd.DataFrame) -> Dict[str, str]:
     """Generate JS file for website Home page.
 
     Args:
@@ -752,11 +825,12 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
     """
     template = Template(
         """
+        ;(function(){ if(!document.getElementById('leaderboard-{{ leaderboard_type }}-compact')) return;
         $(function()
         {
             const data = {{ data }};
-            $('#leaderboard-table').html(`
-            <table id="lb" class="display stripe hover" style="width:100%">
+            $('#leaderboard-{{ leaderboard_type }}-compact').html(`
+            <table id="lb-{{ leaderboard_type }}" class="display stripe hover" style="width:100%">
               <thead>
                 <tr>
                   <th>Rank</th>
@@ -767,13 +841,14 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
               </thead>
             </table>
             `);
-            const table = $('#lb').DataTable({
+            const table = $('#lb-{{ leaderboard_type }}').DataTable({
               data:data,
               columns:[
-                {data:'Rank', className: 'dt-center'},
+                {data:'Rank', className:'dt-center', width:'5%'},
                 {
                   data:'Model Organization',
-                  className: 'dt-center',
+                  className:'dt-center',
+                  width:'10%',
                   render: (d, type, row) => {
                     if (type === 'display') {
                       return row['Model Organization Logo']
@@ -784,11 +859,13 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
                     return d; // Use text value for search/sort
                   }
                 },
-                {data:'Model'},
-                {data:'Overall',render:d=>parseFloat(d).toFixed(3)}
+                {data:'Model', width:'70%'},
+                {data:'Overall', render:d=>parseFloat(d).toFixed(3), width:'15%'}
               ],
+              autoWidth:false,
               order:[[3,'asc']],
               pageLength:10,
+              pagingType:'simple',
               lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
               paging:true,
               info:true,
@@ -812,7 +889,7 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
           'Model': `{{ col_desc["Model"] }}`,
           'Overall': `{{ col_desc["Overall"] }}`
         };
-        """
+        })();"""
     )
 
     js = template.render(
@@ -822,35 +899,13 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> None:
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
+        leaderboard_type=LEADERBOARD_TO_CREATE.value,
     )
 
     return {
-        "filename": "leaderboard_compact.js",
+        "filename": f"leaderboard_{LEADERBOARD_TO_CREATE.value}_compact.js",
         "js": js,
     }
-
-
-def upload_js_file_to_website_bucket(filename: str, js: str) -> None:
-    """
-    Upload a JavaScript file into the website bucket's assets/js directory.
-
-    Args:
-        filename (str): The name of the JS file to create (e.g., "leaderboard_compact.js").
-        js (str): The JavaScript content to write into the file.
-
-    Returns:
-        None
-    """
-    local_filename = f"/tmp/{filename}"
-    with open(local_filename, "w", encoding="utf-8") as f:
-        f.write(js)
-
-    destination_folder = "assets/js"
-    gcp.storage.upload(
-        bucket_name=env.WEBSITE_BUCKET,
-        local_filename=local_filename,
-        destination_folder=destination_folder,
-    )
 
 
 def write_leaderboard_js_files(df) -> None:
@@ -865,14 +920,23 @@ def write_leaderboard_js_files(df) -> None:
     df = df.copy()
     df["Model Organization Logo"] = df["Model Organization"].map(constants.ORG_TO_LOGO).fillna("")
     df["Team"] = df["Team"].apply(lambda x: constants.ORG_TO_LOGO.get(x, x))
-    compact = write_leaderboard_js_file_compact(df=df)
-    full = write_leaderboard_js_file_full(df=df)
 
-    for lb in [compact, full]:
-        upload_js_file_to_website_bucket(
-            filename=lb["filename"],
-            js=lb["js"],
-        )
+    leaderboards = [
+        write_leaderboard_js_file_compact(df=df),
+        write_leaderboard_js_file_full(df=df),
+    ]
+    for leaderboard in leaderboards:
+        local_filename = f"/tmp/{leaderboard['filename']}"
+        with open(local_filename, "w", encoding="utf-8") as f:
+            f.write(leaderboard["js"])
+
+        if not env.RUNNING_LOCALLY:
+            destination_folder = "assets/js"
+            gcp.storage.upload(
+                bucket_name=env.WEBSITE_BUCKET,
+                local_filename=local_filename,
+                destination_folder=destination_folder,
+            )
 
 
 def write_leaderboard(
@@ -1261,10 +1325,10 @@ def generate_simulated_leaderboards(
 
     df = df.copy()
 
-    this_func_name = inspect.currentframe().f_code.co_name
+    workspace_folder = f"{inspect.currentframe().f_code.co_name}/{LEADERBOARD_TO_CREATE.value}"
     workspace_dir = data_utils.get_workspace_dir(
         bucket=env.WORKSPACE_BUCKET,
-        folder=this_func_name,
+        folder=workspace_folder,
         recreate_folder=True,
     )
 
@@ -1805,6 +1869,7 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
             ready for leaderboard aggregation.
     """
     forecast_files, valid_dates = resolution.get_valid_forecast_files_and_dates(bucket=bucket)
+    logger.info(f"Processing forecast due dates: {valid_dates}.")
     local_forecast_set_dir = data_utils.get_local_file_dir(bucket=bucket)
     leaderboard_entries = []
     for f in forecast_files:
@@ -1843,12 +1908,12 @@ def driver(_: Any) -> None:
     Returns:
         None: Exits the process on completion.
     """
-    logger.info(colored("Making leaderboard.", "red"))
+    logger.info(colored(f"Making {LEADERBOARD_TO_CREATE.value.upper()} leaderboard.", "red"))
     leaderboard_entries = download_and_compile_processed_forecast_files(
         bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
     )
     make_leaderboard(leaderboard_entries=leaderboard_entries)
-    logger.info(colored("Done.", "red"))
+    logger.info(colored(f"Done making {LEADERBOARD_TO_CREATE.value.upper()} leaderboard.", "red"))
 
 
 if __name__ == "__main__":

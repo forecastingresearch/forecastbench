@@ -28,7 +28,7 @@ deploy : main.py requirements.txt Dockerfile model_release_dates.csv
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
-		--parallelism 1 \
+		--parallelism 2 \
 		--task-timeout 2h \
 		--memory 16Gi \
 		--cpu $(NUM_CPUS) \

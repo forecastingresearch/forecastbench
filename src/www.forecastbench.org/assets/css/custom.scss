@@ -67,6 +67,17 @@ body a:hover {
   position: relative;
 }
 
+// Add space between header action buttons
+.page__hero--overlay p a.btn {
+  margin: 0 0.3rem !important;
+  &:first-child {
+    margin-left: 0 !important;
+  }
+  &:last-child {
+    margin-right: 0 !important;
+  }
+}
+
 #particles-js {
   position: absolute;
   top: 0;
@@ -185,7 +196,13 @@ a.site-title:focus {
 /*
  * Full leaderboard
  */
-#leaderboard-table,
+/*
+ * Full leaderboard
+ */
+
+// Base table styling (when NOT in a wrapper)
+#leaderboard-baseline-compact,
+#leaderboard-tournament-compact,
 #leaderboard-table-full {
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -197,35 +214,87 @@ a.site-title:focus {
   margin-top: 1rem;
 }
 
-
-#leaderboard-table {
+// Specific styling for compact table on home page
+#leaderboard-baseline-compact,
+#leaderboard-tournament-compact{
   border-radius: 15px;
-  box-shadow:
-  0 5px 3px rgba(0,0,0,0.1),
-  0 10px 9px rgba(0,0,0,0.15);
+  box-shadow: 0 5px 3px rgba(0,0,0,0.1), 0 10px 9px rgba(0,0,0,0.15);
   padding: 1rem;
+  margin-top: -5rem;
 }
 
-#leaderboard-table {
-    margin-top: -6rem;
-}
-
-#leaderboard-table-full {
-    margin-top: 1rem;
-}
-
-#leaderboard-table table.dataTable,
+// Table content styling
+#leaderboard-baseline-compact table.dataTable,
+#leaderboard-tournament-compact table.dataTable,
 #leaderboard-table-full table.dataTable {
   font-size: 0.55rem;
 }
 
 .n-count {
-    color: #b9b9b9;
+  color: #b9b9b9;
 }
 
-#leaderboard-table td:nth-child(4),
+// Column highlighting
+#leaderboard-baseline-compact td:nth-child(4),
+#leaderboard-tournament-compact td:nth-child(4),
 #leaderboard-table-full td:nth-child(9) {
-    background-color: rgba(226, 62, 22, 0.04);
+  background-color: rgba(226, 62, 22, 0.04);
+}
+
+// Wrapper styling (for pages with title/intro text)
+.leaderboard-wrapper {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: 1.5rem;
+  background-color: #fff;
+  margin-top: 1rem;
+
+  .leaderboard-title {
+    margin: 0 0 1rem 0;
+    font-size: 1.5rem;
+  }
+
+  p {
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  // Remove card styling from tables inside wrapper
+  #leaderboard-baseline-compact,
+  #leaderboard-tournament-compact,
+  #leaderboard-table-full {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+  }
+}
+
+// Special wrapper for home page compact table
+.leaderboard-wrapper-home {
+  border: 1px solid #ddd;
+  border-radius: 15px;
+  box-shadow: 0 5px 3px rgba(0,0,0,0.1), 0 10px 9px rgba(0,0,0,0.15);
+  padding: 1rem;
+  background-color: #fff;
+  margin-top: -4.5rem;
+  margin-left: 0.5rem;
+
+  .leaderboard-title {
+    margin: 0 0 1rem 0;
+    font-size: 1.5rem;
+  }
+
+  #leaderboard-baseline-compact,
+  #leaderboard-tournament-compact {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+  }
 }
 /*
  * Done
@@ -256,6 +325,57 @@ a.site-title:focus {
   height: 2.6em;
   margin: 0;
   line-height: normal;
+}
+
+// Ensure the top controls and table are properly aligned
+.dataTables_wrapper .dataTables_length {
+  float: left !important;
+}
+
+.dataTables_wrapper .dataTables_filter {
+  float: right !important;
+}
+
+.dataTables_wrapper .dataTables_processing {
+  float: left !important;
+  clear: both;
+}
+
+// Make sure the table and controls container have consistent width
+.dataTables_wrapper {
+  width: 100% !important;
+}
+
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+// Ensure the table itself takes full width
+.dataTables_wrapper table.dataTable {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+// Override external DataTables CSS with more specific selectors
+.leaderboard-wrapper-home .dataTables_wrapper .dataTables_length {
+  float: left !important;
+  width: auto !important;
+}
+
+.leaderboard-wrapper-home .dataTables_wrapper .dataTables_filter {
+  float: right !important;
+  width: auto !important;
+}
+
+.leaderboard-wrapper-home .dataTables_wrapper {
+  width: 100% !important;
+}
+
+.leaderboard-wrapper-home .dataTables_wrapper table.dataTable {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .dataTables_wrapper table.dataTable tbody tr:hover {
