@@ -34,6 +34,7 @@ after_footer_scripts:
     <li>Human comparison groups are highlighted in red.</li>
     <li>The zero shot and scratchpad prompts used for the models run by ForecastBench can be found on <a href="https://github.com/forecastingresearch/forecastbench/blob/main/src/helpers/llm_prompts.py">GitHub <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</li>
     <li>The ForecastBench baseline forecasters are described on the <a href="https://github.com/forecastingresearch/forecastbench/wiki/Changelog#baseline-forecasters">Changelog <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</li>
+    <li>The "crowd forecast" provided to models run by ForecastBench were valid 10 days before the forecast due date. This delay exists to allow us to run human surveys periodically. Also note that these crowd forecasts only impact Market questions as there is no crowd forecast for Dataset questions.</li>
     </ul>
   </div>
 </section>

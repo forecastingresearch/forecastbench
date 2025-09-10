@@ -915,6 +915,12 @@ def write_leaderboard(
     # Set the p-value for the best to N/A
     df.loc[0, "p_value_one_sided"] = "—"
 
+    # For website communication purposes, change "freeze values" to "crowd forecast"
+    benchmark_mask = df["organization"] == constants.BENCHMARK_NAME
+    df.loc[benchmark_mask, "model"] = df.loc[benchmark_mask, "model"].str.replace(
+        "freeze values", "crowd forecast"
+    )
+
     df = df[
         [
             "Rank",
