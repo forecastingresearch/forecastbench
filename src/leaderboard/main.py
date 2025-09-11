@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -87,11 +88,13 @@ TOOLTIP_COLUMN_DESCRIPTIONS = {
         "Rescaled so that Always 0.5 has a score of 0.25. "
         "Lower scores are better."
     ),
+    "Dataset 95% CI": "Bootstrapped 95% confidence interval for the Dataset score.",
     "Market": (
         "Average difficulty-adjusted Brier score on market questions. "
         "Rescaled so that Always 0.5 has a score of 0.25. "
         "Lower scores are better."
     ),
+    "Market 95% CI": "Bootstrapped 95% confidence interval for the Market score.",
     "Overall": (
         "Average difficulty-adjusted Brier score across all questions. "
         "Rescaled so that the Always 0.5 forecaster has a score of 0.25. "
@@ -398,8 +401,10 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
         <th>Model</th>
         <th>Dataset (N)</th>
         <th><!-- N dataset --></th>
+        <th>Dataset 95% CI</th>
         <th>Market (N)</th>
         <th><!-- N market --></th>
+        <th>Market 95% CI</th>
         <th>Overall (N)</th>
         <th><!-- N --></th>
         <th>95% CI</th>
@@ -464,8 +469,19 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
             col.render = function(d,t){ return t==='display'?Math.round(d)+'%':d; };
             col.orderSequence = ['desc','asc'];
           }
+          if (name==='Dataset 95% CI') {
+            col.title = 'Dataset 95% CI <i class="info circle icon" ' +
+                        'data-html="{{ col_desc["Dataset 95% CI"] }}"></i>';
+            col.orderable=false;
+          }
+          if (name==='Market 95% CI') {
+            col.title = 'Market 95% CI <i class="info circle icon" ' +
+                        'data-html="{{ col_desc["Market 95% CI"] }}"></i>';
+            col.orderable=false;
+          }
           if (name==='95% CI') {
-            col.title = '95% CI <i class="info circle icon" data-html="{{ col_desc["95% CI"] }}"></i>';
+            col.title = '95% CI <i class="info circle icon" ' +
+                        'data-html="{{ col_desc["95% CI"] }}"></i>';
             col.orderable=false;
           }
           if (name==='x% oracle equiv') {
@@ -543,8 +559,9 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
         {
             const data = {{ data }};
             const cols = ["Rank", "Team", "Model Organization", "Model Organization Logo", "Model",
-                          "Dataset", "N dataset",
-                          "Market", "N market", "Overall", "N", "95% CI", "P-value to best",
+                          "Dataset", "N dataset", "Dataset 95% CI",
+                          "Market", "N market", "Market 95% CI",
+                          "Overall", "N", "95% CI", "P-value to best",
                           "Pct times № 1", "Pct times top 5%", "x% oracle equiv",
                           "Peer", "BSS"];
             const columns = cols.map(name => {
@@ -626,7 +643,9 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                   col.orderSequence = ["desc", "asc"];
                 }
 
-                if (name === "95% CI") col.orderable = false;
+                if (["Dataset 95% CI", "Market 95% CI", "95% CI"].includes(name)) {
+                  col.orderable = false;
+                }
 
                 if (name === "Peer" || name === "BSS") {
                   col.render = (d, t) => (t === "display" ? parseFloat(d).toFixed(3) : d);
@@ -647,8 +666,10 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
                    <th class="column-header-tooltip" data-tooltip="Model">Model</th>
                    <th class="column-header-tooltip" data-tooltip="Dataset (N)">Dataset (N)</th>
                    <th><!-- N dataset --></th>
+                   <th class="column-header-tooltip" data-tooltip="Dataset 95% CI">Dataset 95% CI</th>
                    <th class="column-header-tooltip" data-tooltip="Market (N)">Market (N)</th>
                    <th><!-- N market --></th>
+                   <th class="column-header-tooltip" data-tooltip="Market 95% CI">Market 95% CI</th>
                    <th class="column-header-tooltip" data-tooltip="Overall (N)">Overall (N)</th>
                    <th><!-- N --></th>
                    <th class="column-header-tooltip" data-tooltip="95% CI">95% CI</th>
@@ -692,7 +713,9 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> None:
           'Org': `{{ col_desc["Model Organization"] }}`,
           'Model': `{{ col_desc["Model"] }}`,
           'Dataset (N)': `{{ col_desc["Dataset"] }}`,
+          'Dataset 95% CI': `{{ col_desc["Dataset 95% CI"] }}`,
           'Market (N)': `{{ col_desc["Market"] }}`,
+          'Market 95% CI': `{{ col_desc["Market 95% CI"] }}`,
           'Overall (N)': `{{ col_desc["Overall"] }}`,
           '95% CI': `{{ col_desc["95% CI"] }}`,
           'P-value to best': `{{ col_desc["P-value to best"] }}`,
@@ -890,19 +913,22 @@ def write_leaderboard(
         df[col] = df[col].astype(int)
 
     # Format CI
-    df[f"{primary_scoring_func.__name__}_ci_lower"] = (
-        df[f"{primary_scoring_func.__name__}_ci_lower"].round(3).astype(str)
-    )
-    df[f"{primary_scoring_func.__name__}_ci_upper"] = (
-        df[f"{primary_scoring_func.__name__}_ci_upper"].round(3).astype(str)
-    )
-    df[f"{primary_scoring_func.__name__}_ci"] = (
-        "["
-        + df[f"{primary_scoring_func.__name__}_ci_lower"]
-        + ", "
-        + df[f"{primary_scoring_func.__name__}_ci_upper"]
-        + "]"
-    )
+    def format_ci(df, question_type):
+        col_prefix = (
+            f"{primary_scoring_func.__name__}"
+            if question_type == "overall"
+            else f"{primary_scoring_func.__name__}_{question_type}"
+        )
+        df[f"{col_prefix}_ci_lower"] = df[f"{col_prefix}_ci_lower"].round(3).astype(str)
+        df[f"{col_prefix}_ci_upper"] = df[f"{col_prefix}_ci_upper"].round(3).astype(str)
+        df[f"{col_prefix}_ci"] = (
+            "[" + df[f"{col_prefix}_ci_lower"] + ", " + df[f"{col_prefix}_ci_upper"] + "]"
+        )
+        return df
+
+    df = format_ci(df, "dataset")
+    df = format_ci(df, "market")
+    df = format_ci(df, "overall")
 
     df = df.sort_values(by=f"{primary_scoring_func.__name__}_overall", ignore_index=True)
     df["p_value_one_sided"] = df["p_value_one_sided"].apply(
@@ -929,8 +955,10 @@ def write_leaderboard(
             "model",
             f"{primary_scoring_func.__name__}_dataset",
             "n_dataset",
+            f"{primary_scoring_func.__name__}_dataset_ci",
             f"{primary_scoring_func.__name__}_market",
             "n_market",
+            f"{primary_scoring_func.__name__}_market_ci",
             f"{primary_scoring_func.__name__}_overall",
             "n_overall",
             f"{primary_scoring_func.__name__}_ci",
@@ -948,8 +976,10 @@ def write_leaderboard(
             "model": "Model",
             f"{primary_scoring_func.__name__}_dataset": "Dataset",
             "n_dataset": "N dataset",
+            f"{primary_scoring_func.__name__}_dataset_ci": "Dataset 95% CI",
             f"{primary_scoring_func.__name__}_market": "Market",
             "n_market": "N market",
+            f"{primary_scoring_func.__name__}_market_ci": "Market 95% CI",
             f"{primary_scoring_func.__name__}_overall": "Overall",
             "n_overall": "N",
             f"{primary_scoring_func.__name__}_ci": "95% CI",
@@ -964,7 +994,7 @@ def write_leaderboard(
 
     write_leaderboard_html_file(
         df=df,
-        sorting_column_number=7,
+        sorting_column_number=9,
     )
     write_leaderboard_js_files(df)
 
@@ -1245,24 +1275,45 @@ def generate_simulated_leaderboards(
 
     def bootstrap_and_score(idx):
         logger.info(f"[replicate {idx+1}/{N}] starting...")
-        out_path = Path(workspace_dir) / f"bootstrap_{idx}.parquet"
-        if out_path.exists():
-            return out_path
+        out_path_overall = Path(workspace_dir) / f"bootstrap_{idx}_overall.parquet"
+        out_path_dataset = Path(workspace_dir) / f"bootstrap_{idx}_dataset.parquet"
+        out_path_market = Path(workspace_dir) / f"bootstrap_{idx}_market.parquet"
+        if out_path_overall.exists() and out_path_dataset.exists() and out_path_market.exists():
+            return (
+                out_path_dataset,
+                out_path_market,
+                out_path_overall,
+            )
+
         df_bs = (
             df.groupby(["forecast_due_date", "source"])
             .apply(question_level_bootstrap, include_groups=False)
             .reset_index()
         )
-        df_simulated_leaderboard = score_models(
-            df=df_bs,
-            scoring_funcs=[primary_scoring_func],
-            primary_scoring_func=primary_scoring_func,
-        )
+        try:
+            df_simulated_leaderboard = score_models(
+                df=df_bs,
+                scoring_funcs=[primary_scoring_func],
+                primary_scoring_func=primary_scoring_func,
+            )
+        except Exception as e:
+            traceback.print_exc()
+            raise e
 
         df_simulated_leaderboard.set_index("model_pk")[
+            f"{primary_scoring_func.__name__}_dataset"
+        ].rename(f"bootstrap_{idx}").to_frame().to_parquet(out_path_dataset)
+        df_simulated_leaderboard.set_index("model_pk")[
+            f"{primary_scoring_func.__name__}_market"
+        ].rename(f"bootstrap_{idx}").to_frame().to_parquet(out_path_market)
+        df_simulated_leaderboard.set_index("model_pk")[
             f"{primary_scoring_func.__name__}_overall"
-        ].rename(f"bootstrap_{idx}").to_frame().to_parquet(out_path)
-        return out_path
+        ].rename(f"bootstrap_{idx}").to_frame().to_parquet(out_path_overall)
+        return (
+            out_path_dataset,
+            out_path_market,
+            out_path_overall,
+        )
 
     logger.info(f"Simulating using {env.NUM_CPUS} CPU(s).")
     paths = Parallel(
@@ -1273,19 +1324,30 @@ def generate_simulated_leaderboards(
     )(delayed(bootstrap_and_score)(i) for i in range(N))
     logger.info("Done simulating!")
 
-    df_simulated_scores = pd.concat([pd.read_parquet(p).squeeze() for p in paths], axis=1)
+    df_simulated_scores_dataset = pd.concat(
+        [pd.read_parquet(p[0]).squeeze() for p in paths], axis=1
+    )
+    df_simulated_scores_market = pd.concat([pd.read_parquet(p[1]).squeeze() for p in paths], axis=1)
+    df_simulated_scores_overall = pd.concat(
+        [pd.read_parquet(p[2]).squeeze() for p in paths], axis=1
+    )
     logger.info("Done creating df_simulated_scores!")
 
     # cleanup
     shutil.rmtree(workspace_dir)
 
-    logger.info(f"Simulated {df_simulated_scores.shape[1]} / {N}.")
-    return df_simulated_scores
+    assert (
+        df_simulated_scores_dataset.shape[1] == df_simulated_scores_market.shape[1]
+        and df_simulated_scores_overall.shape[1] == df_simulated_scores_market.shape[1]
+    ), "Assertion failed: Check simulation in `generate_simulated_leaderboards`."
+    logger.info(f"Simulated {df_simulated_scores_overall.shape[1]} / {N}.")
+    return df_simulated_scores_dataset, df_simulated_scores_market, df_simulated_scores_overall
 
 
 def get_confidence_interval(
     df_leaderboard: pd.DataFrame,
     df_simulated_scores: pd.DataFrame,
+    question_type: str,
     primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
     method: str = "percentile",
     show_histograms: bool = False,
@@ -1333,7 +1395,7 @@ def get_confidence_interval(
     method = method.lower()
     if method == "bca":
         # BCa notation from page 190 of https://hastie.su.domains/CASI/index.html
-        theta_hat = df_leaderboard[f"{primary_scoring_func.__name__}_overall"].values
+        theta_hat = df_leaderboard[f"{primary_scoring_func.__name__}_{question_type}"].values
         bs = df_simulated_scores.reindex(df_leaderboard["model_pk"]).values
         p0 = np.mean(bs < theta_hat[:, None], axis=1)
         z0 = norm.ppf(p0)
@@ -1353,12 +1415,13 @@ def get_confidence_interval(
     else:
         raise ValueError(f"Value passed for method ({method}) is not valid.")
 
-    df_leaderboard[f"{primary_scoring_func.__name__}_ci_lower"] = (
-        df_leaderboard["model_pk"].map(lower).values
+    col_prefix = (
+        f"{primary_scoring_func.__name__}"
+        if question_type == "overall"
+        else f"{primary_scoring_func.__name__}_{question_type}"
     )
-    df_leaderboard[f"{primary_scoring_func.__name__}_ci_upper"] = (
-        df_leaderboard["model_pk"].map(upper).values
-    )
+    df_leaderboard[f"{col_prefix}_ci_lower"] = df_leaderboard["model_pk"].map(lower).values
+    df_leaderboard[f"{col_prefix}_ci_upper"] = df_leaderboard["model_pk"].map(upper).values
     return df_leaderboard
 
 
@@ -1682,23 +1745,38 @@ def make_leaderboard(
     df_leaderboard = remove_x_pct_oracles(df=df_leaderboard)
 
     # Get simulated scores
-    df_simulated_scores = generate_simulated_leaderboards(
-        df=df,
-        primary_scoring_func=primary_scoring_func,
-        N=N_REPLICATES,
+    df_simulated_scores_dataset, df_simulated_scores_market, df_simulated_scores_overall = (
+        generate_simulated_leaderboards(
+            df=df,
+            primary_scoring_func=primary_scoring_func,
+            N=N_REPLICATES,
+        )
     )
 
     # CIs
     df_leaderboard = get_confidence_interval(
         df_leaderboard=df_leaderboard,
-        df_simulated_scores=df_simulated_scores,
+        df_simulated_scores=df_simulated_scores_dataset,
+        question_type="dataset",
+        primary_scoring_func=primary_scoring_func,
+    )
+    df_leaderboard = get_confidence_interval(
+        df_leaderboard=df_leaderboard,
+        df_simulated_scores=df_simulated_scores_market,
+        question_type="market",
+        primary_scoring_func=primary_scoring_func,
+    )
+    df_leaderboard = get_confidence_interval(
+        df_leaderboard=df_leaderboard,
+        df_simulated_scores=df_simulated_scores_overall,
+        question_type="overall",
         primary_scoring_func=primary_scoring_func,
     )
 
     # Compare to best model
     df_leaderboard = get_comparison_to_best_model(
         df_leaderboard=df_leaderboard,
-        df_simulated_scores=df_simulated_scores,
+        df_simulated_scores=df_simulated_scores_overall,
         primary_scoring_func=primary_scoring_func,
         is_centered=False,
     )
@@ -1706,7 +1784,7 @@ def make_leaderboard(
     # Simulation performance measures
     df_leaderboard = get_simulation_performance_metrics(
         df_leaderboard=df_leaderboard,
-        df_simulated_scores=df_simulated_scores,
+        df_simulated_scores=df_simulated_scores_overall,
     )
 
     # Write leaderboard
