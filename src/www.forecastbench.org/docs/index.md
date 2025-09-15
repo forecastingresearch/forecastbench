@@ -3,14 +3,15 @@ layout: splash
 title: "Docs"
 permalink: /docs/
 footer_scripts:
-  - /assets/js/smooth/smooth-scroll.js
+  - /assets/js/smooth-scroll.js
 ---
 
 <section class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
       <h1 class="site-feature-row__title">How does ForecastBench work?</h1>
-      <p>ForecastBench evaluates LLMs by regularly asking them to make probabilistic forecasts about future events.</p>
+      <p>ForecastBench is a dynamic, continuously-updated benchmark designed to measure the accuracy of ML systems on a constantly evolving set of forecasting questions.</p>
+      <p>We evaluate LLMs by regularly asking them to make probabilistic forecasts about future events, thereby creating a contamination-free benchmark.</p>
       <p>We use two types of binary prediction questions:
       <ul>
       <li><strong>Dataset questions</strong> are automatically generated from real-world time series (<a href="https://acleddata.com/" class="no-wrap">ACLED <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://db.nomics.world/" class="no-wrap">DBnomics <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://fred.stlouisfed.org/" class="no-wrap">FRED <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://finance.yahoo.com/" class="no-wrap">Yahoo! Finance <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, and <a href="https://www.wikipedia.org/" class="no-wrap">Wikipedia <i class="fa-solid fa-arrow-up-right-from-square"></i></a>) using pre-specified templates. Each dataset question generates multiple forecasts at different time horizons, since we ask the same question with eight different resolution dates, ranging from 7 days to 10 years out.</li>

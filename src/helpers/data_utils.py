@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import sys
+from typing import Tuple
 
 import pandas as pd
 
@@ -156,6 +157,8 @@ def get_local_file_dir(bucket: str) -> str:
     local_dir = "/tmp"
     filename = f"{bucket}.tar.gz"
     local_filename = f"/{local_dir}/{filename}"
+    if env.RUNNING_LOCALLY:
+        return f"/{local_dir}/{bucket}"
     gcp.storage.download(
         bucket_name=bucket,
         filename=filename,
@@ -265,8 +268,29 @@ def list_files(directory):
     return filenames
 
 
+def get_mounted_bucket(bucket: str) -> str:
+    """Return the local mount directory for a given GCP bucket.
+
+    Args:
+        bucket (str): Name of the GCP bucket.
+
+    Returns:
+        str: The local directory path where the bucket is mounted, or "." if:
+             - running locally, or
+             - the bucket name is empty, or
+             - the expected mount directory does not exist.
+    """
+    if env.RUNNING_LOCALLY:
+        return "."
+
+    mount_dir = f"{env.BUCKET_MOUNT_POINT}/{bucket}/"
+    return mount_dir if bucket and os.path.isdir(mount_dir) else "."
+
+
 def get_workspace_dir(
-    bucket: str = "", folder: str = "scratch", recreate_folder: bool = False
+    bucket: str = "",
+    folder: str = "scratch",
+    recreate_folder: bool = False,
 ) -> str:
     """
     Create or prepare a workspace directory.
@@ -282,13 +306,59 @@ def get_workspace_dir(
     Returns:
         str: The full path to the workspace directory.
     """
-    mount_dir = f"{env.BUCKET_MOUNT_POINT}/{bucket}"
-    base = mount_dir if bucket and os.path.isdir(mount_dir) else "."
+    base = get_mounted_bucket(bucket=bucket)
     path = os.path.join(base, folder)
+    return make_directory(path=path, recreate_folder=recreate_folder)
+
+
+def write_file_to_bucket(
+    bucket: str,
+    basename: str,
+    destination_folder: str,
+    data: str,
+) -> Tuple[str, str]:
+    """Write a string payload to a file inside a mounted GCP bucket.
+
+    It will make the folder `bucket/destination_folder` if it doesn't exist.
+
+    Args:
+        bucket (str): Name of the GCP bucket to write to.
+        basename (str): The filename (without folder path) to use for the output file.
+        destination_folder (str): The folder inside the bucket where the file should be placed.
+        data (str): The file contents to write.
+
+    Returns:
+        Tuple[str, str]:
+            - local_filename (str): The full path to the file written on the mounted filesystem.
+            - destination_filename (str): The path relative to the bucket root
+              (destination_folder/basename).
+    """
+    directory = get_mounted_bucket(bucket=bucket)
+    destination_filename = f"{destination_folder}/{basename}"
+    local_filename = f"{directory}/{destination_filename}"
+    os.makedirs(f"{directory}/{destination_folder}", exist_ok=True)
+    with open(local_filename, "w", encoding="utf-8") as f:
+        f.write(data)
+
+    return local_filename, destination_filename
+
+
+def make_directory(path: str, recreate_folder: bool = False) -> str:
+    """Create a directory at the given path, optionally recreating it if it exists.
+
+    Args:
+        path (str): The directory path to create.
+        recreate_folder (bool, optional): If False (default), raise FileExistsError if
+            the directory already exists. If True, delete the existing directory and
+            recreate it.
+
+    Returns:
+        str: The path of the created directory.
+    """
     if os.path.exists(path):
         if not recreate_folder:
             raise FileExistsError(
-                f"Directory {path} already exists. Pass `recreate=True` to overwrite."
+                f"Directory {path} already exists. Pass `recreate_folder=True` to overwrite."
             )
         shutil.rmtree(path)
     logger.info(f"Creating {path}")

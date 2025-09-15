@@ -6,7 +6,7 @@ import os
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
@@ -30,8 +30,6 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 100
 
 # Store here a growing list of all market sources ever used to allow for future resolution even when
 # a source is dropped from question curation.
@@ -369,9 +367,6 @@ def get_valid_forecast_files_and_dates(
 ) -> Tuple[List[str], List[str]]:
     """Return valid processed forecast filenames based on inclusion criteria from bucket.
 
-    Valid files are those where the forecast_due_date was at least
-    `MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED` days ago.
-
     Args:
         bucket (str): The GCP bucket to pull forecast files from
         only_keep_date (str): If provided, only include files starting with this date.
@@ -401,14 +396,8 @@ def get_valid_forecast_files_and_dates(
         except ValueError:
             raise ValueError(f"Problem with file organizaiton on {bucket}")
 
-    # Only keep folders older than `MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED` days
-    cutoff = dates.get_date_today() - timedelta(days=MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED)
-    date_folders = sorted(
-        [d for d in date_folders if datetime.strptime(d, "%Y-%m-%d").date() <= cutoff]
-    )
-
     files = [f for f in files if f.split("/")[0] in date_folders]
-    return files, date_folders
+    return files, sorted(date_folders)
 
 
 def read_forecast_file(filename: str, f: Optional[TextIO] = None) -> Dict[str, Any]:

@@ -2,6 +2,14 @@
   display: none !important;
 }
 
+/* Prevent horizontal overflow and remove right edge gray space */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 
 /* splash pages don't have titles, allow them to have consistent ones*/
 
@@ -152,6 +160,57 @@ body a:hover {
 .masthead__menu-item > a::after {
     background-color: rgba(226, 62, 22, 1) !important;
     content: none !important;
+}
+
+/* Hamburger menu styling to match other menu items - multiple selectors */
+.masthead .menu-trigger,
+.masthead .masthead__menu-button,
+.masthead__menu-trigger,
+.masthead .fa-bars,
+.masthead button,
+.masthead [class*="menu"] button,
+.masthead .menu-icon {
+    color: inherit !important;
+    transition: color 0.5s ease-in-out !important;
+}
+
+.masthead .menu-trigger:hover,
+.masthead .menu-trigger:focus,
+.masthead .masthead__menu-button:hover,
+.masthead .masthead__menu-button:focus,
+.masthead__menu-trigger:hover,
+.masthead__menu-trigger:focus,
+.masthead .fa-bars:hover,
+.masthead .fa-bars:focus,
+.masthead button:hover,
+.masthead button:focus,
+.masthead [class*="menu"] button:hover,
+.masthead [class*="menu"] button:focus,
+.masthead .menu-icon:hover,
+.masthead .menu-icon:focus {
+    color: rgba(226, 62, 22, 1) !important;
+}
+
+/* Minimal Mistakes hamburger menu styling */
+.greedy-nav__toggle {
+    color: inherit !important;
+}
+
+.greedy-nav__toggle:hover,
+.greedy-nav__toggle:focus {
+    color: rgba(226, 62, 22, 1) !important;
+}
+
+/* Target the hamburger bars specifically - preserve structure but change color */
+.greedy-nav__toggle .navicon,
+.greedy-nav__toggle .navicon::before,
+.greedy-nav__toggle .navicon::after {
+    background: currentColor !important;
+}
+
+/* Override any theme primary color on hamburger */
+.greedy-nav__toggle .navicon {
+    background: inherit !important;
 }
 
 
@@ -381,6 +440,61 @@ a.site-title:focus {
 .dataTables_wrapper table.dataTable tbody tr:hover {
   background-color: rgba(226, 62, 22, 0.08) !important;
 }
+
+/*
+ * Mobile Responsive Styles
+ */
+@media (max-width: 768px) {
+  // Stack sections vertically on mobile
+  .baseline-section > div {
+    flex-direction: column !important;
+  }
+
+  .tournament-section > div {
+    flex-direction: column-reverse !important;
+  }
+
+  // Make text and table sections full width on mobile
+  .baseline-section > div > div,
+  .tournament-section > div > div {
+    flex: none !important;
+    width: 100% !important;
+    margin: 0 0 4rem 0 !important;
+    padding: 0 !important;
+  }
+
+  // Center text content on mobile
+  .baseline-section [style*="justify-content"],
+  .tournament-section [style*="justify-content"] {
+    justify-content: center !important;
+  }
+
+  // Adjust text width for mobile
+  .baseline-section [style*="width:450px"],
+  .tournament-section [style*="width:450px"] {
+    width: 90% !important;
+    margin: 0 auto !important;
+    text-align: center !important;
+  }
+
+  // Adjust section margins on mobile - ensure full coverage
+  .baseline-section {
+    margin: -2rem -20vw 0 -20vw !important;
+    padding: 2rem 20vw 2rem 20vw !important;
+  }
+
+  .tournament-section {
+    margin: 0 -20vw -3rem -20vw !important;
+    padding: 2rem 20vw 3rem 20vw !important;
+  }
+
+  // Adjust wave separator on mobile
+  .wave-separator {
+    margin: -2rem -20vw 0 -20vw !important;
+    height: 60px !important;
+  }
+}
+
 /*
  * Done
  */

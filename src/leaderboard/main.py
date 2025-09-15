@@ -7,10 +7,10 @@ import os
 import shutil
 import sys
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -29,13 +29,10 @@ from helpers import (  # noqa: E402
     decorator,
     env,
     git,
-    keys,
     question_curation,
     resolution,
+    slack,
 )
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -46,26 +43,11 @@ class LeaderboardType(str, Enum):
 
     This enum distinguishes between the two supported leaderboard variants:
     * BASELINE: The baseline leaderboard: FB forecast files w/o freeze values.
-                Used when CLOUD_RUN_TASK_INDEX == 0.
     * TOURNAMENT: The tournament leaderboard. All forecast files.
-                  Used when CLOUD_RUN_TASK_INDEX == 1.
     """
 
     BASELINE = "baseline"
     TOURNAMENT = "tournament"
-
-
-try:
-    env_var = os.getenv("CLOUD_RUN_TASK_INDEX", 0)
-    TASK_NUMBER = int(env_var)
-    LEADERBOARD_TO_CREATE = list(LeaderboardType)[TASK_NUMBER]
-except (ValueError, IndexError) as e:
-    logger.error(
-        f"Improperly set environment variable: CLOUD_RUN_TASK_INDEX = {env_var}"
-        f"Valid values are in [0, {len(list(LeaderboardType))-1}]."
-    )
-    logger.error(e)
-    sys.exit(0)
 
 
 LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %-d, %Y")
@@ -93,13 +75,14 @@ LEADERBOARD_DECIMAL_PLACES = 3
 
 IMPUTED_CUTOFF_PCT = 5
 
-MODEL_RELEASE_DATE_CUTOFF = 365
+MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 50
+
+MODEL_RELEASE_DAYS_CUTOFF = 365
 
 N_REPLICATES = 1999 if not env.RUNNING_LOCALLY else 2
 
 df_release_dates = pd.read_csv("model_release_dates.csv")
 df_release_dates["release_date"] = pd.to_datetime(df_release_dates["release_date"], errors="coerce")
-
 
 ALWAYS_05_MODEL = {
     "organization": "ForecastBench",
@@ -188,6 +171,30 @@ def download_question_set_save_in_cache(
             )
 
 
+def get_dataset_mask(df: pd.DataFrame) -> pd.Series:
+    """Generate boolean masks for market questions.
+
+    Args:
+        df (pd.DataFrame): The forecast set.
+
+    Returns:
+        pd.Series: questions from DATA_SOURCES
+    """
+    return df["source"].isin(question_curation.DATA_SOURCES)
+
+
+def get_market_mask(df: pd.DataFrame) -> pd.Series:
+    """Generate boolean masks for market questions.
+
+    Args:
+        df (pd.DataFrame): The forecast set.
+
+    Returns:
+        pd.Series: all questions from MARKET_SOURCES.
+    """
+    return df["source"].isin(question_curation.MARKET_SOURCES)
+
+
 def get_masks(df: pd.DataFrame) -> Dict[str, pd.Series]:
     """Generate boolean masks for dataset and market filters, including resolution status.
 
@@ -201,8 +208,8 @@ def get_masks(df: pd.DataFrame) -> Dict[str, pd.Series]:
             - "market_resolved":   market questions that are resolved.
             - "market_unresolved": market questions that are unresolved.
     """
-    data_mask = df["source"].isin(question_curation.DATA_SOURCES)
-    market_mask = df["source"].isin(question_curation.MARKET_SOURCES)
+    data_mask = get_dataset_mask(df=df)
+    market_mask = get_market_mask(df=df)
     resolved_mask = df["resolved"].astype(bool)
     return {
         "dataset": data_mask & resolved_mask,
@@ -222,43 +229,36 @@ def set_model_pk(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         df (pd.DataFrame): Forecast set with `model_pk` field.
     """
-    df["model_pk"] = df["organization"] + "_" + df["model"]
+    df["model_pk"] = df["organization"] + "_" + df["model_organization"] + "_" + df["model"]
     return df
 
 
-def filter_ForecastBench_freeze_value_file(org_and_model: Dict[str, str]) -> bool:
-    """Process a forecast file based on the leaderboard type and model criteria.
+def filter_forecast_files_by_forecast_due_date(
+    forecast_files: List[str],
+    valid_dates: List[str],
+) -> Tuple[List[str], List[str]]:
+    """Filter forecast files to include only those from sufficiently old date folders.
 
-    This function filters forecast files as we're creating two leaderboards:
-    * Baseline Leaderboard: FB files w/o freeze values
-    * Tournament Leaderboard: all forecast files
+    The cutoff is determined by `MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED`.
 
     Args:
-        org_and_model (Dict[str, str]): Dictionary containing 'organization' and 'model' keys
-                                       identifying the forecast source.
+        forecast_files (List[str]): List of forecast file paths on GCP bucket, where each path
+                                    begins with a date folder in the format YYYY-MM-DD.
+        valid_dates (List[str]): List of valid dates (YYYY-MM-DD) associated with the forecast
+                                 files.
 
     Returns:
-        bool: True if the file should be filtered out:
-              * filter if this is the Baseline leaderboard and
-                * this is not a ForecastBench file
-                * this is a ForecastBench file with freeze values
-              * don't filter otherwise
-
-    Raises:
-        Exception: If CLOUD_RUN_TASK_INDEX environment variable is improperly formatted.
+        tuple(List[str], List[str]): A tuple containing:
+            - forecast_files (List[str]): Filtered forecast files, keeping only those in date
+                                          folders older than the cutoff date.
+            - valid_dates (List[str]): The input valid_dates, passed through unchanged.
     """
-    if LEADERBOARD_TO_CREATE == LeaderboardType.TOURNAMENT:
-        return False
-
-    if org_and_model["organization"] != constants.BENCHMARK_NAME:
-        return True
-
-    if any(
-        x in org_and_model["model"] for x in ("with freeze values", "with news", "with SECOND news")
-    ):
-        return True
-
-    return False
+    cutoff = dates.get_date_today() - timedelta(days=MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED)
+    valid_dates = sorted(
+        [d for d in valid_dates if datetime.strptime(d, "%Y-%m-%d").date() <= cutoff]
+    )
+    forecast_files = [f for f in forecast_files if f.split("/")[0] in valid_dates]
+    return forecast_files, valid_dates
 
 
 def get_df_info(
@@ -277,22 +277,24 @@ def get_df_info(
         Optional[pd.DataFrame]: The processed DataFrame or None if the imputed percentage exceeds
             the defined cutoff.
     """
-    # Ignore if too many imputed resolved market questions
-    if org_and_model.get("organization") != constants.BENCHMARK_NAME:
+    df = resolution.make_columns_hashable(df)
+
+    # Ignore if too many imputed forecasts
+    # Do not run test for the dummy models ForecastBench produces:
+    #   e.g. Imputed Forecaster, Naive Forecaster, ...
+    if not (
+        org_and_model.get("organization") == constants.BENCHMARK_NAME
+        and org_and_model.get("model_organization") == constants.BENCHMARK_NAME
+    ):
         if df["imputed"].mean() * 100 > IMPUTED_CUTOFF_PCT:
             return None
 
-    if filter_ForecastBench_freeze_value_file(org_and_model):
-        return None
-
-    df = resolution.make_columns_hashable(df)
+    # Remove combination questions
+    df = df[~df["id"].apply(resolution.is_combo)]
 
     # Drop market unresolved questions
     masks = get_masks(df)
     df = df[masks["dataset"] | masks["market_resolved"]]
-
-    # Remove combos
-    df = df[~df["id"].apply(resolution.is_combo)]
 
     # Set formats of columns and add columns useful for processing
     df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
@@ -321,7 +323,10 @@ def get_df_info(
         + "_"
         + df["id"].astype(str)
     )
+    if not df[df["question_pk"] == ""].empty:
+        raise ValueError(f"Error assigning `question_pk` {org_and_model}.")
 
+    # Set team info
     df["organization"] = org_and_model["organization"]
     df["model"] = org_and_model["model"]
     df["model_organization"] = org_and_model["model_organization"]
@@ -330,22 +335,22 @@ def get_df_info(
     return df.sort_values(by=["forecast_due_date", "source", "id"], ignore_index=True)
 
 
-def append_leaderboard_entry(
+def process_forecast_file(
     leaderboard_entries: List[pd.DataFrame],
     org_and_model: Dict[str, str],
     df: pd.DataFrame,
     forecast_due_date: str,
 ) -> None:
-    """Append each model's processed forecast set to the leaderboard_entry list.
+    """Append each model's processed forecast set to the leaderboard_entries list.
 
     Args:
-        entries (List[pd.DataFrame]): List collecting processed forecast set DataFrames.
+        leaderboard_entries (List[pd.DataFrame]): List collecting processed forecast set DataFrames.
         org_and_model (Dict[str, str]): The organization and model associated with the forecast set.
         df (pd.DataFrame): Forecast set.
         forecast_due_date (str): Forecast due date in 'YYYY-MM-DD' format.
 
     Returns:
-        None: Modifies `entries` in place. Logs a warning if processing is skipped.
+        None: Modifies `leaderboard_entries` in place. Logs a warning if processing is skipped.
     """
     processed = get_df_info(
         df=df,
@@ -354,53 +359,55 @@ def append_leaderboard_entry(
     )
     if processed is None:
         logger.warning(
-            f"Ignoring {org_and_model['organization']} {org_and_model['model']}—"
-            "imputed cutoff exceeded."
+            colored(
+                f"Ignoring {org_and_model['organization']} {org_and_model['model']}—"
+                "imputed cutoff exceeded.",
+                "yellow",
+            )
         )
         return
 
     leaderboard_entries.append(processed)
 
 
-def upload_leaderboard(files: Dict[str, str]) -> None:
-    """Upload leaderboard files to Cloud Storage and push updates to Git.
+def write_question_fixed_effects(question_fixed_effects: Dict[str, pd.DataFrame]) -> None:
+    """Write and upload question fixed effects.
 
     Args:
-        files (Dict[str, str]): Mapping of local file paths to their basenames.
+        question_fixed_effects (Dict[str, pd.DataFrame]): A mapping from label
+            (e.g., "dataset", "market") to a DataFrame containing question-level
+            fixed effects.
 
     Returns:
-        None
+        None: Concatenated DataFrame is created (and can be written or processed
+        further inside the function).
     """
-    if env.RUNNING_LOCALLY:
-        return
+    logger.info(colored("Writing question fixed effects to WEBSITE.", "yellow"))
 
-    # Upload files to GCP bucket
-    destination_folder = "leaderboards"
-    for local_filename in files.keys():
-        gcp.storage.upload(
-            bucket_name=env.PUBLIC_RELEASE_BUCKET,
-            local_filename=local_filename,
-            destination_folder=destination_folder,
-        )
+    df = pd.concat(question_fixed_effects.values(), ignore_index=True)
+    df.loc[get_market_mask(df), "horizon"] = None
 
-    # Push to git
-    git_files = {k: f"{destination_folder}/{v}" for k, v in files.items()}
-    mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
-    mirrors = [mirrors] if mirrors else []
-    git.clone_and_push_files(
-        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
-        files=git_files,
-        commit_message="leaderboard: automatic update html & csv files.",
-        mirrors=mirrors,
+    directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
+    iso_date = dates.get_date_today_as_iso()
+    local_filename = (
+        f"{directory}/question-fixed-effects/question_fixed_effects.{iso_date}.json"
     )
+    os.makedirs(os.path.dirname(local_filename), exist_ok=True)
+    df.to_json(local_filename, orient="records")
 
 
-def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) -> None:
+def write_leaderboard_html_file(
+    df: pd.DataFrame,
+    sorting_column_number: int,
+    leaderboard_type: LeaderboardType,
+) -> None:
     """Generate HTML and CSV leaderboard files and upload to Bucket & git repo.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
         sorting_column_number (int): column to sort by.
+        leaderboard_type (LeaderboardType): The type of leaderboard to generate
+                                            (e.g., baseline or tournament).
 
     Returns:
         None.
@@ -598,27 +605,41 @@ def write_leaderboard_html_file(df: pd.DataFrame, sorting_column_number: int) ->
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
     )
 
-    basename = f"leaderboard_{LEADERBOARD_TO_CREATE.value}"
-    local_filename_html = f"/tmp/{basename}.html"
-    with open(local_filename_html, "w", encoding="utf-8") as f:
-        f.write(html)
+    stem = f"leaderboard_{leaderboard_type.value}"
+    destination_folder = "leaderboards/html"
+    local_filename_html, destination_filename_html = data_utils.write_file_to_bucket(
+        bucket=env.PUBLIC_RELEASE_BUCKET,
+        basename=f"{stem}.html",
+        destination_folder=f"{destination_folder}",
+        data=html,
+    )
 
-    local_filename_csv = f"/tmp/{basename}.csv"
+    directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
+    destination_folder = "leaderboards/csv"
+    os.makedirs(f"{directory}/{destination_folder}", exist_ok=True)
+    destination_filename_csv = f"{destination_folder}/{stem}.csv"
+    local_filename_csv = f"{directory}/{destination_filename_csv}"
     df.to_csv(local_filename_csv, index=False)
 
-    upload_leaderboard(
+    git.clone_commit_and_push(
         files={
-            local_filename_html: f"{basename}.html",
-            local_filename_csv: f"{basename}.csv",
-        }
+            local_filename_html: destination_filename_html,
+            local_filename_csv: destination_filename_csv,
+        },
+        commit_message="leaderboard: automatic update html & csv files.",
     )
 
 
-def write_leaderboard_js_file_full(df: pd.DataFrame) -> Dict[str, str]:
+def write_leaderboard_js_file_full(
+    df: pd.DataFrame,
+    leaderboard_type: LeaderboardType,
+) -> Dict[str, str]:
     """Generate JS file for website Leaderboard page.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
+        leaderboard_type (LeaderboardType): The type of leaderboard to generate
+                                            (e.g., baseline or tournament).
 
     Returns:
         None.
@@ -809,16 +830,21 @@ def write_leaderboard_js_file_full(df: pd.DataFrame) -> Dict[str, str]:
     )
 
     return {
-        "filename": f"leaderboard_{LEADERBOARD_TO_CREATE.value}_full.js",
+        "filename": f"leaderboard_{leaderboard_type.value}_full.js",
         "js": js,
     }
 
 
-def write_leaderboard_js_file_compact(df: pd.DataFrame) -> Dict[str, str]:
+def write_leaderboard_js_file_compact(
+    df: pd.DataFrame,
+    leaderboard_type: LeaderboardType,
+) -> Dict[str, str]:
     """Generate JS file for website Home page.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
+        leaderboard_type (LeaderboardType): The type of leaderboard to generate
+                                            (e.g., baseline or tournament).
 
     Returns:
         None.
@@ -899,20 +925,25 @@ def write_leaderboard_js_file_compact(df: pd.DataFrame) -> Dict[str, str]:
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
-        leaderboard_type=LEADERBOARD_TO_CREATE.value,
+        leaderboard_type=leaderboard_type.value,
     )
 
     return {
-        "filename": f"leaderboard_{LEADERBOARD_TO_CREATE.value}_compact.js",
+        "filename": f"leaderboard_{leaderboard_type.value}_compact.js",
         "js": js,
     }
 
 
-def write_leaderboard_js_files(df) -> None:
+def write_leaderboard_js_files(
+    df: pd.DataFrame,
+    leaderboard_type: LeaderboardType,
+) -> None:
     """Wrap functions to create JS files for website.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
+        leaderboard_type (LeaderboardType): The type of leaderboard to generate
+                                            (e.g., baseline or tournament).
 
     Returns:
         None.
@@ -922,26 +953,24 @@ def write_leaderboard_js_files(df) -> None:
     df["Team"] = df["Team"].apply(lambda x: constants.ORG_TO_LOGO.get(x, x))
 
     leaderboards = [
-        write_leaderboard_js_file_compact(df=df),
-        write_leaderboard_js_file_full(df=df),
+        write_leaderboard_js_file_compact(df=df, leaderboard_type=leaderboard_type),
+        write_leaderboard_js_file_full(df=df, leaderboard_type=leaderboard_type),
     ]
+    # destination_folder = "assets/js/"
+    # os.makedirs(destination_folder, exist_ok=True)
     for leaderboard in leaderboards:
-        local_filename = f"/tmp/{leaderboard['filename']}"
-        with open(local_filename, "w", encoding="utf-8") as f:
-            f.write(leaderboard["js"])
-
-        if not env.RUNNING_LOCALLY:
-            destination_folder = "assets/js"
-            gcp.storage.upload(
-                bucket_name=env.WEBSITE_BUCKET,
-                local_filename=local_filename,
-                destination_folder=destination_folder,
-            )
+        data_utils.write_file_to_bucket(
+            bucket=env.PUBLIC_RELEASE_BUCKET,
+            basename=leaderboard["filename"],
+            destination_folder="leaderboards/js",
+            data=leaderboard["js"],
+        )
 
 
 def write_leaderboard(
     df: pd.DataFrame,
     primary_scoring_func: Callable[..., any],
+    leaderboard_type: LeaderboardType,
 ) -> None:
     """Generate HTML and CSV leaderboard files for git and JS files for website.
 
@@ -1059,8 +1088,12 @@ def write_leaderboard(
     write_leaderboard_html_file(
         df=df,
         sorting_column_number=9,
+        leaderboard_type=leaderboard_type,
     )
-    write_leaderboard_js_files(df)
+    write_leaderboard_js_files(
+        df=df,
+        leaderboard_type=leaderboard_type,
+    )
 
 
 def combine_forecasting_rounds(leaderboard: List[pd.DataFrame]) -> pd.DataFrame:
@@ -1092,7 +1125,28 @@ def brier_score(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def two_way_fixed_effects(df: pd.DataFrame) -> pd.DataFrame:
+def remove_tournament_models(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove models that only belong on the Tournament Leaderboard.
+
+    This means return ForecastBench models that do _not_ contain the words:
+    * with freeze values
+    * with news
+    * with SECOND news
+
+    Args:
+        df (pd.DataFrame): Combined forecast set.
+
+    Returns:
+        pd.DataFrame: Filtered dataframe with all models for Tournament Leaderboard removed.
+    """
+    df = df.copy()
+    org_mask = df["organization"] == constants.BENCHMARK_NAME
+    vanilla_model_mask = ~df["model"].str.contains("with freeze values|with news|with SECOND news")
+    mask = org_mask & vanilla_model_mask
+    return df[mask].reset_index(drop=True)
+
+
+def two_way_fixed_effects(df: pd.DataFrame, question_type) -> pd.DataFrame:
     """Generate the difficulty adjusted Brier score.
 
     Calculate "question difficulty" by estimating a two-way fixed effect model:
@@ -1113,32 +1167,42 @@ def two_way_fixed_effects(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     orig_cols = df.columns.tolist()
 
-    # Drop models that were released more than `MODEL_RELEASE_DATE_CUTOFF` days ago. Also drop some
-    # dummy ForecastBench models
-    df_fe = pd.merge(
-        df,
-        df_release_dates,
-        how="inner",
-        on="model",
-    )
-    date_mask = (
-        pd.to_datetime(df_fe["forecast_due_date"]) - pd.to_datetime(df_fe["release_date"])
-    ).dt.days < MODEL_RELEASE_DATE_CUTOFF
-    drop_benchmark_models = [
-        "Always 0",
-        "Always 1",
-        "Always 0.5",
-        "Random Uniform",
-        # Drop Imputed Forecaster so as not to:
-        # * double count the crowd forecast for market questions (the Naive Forecaster uses the
-        #   value at t-1).
-        # * consider its 0.5 forecast for dataset questions
-        "Imputed Forecaster",
-    ]
-    benchmark_mask = (df_fe["organization"] == constants.BENCHMARK_NAME) & (
-        ~df_fe["model"].isin(drop_benchmark_models)
-    )
-    df_fe = df_fe[(date_mask | benchmark_mask)].reset_index(drop=True)
+    # Remove x pct forecasters
+    df_fe = remove_x_pct_oracles(df=df)
+
+    # Remove models that only belong in the Tournament Leaderboard
+    # e.g. with freeze values
+    # After this, all models were submitted by the ForecastBench organization
+    df_fe = remove_tournament_models(df=df_fe)
+
+    if question_type == "dataset":
+        # Drop some Benchmark models
+        benchmark_models_to_drop = [
+            "Always 0",
+            "Always 1",
+            "Always 0.5",
+            "Random Uniform",
+            # Drop Imputed Forecaster so as not to:
+            # * double count the crowd forecast for market questions (the Naive Forecaster uses the
+            #   value at t-1).
+            # * consider its 0.5 forecast for dataset questions
+            "Imputed Forecaster",
+        ]
+        benchmark_model_mask = ~df_fe["model"].isin(benchmark_models_to_drop)
+        df_fe = df_fe[benchmark_model_mask]
+
+        # Remove models with old release dates
+        org_mask = df_fe["model_organization"] == constants.BENCHMARK_NAME
+        date_mask = df_fe["days_since_model_release"] < MODEL_RELEASE_DAYS_CUTOFF
+        df_fe = df_fe[org_mask | date_mask].reset_index(drop=True)
+
+    elif question_type == "market":
+        # Estimated question fixed efficts quivalent to the market Brier
+        org_mask = df_fe["model_organization"] == constants.BENCHMARK_NAME
+        model_mask = df_fe["model"] == "Imputed Forecaster"
+        df_fe = df_fe[org_mask & model_mask].reset_index(drop=True)
+    else:
+        raise ValueError(f"Question Type: {question_type} not found.")
 
     mod = pf.feols("brier_score ~ 1 | question_pk + model_pk", data=df_fe)
     dict_question_fe = mod.fixef()["C(question_pk)"]
@@ -1148,9 +1212,9 @@ def two_way_fixed_effects(df: pd.DataFrame) -> pd.DataFrame:
             f"of questions ({len(df['question_pk'].unique())})"
         )
 
-    df["question_fe"] = df["question_pk"].map(dict_question_fe)
-    df["two_way_fixed_effects"] = df["brier_score"] - df["question_fe"]
-    return df[orig_cols + ["two_way_fixed_effects"]]
+    df["question_fixed_effect"] = df["question_pk"].map(dict_question_fe)
+    df["two_way_fixed_effects"] = df["brier_score"] - df["question_fixed_effect"]
+    return df[orig_cols + ["two_way_fixed_effects", "question_fixed_effect"]]
 
 
 def peer_score(df: pd.DataFrame) -> pd.DataFrame:
@@ -1210,23 +1274,23 @@ def brier_skill_score(df: pd.DataFrame) -> pd.DataFrame:
 def score_models(
     df: pd.DataFrame,
     scoring_funcs: List[Callable[[pd.DataFrame], pd.DataFrame]],
-    primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
 ) -> pd.DataFrame:
     """Score models using the scoring functions in `scoring_funcs`.
 
     Args:
         df (pd.DataFrame): Combined forecast set.
         scoring_funcs (List[Callable[[pd.DataFrame], pd.DataFrame]]): List of scoring functions.
-        primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]): Function to compute the
-                     primary overall score.
 
     Returns:
-        pd.DataFrame: Leaderboard DataFrame with:
-            - For each scoring function: '{func_name}_dataset', '{func_name}_market', and
-              '{func_name}_overall'
-            - Count columns for dataset, market, and all questions
-            - The 'organization', 'model', 'model_pk' associated with a forecast set
-            - Rescaled scores for those calculated by the `primary_scoring_func`
+        Tuple[pd.DataFrame, Dict[str, pd.Series]]:
+            - df_leaderboard: Leaderboard with
+                - For each scoring function: '{func_name}_dataset', '{func_name}_market', and
+                  '{func_name}_overall'
+                - Count columns for dataset, market, and all questions
+                - The 'organization', 'model', 'model_pk' associated with a forecast set
+            - question_fixed_effects: Dict with optional entries
+              {'dataset': Series, 'market': Series} containing per-question fixed effects when
+              `save_question_fe=True`; otherwise {}.
     """
     df = df.copy()
 
@@ -1241,12 +1305,28 @@ def score_models(
     col_to_count_to_calculate_n = scoring_funcs[0].__name__
 
     results = []
+    question_fixed_effects = {}
     for question_type in ["dataset", "market"]:
         df_qt = df[get_masks(df)[question_type]].reset_index(drop=True)
         df_qt = brier_score(df_qt)
         for func in scoring_funcs:
             name = func.__name__
-            df_qt = func(df_qt).rename(columns={name: f"{name}_{question_type}"})
+            if func is two_way_fixed_effects:
+                df_qt = func(df_qt, question_type).rename(columns={name: f"{name}_{question_type}"})
+            else:
+                df_qt = func(df_qt).rename(columns={name: f"{name}_{question_type}"})
+
+        if two_way_fixed_effects in scoring_funcs:
+            question_fixed_effects[question_type] = df_qt[
+                [
+                    "forecast_due_date",
+                    "source",
+                    "id",
+                    "horizon",
+                    "question_fixed_effect",
+                ]
+            ].drop_duplicates(ignore_index=True)
+            df_qt = df_qt.drop(columns="question_fixed_effect")
 
         # Calculate the mean score for the question type for each model
         # Also count the N for the question type
@@ -1276,7 +1356,8 @@ def score_models(
         results.append(question_type_result)
 
     assert len(results) == 2, "Results should only have 2 entries."
-    df_leaderboard = results[0].merge(
+    df_leaderboard = pd.merge(
+        results[0],
         results[1],
         on=[
             "organization",
@@ -1295,11 +1376,12 @@ def score_models(
 
     df_leaderboard["n_overall"] = df_leaderboard["n_dataset"] + df_leaderboard["n_market"]
 
-    df_leaderboard = rescale_difficulty_adjusted_brier(
-        df_leaderboard=df_leaderboard,
-        primary_scoring_func=primary_scoring_func,
-    )
-    return df_leaderboard
+    if two_way_fixed_effects in scoring_funcs:
+        df_leaderboard = rescale_difficulty_adjusted_brier(
+            df_leaderboard=df_leaderboard,
+            primary_scoring_func=two_way_fixed_effects,
+        )
+    return df_leaderboard, question_fixed_effects
 
 
 @decorator.log_runtime
@@ -1325,17 +1407,31 @@ def generate_simulated_leaderboards(
 
     df = df.copy()
 
-    workspace_folder = f"{inspect.currentframe().f_code.co_name}/{LEADERBOARD_TO_CREATE.value}"
+    workspace_folder = f"{inspect.currentframe().f_code.co_name}/"
     workspace_dir = data_utils.get_workspace_dir(
         bucket=env.WORKSPACE_BUCKET,
         folder=workspace_folder,
         recreate_folder=True,
     )
 
-    def question_level_bootstrap(df):
+    def question_level_bootstrap(df: pd.DataFrame) -> pd.DataFrame:
         questions = df["question_pk"].drop_duplicates()
         questions_bs = questions.sample(frac=1, replace=True)
-        return df.set_index("question_pk").loc[questions_bs]
+        sample = questions_bs.to_frame(name="question_pk")
+        sample["draw"] = sample.groupby("question_pk").cumcount()
+        retval = pd.merge(
+            sample,
+            df,
+            on="question_pk",
+            how="left",
+        )
+        # `question_pk` must be overwritten with a unique id in case it was sampled more than once.
+        # This ensures that `two_way_fixed_effects()` treats each drawn question separately (instead
+        # of treating multiple draws as one question).
+        retval["question_pk"] = (
+            retval["question_pk"].astype(str) + "_sim_id_" + retval["draw"].astype(str)
+        )
+        return retval.drop(columns=["draw"])
 
     def bootstrap_and_score(idx):
         logger.info(f"[replicate {idx+1}/{N}] starting...")
@@ -1355,10 +1451,9 @@ def generate_simulated_leaderboards(
             .reset_index()
         )
         try:
-            df_simulated_leaderboard = score_models(
+            df_simulated_leaderboard, _ = score_models(
                 df=df_bs,
                 scoring_funcs=[primary_scoring_func],
-                primary_scoring_func=primary_scoring_func,
             )
         except Exception as e:
             traceback.print_exc()
@@ -1704,6 +1799,27 @@ def add_x_pct_oracles(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def remove_x_pct_oracles(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Remove the x% forecasters from the dataframe.
+
+    Args:
+        df (pd.DataFrame): The combined forecast set or the leaderboard.
+
+    Returns:
+        pd.DataFrame: The same dataframe without the x% forecasters.
+    """
+    org_mask = df["organization"] == constants.BENCHMARK_NAME
+
+    x_pct_oracle_models = [
+        get_x_pct_oracle_model_name(pct) for pct in get_x_pct_oracle_increments()
+    ]
+    x_pct_oracle_mask = df["model"].isin(x_pct_oracle_models)
+
+    mask = org_mask & x_pct_oracle_mask
+    return df[~mask].reset_index(drop=True)
+
+
 def get_x_pct_oracle_equivalent(
     df_leaderboard: pd.DataFrame,
     primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
@@ -1746,25 +1862,48 @@ def get_x_pct_oracle_equivalent(
     return df_leaderboard
 
 
-def remove_x_pct_oracles(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Remove the x% forecasters from the dataframe.
+def add_model_release_dates(df: pd.DataFrame) -> pd.DataFrame:
+    """Add column counting the days between the model release and the forecast due date.
 
     Args:
-        df (pd.DataFrame): The combined forecast set or the leaderboard.
+        df (pd.DataFrame): Combined forecast set.
 
     Returns:
-        pd.DataFrame: The same dataframe without the x% forecasters.
+        pd.DataFrame: The combined forecast set with days since release column
     """
-    for pct in get_x_pct_oracle_increments():
-        df = df[
-            ~(
-                (df["organization"] == constants.BENCHMARK_NAME)
-                & (df["model"] == get_x_pct_oracle_model_name(pct))
-            )
-        ]
+    df = df.copy()
+    orig_cols = df.columns.tolist()
 
-    return df.reset_index(drop=True)
+    df_with_release_dates = pd.merge(
+        df,
+        df_release_dates,
+        how="inner",
+        on="model",
+    )
+
+    # Send a message to Slack if models were dropped from the df because their release date was
+    # missing in `df_release_dates`. Prefer this to stopping processing.
+    outer = pd.merge(
+        df,
+        df_release_dates,
+        how="outer",
+        on="model",
+        indicator=True,
+    )
+    dropped_models = sorted(outer.loc[outer["_merge"] == "left_only", "model"].unique())
+    if dropped_models:
+        slack.send_message(
+            "\n*Models dropped from consideration in 2wfe estimation:*\n```"
+            + "\n".join(dropped_models)
+            + "```"
+        )
+
+    df_with_release_dates["days_since_model_release"] = (
+        pd.to_datetime(df_with_release_dates["forecast_due_date"])
+        - pd.to_datetime(df_with_release_dates["release_date"])
+    ).dt.days
+
+    return df_with_release_dates[orig_cols + ["days_since_model_release"]].reset_index(drop=True)
 
 
 def make_leaderboard(
@@ -1781,6 +1920,7 @@ def make_leaderboard(
     logger.info(colored("Making leaderboard", "red"))
 
     df = combine_forecasting_rounds(leaderboard_entries)
+    df = add_model_release_dates(df=df)
     df = add_x_pct_oracles(df=df)
 
     # The scoring functions to consider
@@ -1792,10 +1932,9 @@ def make_leaderboard(
     ]
 
     # Score
-    df_leaderboard = score_models(
+    df_leaderboard, question_fixed_effects = score_models(
         df=df,
         scoring_funcs=scoring_funcs,
-        primary_scoring_func=primary_scoring_func,
     )
 
     # x% oracle equivalent
@@ -1851,11 +1990,23 @@ def make_leaderboard(
         df_simulated_scores=df_simulated_scores_overall,
     )
 
-    # Write leaderboard
-    write_leaderboard(
-        df=df_leaderboard,
-        primary_scoring_func=primary_scoring_func,
+    # Write question fixed effects
+    write_question_fixed_effects(
+        question_fixed_effects=question_fixed_effects,
     )
+
+    # Write leaderboard
+    for leaderboard_type in LeaderboardType:
+        df_leaderboard_lt = (
+            remove_tournament_models(df=df_leaderboard)
+            if leaderboard_type == LeaderboardType.BASELINE
+            else df_leaderboard
+        )
+        write_leaderboard(
+            df=df_leaderboard_lt,
+            primary_scoring_func=primary_scoring_func,
+            leaderboard_type=leaderboard_type,
+        )
 
 
 def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFrame]:
@@ -1869,11 +2020,15 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
             ready for leaderboard aggregation.
     """
     forecast_files, valid_dates = resolution.get_valid_forecast_files_and_dates(bucket=bucket)
+    forecast_files, valid_dates = filter_forecast_files_by_forecast_due_date(
+        forecast_files=forecast_files,
+        valid_dates=valid_dates,
+    )
+    # forecast_files = [f for f in forecast_files if f.startswith("2024")]
     logger.info(f"Processing forecast due dates: {valid_dates}.")
     local_forecast_set_dir = data_utils.get_local_file_dir(bucket=bucket)
     leaderboard_entries = []
     for f in forecast_files:
-        logger.info(f"Ranking {f}")
         data = resolution.read_forecast_file(filename=f"{local_forecast_set_dir}/{f}")
         if data is None:
             continue
@@ -1884,7 +2039,7 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
         forecast_due_date = data.get("forecast_due_date")
         df = data.get("df")
 
-        append_leaderboard_entry(
+        process_forecast_file(
             leaderboard_entries=leaderboard_entries,
             org_and_model={
                 "organization": organization,
@@ -1895,7 +2050,7 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
             forecast_due_date=forecast_due_date,
         )
 
-    return leaderboard_entries
+    return leaderboard_entries, valid_dates
 
 
 @decorator.log_runtime
@@ -1908,12 +2063,13 @@ def driver(_: Any) -> None:
     Returns:
         None: Exits the process on completion.
     """
-    logger.info(colored(f"Making {LEADERBOARD_TO_CREATE.value.upper()} leaderboard.", "red"))
-    leaderboard_entries = download_and_compile_processed_forecast_files(
+    logger.info(colored("Making leaderboards.", "red"))
+    leaderboard_entries, valid_dates = download_and_compile_processed_forecast_files(
         bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
     )
     make_leaderboard(leaderboard_entries=leaderboard_entries)
-    logger.info(colored(f"Done making {LEADERBOARD_TO_CREATE.value.upper()} leaderboard.", "red"))
+    logger.info(f"Made leaderboard for forecast due dates: {sorted(valid_dates)}.")
+    logger.info(colored("Done.", "red"))
 
 
 if __name__ == "__main__":

@@ -11,3 +11,4 @@ Jinja2>=3.1.6
 statsmodels>=0.14.5
 joblib
 pyarrow
+slack_sdk
