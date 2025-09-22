@@ -9,6 +9,8 @@ UPLOAD_DIR = upload
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
 
+NO_CACHE := $(if $(filter $(BUILD_ENV),dev),true,false)
+
 entrypoint.sh: entrypoint.sh.template
 	sed \
 		-e 's|BUCKET_MOUNT_POINT|$(BUCKET_MOUNT_POINT)|g' \
@@ -17,7 +19,8 @@ entrypoint.sh: entrypoint.sh.template
 		-e 's/FORECAST_SETS_BUCKET/$(FORECAST_SETS_BUCKET)/g' \
 		-e 's/WEBSITE_STAGING_ASSETS_BUCKET/$(WEBSITE_STAGING_ASSETS_BUCKET)/g' \
 		-e 's/WEBSITE_BUCKET/$(WEBSITE_BUCKET)/g' \
-		$< > entrypoint.sh
+		-e 's/NO_CACHE/$(NO_CACHE)/g' \
+		$< > $@
 
 WEBSITE_VOLUME := $(subst .,-,$(WEBSITE_BUCKET))
 
@@ -34,6 +37,7 @@ deploy : entrypoint.sh Dockerfile .gcloudignore
 		--exclude='assets/js/leaderboard_tournament_compact.js' \
 		--exclude='assets/js/leaderboard_tournament_full.js' \
 		--exclude='assets/data/question-fixed-effects/placeholder.json' \
+		--exclude='assets/data/sota_graph_tournament.csv' \
 		./ $(UPLOAD_DIR)/
 	if [ "$(BUILD_ENV)" = "dev" ]; then \
 		printf "\n" >> $(UPLOAD_DIR)/_config.yml; \

@@ -29,6 +29,10 @@ bundle exec jekyll build --source "$ASSETS_MNT/" --destination "$WEBSITE_MNT/"
 LEADERBOARD_DIR="assets/js"
 mkdir -p "$WEBSITE_MNT/$LEADERBOARD_DIR"
 cp -a "$PUBLIC_RELEASE_MNT/leaderboards/js/." "$WEBSITE_MNT/$LEADERBOARD_DIR/"
+# leaderboard sota_graph_tournament.csv
+DATA_DIR="assets/data"
+mkdir -p "$WEBSITE_MNT/$DATA_DIR"
+cp -a "$PUBLIC_RELEASE_MNT/leaderboards/csv/sota_graph_tournament.csv" "$WEBSITE_MNT/$DATA_DIR/"
 # archived forecast sets
 FORECAST_SETS_MNT="$MOUNT_POINT/FORECAST_SETS_BUCKET"
 FORECAST_SETS_DIR="assets/data/forecast-sets"
@@ -41,3 +45,7 @@ PROCESSED_FORECAST_SETS_DIR="assets/data/processed-forecast-sets"
 mkdir -p "$WEBSITE_MNT/$PROCESSED_FORECAST_SETS_DIR"
 cp -f "$PROCESSED_FORECAST_SETS_MNT/PROCESSED_FORECAST_SETS_BUCKET.tar.gz" \
    "$WEBSITE_MNT/$PROCESSED_FORECAST_SETS_DIR/processed_forecast_sets.tar.gz"
+
+if [ "NO_CACHE" = "true" ]; then
+    gsutil -m setmeta -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" gs://WEBSITE_BUCKET/**
+fi

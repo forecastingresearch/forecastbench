@@ -82,7 +82,9 @@ MODEL_RELEASE_DAYS_CUTOFF = 365
 N_REPLICATES = 1999 if not env.RUNNING_LOCALLY else 2
 
 df_release_dates = pd.read_csv("model_release_dates.csv")
-df_release_dates["release_date"] = pd.to_datetime(df_release_dates["release_date"], errors="coerce")
+df_release_dates["model_release_date"] = pd.to_datetime(
+    df_release_dates["model_release_date"], errors="coerce"
+)
 
 ALWAYS_05_MODEL = {
     "organization": "ForecastBench",
@@ -389,9 +391,7 @@ def write_question_fixed_effects(question_fixed_effects: Dict[str, pd.DataFrame]
 
     directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
     iso_date = dates.get_date_today_as_iso()
-    local_filename = (
-        f"{directory}/question-fixed-effects/question_fixed_effects.{iso_date}.json"
-    )
+    local_filename = f"{directory}/question-fixed-effects/question_fixed_effects.{iso_date}.json"
     os.makedirs(os.path.dirname(local_filename), exist_ok=True)
     df.to_json(local_filename, orient="records")
 
@@ -967,6 +967,45 @@ def write_leaderboard_js_files(
         )
 
 
+def write_sota_graph_csv(
+    df: pd.DataFrame,
+    leaderboard_type: LeaderboardType,
+) -> None:
+    """Write CSV for SOTA graph on website Explore page.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+        leaderboard_type (LeaderboardType): The type of leaderboard to generate
+             (e.g., baseline or tournament). Only the baseline is used for the graph.
+
+    Returns:
+        None.
+    """
+    df = df[
+        [
+            "Team",
+            "Model Organization",
+            "Model",
+            "Dataset",
+            "N dataset",
+            "Dataset 95% CI",
+            "Market",
+            "N market",
+            "Market 95% CI",
+            "Overall",
+            "N",
+            "95% CI",
+            "Model release date",
+        ]
+    ]
+    directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
+    destination_folder = "leaderboards/csv"
+    os.makedirs(f"{directory}/{destination_folder}", exist_ok=True)
+    destination_filename_csv = f"{destination_folder}/sota_graph_{leaderboard_type.value}.csv"
+    local_filename_csv = f"{directory}/{destination_filename_csv}"
+    df.to_csv(local_filename_csv, index=False)
+
+
 def write_leaderboard(
     df: pd.DataFrame,
     primary_scoring_func: Callable[..., any],
@@ -1061,6 +1100,7 @@ def write_leaderboard(
             "x_pct_oracle_equivalent",
             "peer_score_overall",
             "brier_skill_score_overall",
+            "model_release_date",
         ]
     ].rename(
         columns={
@@ -1082,14 +1122,25 @@ def write_leaderboard(
             "x_pct_oracle_equivalent": "x% oracle equiv",
             "peer_score_overall": "Peer",
             "brier_skill_score_overall": "BSS",
+            "model_release_date": "Model release date",
         }
     )
 
+    # Write CSV for SOTA graph for website
+    write_sota_graph_csv(
+        df=df,
+        leaderboard_type=leaderboard_type,
+    )
+    df = df.drop(columns="Model release date")
+
+    # Write HTML and CSV leaderboard for datasets repo
     write_leaderboard_html_file(
         df=df,
         sorting_column_number=9,
         leaderboard_type=leaderboard_type,
     )
+
+    # Write JS leaderboard for website
     write_leaderboard_js_files(
         df=df,
         leaderboard_type=leaderboard_type,
@@ -1862,17 +1913,28 @@ def get_x_pct_oracle_equivalent(
     return df_leaderboard
 
 
-def add_model_release_dates(df: pd.DataFrame) -> pd.DataFrame:
-    """Add column counting the days between the model release and the forecast due date.
+def get_model_release_date_info(
+    df: pd.DataFrame,
+    days_since_release: bool = True,
+    model_release_date: bool = False,
+) -> pd.DataFrame:
+    """Add the requested column(s) related to the model release date.
 
     Args:
         df (pd.DataFrame): Combined forecast set.
+        days_since_release (bool, optional): If True, adds the 'days_since_model_release' column
+            with the number of days between the model release date and forecast due date.
+            Defaults to True.
+        model_release_date (bool, optional): If True, includes the 'model_release_date' column in
+            the output. Defaults to False.
 
     Returns:
-        pd.DataFrame: The combined forecast set with days since release column
+        pd.DataFrame: The input DataFrame with additional columns 'days_since_model_release'
+            (if `days_since_release` is True) and/or 'model_release_date' (if `model_release_date`
+            is True). Rows with missing release dates are excluded.
     """
     df = df.copy()
-    orig_cols = df.columns.tolist()
+    cols_to_return = df.columns.tolist()
 
     df_with_release_dates = pd.merge(
         df,
@@ -1898,12 +1960,17 @@ def add_model_release_dates(df: pd.DataFrame) -> pd.DataFrame:
             + "```"
         )
 
-    df_with_release_dates["days_since_model_release"] = (
-        pd.to_datetime(df_with_release_dates["forecast_due_date"])
-        - pd.to_datetime(df_with_release_dates["release_date"])
-    ).dt.days
+    if model_release_date:
+        cols_to_return += ["model_release_date"]
 
-    return df_with_release_dates[orig_cols + ["days_since_model_release"]].reset_index(drop=True)
+    if days_since_release:
+        cols_to_return += ["days_since_model_release"]
+        df_with_release_dates["days_since_model_release"] = (
+            pd.to_datetime(df_with_release_dates["forecast_due_date"])
+            - pd.to_datetime(df_with_release_dates["model_release_date"])
+        ).dt.days
+
+    return df_with_release_dates[cols_to_return].reset_index(drop=True)
 
 
 def make_leaderboard(
@@ -1920,7 +1987,11 @@ def make_leaderboard(
     logger.info(colored("Making leaderboard", "red"))
 
     df = combine_forecasting_rounds(leaderboard_entries)
-    df = add_model_release_dates(df=df)
+    df = get_model_release_date_info(
+        df=df,
+        days_since_release=True,
+        model_release_date=False,
+    )
     df = add_x_pct_oracles(df=df)
 
     # The scoring functions to consider
@@ -1996,6 +2067,11 @@ def make_leaderboard(
     )
 
     # Write leaderboard
+    df_leaderboard = get_model_release_date_info(
+        df=df_leaderboard,
+        days_since_release=False,
+        model_release_date=True,
+    )
     for leaderboard_type in LeaderboardType:
         df_leaderboard_lt = (
             remove_tournament_models(df=df_leaderboard)

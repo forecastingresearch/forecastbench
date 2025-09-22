@@ -47,3 +47,9 @@ footer:
     - label: "forecastbench@forecastingresearch.org"
       icon: "fas fa-fw fa-envelope"
       url: "mailto:forecastbench@forecastingresearch.org"
+
+exclude:
+  - entrypoint.sh
+  - Procfile
+  - Dockerfile
+  - upload

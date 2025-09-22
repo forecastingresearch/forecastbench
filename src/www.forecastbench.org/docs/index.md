@@ -70,13 +70,13 @@ footer_scripts:
     </div>
   </div>
   <hr>
-  <h1>Leaderboards</h1>
+  <h1 class="site-feature-row__title">Leaderboards</h1>
       <div class="site-feature-row__content">
           <div class="site-feature-row__left-3">
-The leaderboards from the ICLR 2025 paper are available both here and in the <a href="https://github.com/forecastingresearch/forecastbench-datasets">forecastbench-datasets repo</a> (<a href="https://github.com/forecastingresearch/forecastbench-datasets/commit/601f6d9e67952032205147305df0b4db8f13f727" class="git-sha">601f6d9</a>).
+            <p>The leaderboards from the ICLR 2025 paper are available both here and in the <a href="https://github.com/forecastingresearch/forecastbench-datasets">forecastbench-datasets repo</a> (<a href="https://github.com/forecastingresearch/forecastbench-datasets/commit/601f6d9e67952032205147305df0b4db8f13f727" class="git-sha">601f6d9</a>).</p>
           </div>
           <div class="site-feature-row__right-2">
-            <ul>
+            <ul style="font-size: 0.55rem;">
               <li><a href="/assets/iclr2025_leaderboards/leaderboards/human_leaderboard_overall.html">LLM / Human Leaderboard</a></li>
               <li><a href="/assets/iclr2025_leaderboards/leaderboards/leaderboard_overall.html">LLM Leaderboard</a></li>
               <li><a href="/assets/iclr2025_leaderboards/leaderboards/human_combo_leaderboard_overall.html">LLM / Human Combo Leaderboard</a></li>

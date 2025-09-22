@@ -99,27 +99,27 @@ body a:hover {
 
 
 #wrapp-btn {
-    transition: background-color 0.8s ease-in-out !important;
+    transition: all 0.25s ease !important;
     background-color: rgba(226, 62, 22, 0.7) !important;
     border-color: rgba(226, 62, 22, 0.8) !important;
 }
 
 #wrapp-btn:hover,
 #wrapp-btn:focus {
-  background-color: rgba(226, 62, 22, 0.4) !important;
-  border-color: rgba(226, 62, 22, .6) !important;
+  background-color: rgba(215, 58, 22, 0.8) !important;
+  border-color: rgba(215, 58, 22, 0.9) !important;
 }
 
 
 .btn--primary {
-    transition: background-color 0.5s ease-in-out !important;
+    transition: all 0.25s ease !important;
     background-color: rgba(226, 62, 22, 0.9) !important;
     border-color: rgba(226, 62, 22, 1) !important;
 }
 
 .btn--primary:hover,
 .btn--primary:focus {
-  background-color: rgba(226, 62, 22, 0.7) !important;
+  background-color: rgba(215, 58, 22, 0.95) !important;
 }
 
 
@@ -317,6 +317,10 @@ a.site-title:focus {
   p {
     font-size: 0.75rem;
     margin-bottom: 1rem;
+  }
+
+  ul, li {
+    font-size: 0.75rem;
   }
 
   // Remove card styling from tables inside wrapper
@@ -542,21 +546,57 @@ a.site-title:focus {
 .site-feature-row__left-2 {
   flex: 2;
   padding-right: 1rem;
+
+  p {
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  ul, li {
+    font-size: 0.75rem;
+  }
 }
 
 .site-feature-row__right-3 {
   flex: 3;
   max-width: 60%;
+
+  p {
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  ul, li {
+    font-size: 0.75rem;
+  }
 }
 
 .site-feature-row__left-3 {
   flex: 3;
   max-width: 60%;
+
+  p {
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  ul, li {
+    font-size: 0.75rem;
+  }
 }
 
 .site-feature-row__right-2 {
   flex: 2;
   padding-left: 1rem;
+
+  p {
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  ul, li {
+    font-size: 0.75rem;
+  }
 }
 
 
@@ -594,3 +634,482 @@ a.site-title:focus {
 .info-pagination-wrapper .dataTables_paginate {
   flex-shrink: 0;
 }
+
+/*
+ * Explore page chart styles
+ */
+.chart-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.controls {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.control-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Balance spacing between sections on desktop */
+@media (min-width: 900px) {
+  .control-section:nth-child(2) {
+    margin-left: 20px;
+  }
+
+  .control-section:nth-child(3) {
+    margin-right: 20px;
+  }
+}
+
+.control-label {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+/* Question Source - Segmented Control */
+.segmented-control {
+  display: inline-flex;
+  background: #e2e8f0;
+  border-radius: 8px;
+  padding: 3px 2px;
+  position: relative;
+}
+
+.segmented-control::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 2px;
+  width: calc(33.333% - 1.33px);
+  height: calc(100% - 6px);
+  background: linear-gradient(135deg, rgba(226, 62, 22, 0.9), rgba(226, 62, 22, 0.8));
+  border-radius: 5px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+.segmented-control:has(#type_dataset:checked)::before {
+  transform: translateX(100%);
+}
+
+.segmented-control:has(#type_market:checked)::before {
+  transform: translateX(200%);
+}
+
+.segmented-option {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+}
+
+.segmented-option input[type="radio"] {
+  display: none;
+}
+
+.segmented-option label {
+  display: block;
+  padding: 7px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  border-radius: 5px;
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  line-height: 1.2;
+  text-align: center;
+  min-width: 60px;
+}
+
+.segmented-option input[type="radio"]:checked + label {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Benchmarks - Tag Selection */
+.tag-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-option {
+  position: relative;
+}
+
+.tag-option input[type="checkbox"] {
+  display: none;
+}
+
+.tag-option label {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tag-option input[type="checkbox"]:checked + label {
+  background: rgba(226, 62, 22, 0.1);
+  border-color: rgba(226, 62, 22, 0.3);
+  color: rgba(226, 62, 22, 0.9);
+}
+
+.tag-option label:hover {
+  border-color: rgba(226, 62, 22, 0.2);
+  background: rgba(226, 62, 22, 0.05);
+}
+
+/* Toggle Switch */
+.toggle-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+input[type="checkbox"]:checked + .toggle-slider {
+  background-color: rgba(226, 62, 22, 0.8);
+}
+
+input[type="checkbox"]:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+}
+
+/* Responsive layout */
+@media (min-width: 900px) {
+  .controls {
+    grid-template-columns: 1fr 2.2fr 1.2fr;
+    align-items: start;
+  }
+}
+
+/* Move Options to its own row at medium screen sizes */
+@media (min-width: 900px) and (max-width: 1272px) {
+  .controls {
+    grid-template-columns: 1fr 2fr;
+    grid-template-rows: auto auto;
+    align-items: start;
+  }
+
+  .control-section:nth-child(3) {
+    grid-column: 1 / -1;
+    margin-right: 0;
+    margin-top: 16px;
+  }
+}
+
+/* Better responsive behavior for narrow screens */
+@media (max-width: 1024px) {
+  .toggle-label {
+    font-size: 13px;
+  }
+
+  .toggle-section {
+    gap: 8px;
+  }
+}
+
+/* Stack controls vertically on very narrow screens */
+@media (max-width: 640px) {
+  .controls {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+
+  .toggle-section {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
+  .toggle-label {
+    font-size: 12px;
+  }
+}
+
+#chart {
+  min-height: 500px;
+}
+
+/* CSS variables for chart theming */
+:root {
+  --chart-bg: #fefefe;
+  --chart-text: #1f2937;
+  --chart-grid: rgba(148, 163, 184, 0.2);
+  --chart-grid-major: rgba(148, 163, 184, 0.3);
+  --chart-axes: #64748b;
+  --chart-point: #93a3b5;
+  --chart-point-hover: rgb(18, 23, 31);
+  --chart-sota: #ea580c;
+  --chart-sota-hover: #dc2626;
+  --chart-sota-ring: #ea580c;
+  --chart-error: #dc2626;
+  --chart-ref: #6b7280;
+  --chart-ref-line: #d1d5db;
+  --chart-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Grid styling with subtle lines */
+.grid line {
+  stroke: var(--chart-grid);
+  stroke-width: 0.8;
+  opacity: 0.7;
+}
+
+.grid line:nth-child(5n) {
+  stroke: var(--chart-grid-major);
+  stroke-width: 1;
+  opacity: 0.9;
+}
+
+/* Axis styling with better typography */
+.axis path, .axis line {
+  stroke: var(--chart-axes);
+  stroke-width: 1.2;
+  shape-rendering: crispEdges;
+}
+
+/* Chart border to match axes */
+.chart-border {
+  stroke: var(--chart-axes);
+  stroke-width: 1.2;
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  fill: var(--chart-text);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--chart-font);
+}
+
+/* Axis labels with better typography */
+.ylabel, .xlabel {
+  fill: var(--chart-text);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--chart-font);
+}
+
+/* Reference lines with subtle styling */
+.refline {
+  stroke: var(--chart-ref);
+  stroke-width: 1;
+  stroke-dasharray: 6 3;
+  opacity: 0.6;
+}
+
+.reflabel {
+  fill: var(--chart-ref);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--chart-font);
+}
+
+/* Enhanced trend line */
+.trend-line {
+  stroke: var(--chart-sota);
+  stroke-width: 2.5;
+  stroke-dasharray: 8 4;
+  opacity: 0.8;
+  filter: drop-shadow(0 1px 2px rgba(234, 88, 12, 0.2));
+}
+
+/* Confidence band around trend line */
+.confidence-band {
+  fill: rgba(234, 88, 12, 0.15);
+  opacity: 0.7;
+  stroke: none;
+}
+
+/* Improved legend styling */
+.legend-text {
+  fill: var(--chart-text);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--chart-font);
+}
+
+/* Enhanced legend box */
+.legend rect {
+  fill: #f8fafc !important;
+  stroke: #e2e8f0;
+  stroke-width: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+.intersection-display rect {
+  fill: #f8fafc !important;
+  stroke: #e2e8f0;
+  stroke-width: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+/* Enhanced point styling with shadows and hover effects */
+.point-all {
+  fill: var(--chart-point);
+  fill-opacity: 0.8;
+  filter: drop-shadow(0 1px 2px rgba(147, 163, 181, 0.25));
+  transition: all 0.2s ease;
+}
+
+.point-all:hover {
+  fill: var(--chart-point-hover);
+  fill-opacity: 0.95;
+  filter: drop-shadow(0 2px 4px rgba(147, 163, 181, 0.4));
+}
+
+.point-sota {
+  fill: var(--chart-sota);
+  filter: drop-shadow(0 2px 3px rgba(234, 88, 12, 0.3));
+  transition: all 0.2s ease;
+}
+
+.point-sota:hover {
+  fill: var(--chart-sota-hover);
+  filter: drop-shadow(0 3px 6px rgba(234, 88, 12, 0.5));
+}
+
+.point-ring {
+  fill: none;
+  stroke: var(--chart-sota-ring);
+  stroke-width: 2.5;
+  opacity: 0.8;
+}
+
+/* Error bars with better styling */
+.errorbar {
+  stroke: var(--chart-error);
+  stroke-width: 2;
+  opacity: 0.7;
+  stroke-linecap: round;
+}
+
+/* Model labels with better typography */
+.lab {
+  font-size: 11px;
+  text-anchor: middle;
+  fill: var(--chart-text);
+  font-weight: 600;
+  font-family: var(--chart-font);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+.tooltip {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  font-family: var(--chart-font);
+}
+
+.selection-rect {
+  fill: rgba(234, 88, 12, 0.12);
+  stroke: rgba(234, 88, 12, 0.6);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 3;
+  opacity: 0.9;
+}
+
+
+.instruction {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 12px;
+  margin-left: 64px;
+  font-style: italic;
+  font-weight: 500;
+  text-align: left;
+  font-family: var(--chart-font);
+}
+/*
+ * Use browser default text selection colors for consistency with other websites
+ */
+::selection {
+  background: Highlight;
+  color: HighlightText;
+}
+
+::-moz-selection {
+  background: Highlight;
+  color: HighlightText;
+}
+
+/*
+ * End explore page styles
+ */
