@@ -37,8 +37,8 @@ API_KEY_MISTRAL = get_secret("API_KEY_MISTRAL")
 API_KEY_XAI = get_secret("API_KEY_XAI")
 
 # QUESTION DATASET SOURCES
-API_KEY_ACLED = get_secret(secret_name="API_KEY_ACLED")
 API_EMAIL_ACLED = get_secret(secret_name="API_EMAIL_ACLED")
+API_PASSWORD_ACLED = get_secret(secret_name="API_PASSWORD_ACLED")
 API_KEY_FRED = get_secret("API_KEY_FRED")
 
 # QUESTION MARKET SOURCES
