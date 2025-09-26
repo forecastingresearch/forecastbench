@@ -105,10 +105,15 @@ def main():
     operation_compress_forecast_sets_bucket = compress_bucket(bucket=env.FORECAST_SETS_BUCKET)
 
     dict_to_use = "fetch_and_update"
+    timeout_fetch_and_update = cloud_run.timeout_1h * 2
     task_count = len(question_curation.FREEZE_QUESTION_DATA_SOURCES) + len(
         question_curation.FREEZE_QUESTION_MARKET_SOURCES
     )
-    operation = call_worker(dict_to_use=dict_to_use, task_count=task_count)
+    operation = call_worker(
+        dict_to_use=dict_to_use,
+        task_count=task_count,
+        timeout=timeout_fetch_and_update,
+    )
     cloud_run.block_and_check_job_result(
         operation=operation,
         name=dict_to_use,
