@@ -26,6 +26,9 @@ src/resolve_forecasts/Dockerfile
 tmp.yaml
 Procfile
 
+# Makefile
+.make_failures.log
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
