@@ -1316,16 +1316,19 @@ def two_way_fixed_effects(df: pd.DataFrame, question_type) -> pd.DataFrame:
         date_mask = df_fe["days_since_model_release"] < MODEL_RELEASE_DAYS_CUTOFF
         df_fe = df_fe[org_mask | date_mask].reset_index(drop=True)
 
+        mod = pf.feols("brier_score ~ 1 | question_pk + model_pk", data=df_fe)
+        dict_question_fe = mod.fixef()["C(question_pk)"]
     elif question_type == "market":
-        # Estimated question fixed efficts quivalent to the market Brier
-        org_mask = df_fe["model_organization"] == constants.BENCHMARK_NAME
-        model_mask = df_fe["model"] == "Imputed Forecaster"
-        df_fe = df_fe[org_mask & model_mask].reset_index(drop=True)
+        # Estimated question fixed effects are eequivalent to the market Brier
+        mask = (
+            (df_fe["organization"] == constants.BENCHMARK_NAME)
+            & (df_fe["model_organization"] == constants.BENCHMARK_NAME)
+            & (df_fe["model"] == "Imputed Forecaster")
+        )
+        dict_question_fe = df_fe[mask].set_index("question_pk")["brier_score"].to_dict()
     else:
         raise ValueError(f"Question Type: {question_type} not found.")
 
-    mod = pf.feols("brier_score ~ 1 | question_pk + model_pk", data=df_fe)
-    dict_question_fe = mod.fixef()["C(question_pk)"]
     if len(dict_question_fe) != len(df["question_pk"].unique()):
         raise ValueError(
             f"Estimated num. of question fixed effects ({len(dict_question_fe)}) not equal to num. "
