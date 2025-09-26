@@ -108,35 +108,7 @@ RESOLUTION_CRITERIA = (
 )
 
 
-def download_dff_and_prepare_dfr() -> tuple:
-    """Prepare ACLED data for resolution."""
-    filenames = data_utils.generate_filenames(source=source)
-    df = data_utils.download_and_read(
-        filename=filenames["jsonl_fetch"],
-        local_filename=filenames["local_fetch"],
-        df_tmp=pd.DataFrame(columns=FETCH_COLUMNS),
-        dtype=FETCH_COLUMN_DTYPE,
-    )
-
-    countries = df["country"].unique()
-    event_types_acled = df["event_type"].unique()
-    event_types = list(event_types_acled) + ["fatalities"]
-
-    df = df[["country", "event_date", "event_type", "fatalities"]].copy()
-    df["event_date"] = pd.to_datetime(df["event_date"])
-    return (
-        (
-            pd.get_dummies(df, columns=["event_type"], prefix="", prefix_sep="")
-            .groupby(["country", "event_date"])
-            .sum()
-            .reset_index()
-        ),
-        countries,
-        event_types,
-    )
-
-
-def read_dff_and_prepare_dfr(local_question_bank_dir: str) -> pd.DataFrame:
+def read_dff(local_question_bank_dir=None) -> pd.DataFrame:
     """
     Read fetch file and create dfr.
 
@@ -144,28 +116,78 @@ def read_dff_and_prepare_dfr(local_question_bank_dir: str) -> pd.DataFrame:
         local_question_bank_dir (str): the location where the question bank was unzipped.
 
     Returns:
+        df (pd.DataFrame): parsed and formatted fetch file.
         dfr (pd.DataFrame): the ACLED resolution values.
     """
-    filenames = data_utils.generate_filenames(source=source)
-    source_fetch_file = filenames.get("jsonl_fetch")
-    local_filename = f"{local_question_bank_dir}/{source_fetch_file}"
+    if local_question_bank_dir is None:
+        filenames = data_utils.generate_filenames(source=source)
+        df = data_utils.download_and_read(
+            filename=filenames["jsonl_fetch"],
+            local_filename=filenames["local_fetch"],
+            df_tmp=pd.DataFrame(columns=FETCH_COLUMNS),
+            dtype=FETCH_COLUMN_DTYPE,
+        )
+    else:
+        filenames = data_utils.generate_filenames(source=source)
+        source_fetch_file = filenames.get("jsonl_fetch")
+        local_filename = f"{local_question_bank_dir}/{source_fetch_file}"
 
-    df = pd.read_json(
-        local_filename,
-        lines=True,
-        dtype=FETCH_COLUMN_DTYPE,
-        convert_dates=False,
-    )
+        df = pd.read_json(
+            local_filename,
+            lines=True,
+            dtype=FETCH_COLUMN_DTYPE,
+            convert_dates=False,
+        )
+
+    # The values for the `event_date` field in the following entries are incorrect.
+    # They are "0025-" for "2025" and "0024-" for "2024-"
+    #
+    # Bug reported to ACLED on 26 Sept 2025
+    #
+    # 2025:
+    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=ABW24
+    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=YEM104718
+    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=YEM99604
+    #
+    # 2024:
+    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=NCL346
+    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=NCL351
+    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=PYF127
+    def fix_year_prefix(date_str):
+        if isinstance(date_str, str):
+            if date_str.startswith("0025-"):
+                return "2025-" + date_str[5:]
+            if date_str.startswith("0024-"):
+                return "2024-" + date_str[5:]
+        return date_str
+
+    df["event_date"] = df["event_date"].apply(fix_year_prefix)
+    # End fix bug with ACLED data
+
+    df["event_date"] = pd.to_datetime(df["event_date"])
 
     df = df[["country", "event_date", "event_type", "fatalities"]].copy()
-    df["event_date"] = pd.to_datetime(df["event_date"])
+
     dfr = (
         pd.get_dummies(df, columns=["event_type"], prefix="", prefix_sep="")
         .groupby(["country", "event_date"])
         .sum()
         .reset_index()
     )
-    return dfr
+
+    return df, dfr
+
+
+def download_dff_and_prepare_dfr(local_question_bank_dir: str = None) -> tuple:
+    """Prepare ACLED data for resolution."""
+    df, dfr = read_dff(local_question_bank_dir=local_question_bank_dir)
+    countries = df["country"].unique()
+    event_types = list(df["event_type"].unique()) + ["fatalities"]
+    return (
+        dfr,
+        countries,
+        event_types,
+    )
 
 
 class QuestionType(Enum):

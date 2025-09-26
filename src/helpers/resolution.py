@@ -507,7 +507,7 @@ def get_and_unpack_question_bank(
     # Resolution files
     for source in sources_to_get:
         if source == "acled":
-            retval[source]["dfr"] = acled.read_dff_and_prepare_dfr(
+            retval[source]["dfr"], _, _ = acled.download_dff_and_prepare_dfr(
                 local_question_bank_dir=local_question_bank_dir
             )
         else:
