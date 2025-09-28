@@ -10,15 +10,15 @@ footer_scripts:
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
       <h1 class="site-feature-row__title">How does ForecastBench work?</h1>
-      <p>ForecastBench is a dynamic, continuously-updated benchmark designed to measure the accuracy of ML systems on a constantly evolving set of forecasting questions.</p>
+      <p>ForecastBench is a dynamic, continuously-updated benchmark designed to measure the accuracy of ML systems on a constantly changing set of forecasting questions.</p>
       <p>We evaluate LLMs by regularly asking them to make probabilistic forecasts about future events, thereby creating a contamination-free benchmark.</p>
       <p>We use two types of binary prediction questions:
       <ul>
-      <li><strong>Dataset questions</strong> are automatically generated from real-world time series (<a href="https://acleddata.com/" class="no-wrap">ACLED <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://db.nomics.world/" class="no-wrap">DBnomics <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://fred.stlouisfed.org/" class="no-wrap">FRED <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://finance.yahoo.com/" class="no-wrap">Yahoo! Finance <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, and <a href="https://www.wikipedia.org/" class="no-wrap">Wikipedia <i class="fa-solid fa-arrow-up-right-from-square"></i></a>) using pre-specified templates. Each dataset question generates multiple forecasts at different time horizons, since we ask the same question with eight different resolution dates, ranging from 7 days to 10 years out.</li>
+      <li><strong>Dataset questions</strong> are automatically generated from real-world time series (<a href="https://acleddata.com/" class="no-wrap">ACLED <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://db.nomics.world/" class="no-wrap">DBnomics <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://fred.stlouisfed.org/" class="no-wrap">FRED <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://finance.yahoo.com/" class="no-wrap">Yahoo! Finance <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, and <a href="https://www.wikipedia.org/" class="no-wrap">Wikipedia <i class="fa-solid fa-arrow-up-right-from-square"></i></a>) using pre-specified templates. Each dataset question generates multiple forecasts at different time horizons, since we ask the same question with 8 different resolution dates, ranging from 7 days to 10 years out.</li>
       <li><strong>Market questions</strong> are drawn from leading prediction platforms: <a href="https://manifold.markets/" class="no-wrap">Manifold <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://www.metaculus.com/" class="no-wrap">Metaculus <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://polymarket.com/" class="no-wrap">Polymarket <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, and <a href="https://www.randforecastinginitiative.org/" class="no-wrap">Rand Forecasting Initiative <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</li>
       </ul>
       </p>
-      <p>ForecastBench operates as a fully automated, dynamic system. New forecasting rounds occur biweekly, with each round generating 500 questions split evenly between market and dataset questions. The leaderboard is updated nightly as new data becomes available and market questions resolve over time, allowing us to continuously track forecasting performance.</p>
+      <p>ForecastBench operates as a fully automated, dynamic system. New forecasting rounds occur every two weeks, with each round generating 500 questions split evenly between market and dataset questions. The leaderboard is updated nightly as new data becomes available and market questions resolve over time, allowing us to continuously track forecasting performance.</p>
 
 <p>To construct the performance ranking, we evaluate forecasters separately on market questions and dataset questions. The overall ranking combines these scores, equally weighting performance by question type. As a result, the overall ranking provides a comprehensive assessment of forecasting ability across both structured time-series data (dataset questions) and real-world events (market questions).</p>
       </div>
@@ -59,6 +59,9 @@ footer_scripts:
     </div>
     <div class="site-feature-row__right-3">
       <div class="citation">
+        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy citation">
+          <i class="fa-regular fa-copy"></i>
+        </button>
         <pre>@inproceedings{karger2025forecastbench,
   title={ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities},
   author={Ezra Karger and Houtan Bastani and Chen Yueh‑Han and Zachary Jacobs and Danny Halawi and Fred Zhang and Philip E. Tetlock},
@@ -84,3 +87,46 @@ footer_scripts:
           </div>
       </div>
 </section>
+
+<script>
+function copyToClipboard(button) {
+  const citation = button.nextElementSibling.textContent;
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(citation).then(() => {
+      showCopySuccess(button);
+    }).catch(() => {
+      fallbackCopyTextToClipboard(citation, button);
+    });
+  } else {
+    fallbackCopyTextToClipboard(citation, button);
+  }
+}
+
+function fallbackCopyTextToClipboard(text, button) {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
+  textArea.style.top = "-999999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    document.execCommand('copy');
+    showCopySuccess(button);
+  } catch (err) {
+    console.error('Fallback: Oops, unable to copy', err);
+  }
+
+  document.body.removeChild(textArea);
+}
+
+function showCopySuccess(button) {
+  button.classList.add('copied');
+  setTimeout(() => {
+    button.classList.remove('copied');
+  }, 2000);
+}
+</script>

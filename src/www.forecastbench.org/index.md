@@ -22,7 +22,7 @@ after_footer_scripts:
   - /assets/js/tooltip-init.js
 header:
   overlay_color: "#171e29"
-excerpt: "A dynamic, continuously-updated, contamination-free benchmark that serves as a valuable proxy for general intelligence."
+excerpt: "A dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
 ---
 
 <!-- Baseline Leaderboard Section with Background -->
@@ -31,7 +31,7 @@ excerpt: "A dynamic, continuously-updated, contamination-free benchmark that ser
     <div style="flex:2; padding-right:1rem; display:flex; justify-content:flex-end;">
       <div style="width:450px; margin-right:2rem;">
         <h1>Baseline Leaderboard</h1>
-        <p>Tracks vanilla LLM forecasting performance, showing consistent progress in forecasting ability since models were first tested.</p>
+        <p>Tracks base model LLM forecasting performance <i>without additional tools</i>, comparing against human baselines and showing consistent progress in capabilities since models were first tested.</p>
         <p><a href="/baseline/" class="btn btn--primary btn--large">Baseline Leaderboard</a></p>
       </div>
     </div>
@@ -80,7 +80,7 @@ excerpt: "A dynamic, continuously-updated, contamination-free benchmark that ser
     <div style="flex:2; padding-left:1rem; display:flex; justify-content:center;">
       <div style="width:450px;">
         <h1>Tournament Leaderboard</h1>
-        <p>Tracks frontier performance, where tools can be used to improve LLM performance; LLMs can be scaffolded, fine-tuned, ensembled, and on and on.</p>
+        <p>Tracks frontier accuracy by allowing tool use to improve LLM performance. Models can be scaffolded, fine-tuned, ensembled, and so on. Open to <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench" class="no-wrap">public submissions <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
         <p><a href="/tournament/" class="btn btn--primary btn--large">Tournament Leaderboard</a></p>
       </div>
     </div>

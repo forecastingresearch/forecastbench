@@ -7,9 +7,9 @@ permalink: /datasets/question-fixed-effects/
 <section class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <h1 class="site-feature-row__title">Question Fixed Effect Estimates</h1>
-      <p>This page provides access to the estimated question fixed effects for all questions that are evaluated on the current leaderboard. The file is indeed a byproduct of producing the leaderboard. We provide it in hopes of evaluating the two way fixed effects model used to evaluate forecasting performance. As we thought it could be useful for others, and in view of being as transparent as possible, we provide the estimated question fixed effects for download. NB: higher scores imply more difficult questions.</p>
-      <p>A new file is generated nightly as a byproducet of updating the leaderboard.</p>
+      <h1 class="site-feature-row__title">Question fixed effect estimates</h1>
+      <p>This page provides access to the estimated question fixed effects for all questions evaluated on the current leaderboard. The file is a byproduct of producing the leaderboard. We provide it in hopes of evaluating the two way fixed effects model used to evaluate forecasting performance. For transparency, we provide the estimated question fixed effects for download. NB: higher scores imply more difficult questions.</p>
+      <p>A new file is generated nightly as a byproduct of updating the leaderboard.</p>
     </div>
   </div>
 </section>
@@ -21,7 +21,7 @@ permalink: /datasets/question-fixed-effects/
       <p>The question fixed effects files are provided as JSON files with the following fields:</p>
       <ul>
         <li><code>source</code>: The source from which the question was pulled or generated.</li>
-        <li><code>id</code>: The question id (unique given source).</li>
+        <li><code>id</code>: The question ID (unique given source).</li>
         <li><code>horizon</code>: The forecast horizon in days (<code>null</code> for market questions)</li>
         <li><code>forecast_due_date</code>: The forecast due date associated with the question set the question comes from</li>
         <li><code>question_fixed_effect</code>: The question fixed effect estimate.</li>
