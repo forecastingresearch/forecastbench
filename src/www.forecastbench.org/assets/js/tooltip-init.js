@@ -17,8 +17,6 @@ function initializeTooltips() {
   );
 
   // Small helper to compute final tooltip HTML:
-  // - For headers: data-tooltip is a key in tooltipContent
-  // - For cells: data-tooltip is the display string itself (e.g., "p = 0.032")
   function getTooltipHTML(el) {
     const keyOrText = el.getAttribute('data-tooltip');
     if (!keyOrText) return null;
@@ -29,19 +27,17 @@ function initializeTooltips() {
 
   function positionTooltip(el) {
     const rect = el.getBoundingClientRect();
-    const tooltipWidth = 300;  // tune to your CSS
-    const tooltipHeight = 60;  // tune to your CSS
+    const tooltipWidth = 300;
+    const tooltipHeight = 60;
 
     let left = rect.left + (rect.width / 2);
     let top = rect.bottom + 10;
 
-    // keep within viewport horizontally
     if (left < tooltipWidth / 2 + 10) {
       left = tooltipWidth / 2 + 10;
     } else if (left > window.innerWidth - tooltipWidth / 2 - 10) {
       left = window.innerWidth - tooltipWidth / 2 - 10;
     }
-    // if doesn't fit below, show above
     if (top + tooltipHeight > window.innerHeight - 10) {
       top = rect.top - tooltipHeight - 10;
     }
@@ -62,7 +58,6 @@ function initializeTooltips() {
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
     positionTooltip(el);
-    // allow CSS transition
     setTimeout(() => tooltip.classList.add('show'), 10);
   }
 
@@ -75,9 +70,16 @@ function initializeTooltips() {
     }, 50);
   }
 
-  // Attach listeners
+  // Attach listeners, but only once per element
   targets.forEach(el => {
+    if (el.dataset.tooltipped === '1') return; // already bound
+
+    // Ensure native browser tooltip won't appear even if someone left a title
+    if (el.hasAttribute('title')) el.removeAttribute('title');
+
     el.addEventListener('mouseenter', () => showTooltipFor(el));
     el.addEventListener('mouseleave', hideTooltipSoon);
+
+    el.dataset.tooltipped = '1';
   });
 }

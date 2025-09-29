@@ -54,13 +54,17 @@
                   return pre + '<br>last updated 2025-09-29';
               }
             });
+            table.on('draw.dt', function () {
+              initializeTooltips();
+            });
             // Initialize tooltips after table is created
             initializeTooltips();
           });
         // Tooltip content object (defined globally for access)
-        const tooltipContent = {
-          'Organization': `The organization that developed the model.`,
+        // Keys MUST match the <th data-tooltip="..."> values
+        window.tooltipContent = Object.assign(window.tooltipContent || {}, {
+          'Model Organization': `The organization that developed the model.`,
           'Model': `The name of the model that was used to generate the forecasts.`,
           'Overall': `Average difficulty-adjusted Brier score across all questions. Rescaled so that the Always 0.5 forecaster has a score of 0.25. Lower scores are better.`
-        };
+        });
         })();

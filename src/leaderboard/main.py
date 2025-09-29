@@ -115,7 +115,7 @@ TOOLTIP_COLUMN_DESCRIPTIONS = {
         "Rescaled so that the Always 0.5 forecaster has a score of 0.25. "
         "Lower scores are better."
     ),
-    "95% CI": "Bootstrapped 95% confidence interval for the Overall score.",
+    "Overall 95% CI": "Bootstrapped 95% confidence interval for the Overall score.",
     "Supers > Forecaster?": (
         "One-sided p-value comparing each forecaster to the superforecaster median based on "
         f"{N_REPLICATES:,} simulations, with<br>"
@@ -136,7 +136,7 @@ TOOLTIP_COLUMN_DESCRIPTIONS = {
     ),
     "x% oracle equiv": (
         "This model is most similar to a reference model that forecasts x% when the question "
-        "resolves to 1 and (1-x)% when the question resolved to 0. x moves in increments of 1 "
+        "resolved to 1 and (1-x)% when the question resolved to 0. x moves in increments of 1 "
         "from 0 - 100 inclusive. The 100% forecaster can be viewed as an oracle."
     ),
     "Peer": (
@@ -491,7 +491,7 @@ def write_leaderboard_html_file(
         <th>Market 95% CI</th>
         <th>Overall (N)</th>
         <th><!-- N --></th>
-        <th>95% CI</th>
+        <th>Overall 95% CI</th>
         <th>Supers > Forecaster?</th>
         <th>p-val Supers > Forecaster?</th>
         <th>Forecaster > Public?</th>
@@ -571,9 +571,9 @@ def write_leaderboard_html_file(
                         'data-html="{{ col_desc["Market 95% CI"] }}"></i>';
             col.orderable=false;
           }
-          if (name==='95% CI') {
-            col.title = '95% CI <i class="info circle icon" ' +
-                        'data-html="{{ col_desc["95% CI"] }}"></i>';
+          if (name==='Overall 95% CI') {
+            col.title = 'Overall 95% CI <i class="info circle icon" ' +
+                        'data-html="{{ col_desc["Overall 95% CI"] }}"></i>';
             col.orderable=false;
           }
           if (name==='x% oracle equiv') {
@@ -668,9 +668,9 @@ def write_leaderboard_js_file_full(
                           "Model Organization", "Model Organization Logo", "Model",
                           "Dataset", "N dataset", "Dataset 95% CI",
                           "Market", "N market", "Market 95% CI",
-                          "Overall", "N", "95% CI", "Supers > Forecaster?", "p-val Supers > Forecaster?",
-                          "Forecaster > Public?", "p-val Forecaster > Public?", "Pct times top 5%",
-                          "x% oracle equiv", "Peer", "BSS"];
+                          "Overall", "N", "Overall 95% CI",
+                          "Supers > Forecaster?", "p-val Supers > Forecaster?",
+                          "Forecaster > Public?", "p-val Forecaster > Public?"];
             const columns = cols.map(name => {
                 const col = { data: name, title: name };
                 if (name === "Rank") {
@@ -740,8 +740,7 @@ def write_leaderboard_js_file_full(
                 }
 
                 if (name === "Supers > Forecaster?"
-                    || name === "Forecaster > Public?"
-                    || name === "x% oracle equiv") {
+                    || name === "Forecaster > Public?") {
                       col.orderable = false;
                 }
 
@@ -772,18 +771,8 @@ def write_leaderboard_js_file_full(
                   };
                 }
 
-                if (name === "Pct times top 5%") {
-                  col.render = (d, t) => (t === "display" ? Math.round(d) + "%" : d);
-                  col.orderSequence = ["desc", "asc"];
-                }
-
-                if (["Dataset 95% CI", "Market 95% CI", "95% CI"].includes(name)) {
+                if (["Dataset 95% CI", "Market 95% CI", "Overall 95% CI"].includes(name)) {
                   col.orderable = false;
-                }
-
-                if (name === "Peer" || name === "BSS") {
-                  col.render = (d, t) => (t === "display" ? parseFloat(d).toFixed(3) : d);
-                  col.orderSequence = ["desc", "asc"];
                 }
 
                 return col;
@@ -808,17 +797,13 @@ def write_leaderboard_js_file_full(
                    <th class="column-header-tooltip" data-tooltip="Market 95% CI">Market 95% CI</th>
                    <th class="column-header-tooltip" data-tooltip="Overall (N)">Overall (N)</th>
                    <th><!-- N --></th>
-                   <th class="column-header-tooltip" data-tooltip="95% CI">95% CI</th>
+                   <th class="column-header-tooltip" data-tooltip="Overall 95% CI">Overall 95% CI</th>
                    <th class="column-header-tooltip"
                        data-tooltip="Supers > Forecaster?">Supers > Forecaster?</th>
                    <th><!-- p-val Supers > Forecaster? --></th>
                    <th class="column-header-tooltip"
                        data-tooltip="Forecaster > Public?">Forecaster > Public?</th>
                    <th><!-- p-val Forecaster > Public? --></th>
-                   <th class="column-header-tooltip" data-tooltip="Pct times top 5%">Pct times top 5%</th>
-                   <th class="column-header-tooltip" data-tooltip="x% oracle equiv">x% oracle equiv</th>
-                   <th class="column-header-tooltip" data-tooltip="Peer">Peer</th>
-                   <th class="column-header-tooltip" data-tooltip="BSS">BSS</th>
                  </tr>
                </thead>
                <tbody></tbody>
@@ -844,6 +829,9 @@ def write_leaderboard_js_file_full(
                    return pre + '<br>last updated {{ last_updated_date }}';
                }
            });
+           table.on('draw.dt', function () {
+             initializeTooltips();
+           });
            // Initialize tooltips after table is created
            initializeTooltips();
         });
@@ -857,13 +845,9 @@ def write_leaderboard_js_file_full(
           'Market (N)': `{{ col_desc["Market"] }}`,
           'Market 95% CI': `{{ col_desc["Market 95% CI"] }}`,
           'Overall (N)': `{{ col_desc["Overall"] }}`,
-          '95% CI': `{{ col_desc["95% CI"] }}`,
+          'Overall 95% CI': `{{ col_desc["Overall 95% CI"] }}`,
           'Supers > Forecaster?': `{{ col_desc["Supers > Forecaster?"] }}`,
-          'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`,
-          'Pct times top 5%': `{{ col_desc["Pct times top 5%"] }}`,
-          'x% oracle equiv': `{{ col_desc["x% oracle equiv"] }}`,
-          'Peer': `{{ col_desc["Peer"] }}`,
-          'BSS': `{{ col_desc["BSS"] }}`
+          'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`
         };"""
     )
 
@@ -952,15 +936,19 @@ def write_leaderboard_js_file_compact(
                   return pre + '<br>last updated {{ last_updated_date }}';
               }
             });
+            table.on('draw.dt', function () {
+              initializeTooltips();
+            });
             // Initialize tooltips after table is created
             initializeTooltips();
           });
         // Tooltip content object (defined globally for access)
-        const tooltipContent = {
-          'Organization': `{{ col_desc["Model Organization"] }}`,
+        // Keys MUST match the <th data-tooltip="..."> values
+        window.tooltipContent = Object.assign(window.tooltipContent || {}, {
+          'Model Organization': `{{ col_desc["Model Organization"] }}`,
           'Model': `{{ col_desc["Model"] }}`,
           'Overall': `{{ col_desc["Overall"] }}`
-        };
+        });
         })();"""
     )
 
@@ -1040,7 +1028,7 @@ def write_sota_graph_csv(
             "Market 95% CI",
             "Overall",
             "N",
-            "95% CI",
+            "Overall 95% CI",
             "Model release date",
         ]
     ]
@@ -1092,11 +1080,7 @@ def write_leaderboard(
 
     # Format CI
     def format_ci(df, question_type):
-        col_prefix = (
-            f"{primary_scoring_func.__name__}"
-            if question_type == "overall"
-            else f"{primary_scoring_func.__name__}_{question_type}"
-        )
+        col_prefix = f"{primary_scoring_func.__name__}_{question_type}"
         df[f"{col_prefix}_ci_lower"] = df[f"{col_prefix}_ci_lower"].round(3).astype(str)
         df[f"{col_prefix}_ci_upper"] = df[f"{col_prefix}_ci_upper"].round(3).astype(str)
         df[f"{col_prefix}_ci"] = (
@@ -1161,7 +1145,7 @@ def write_leaderboard(
             f"{primary_scoring_func.__name__}_market_ci",
             f"{primary_scoring_func.__name__}_overall",
             "n_overall",
-            f"{primary_scoring_func.__name__}_ci",
+            f"{primary_scoring_func.__name__}_overall_ci",
             *p_value_cols.keys(),
             "pct_times_best_performer",
             "pct_times_top_5_percentile",
@@ -1183,7 +1167,7 @@ def write_leaderboard(
             f"{primary_scoring_func.__name__}_market_ci": "Market 95% CI",
             f"{primary_scoring_func.__name__}_overall": "Overall",
             "n_overall": "N",
-            f"{primary_scoring_func.__name__}_ci": "95% CI",
+            f"{primary_scoring_func.__name__}_overall_ci": "Overall 95% CI",
             **p_value_cols,
             "pct_times_best_performer": "Pct times № 1",
             "pct_times_top_5_percentile": "Pct times top 5%",
@@ -1209,7 +1193,15 @@ def write_leaderboard(
     )
 
     # Write JS leaderboard for website
-    df = df.drop(columns="Pct times № 1")
+    df = df.drop(
+        columns=[
+            "Pct times № 1",
+            "Pct times top 5%",
+            "x% oracle equiv",
+            "Peer",
+            "BSS",
+        ]
+    )
     write_leaderboard_js_files(
         df=df,
         leaderboard_type=leaderboard_type,
@@ -1639,6 +1631,7 @@ def get_confidence_interval(
     Args:
         df_leaderboard (pd.DataFrame): Leaderboard.
         df_simulated_scores (pd.DataFrame): Bootstrapped replicates of overall scores.
+        question_type (str): one of "dataset", "market", "overall"
         primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]): Function to compute the
                      primary overall score.
         method (str): CI calculation method, either 'percentile' or 'bca'.
@@ -1648,6 +1641,8 @@ def get_confidence_interval(
         pd.DataFrame: Leaderboard with added lower and upper CI columns.
     """
     logger.info(colored("Calculating CIs", "red"))
+    if question_type not in ["dataset", "market", "overall"]:
+        raise ValueError(f"question type {question_type} not valid.")
 
     if env.RUNNING_LOCALLY and show_histograms:
         models = [
@@ -1697,11 +1692,7 @@ def get_confidence_interval(
     else:
         raise ValueError(f"Value passed for method ({method}) is not valid.")
 
-    col_prefix = (
-        f"{primary_scoring_func.__name__}"
-        if question_type == "overall"
-        else f"{primary_scoring_func.__name__}_{question_type}"
-    )
+    col_prefix = f"{primary_scoring_func.__name__}_{question_type}"
     df_leaderboard[f"{col_prefix}_ci_lower"] = df_leaderboard["model_pk"].map(lower).values
     df_leaderboard[f"{col_prefix}_ci_upper"] = df_leaderboard["model_pk"].map(upper).values
     return df_leaderboard
