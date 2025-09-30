@@ -58,6 +58,7 @@ QUESTION_SET_FIELDS = [
     "direction",
     "forecast_due_date",
     "market_value_on_due_date",
+    "market_value_on_due_date_minus_one",
     "resolution_date",
     "resolved_to",
     "resolved",
@@ -370,35 +371,48 @@ def print_question_set_breakdown(human_or_llm, forecast_due_date, df, df_orig_qu
             logger.warning(f" N/A resolution for {row['source']} {row['id']}")
 
 
-def impute_missing_forecasts(df, organization):
+def impute_missing_forecasts(
+    df: pd.DataFrame,
+    organization: str,
+    model_organization: str,
+    model: str,
+) -> pd.DataFrame:
     """
     Fill in np.nan forecast values with context-appropriate forecasts.
 
     Forecasters are expeceted to provide forecasts on all questions. If they have omitted
-    forecasts, we impute the following values to their forecasts:
-    * data questions: 0.5
-    * market questions: the market value at forecast_due_date (i.e. the naive forecast)
+    forecasts, we impute the value 0.5 to their forecast.
+
+    Except:
+    - the Imputed Forecaster is assigned the market value on the forecast due date
+    - the Naive Forecaster is assigned the market value on the forecast due date - 1 day
+
+    Args:
+        df (pd.DataFrame): forecasts dataframe.
+        organization (str): the submitting organization.
+        model_organization (str): the organization associated with the model
+        model (str): the model name.
+
+    Returns:
+        pd.DataFrame: with imputed values if any.
     """
     logger.info("Impute mising forecasts.")
     df["forecast"] = df["forecast"].astype(float)
-    n_orig = df["forecast"].isna().sum()
-
     df["imputed"] = False
-    df.loc[df["forecast"].isna(), "imputed"] = True
-
+    n_orig = df["forecast"].isna().sum()
     if n_orig == 0:
         logger.info("No missing values → nothing to impute.")
         return df
-
     logger.info(f" Found {n_orig:,} missing values to impute.")
 
+    df.loc[df["forecast"].isna(), "imputed"] = True
     df.loc[df["imputed"], "forecast"] = 0.5
-    if organization == constants.BENCHMARK_NAME:
-        # The imputed forecaster and the naive forecaster get the market value on the due date.
-        df.loc[(df["source"].isin(resolution.MARKET_SOURCES)) & df["imputed"], "forecast"] = df[
-            "market_value_on_due_date"
-        ]
-
+    if organization == constants.BENCHMARK_NAME and model_organization == constants.BENCHMARK_NAME:
+        market_imputed_mask = (df["source"].isin(resolution.MARKET_SOURCES)) & df["imputed"]
+        if model == "Imputed Forecaster":
+            df.loc[market_imputed_mask, "forecast"] = df["market_value_on_due_date"]
+        elif model == "Naive Forecaster":
+            df.loc[market_imputed_mask, "forecast"] = df["market_value_on_due_date_minus_one"]
     return df
 
 
@@ -663,6 +677,8 @@ def driver(_: Any) -> None:
         df = impute_missing_forecasts(
             df=df,
             organization=organization,
+            model_organization=model_organization,
+            model=model,
         )
 
         team_forecast = {

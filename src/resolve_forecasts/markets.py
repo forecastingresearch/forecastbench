@@ -66,7 +66,7 @@ def resolve(source, df, dfq, dfr):
     df_standard["resolution_date"] = pd.to_datetime(yesterday)
 
     # Get market values at forecast_due_date
-    # These values are assigned to any forecasts the organization may have omitted.
+    # To impute the forecast for the Imputed Forecaster
     df_standard = pd.merge(
         df_standard,
         dfr,
@@ -76,6 +76,20 @@ def resolve(source, df, dfq, dfr):
     )
     df_standard["market_value_on_due_date"] = df_standard["value"]
     df_standard = df_standard.drop(columns=["date", "value"])
+
+    # To impute the forecast for the Naive Forecaster
+    df_standard["forecast_due_date_minus_one"] = pd.to_datetime(
+        df_standard["forecast_due_date"]
+    ) - pd.Timedelta(days=1)
+    df_standard = pd.merge(
+        df_standard,
+        dfr,
+        left_on=["id", "forecast_due_date_minus_one"],
+        right_on=["id", "date"],
+        how="left",
+    )
+    df_standard["market_value_on_due_date_minus_one"] = df_standard["value"]
+    df_standard = df_standard.drop(columns=["date", "value", "forecast_due_date_minus_one"])
 
     # Overwrite resolved_to values with resolved_value if question has resolved
     for mid in dfq.loc[dfq["resolved"], "id"]:
