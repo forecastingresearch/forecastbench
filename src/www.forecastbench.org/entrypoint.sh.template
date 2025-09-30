@@ -20,6 +20,11 @@ QUESTION_FE_DIR="assets/data/question-fixed-effects"
 mkdir -p "$ASSETS_MNT/$QUESTION_FE_DIR"
 cp -a "$PUBLIC_RELEASE_MNT/question-fixed-effects/." "$ASSETS_MNT/$QUESTION_FE_DIR/"
 
+# SOTA LLM Super parity dates
+SOTA_LLM_SUPER_DIR="assets/data/"
+mkdir -p "$ASSETS_MNT/$SOTA_LLM_SUPER_DIR"
+cp -a "$PUBLIC_RELEASE_MNT/simulated_llm_parity/." "$ASSETS_MNT/$SOTA_LLM_SUPER_DIR/"
+
 # leaderboard .js files
 LEADERBOARD_DIR="assets/js"
 mkdir -p "$ASSETS_MNT/$LEADERBOARD_DIR"

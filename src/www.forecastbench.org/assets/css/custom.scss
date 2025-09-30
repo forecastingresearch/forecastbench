@@ -1156,3 +1156,84 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 /*
  * End explore page styles
  */
+
+/*
+ * Parity date card positioning and styling
+ */
+.parity-card-wrapper {
+  position: absolute;
+  top: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 1280px;
+  padding-inline: 1em;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.parity-card-wrapper a {
+  pointer-events: auto;
+  text-decoration: none;
+}
+
+.parity-card-inner {
+  display: inline-block;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.5), inset 0 -1px 1px rgba(0, 0, 0, 0.05);
+  padding: 1.25rem 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(16px) brightness(1.1);
+  -webkit-backdrop-filter: blur(16px) brightness(1.1);
+  position: relative;
+}
+
+.parity-card-header {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.parity-card-date {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.3rem;
+  line-height: 1.2;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.parity-card-ci {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+a:has(.parity-card-inner):hover .parity-card-inner {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.6), inset 0 -1px 1px rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.15) 100%) !important;
+}
+
+/* Responsive styling for parity card */
+@media (max-width: 768px) {
+  .parity-card-wrapper {
+    position: relative !important;
+    top: 0 !important;
+    padding: 1rem !important;
+    padding-right: 1rem !important;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+  }
+}

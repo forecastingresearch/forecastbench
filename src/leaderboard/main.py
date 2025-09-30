@@ -10,13 +10,14 @@ import traceback
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import pyfixest as pf
 from jinja2 import Template
 from joblib import Parallel, delayed
+from pandas._libs.tslibs.nattype import NaTType
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 from termcolor import colored
@@ -80,7 +81,9 @@ MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 50
 
 MODEL_RELEASE_DAYS_CUTOFF = 365
 
-N_REPLICATES = 1999 if not env.RUNNING_LOCALLY else 2
+SIM_BOOTSTRAP_COL_PREFIX = "bootstrap"
+
+N_REPLICATES = 1999 if not env.RUNNING_LOCALLY else 5
 
 df_release_dates = pd.read_csv("model_release_dates.csv")
 df_release_dates["model_release_date"] = pd.to_datetime(
@@ -377,6 +380,24 @@ def process_forecast_file(
         return
 
     leaderboard_entries.append(processed)
+
+
+def write_llm_super_parity_dates(parity_dates: dict) -> None:
+    """Write LLM-Super parity dates for SOTA graph.
+
+    Args:
+        parity_dates (dict[str, dict[object, dict[str, str]]]): Nested mapping of
+            question types to leaderboard identifiers to summary strings
+            (e.g., {'lower': 'Aug 2025', 'median': 'Nov 2025', 'upper': 'Apr 2026'}).
+
+    Returns:
+        None
+    """
+    directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
+    local_filename = f"{directory}/simulated_llm_parity/parity_dates.json"
+    os.makedirs(os.path.dirname(local_filename), exist_ok=True)
+    with open(local_filename, "w", encoding="utf-8") as f:
+        json.dump(parity_dates, f, default=str, ensure_ascii=False, indent=2, sort_keys=True)
 
 
 def write_question_fixed_effects(question_fixed_effects: Dict[str, pd.DataFrame]) -> None:
@@ -856,7 +877,7 @@ def write_leaderboard_js_file_full(
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
-        include_team = leaderboard_type != LeaderboardType.BASELINE,
+        include_team=leaderboard_type != LeaderboardType.BASELINE,
     )
 
     return {
@@ -1580,13 +1601,13 @@ def generate_simulated_leaderboards(
 
         df_simulated_leaderboard.set_index("model_pk")[
             f"{primary_scoring_func.__name__}_dataset"
-        ].rename(f"bootstrap_{idx}").to_frame().to_parquet(out_path_dataset)
+        ].rename(f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}").to_frame().to_parquet(out_path_dataset)
         df_simulated_leaderboard.set_index("model_pk")[
             f"{primary_scoring_func.__name__}_market"
-        ].rename(f"bootstrap_{idx}").to_frame().to_parquet(out_path_market)
+        ].rename(f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}").to_frame().to_parquet(out_path_market)
         df_simulated_leaderboard.set_index("model_pk")[
             f"{primary_scoring_func.__name__}_overall"
-        ].rename(f"bootstrap_{idx}").to_frame().to_parquet(out_path_overall)
+        ].rename(f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}").to_frame().to_parquet(out_path_overall)
         return (
             out_path_dataset,
             out_path_market,
@@ -2080,6 +2101,289 @@ def get_model_release_date_info(
     return df_with_release_dates[cols_to_return].reset_index(drop=True)
 
 
+def find_sota_models(
+    df: pd.DataFrame,
+    bootstrap_col: str,
+) -> pd.DataFrame:
+    """Identify SOTA models for a given bootstrap column, allowing co-SOTAs.
+
+    Args:
+        df (pd.DataFrame): Simulated data for models to consider, sorted by model_release_date
+            with nan model_release_dates dropped
+        bootstrap_col (str): Name of the column holding scores for a single bootstraps
+            iteration (e.g., 'bootstrap_0').
+
+    Returns:
+        pd.DataFrame: Subset of rows corresponding to SOTA/co-SOTA models with columns
+            ['model_pk', 'model_release_date', bootstrap_col], sorted by release date.
+            Rows with missing release dates or scores are excluded.
+    """
+    cols = ["model_pk", "model", "model_release_date", bootstrap_col]
+    if "model_release_date_ordinal" in df.columns:
+        cols += ["model_release_date_ordinal"]
+    df = df[cols].copy()
+    best = np.inf
+    tol = 1e-12
+    chosen_idx = []
+    for _, g in df.groupby("model_release_date", sort=True):
+        g_sorted = g.sort_values([bootstrap_col, "model"], ascending=[True, True])
+        best_of_day = g_sorted.iloc[0][bootstrap_col]
+        if best_of_day < best - tol:
+            chosen_idx.append(g_sorted.index[0])
+            best = best_of_day
+
+    return df.loc[chosen_idx, cols].sort_values("model_release_date").reset_index(drop=True)
+
+
+def calculate_sota_super_intersection_date(
+    df: pd.DataFrame,
+    superforecaster_median: float,
+    bootstrap_col: str,
+) -> Union[float, NaTType]:
+    """Estimate when the SOTA trend intersects the superforecaster median.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing 'model_release_date' and the given
+            `bootstrap_col`. Rows with missing values are ignored implicitly by NumPy.
+        superforecaster_median (float): The superforecaster benchmark score to intersect.
+        bootstrap_col (str): Name of the score column to regress (e.g., 'bootstrap_0').
+
+    Returns:
+        Union[float, pd.NaT]: The intersection expressed as an ordinal day number if
+            finite, otherwise `pd.NaT`. To convert an ordinal to a calendar date, use:
+            `pd.Timestamp.fromordinal(int(round(ordinal))).normalize()`.
+    """
+    if df.empty:
+        return pd.NaT
+
+    x = df["model_release_date_ordinal"].to_numpy(dtype=float)
+    y = df[bootstrap_col].to_numpy(dtype=float)
+    if x.size < 3 or np.unique(x).size < 3:
+        return pd.NaT
+
+    last_ord = df["model_release_date_ordinal"].max()
+    last_scores = df.loc[df["model_release_date_ordinal"] == last_ord, bootstrap_col].dropna()
+    if last_scores.empty:
+        return pd.NaT
+    y_sota = float(last_scores.min())
+    if superforecaster_median > y_sota:
+        logger.info(f" * Supers worse: {superforecaster_median} > {y_sota}.")
+        return pd.NaT
+
+    xm = x.mean()
+    ym = y.mean()
+    xc = x - xm
+    yc = y - ym
+    denom = np.dot(xc, xc)
+    if denom == 0:
+        return pd.NaT
+
+    m = np.dot(xc, yc) / denom
+    if not np.isfinite(m) or m >= 0:
+        return pd.NaT
+
+    b = ym - m * xm
+    xi = (superforecaster_median - b) / m
+    return float(xi) if np.isfinite(xi) else pd.NaT
+
+
+def summarize_parity_dates(all_dates: dict) -> dict:
+    """Summarize bootstrap parity date samples into a 95% interval and median per group.
+
+    Args:
+        all_dates (dict[str, dict[object, Sequence[float]]]): Mapping from
+            question type to leaderboard to a sequence of ordinal day numbers.
+
+    Returns:
+        dict[str, dict[object, Optional[dict[str, str]]]]: For each question type
+            and leaderboard, either None (no finite samples) or a dict with:
+            {'lower': 'Mon YYYY', 'median': 'Mon YYYY', 'upper': 'Mon YYYY'}.
+
+    Notes:
+        - Ordinals are rounded to the nearest day before formatting.
+        - Percentiles are computed via np.quantile at [0.025, 0.5, 0.975].
+    """
+
+    def fmt(ordinal: float) -> str:
+        return pd.Timestamp.fromordinal(int(round(ordinal))).strftime("%B %Y")
+
+    retval = {}
+    for question_type, leaderboards in all_dates.items():
+        retval[question_type] = {}
+        for leaderboard, super_parity_dates in leaderboards.items():
+            a = np.asarray(super_parity_dates, dtype=float)
+            a = a[np.isfinite(a)]
+            logger.info(f"Summarizing parity date {question_type} {leaderboard} {len(a)}")
+            if a.size == 0:
+                logger.error(
+                    colored(
+                        f"PROBLEM CALCULATING PARITY DATE for {question_type}, {leaderboard}", "red"
+                    )
+                )
+                retval[question_type][leaderboard] = None
+                continue
+            q = np.quantile(a, [0.025, 0.5, 0.975])
+            retval[question_type][leaderboard] = {
+                "lower": fmt(q[0]),
+                "median": fmt(q[1]),
+                "upper": fmt(q[2]),
+            }
+    return retval
+
+
+def get_sota_super_parity_expected_dates(
+    df_leaderboard: pd.DataFrame,
+    df_simulated_scores_dataset: pd.DataFrame,
+    df_simulated_scores_market: pd.DataFrame,
+    df_simulated_scores_overall: pd.DataFrame,
+) -> dict:
+    """Compute LLM–superforecaster parity dates per question type and leaderboard.
+
+    Args:
+        df_leaderboard (pd.DataFrame): Leaderboard.
+        df_simulated_scores_dataset (pd.DataFrame): Simulated scores for dataset questions.
+        df_simulated_scores_market (pd.DataFrame): Simulated scores for market questions.
+        df_simulated_scores_overall (pd.DataFrame): Simulated scores for overall questions.
+
+    Returns:
+        Dict[str, Dict[LeaderboardType, List[float]]]: Mapping from question type
+            ('dataset' | 'market' | 'overall') to leaderboard type (LeaderboardType)
+            to a list of intersection dates expressed as ordinal day numbers. Lists may
+            be empty when an intersection cannot be estimated for a bootstrap.
+    """
+    logger.info("Get SOTA LLM Super parity dates.")
+    df_leaderboard = df_leaderboard.copy()
+
+    # Join dates to simulated output
+    if "model_release_date" not in df_leaderboard.columns:
+        df_leaderboard = get_model_release_date_info(
+            df=df_leaderboard,
+            days_since_release=False,
+            model_release_date=True,
+        )
+
+    df_model = df_leaderboard[
+        [
+            "organization",
+            "model_organization",
+            "model_pk",
+            "model",
+            "model_release_date",
+        ]
+    ].drop_duplicates(ignore_index=True)
+    df_model = df_model[df_model["organization"] == constants.BENCHMARK_NAME].reset_index(drop=True)
+    df_model["release_date"] = pd.to_datetime(df_model["model_release_date"]).dt.date
+
+    dataframes = {
+        "dataset": df_simulated_scores_dataset.copy(),
+        "market": df_simulated_scores_market.copy(),
+        "overall": df_simulated_scores_overall.copy(),
+    }
+    for key in dataframes.keys():
+        df_tmp = pd.merge(
+            dataframes[key],
+            df_model,
+            on="model_pk",
+            how="inner",
+        )
+
+        df_tmp["model_release_date_ordinal"] = np.nan
+        df_model_release_date_datetime = pd.to_datetime(
+            df_tmp["model_release_date"], errors="coerce"
+        )
+        mask = df_model_release_date_datetime.notna()
+        df_tmp.loc[mask, "model_release_date_ordinal"] = df_model_release_date_datetime[mask].map(
+            pd.Timestamp.toordinal
+        )
+        cols_to_keep = list(dataframes[key].columns) + [
+            "organization",
+            "model_organization",
+            "model",
+            "model_pk",
+            "model_release_date",
+            "model_release_date_ordinal",
+        ]
+        dataframes[key] = df_tmp.sort_values("model_release_date", ignore_index=True)[cols_to_keep]
+
+    def prep_df_to_find_sota_models(df: pd.DataFrame):
+        super_mask = (
+            (df["model"] == HUMAN_SUPERFORECASTER["model"])
+            & (df["organization"] == HUMAN_SUPERFORECASTER["organization"])
+            & (df["model_organization"] == HUMAN_SUPERFORECASTER["model_organization"])
+        )
+        df_super = df.loc[super_mask]
+        if df_super.shape[0] != 1:
+            raise ValueError("Could not find supers in simulated data")
+        return df.dropna(subset=["model_release_date"], ignore_index=True), df_super
+
+    # Compile LLM-Super parity dates
+    question_types = dataframes.keys()
+    retval = {
+        question_type: {leaderboard_type.value: None for leaderboard_type in LeaderboardType}
+        for question_type in question_types
+    }
+
+    for question_type in question_types:
+        # Get current last SOTA release date
+        df_leaderboard_prepped, _ = prep_df_to_find_sota_models(df=df_leaderboard)
+        df_leaderboard_sota_models = find_sota_models(
+            df=df_leaderboard_prepped,
+            bootstrap_col=f"two_way_fixed_effects_{question_type}",
+        )
+        leaderboard_last_sota_release_date_ordinal = float(
+            pd.to_datetime(df_leaderboard_sota_models["model_release_date"]).max().toordinal()
+        )
+        for leaderboard_type in LeaderboardType:
+            if question_type == "dataset" and leaderboard_type == LeaderboardType.TOURNAMENT:
+                # For dataset questions, the FB tournament models just repeat the forecasts from,
+                # the FB baseline models, so just copy those results over at the end.
+                break
+            df_sim_data = (
+                remove_tournament_models(df=dataframes[question_type])
+                if leaderboard_type == LeaderboardType.BASELINE
+                else dataframes[question_type]
+            )
+            bootstrap_cols = [
+                c for c in df_sim_data.columns if c.startswith(SIM_BOOTSTRAP_COL_PREFIX)
+            ]
+            superforecaster_parity_dates = []
+            df_sim_data_prepped, df_sim_data_super = prep_df_to_find_sota_models(df=df_sim_data)
+            for col in bootstrap_cols:
+                df_sota_models = find_sota_models(
+                    df=df_sim_data_prepped,
+                    bootstrap_col=col,
+                )
+                df_sim_data_super_boot = df_sim_data_super[col]
+                if df_sim_data_super_boot.shape[0] != 1:
+                    raise ValueError("Could not find supers in simulated data")
+                superforecaster_median = float(df_sim_data_super_boot.iloc[0])
+                intersection_date_ordinal = calculate_sota_super_intersection_date(
+                    df=df_sota_models,
+                    superforecaster_median=superforecaster_median,
+                    bootstrap_col=col,
+                )
+                if isinstance(intersection_date_ordinal, float) and np.isfinite(
+                    intersection_date_ordinal
+                ):
+                    if intersection_date_ordinal > leaderboard_last_sota_release_date_ordinal:
+                        superforecaster_parity_dates.append(intersection_date_ordinal)
+                elif pd.isna(intersection_date_ordinal):
+                    logger.warning(f"Skipping invalid intersection_date_ordinal (pd.NaT) for {col}")
+                else:
+                    logger.warning(
+                        "Unexpected intersection_date_ordinal type: "
+                        f"{type(intersection_date_ordinal)} for {col}"
+                    )
+
+            if not superforecaster_parity_dates:
+                slack.send_message("*PROBLEM CALCULATING LLM PARITY DATES*")
+            retval[question_type][leaderboard_type] = superforecaster_parity_dates
+
+    retval["dataset"][leaderboard_type.TOURNAMENT] = retval["dataset"][leaderboard_type.BASELINE]
+    logger.info("Done getting SOTA LLM Super parity dates.")
+    return summarize_parity_dates(retval)
+
+
 def make_leaderboard(
     leaderboard_entries: List[pd.DataFrame],
 ) -> Dict[str, str]:
@@ -2154,6 +2458,14 @@ def make_leaderboard(
         primary_scoring_func=primary_scoring_func,
     )
 
+    # Explore SOTA graph trend line
+    llm_super_parity_dates = get_sota_super_parity_expected_dates(
+        df_leaderboard=df_leaderboard,
+        df_simulated_scores_dataset=df_simulated_scores_dataset,
+        df_simulated_scores_market=df_simulated_scores_market,
+        df_simulated_scores_overall=df_simulated_scores_overall,
+    )
+
     # Compare to human models
     for comparison in HUMAN_MODELS:
         df_leaderboard = get_comparison_p_val(
@@ -2171,6 +2483,11 @@ def make_leaderboard(
     # Write question fixed effects
     write_question_fixed_effects(
         question_fixed_effects=question_fixed_effects,
+    )
+
+    # Write LLM Super parity dates
+    write_llm_super_parity_dates(
+        parity_dates=llm_super_parity_dates,
     )
 
     # Write leaderboard

@@ -23,7 +23,47 @@ after_footer_scripts:
 header:
   overlay_color: "#171e29"
 excerpt: "A dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
+parity_card: true
 ---
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Find the hero section and add parity card to it
+    const heroSection = document.querySelector('.page__hero--overlay');
+    if (heroSection) {
+      // Make hero section position relative if not already
+      heroSection.style.position = 'relative';
+
+      // Create and insert parity card
+      const cardDiv = document.createElement('div');
+      cardDiv.className = 'parity-card-wrapper';
+      cardDiv.innerHTML = `
+        <a href="/explore/">
+          <div class="parity-card-inner">
+            <div class="parity-card-header">Extrapolated<br>LLM-superforecaster parity</div>
+            <div class="parity-card-date" id="parity-date">Loading...</div>
+            <div class="parity-card-ci" id="parity-ci">Loading...</div>
+          </div>
+        </a>
+      `;
+      heroSection.appendChild(cardDiv);
+
+      // Load parity date data
+      fetch('/assets/data/parity_dates.json')
+        .then(response => response.json())
+        .then(data => {
+          const tournament = data.overall.tournament;
+          document.getElementById('parity-date').textContent = tournament.median;
+          document.getElementById('parity-ci').textContent = `95% CI: ${tournament.lower} – ${tournament.upper}`;
+        })
+        .catch(error => {
+          console.error('Error loading parity date:', error);
+          document.getElementById('parity-date').textContent = 'N/A';
+          document.getElementById('parity-ci').textContent = '';
+        });
+    }
+  });
+</script>
 
 <!-- Baseline Leaderboard Section with Background -->
 <div class="baseline-section" style="background-color: #e0e6f0; margin: 0 -50vw; padding: 3rem 50vw; margin-top: -2rem; margin-bottom: 0;">

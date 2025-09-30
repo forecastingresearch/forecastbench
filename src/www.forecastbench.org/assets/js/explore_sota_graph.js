@@ -1,5 +1,6 @@
 (function() {
   const CSV_PATH = '/assets/data/sota_graph_tournament.csv';
+  const PARITY_DATE_PATH = '/assets/data/parity_dates.json';
   const Y_DOMAIN = [0.05, 0.35];
   const SHOW_REFS = true;
 
@@ -12,6 +13,7 @@
   };
 
   const tip = d3.select('#tooltip');
+  let parityDates = null;
 
   function shortLabel(name) {
     const base = name.split(' (')[0]; // Remove everything after first parenthesis
@@ -529,48 +531,54 @@
     }
 
     // Show intersection date display if enabled
-    if (shouldShowIntersection() && window.intersectionInfo && baselines.superforecaster !== undefined) {
-      const intersectionDisplay = g.append('g').attr('class', 'intersection-display');
+    if (shouldShowIntersection() && parityDates && baselines.superforecaster !== undefined) {
+      // Determine which parity dates to use based on current type and tournament toggle
+      const useTournament = shouldIncludeFreeze();
+      const dataSource = useTournament ? 'tournament' : 'baseline';
 
-      // Split text into two lines for better formatting
-      const mainText = `Projected AI-superforecaster parity: ${d3.timeFormat('%B %Y')(window.intersectionInfo.date)}`;
-      let ciText = '';
-
-      // Add confidence interval if available
-      if (window.intersectionInfo.ci) {
-        const lowerDate = d3.timeFormat('%b %Y')(window.intersectionInfo.ci.lower);
-        const upperDate = d3.timeFormat('%b %Y')(window.intersectionInfo.ci.upper);
-        ciText = `(95% CI: ${lowerDate} – ${upperDate})`;
+      let parityData = null;
+      if (currentType === 'dataset') {
+        parityData = parityDates.dataset[dataSource];
+      } else if (currentType === 'market') {
+        parityData = parityDates.market[dataSource];
+      } else {
+        parityData = parityDates.overall[dataSource];
       }
 
-      const displayY = showLegend ? 55 : 15; // Position below legend if legend is shown
+      if (parityData) {
+        const intersectionDisplay = g.append('g').attr('class', 'intersection-display');
 
-      intersectionDisplay.attr('transform', `translate(${legendX}, ${displayY})`);
+        // Use the parity dates from JSON
+        const mainText = `Projected LLM-superforecaster parity: ${parityData.median}`;
+        const ciText = `(95% CI: ${parityData.lower} – ${parityData.upper})`;
 
-      // Use same width as legend box for consistency
-      // Calculate height with equal padding above and below
-      const boxHeight = ciText ? 48 : 28; // Add more bottom padding to balance the spacing
-      const boxWidth = totalWidth + 16; // Match legend width exactly
+        const displayY = showLegend ? 55 : 15; // Position below legend if legend is shown
 
-      // Background - styled by CSS but with same width as legend
-      intersectionDisplay.append('rect')
-        .attr('x', -8).attr('y', -8)
-        .attr('width', boxWidth).attr('height', boxHeight)
-        .attr('rx', 6);
+        intersectionDisplay.attr('transform', `translate(${legendX}, ${displayY})`);
 
-      // Find the trend line item's x position to align text with the left edge of the orange line
-      const trendItem = legendItems.find(item => item.type === 'trend');
-      const textX = trendItem ? trendItem.x + 5 : 8; // Align with left edge of trend line (x1 position), fallback to 8
+        // Use same width as legend box for consistency
+        // Calculate height with equal padding above and below
+        const boxHeight = 48; // Always show CI text
+        const boxWidth = totalWidth + 16; // Match legend width exactly
 
-      // Main text line
-      intersectionDisplay.append('text')
-        .attr('x', textX).attr('y', 12)
-        .attr('class', 'legend-text')
-        .style('font-weight', '600')
-        .text(mainText);
+        // Background - styled by CSS but with same width as legend
+        intersectionDisplay.append('rect')
+          .attr('x', -8).attr('y', -8)
+          .attr('width', boxWidth).attr('height', boxHeight)
+          .attr('rx', 6);
 
-      // Confidence interval text on second line if present
-      if (ciText) {
+        // Find the trend line item's x position to align text with the left edge of the orange line
+        const trendItem = legendItems.find(item => item.type === 'trend');
+        const textX = trendItem ? trendItem.x + 5 : 8; // Align with left edge of trend line (x1 position), fallback to 8
+
+        // Main text line
+        intersectionDisplay.append('text')
+          .attr('x', textX).attr('y', 12)
+          .attr('class', 'legend-text')
+          .style('font-weight', '600')
+          .text(mainText);
+
+        // Confidence interval text on second line
         intersectionDisplay.append('text')
           .attr('x', textX).attr('y', 28)
           .attr('class', 'legend-text')
@@ -878,6 +886,16 @@
       renderForType(getSelectedType());
     }
   }
+
+  // Load parity dates JSON
+  fetch(PARITY_DATE_PATH)
+    .then(response => response.json())
+    .then(data => {
+      parityDates = data;
+    })
+    .catch(err => {
+      console.error('Could not load parity dates:', err);
+    });
 
   // Load CSV and setup controls
   d3.csv(CSV_PATH).then(parseRows).catch(err => {
