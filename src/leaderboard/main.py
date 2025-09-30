@@ -1060,9 +1060,9 @@ def write_leaderboard(
     # Replace NaN with empty strings for display
     df = df.fillna("")
 
-    # Round columns to 3 decimal places
+    # Round columns to LEADERBOARD_DECIMAL_PLACES decimal places
     numeric_cols = df.select_dtypes(include="number").columns
-    df[numeric_cols] = df[numeric_cols].round(3)
+    df[numeric_cols] = df[numeric_cols].round(LEADERBOARD_DECIMAL_PLACES)
 
     # Add rank
     df["Rank"] = df[f"{primary_scoring_func.__name__}_overall"].rank(
@@ -1081,8 +1081,12 @@ def write_leaderboard(
     # Format CI
     def format_ci(df, question_type):
         col_prefix = f"{primary_scoring_func.__name__}_{question_type}"
-        df[f"{col_prefix}_ci_lower"] = df[f"{col_prefix}_ci_lower"].round(3).astype(str)
-        df[f"{col_prefix}_ci_upper"] = df[f"{col_prefix}_ci_upper"].round(3).astype(str)
+        df[f"{col_prefix}_ci_lower"] = (
+            df[f"{col_prefix}_ci_lower"].round(LEADERBOARD_DECIMAL_PLACES).astype(str)
+        )
+        df[f"{col_prefix}_ci_upper"] = (
+            df[f"{col_prefix}_ci_upper"].round(LEADERBOARD_DECIMAL_PLACES).astype(str)
+        )
         df[f"{col_prefix}_ci"] = (
             "[" + df[f"{col_prefix}_ci_lower"] + ", " + df[f"{col_prefix}_ci_upper"] + "]"
         )
