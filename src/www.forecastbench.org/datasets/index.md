@@ -28,8 +28,8 @@ permalink: /datasets/
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
       <h1 class="site-feature-row__title">Direct Download</h1>
-      <p><strong>Forecast sets</strong>. Download all forecasts that have been submitted for evalution here.</p>
-      <p><strong>Processed forecast sets</strong>. Download all processed forecast files here.</p>
+      <p><strong>Forecast sets</strong>. Download all forecasts that have been submitted for evalution <a href="/assets/data/forecast-sets/forecast_sets.tar.gz">here</a>{% if site.data.direct_download_file_sizes.forecast_sets %} ({{ site.data.direct_download_file_sizes.forecast_sets }}){% endif %}.</p>
+      <p><strong>Processed forecast sets</strong>. Download all processed forecast files <a href="/assets/data/processed-forecast-sets/processed_forecast_sets.tar.gz">here</a>{% if site.data.direct_download_file_sizes.processed_forecast_sets %} ({{ site.data.direct_download_file_sizes.processed_forecast_sets }}){% endif %}.</p>
       <p><strong>Question fixed effect estimates</strong>. For those interested in detailed question-level analysis, we provide the <a href="/datasets/question-fixed-effects/">question fixed effects estimates</a>, generated when updating the leaderboard.</p>
     </div>
   </div>

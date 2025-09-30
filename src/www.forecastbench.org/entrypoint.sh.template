@@ -12,39 +12,54 @@ rm -rf -- "$ASSETS_MNT"/* "$ASSETS_MNT"/.[!.]*
 # copy all website files to the build dir
 cp -r . "$ASSETS_MNT/"
 
-# copy question fixed effects files to the build dir
-# they're listed individually in the static html so need to be present at build time
+# Copy all required files to the build dir before Jekyll build
 PUBLIC_RELEASE_MNT="$MOUNT_POINT/PUBLIC_RELEASE_BUCKET"
+
+# question fixed effects files
 QUESTION_FE_DIR="assets/data/question-fixed-effects"
 mkdir -p "$ASSETS_MNT/$QUESTION_FE_DIR"
 cp -a "$PUBLIC_RELEASE_MNT/question-fixed-effects/." "$ASSETS_MNT/$QUESTION_FE_DIR/"
 
-# build and deploy website
-WEBSITE_MNT="$MOUNT_POINT/WEBSITE_BUCKET"
-bundle exec jekyll build --source "$ASSETS_MNT/" --destination "$WEBSITE_MNT/"
-
-# Update files; doing after the build to save one round of copies
-#
 # leaderboard .js files
 LEADERBOARD_DIR="assets/js"
-mkdir -p "$WEBSITE_MNT/$LEADERBOARD_DIR"
-cp -a "$PUBLIC_RELEASE_MNT/leaderboards/js/." "$WEBSITE_MNT/$LEADERBOARD_DIR/"
+mkdir -p "$ASSETS_MNT/$LEADERBOARD_DIR"
+cp -a "$PUBLIC_RELEASE_MNT/leaderboards/js/." "$ASSETS_MNT/$LEADERBOARD_DIR/"
+
 # leaderboard sota_graph_tournament.csv
 DATA_DIR="assets/data"
-mkdir -p "$WEBSITE_MNT/$DATA_DIR"
-cp -a "$PUBLIC_RELEASE_MNT/leaderboards/csv/sota_graph_tournament.csv" "$WEBSITE_MNT/$DATA_DIR/"
+mkdir -p "$ASSETS_MNT/$DATA_DIR"
+cp -a "$PUBLIC_RELEASE_MNT/leaderboards/csv/sota_graph_tournament.csv" "$ASSETS_MNT/$DATA_DIR/"
+
 # archived forecast sets
 FORECAST_SETS_MNT="$MOUNT_POINT/FORECAST_SETS_BUCKET"
 FORECAST_SETS_DIR="assets/data/forecast-sets"
-mkdir -p "$WEBSITE_MNT/$FORECAST_SETS_DIR"
+mkdir -p "$ASSETS_MNT/$FORECAST_SETS_DIR"
 cp -f "$FORECAST_SETS_MNT/FORECAST_SETS_BUCKET.tar.gz" \
-   "$WEBSITE_MNT/$FORECAST_SETS_DIR/forecast_sets.tar.gz"
+   "$ASSETS_MNT/$FORECAST_SETS_DIR/forecast_sets.tar.gz"
+
+# Get forecast sets file size in human readable format
+FORECAST_SETS_SIZE=$(du -h "$ASSETS_MNT/$FORECAST_SETS_DIR/forecast_sets.tar.gz" | cut -f1)
+
 # archived processed forecast sets
 PROCESSED_FORECAST_SETS_MNT="$MOUNT_POINT/PROCESSED_FORECAST_SETS_BUCKET"
 PROCESSED_FORECAST_SETS_DIR="assets/data/processed-forecast-sets"
-mkdir -p "$WEBSITE_MNT/$PROCESSED_FORECAST_SETS_DIR"
+mkdir -p "$ASSETS_MNT/$PROCESSED_FORECAST_SETS_DIR"
 cp -f "$PROCESSED_FORECAST_SETS_MNT/PROCESSED_FORECAST_SETS_BUCKET.tar.gz" \
-   "$WEBSITE_MNT/$PROCESSED_FORECAST_SETS_DIR/processed_forecast_sets.tar.gz"
+   "$ASSETS_MNT/$PROCESSED_FORECAST_SETS_DIR/processed_forecast_sets.tar.gz"
+
+# Get processed forecast sets file size in human readable format
+PROCESSED_FORECAST_SETS_SIZE=$(du -h "$ASSETS_MNT/$PROCESSED_FORECAST_SETS_DIR/processed_forecast_sets.tar.gz" | cut -f1)
+
+# Create a YAML file with file sizes for Jekyll to use (must be before build)
+mkdir -p "$ASSETS_MNT/_data"
+cat > "$ASSETS_MNT/_data/direct_download_file_sizes.yml" << EOF
+forecast_sets: "$FORECAST_SETS_SIZE"
+processed_forecast_sets: "$PROCESSED_FORECAST_SETS_SIZE"
+EOF
+
+# BUILD AND DEPLOY WEBSITE
+WEBSITE_MNT="$MOUNT_POINT/WEBSITE_BUCKET"
+bundle exec jekyll build --source "$ASSETS_MNT/" --destination "$WEBSITE_MNT/"
 
 if [ "NO_CACHE" = "true" ]; then
     gsutil -m setmeta -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" gs://WEBSITE_BUCKET/**
