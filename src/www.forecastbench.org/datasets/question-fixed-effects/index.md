@@ -17,7 +17,7 @@ permalink: /datasets/question-fixed-effects/
 <section class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <h1 class="site-feature-row__title">File Format</h1>
+      <h1 class="site-feature-row__title">File format</h1>
       <p>The question fixed effects files are provided as JSON files with the following fields:</p>
       <ul>
         <li><code>source</code>: The source from which the question was pulled or generated.</li>
@@ -34,7 +34,7 @@ permalink: /datasets/question-fixed-effects/
 <section class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <h1 class="site-feature-row__title">Available Files</h1>
+      <h1 class="site-feature-row__title">Available files</h1>
       {% assign question_files = site.static_files | where_exp: "file", "file.path contains 'assets/data/question-fixed-effects/'" %}
       {% if question_files.size > 0 %}
         {% assign sorted_files = question_files | sort: "modified_time" | reverse | limit: 10 %}

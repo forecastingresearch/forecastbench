@@ -5,3 +5,5 @@ header:
     text_color: "#ffffff"
 
 staging: true
+
+url: "https://staging.forecastbench.org"

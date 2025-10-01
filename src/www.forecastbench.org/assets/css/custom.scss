@@ -514,10 +514,6 @@ a.site-title:focus {
   margin-top: 1rem;
 }
 
-.site-feature-card-row-1 {
-    margin-top: 2rem;
-}
-
 
 .site-feature-row__title {
   width: 100%;
@@ -1158,82 +1154,176 @@ input[type="checkbox"]:checked + .toggle-slider:before {
  */
 
 /*
- * Parity date card positioning and styling
+ * Team section styling
  */
-.parity-card-wrapper {
-  position: absolute;
-  top: 3.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 1280px;
-  padding-inline: 1em;
-  z-index: 100;
-  display: flex;
-  justify-content: flex-end;
-  pointer-events: none;
+.team-section {
+  h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  p {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
 }
 
-.parity-card-wrapper a {
-  pointer-events: auto;
-  text-decoration: none;
+.team-intro {
+  margin-bottom: 2rem !important;
+  font-size: 0.75rem !important;
+  color: #1e293b !important;
 }
 
-.parity-card-inner {
-  display: inline-block;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%);
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.5), inset 0 -1px 1px rgba(0, 0, 0, 0.05);
-  padding: 1.25rem 1.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(16px) brightness(1.1);
-  -webkit-backdrop-filter: blur(16px) brightness(1.1);
-  position: relative;
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
 }
 
-.parity-card-header {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
-  margin-bottom: 0.4rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+.team-member {
+  text-align: center;
+
+  h3 {
+    font-size: 0.65rem;
+    font-weight: 600;
+    margin: 0.4rem 0 0.2rem 0;
+    color: #1e293b;
+  }
 }
 
-.parity-card-date {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 0.3rem;
+.team-role {
+  font-size: 0.6rem !important;
+  color: #64748b;
+  margin: 0;
   line-height: 1.2;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.parity-card-ci {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+.team-link {
+  font-size: 0.6rem !important;
+  margin: -0.5rem 0 0 0 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+
+  a {
+    color: #94a3b8;
+    text-decoration: none;
+    font-style: normal;
+    font-weight: 400;
+    transition: color 0.3s ease;
+
+    &:hover {
+      color: rgba(226, 62, 22, 1);
+    }
+  }
 }
 
-a:has(.parity-card-inner):hover .parity-card-inner {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.6), inset 0 -1px 1px rgba(0, 0, 0, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.4) !important;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.15) 100%) !important;
+.team-photo-placeholder {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  border-radius: 50%;
+  border: 2px solid #f1f5f9;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50%;
+    height: 50%;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.5;
+  }
 }
 
-/* Responsive styling for parity card */
+.team-photo {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: 2px solid #f1f5f9;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  object-fit: cover;
+  display: block;
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
-  .parity-card-wrapper {
-    position: relative !important;
-    top: 0 !important;
-    padding: 1rem !important;
-    padding-right: 1rem !important;
-    text-align: center;
-    display: flex;
-    justify-content: center;
+  .team-grid {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 1rem;
+  }
+
+  .team-photo-placeholder,
+  .team-photo {
+    width: 90px;
+    height: 90px;
+  }
+
+  .team-member h3 {
+    font-size: 0.6rem;
+  }
+
+  .team-role {
+    font-size: 0.4rem;
+  }
+}
+/*
+ * End team section styles
+ */
+
+/*
+ * Chart card styling for home page
+ */
+.chart-card-home {
+  border: 1px solid #ddd;
+  border-radius: 15px;
+  box-shadow: 0 5px 3px rgba(0,0,0,0.1), 0 10px 9px rgba(0,0,0,0.15);
+  padding: 2rem;
+  background-color: #fff;
+  max-width: 1000px;
+  width: 100%;
+}
+
+.chart-section-home {
+  .chart-container {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  #chart {
+    min-height: 500px;
+  }
+}
+
+/* Responsive adjustments for chart section */
+@media (max-width: 768px) {
+  .chart-section-home {
+    padding: 2rem 20vw 3rem 20vw !important;
+    margin: 0 -20vw -3rem -20vw !important;
+  }
+
+  .chart-card-home {
+    padding: 1rem;
+  }
+
+  .chart-section-home #chart {
+    min-height: 400px;
+  }
+
+  .wave-separator-inverted {
+    margin: 0 -20vw 0 -20vw !important;
+    height: 60px !important;
   }
 }

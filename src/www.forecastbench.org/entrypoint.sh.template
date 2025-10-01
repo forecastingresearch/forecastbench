@@ -64,8 +64,16 @@ EOF
 
 # BUILD AND DEPLOY WEBSITE
 WEBSITE_MNT="$MOUNT_POINT/WEBSITE_BUCKET"
-bundle exec jekyll build --source "$ASSETS_MNT/" --destination "$WEBSITE_MNT/"
 
-if [ "NO_CACHE" = "true" ]; then
-    gsutil -m setmeta -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" gs://WEBSITE_BUCKET/**
+if [ "BUILD_ENV" = "production" ]; then
+  JEKYLL_ENV=production bundle exec jekyll build \
+    --source "$ASSETS_MNT/" \
+    --destination "$WEBSITE_MNT/"
+  gsutil -m setmeta -h "Cache-Control:public,must-revalidate,max-age=3600" gs://WEBSITE_BUCKET/**
+else
+  JEKYLL_ENV=development bundle exec jekyll build \
+    --source "$ASSETS_MNT/" \
+    --destination "$WEBSITE_MNT/" \
+    --config "$ASSETS_MNT/_config.yml","$ASSETS_MNT/_config_dev.yml"
+  gsutil -m setmeta -h "Cache-Control:no-cache,no-store,must-revalidate,max-age=0" gs://WEBSITE_BUCKET/**
 fi

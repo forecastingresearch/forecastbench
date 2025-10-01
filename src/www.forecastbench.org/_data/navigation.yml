@@ -1,4 +1,7 @@
 main:
+  - title: "About"
+    url: "/about/"
+    icon: "fa-solid fa-book-open"
   - title: "Baseline"
     url: "/baseline/"
     icon: "fa-solid fa-chart-simple"

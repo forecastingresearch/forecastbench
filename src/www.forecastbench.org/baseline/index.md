@@ -23,8 +23,9 @@ after_footer_scripts:
 <div style="display:flex;">
   <div style="flex:3;">
      <div class="leaderboard-wrapper">
-         <h1 class="leaderboard-title">Baseline Leaderboard<sup><a href="#notes" style="text-decoration:none;">‡</a></sup></h1>
+         <h1 class="leaderboard-title">Baseline leaderboard<sup><a href="#notes" style="text-decoration:none;">‡</a></sup></h1>
          <p>The baseline leaderboard measures how models perform "out of the box," without extra tools, context, or scaffolding. Models are selected by the ForecastBench team for standardized evaluation, hence this leaderboard provides a consistent benchmark for tracking progress in LLM forecasting accuracy.</p>
+         {% include leaderboard-explainer.html %}
          <div id="leaderboard-table-full"></div>
      </div>
   </div>

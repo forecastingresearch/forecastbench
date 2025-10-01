@@ -254,62 +254,11 @@
       const slope = numerator / denominator;
       const intercept = yMean - slope * xMean;
 
-      let residualSumSquares = 0;
-      for (let i = 0; i < n; i++) {
-        const predicted = intercept + slope * xVals[i];
-        const residual = yVals[i] - predicted;
-        residualSumSquares += residual * residual;
-      }
-      const mse = residualSumSquares / (n - 2);
-      const slopeStdError = Math.sqrt(mse / denominator);
-
-      const df = n - 2;
-      function tCritical95(df) {
-        if (df <= 1) return 12.706;
-        if (df === 2) return 4.303;
-        if (df === 3) return 3.182;
-        if (df === 4) return 2.776;
-        if (df === 5) return 2.571;
-        if (df <= 7) return 2.447;
-        if (df <= 9) return 2.306;
-        if (df <= 12) return 2.201;
-        if (df <= 20) return 2.086;
-        if (df <= 30) return 2.042;
-        return 1.96;
-      }
-      const tValue = tCritical95(df);
-      const slopeMarginError = tValue * slopeStdError;
-
-      // Generate band with interpolated points for smoother visualization
-      const numPoints = Math.max(n, 50); // At least 50 points for smooth curve
-      const xMin = Math.min(...xVals);
-      const xMax = Math.max(...xVals);
-      // Extend xMax slightly beyond last point to ensure band covers trend line
-      const xStep = (xMax - xMin) / (numPoints - 1);
-      const band = Array.from({ length: numPoints }, (_, i) => {
-        const xi = xMin + i * xStep;
-        const seMean = Math.sqrt(mse * (1 / n + ((xi - xMean) * (xi - xMean)) / denominator));
-        const yhat = intercept + slope * xi;
-        const date = new Date(firstDate.getTime() + xi * (1000 * 60 * 60 * 24 * 30));
-        return {
-          x: xi,
-          date,
-          yhat,
-          lower: yhat - tValue * seMean,
-          upper: yhat + tValue * seMean
-        };
-      });
-
       return {
         a: intercept,
         b: slope,
         firstDate,
-        n,
-        slopeCI: {
-          lower: slope - slopeMarginError,
-          upper: slope + slopeMarginError
-        },
-        band
+        n
       };
     }
 
@@ -366,15 +315,6 @@
         }
       }
 
-      // Draw confidence band
-      chartArea.append('path')
-               .datum(regression.band.filter(d => d.date >= trendStartDate && d.date <= trendEndDate))
-               .attr('class', 'confidence-band')
-               .attr('d', d3.area()
-                            .x(d => x(d.date))
-                            .y0(d => y(d.lower))
-                            .y1(d => y(d.upper)));
-
       chartArea.append('line')
         .attr('class', 'trend-line')
         .attr('x1', x(trendStartDate))
@@ -392,15 +332,28 @@
         .style('cursor', 'pointer')
         .on('mouseenter', (ev) => {
           let tooltip = trendTooltipHTML(regression);
-          if (intersectionDate) {
-            tooltip += `<div><strong>Intersects Superforecaster:</strong> ${d3.timeFormat('%B %Y')(intersectionDate)}`;
-            if (window.intersectionInfo && window.intersectionInfo.ci) {
-              const lowerDate = d3.timeFormat('%b %Y')(window.intersectionInfo.ci.lower);
-              const upperDate = d3.timeFormat('%b %Y')(window.intersectionInfo.ci.upper);
-              tooltip += `<br><span style="font-size: 11px; opacity: 0.8;">(95% CI: ${lowerDate} – ${upperDate})</span>`;
+
+          // Use parity dates from JSON if available
+          if (shouldShowIntersection() && parityDates && baselines.superforecaster !== undefined) {
+            const useTournament = shouldIncludeFreeze();
+            const dataSource = useTournament ? 'tournament' : 'baseline';
+
+            let parityData = null;
+            if (currentType === 'dataset') {
+              parityData = parityDates.dataset[dataSource];
+            } else if (currentType === 'market') {
+              parityData = parityDates.market[dataSource];
+            } else {
+              parityData = parityDates.overall[dataSource];
             }
-            tooltip += '</div>';
+
+            if (parityData) {
+              tooltip += `<div><strong>Projected LLM-superforecaster parity:</strong> ${parityData.median}`;
+              tooltip += `<br><span style="font-size: 11px; opacity: 0.8;">(95% CI: ${parityData.lower} – ${parityData.upper})</span>`;
+              tooltip += '</div>';
+            }
           }
+
           tipOn(ev, tooltip);
         })
         .on('mouseleave', tipOff);
@@ -642,7 +595,6 @@
     function trendTooltipHTML(reg) {
       return `
         <div><strong>Linear Trend, SOTA Models</strong></div>
-        <div>Formula = ${fmt3or4(reg.a)} + (${fmt3or4(reg.b)}) * (months since first model)</div>
         <div>Number of SOTA models: ${reg.n}</div>
       `;
     }
@@ -724,7 +676,12 @@
 
   function getSelectedBenchmarks() {
     const checkboxes = document.querySelectorAll('.tag-selection input[type="checkbox"]:checked');
-    return Array.from(checkboxes).map(checkbox => checkbox.value);
+    const selected = Array.from(checkboxes).map(checkbox => checkbox.value);
+    // If no checkboxes exist (e.g., on home page), default to showing public and superforecaster
+    if (document.querySelectorAll('.tag-selection input[type="checkbox"]').length === 0) {
+      return ['public', 'superforecaster'];
+    }
+    return selected;
   }
 
   function getSelectedType() {
@@ -892,6 +849,10 @@
     .then(response => response.json())
     .then(data => {
       parityDates = data;
+      // Redraw chart if data is already loaded
+      if (originalRows && originalRows.length) {
+        renderForType(getSelectedType());
+      }
     })
     .catch(err => {
       console.error('Could not load parity dates:', err);
