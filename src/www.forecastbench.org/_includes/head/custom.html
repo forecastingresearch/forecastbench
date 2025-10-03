@@ -19,6 +19,13 @@
     <meta name="robots" content="noindex, nofollow">
 {% endif %}
 
+<!-- privacy-friendly -->
+{% if jekyll.environment == "production" %}
+<script defer data-domain="forecastbench.org" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.js"></script>
+{% else %}
+<script defer data-domain="staging.forecastbench.org" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.js"></script>
+{% endif %}
+
 <!-- insert favicons. use https://realfavicongenerator.net/ -->
 
 <!-- end custom head snippets -->
