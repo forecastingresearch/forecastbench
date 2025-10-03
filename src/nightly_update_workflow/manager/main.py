@@ -118,6 +118,7 @@ def main():
         operation=operation,
         name=dict_to_use,
         exit_on_error=True,
+        timeout=timeout_fetch_and_update,
         additional_slack_message_on_error=(
             "‼️ IMPORTANT: TODAY THE QUESTION SET MUST BE CREATED ‼️"
             if question_curation.is_today_question_curation_date()
