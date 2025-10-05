@@ -662,7 +662,7 @@ def write_leaderboard_html_file(
             local_filename_html: destination_filename_html,
             local_filename_csv: destination_filename_csv,
         },
-        commit_message="leaderboard: automatic update html & csv files.",
+        commit_message=f"leaderboard {leaderboard_type.value}: automatic update html & csv files.",
     )
 
 
