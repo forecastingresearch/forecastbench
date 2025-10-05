@@ -1,15 +1,12 @@
 """Create leaderboard."""
 
-import inspect
 import json
 import logging
 import os
-import shutil
 import sys
 import traceback
 from datetime import datetime, timedelta
 from enum import Enum
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -1547,13 +1544,6 @@ def generate_simulated_leaderboards(
 
     df = df.copy()
 
-    workspace_folder = f"{inspect.currentframe().f_code.co_name}/"
-    workspace_dir = data_utils.get_workspace_dir(
-        bucket=env.WORKSPACE_BUCKET,
-        folder=workspace_folder,
-        recreate_folder=True,
-    )
-
     def question_level_bootstrap(df: pd.DataFrame) -> pd.DataFrame:
         questions = df["question_pk"].drop_duplicates()
         questions_bs = questions.sample(frac=1, replace=True)
@@ -1575,16 +1565,6 @@ def generate_simulated_leaderboards(
 
     def bootstrap_and_score(idx):
         logger.info(f"[replicate {idx+1}/{N}] starting...")
-        out_path_overall = Path(workspace_dir) / f"bootstrap_{idx}_overall.parquet"
-        out_path_dataset = Path(workspace_dir) / f"bootstrap_{idx}_dataset.parquet"
-        out_path_market = Path(workspace_dir) / f"bootstrap_{idx}_market.parquet"
-        if out_path_overall.exists() and out_path_dataset.exists() and out_path_market.exists():
-            return (
-                out_path_dataset,
-                out_path_market,
-                out_path_overall,
-            )
-
         df_bs = (
             df.groupby(["forecast_due_date", "source"])
             .apply(question_level_bootstrap, include_groups=False)
@@ -1599,41 +1579,31 @@ def generate_simulated_leaderboards(
             traceback.print_exc()
             raise e
 
-        df_simulated_leaderboard.set_index("model_pk")[
-            f"{primary_scoring_func.__name__}_dataset"
-        ].rename(f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}").to_frame().to_parquet(out_path_dataset)
-        df_simulated_leaderboard.set_index("model_pk")[
-            f"{primary_scoring_func.__name__}_market"
-        ].rename(f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}").to_frame().to_parquet(out_path_market)
-        df_simulated_leaderboard.set_index("model_pk")[
-            f"{primary_scoring_func.__name__}_overall"
-        ].rename(f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}").to_frame().to_parquet(out_path_overall)
+        df_scores = df_simulated_leaderboard.set_index("model_pk")
         return (
-            out_path_dataset,
-            out_path_market,
-            out_path_overall,
+            df_scores[f"{primary_scoring_func.__name__}_dataset"].rename(
+                f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}"
+            ),
+            df_scores[f"{primary_scoring_func.__name__}_market"].rename(
+                f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}"
+            ),
+            df_scores[f"{primary_scoring_func.__name__}_overall"].rename(
+                f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}"
+            ),
         )
 
     logger.info(f"Simulating using {env.NUM_CPUS} CPU(s).")
-    paths = Parallel(
+    results = Parallel(
         n_jobs=env.NUM_CPUS,
         backend="loky",
-        verbose=5,
-        batch_size=min(20, N),
+        verbose=0,
+        batch_size="auto",
     )(delayed(bootstrap_and_score)(i) for i in range(N))
-    logger.info("Done simulating!")
 
-    df_simulated_scores_dataset = pd.concat(
-        [pd.read_parquet(p[0]).squeeze() for p in paths], axis=1
-    )
-    df_simulated_scores_market = pd.concat([pd.read_parquet(p[1]).squeeze() for p in paths], axis=1)
-    df_simulated_scores_overall = pd.concat(
-        [pd.read_parquet(p[2]).squeeze() for p in paths], axis=1
-    )
+    df_simulated_scores_dataset = pd.concat([r[0] for r in results], axis=1)
+    df_simulated_scores_market = pd.concat([r[1] for r in results], axis=1)
+    df_simulated_scores_overall = pd.concat([r[2] for r in results], axis=1)
     logger.info("Done creating df_simulated_scores!")
-
-    # cleanup
-    shutil.rmtree(workspace_dir)
 
     assert (
         df_simulated_scores_dataset.shape[1] == df_simulated_scores_market.shape[1]
