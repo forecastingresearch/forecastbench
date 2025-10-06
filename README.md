@@ -2,7 +2,7 @@
 
 [![ICLR 2025](https://img.shields.io/badge/ICLR-2025-D5FFC1?labelColor=2A363F)](https://iclr.cc/virtual/2025/poster/28507) [![arXiv:2409.19839](https://img.shields.io/badge/arXiv-2409.19839-272727?logo=arxiv&labelColor=B31B1B)](https://arxiv.org/abs/2409.19839)
 
-A dynamic, continuously-updated benchmark to evaluate LLM forecasting capabilities. More at [www.forecastbench.org](https://www.forecastbench.org/).
+A dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence. More at [www.forecastbench.org](https://www.forecastbench.org/).
 
 ## Datasets
 
