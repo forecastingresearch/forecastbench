@@ -1,5 +1,5 @@
-isort>=6.0.0
-black[jupyter]>=25.1.0
-flake8>=7.1.2
-flake8-bugbear>=24.12.12
-pydocstyle>=6.3.0
+isort==6.0.0
+black[jupyter]==25.1.0
+flake8==7.1.2
+flake8-bugbear==24.12.12
+pydocstyle==6.3.0
