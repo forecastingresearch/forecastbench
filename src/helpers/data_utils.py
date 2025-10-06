@@ -155,10 +155,11 @@ def get_local_file_dir(bucket: str) -> str:
 
     logger.info("Mount dir not found. Downloading tarball.")
     local_dir = "/tmp"
-    filename = f"{bucket}.tar.gz"
-    local_filename = f"/{local_dir}/{filename}"
     if env.RUNNING_LOCALLY:
-        return f"/{local_dir}/{bucket}"
+        return f"{local_dir}/{bucket}"
+
+    filename = f"{bucket}.tar.gz"
+    local_filename = f"{local_dir}/{filename}"
     gcp.storage.download(
         bucket_name=bucket,
         filename=filename,
@@ -170,7 +171,7 @@ def get_local_file_dir(bucket: str) -> str:
         rm_dir_before_extract=dir_to_rm_before_extract,
         extract_dir=local_dir,
     )
-    return f"/{local_dir}/{bucket}"
+    return f"{local_dir}/{bucket}"
 
 
 def upload_questions(dfq, source):
