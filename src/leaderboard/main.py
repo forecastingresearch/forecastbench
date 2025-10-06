@@ -286,23 +286,35 @@ def get_df_info(
         Optional[pd.DataFrame]: The processed DataFrame or None if the imputed percentage exceeds
             the defined cutoff.
     """
+
+    def over_imputed_cutoff(d: pd.DataFrame) -> bool:
+        return d["imputed"].mean() * 100 > IMPUTED_CUTOFF_PCT
+
     df = resolution.make_columns_hashable(df)
 
-    # Ignore if too many imputed forecasts
     # Do not run test for the dummy models ForecastBench produces:
     #   e.g. Imputed Forecaster, Naive Forecaster, ...
-    if not (
+    run_imputed_test_for_model = not (
         org_and_model.get("organization") == constants.BENCHMARK_NAME
         and org_and_model.get("model_organization") == constants.BENCHMARK_NAME
-    ):
-        if df["imputed"].mean() * 100 > IMPUTED_CUTOFF_PCT:
-            return None
+    )
+
+    # Ignore if too many imputed forecasts overall
+    if run_imputed_test_for_model and over_imputed_cutoff(d=df):
+        return None
 
     # Remove combination questions
     df = df[~df["id"].apply(resolution.is_combo)]
 
     # Drop market unresolved questions
     masks = get_masks(df)
+
+    # Ignore if too many imputed forecasts for questions we will _eventually_ score
+    if run_imputed_test_for_model:
+        for mask in ["market", "dataset"]:
+            if over_imputed_cutoff(d=df[masks[mask]]):
+                return None
+
     df = df[masks["dataset"] | masks["market_resolved"]]
 
     # Set formats of columns and add columns useful for processing
