@@ -4,5 +4,7 @@ force-exclude = '''
 (
     ^/.venv.*
     | ^/utils/
+    | ^/experiments/stability-analysis/
+    | ^/experiments/ranking-simulation/
 )
 '''
