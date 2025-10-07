@@ -2143,15 +2143,6 @@ def calculate_sota_super_intersection_date(
     if x.size < 3 or np.unique(x).size < 3:
         return pd.NaT
 
-    last_ord = df["model_release_date_ordinal"].max()
-    last_scores = df.loc[df["model_release_date_ordinal"] == last_ord, bootstrap_col].dropna()
-    if last_scores.empty:
-        return pd.NaT
-    y_sota = float(last_scores.min())
-    if superforecaster_median > y_sota:
-        logger.info(f" * Supers worse: {superforecaster_median} > {y_sota}.")
-        return pd.NaT
-
     xm = x.mean()
     ym = y.mean()
     xc = x - xm
