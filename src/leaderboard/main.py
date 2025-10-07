@@ -1287,7 +1287,9 @@ def remove_tournament_models(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
     org_mask = df["organization"] == constants.BENCHMARK_NAME
-    vanilla_model_mask = ~df["model"].str.contains("with freeze values|with news|with SECOND news")
+    vanilla_model_mask = ~df["model"].str.contains(
+        "with freeze values|with news|with SECOND news|with web search"
+    )
     mask = org_mask & vanilla_model_mask
     return df[mask].reset_index(drop=True)
 
