@@ -1,5 +1,6 @@
 (function() {
-  const CSV_PATH = '/assets/data/sota_graph_tournament.csv';
+  const CSV_PATH_TOURNAMENT = '/assets/data/sota_graph_tournament.csv';
+  const CSV_PATH_BASELINE = '/assets/data/sota_graph_baseline.csv';
   const PARITY_DATE_PATH = '/assets/data/parity_dates.json';
   const Y_DOMAIN = [0.05, 0.35];
   const SHOW_REFS = true;
@@ -704,14 +705,8 @@
     return checkbox ? checkbox.checked : true;
   }
 
-  function filterFreezeModels(rows) {
-    if (shouldIncludeFreeze()) return rows;
-    return rows.filter(row =>
-      row.team === "ForecastBench" &&
-                            !row.model.toLowerCase().includes('with news') &&
-                            !row.model.toLowerCase().includes('with crowd forecast') &&
-                            !row.model.toLowerCase().includes('with second news')
-    );
+  function getCurrentCSVPath() {
+    return shouldIncludeFreeze() ? CSV_PATH_TOURNAMENT : CSV_PATH_BASELINE;
   }
 
 
@@ -721,7 +716,7 @@
     const typeNorm = (selectedType || 'overall').trim().toLowerCase();
     const isType = d => (d.type || '').trim().toLowerCase() === typeNorm;
 
-    const filteredRows = filterFreezeModels(originalRows);
+    const filteredRows = originalRows;
 
     const superforecasterRow = filteredRows.find(d => d.model === 'Superforecaster median forecast' && isType(d));
     const publicRow = filteredRows.find(d => d.model === 'Public median forecast' && isType(d));
@@ -844,6 +839,13 @@
     }
   }
 
+  function loadCSVData() {
+    const csvPath = getCurrentCSVPath();
+    d3.csv(csvPath).then(parseRows).catch(err => {
+      console.error('Could not load CSV:', err);
+    });
+  }
+
   // Load parity dates JSON
   fetch(PARITY_DATE_PATH)
     .then(response => response.json())
@@ -858,10 +860,8 @@
       console.error('Could not load parity dates:', err);
     });
 
-  // Load CSV and setup controls
-  d3.csv(CSV_PATH).then(parseRows).catch(err => {
-    console.error('Could not load CSV:', err);
-  });
+  // Load initial CSV data
+  loadCSVData();
 
   document.addEventListener('DOMContentLoaded', () => {
     // Type radio button handlers
@@ -888,9 +888,8 @@
     const freezeCheckbox = document.getElementById('includeFreeze');
     if (freezeCheckbox) {
       freezeCheckbox.addEventListener('change', () => {
-        if (originalRows && originalRows.length) {
-          renderForType(getSelectedType());
-        }
+        // Reload CSV data when tournament toggle changes
+        loadCSVData();
       });
     }
 
