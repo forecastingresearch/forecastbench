@@ -348,7 +348,7 @@
             }
 
             if (parityData) {
-              tooltip += `<div><strong>Projected LLM-superforecaster parity:</strong> ${parityData.median}`;
+              tooltip += `<div><strong>Projected LLM-superforecaster parity:</strong> ${parityData.intersection}`;
               tooltip += `<br><span style="font-size: 11px; opacity: 0.8;">(95% CI: ${parityData.lower} – ${parityData.upper})</span>`;
               tooltip += '</div>';
             }
@@ -502,7 +502,7 @@
         const intersectionDisplay = g.append('g').attr('class', 'intersection-display');
 
         // Use the parity dates from JSON
-        const mainText = `Projected LLM-superforecaster parity: ${parityData.median}`;
+        const mainText = `Projected LLM-superforecaster parity: ${parityData.intersection}`;
         const ciText = `(95% CI: ${parityData.lower} – ${parityData.upper})`;
 
         const displayY = showLegend ? 55 : 15; // Position below legend if legend is shown

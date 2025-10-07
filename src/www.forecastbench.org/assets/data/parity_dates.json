@@ -1,38 +1,38 @@
 {
   "dataset": {
     "baseline": {
-      "lower": "April 2026",
-      "median": "May 2026",
-      "upper": "January 2027"
+      "intersection": "June 2026",
+      "lower": "February 2026",
+      "upper": "September 2026"
     },
     "tournament": {
-      "lower": "April 2026",
-      "median": "May 2026",
-      "upper": "January 2027"
+      "intersection": "June 2026",
+      "lower": "February 2026",
+      "upper": "September 2026"
     }
   },
   "market": {
     "baseline": {
-      "lower": "September 2025",
-      "median": "June 2026",
-      "upper": "January 2027"
+      "intersection": "September 2026",
+      "lower": "August 2025",
+      "upper": "September 2026"
     },
     "tournament": {
-      "lower": "April 2025",
-      "median": "October 2025",
-      "upper": "December 2026"
+      "intersection": "March 2026",
+      "lower": "July 2025",
+      "upper": "July 2026"
     }
   },
   "overall": {
     "baseline": {
-      "lower": "March 2026",
-      "median": "June 2026",
-      "upper": "August 2026"
+      "intersection": "September 2026",
+      "lower": "December 2025",
+      "upper": "December 2026"
     },
     "tournament": {
-      "lower": "March 2026",
-      "median": "September 2026",
-      "upper": "December 2026"
+      "intersection": "November 2026",
+      "lower": "May 2026",
+      "upper": "August 2026"
     }
   }
 }
