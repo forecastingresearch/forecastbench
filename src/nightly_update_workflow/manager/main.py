@@ -132,7 +132,7 @@ def main():
     operation_compress_question_bank_bucket = compress_bucket(bucket=env.QUESTION_BANK_BUCKET)
 
     dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
-    timeout_resolve_and_leaderboard = cloud_run.timeout_1h * 4
+    timeout_resolve_and_leaderboard = cloud_run.timeout_1h * 5
     operation_resolve_and_leaderboard = call_worker(
         dict_to_use=dict_to_use_resolve_and_leaderboard,
         task_count=1,
