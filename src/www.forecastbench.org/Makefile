@@ -27,6 +27,9 @@ WEBSITE_VOLUME := $(subst .,-,$(WEBSITE_BUCKET))
 deploy : entrypoint.sh Dockerfile .gcloudignore
 	mkdir -p $(UPLOAD_DIR)
 	rsync -a \
+		--exclude='.*' \
+		--exclude='*~' \
+		--exclude='\#*' \
 		--exclude='Makefile' \
 		--exclude='entrypoint.sh.template' \
 		--exclude='_site/' \
