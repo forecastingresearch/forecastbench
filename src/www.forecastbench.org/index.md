@@ -119,8 +119,8 @@ excerpt: "A dynamic, contamination-free benchmark of LLM forecasting accuracy wi
 <div class="chart-section-home" style="background-color: #ececf4; margin: 0 -50vw; padding: 1rem 50vw 4rem 50vw; margin-top: 0; margin-bottom: -3rem; position: relative; z-index: 3;">
   <div style="display: flex; flex-direction: column; align-items: center;">
     <div style="text-align: center; margin-bottom: 1rem;">
-      <h1 style="white-space: nowrap; margin-bottom: 0.5rem;">Projected LLM-superforecaster parity</h1>
-      <div style="max-width: 600px;">
+      <h1 style="margin-bottom: 0.5rem;">Projected LLM-superforecaster parity</h1>
+      <div style="max-width: 600px; margin: 0 auto; padding: 0 1rem;">
         <p>Explore how LLM forecasting accuracy evolves on ForecastBench. A linear trend projects the date when LLMs reach superforecaster-level performance.</p>
         <p><a href="/explore/" class="btn btn--primary btn--large">Explore chart</a></p>
       </div>

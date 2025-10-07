@@ -1136,6 +1136,12 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   text-align: left;
   font-family: var(--chart-font);
 }
+
+@media (max-width: 768px) {
+  .instruction {
+    display: none;
+  }
+}
 /*
  * Use browser default text selection colors for consistency with other websites
  */
@@ -1314,6 +1320,14 @@ input[type="checkbox"]:checked + .toggle-slider:before {
     margin: 0 -20vw -3rem -20vw !important;
   }
 
+  .chart-section-home h1 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+    padding: 0 1rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
   .chart-card-home {
     padding: 1rem;
   }
@@ -1325,5 +1339,33 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   .wave-separator-inverted {
     margin: 0 -20vw 0 -20vw !important;
     height: 60px !important;
+  }
+
+  // Docs page mobile layout adjustments
+  .site-feature-card .site-feature-row__content,
+  .site-feature-card-row-1 .site-feature-row__content {
+    flex-direction: column !important;
+  }
+
+  .site-feature-row__left-2,
+  .site-feature-row__right-3,
+  .site-feature-row__left-3,
+  .site-feature-row__right-2 {
+    flex: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin-bottom: 1rem;
+  }
+
+  // Stack citation below button on mobile
+  #iclr2025 .site-feature-row__content {
+    flex-direction: column !important;
+  }
+
+  #iclr2025 .site-feature-row__left-2,
+  #iclr2025 .site-feature-row__right-3 {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
