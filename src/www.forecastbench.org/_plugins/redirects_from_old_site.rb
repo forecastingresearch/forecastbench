@@ -79,5 +79,26 @@ Jekyll::Hooks.register :site, :post_write do |site|
 
   puts "Generated redirects for datasets.html and datasets_forecast_sets_index.html"
 
+  # Create redirect for paper.html -> /docs/
+  paper_redirect = <<~HTML
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Redirecting...</title>
+      <meta http-equiv="refresh" content="0; url=/docs/">
+      <link rel="canonical" href="/docs/">
+      <script>window.location.replace("/docs/");</script>
+    </head>
+    <body style="display:none;">
+    </body>
+    </html>
+  HTML
+
+  paper_file = File.join(site.dest, 'paper.html')
+  File.write(paper_file, paper_redirect)
+  total_count += 1
+  puts "Generated redirect for paper.html"
+
   puts "Total redirects generated: #{total_count}"
 end
