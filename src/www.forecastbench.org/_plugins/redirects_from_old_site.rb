@@ -16,17 +16,6 @@ Jekyll::Hooks.register :site, :post_write do |site|
 
   total_count = 0
 
-  # Replace all HTML files in assets/iclr2025/leaderboards/ with redirects
-  iclr_leaderboards_dir = File.join(site.dest, 'assets', 'iclr2025', 'leaderboards')
-  if Dir.exist?(iclr_leaderboards_dir)
-    html_files = Dir.glob(File.join(iclr_leaderboards_dir, '*.html'))
-    html_files.each do |file_path|
-      File.write(file_path, redirect_html)
-    end
-    total_count += html_files.length
-    puts "Generated #{html_files.length} legacy leaderboard redirects in assets/iclr2025/leaderboards/"
-  end
-
   # Create redirects in /leaderboards/ for legacy URLs
   leaderboards_dir = File.join(site.dest, 'leaderboards')
   FileUtils.mkdir_p(leaderboards_dir)
