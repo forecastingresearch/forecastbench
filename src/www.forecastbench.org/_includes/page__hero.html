@@ -22,6 +22,7 @@
      style="{% if page.header.overlay_color %}background-color: {{ page.header.overlay_color | default: 'transparent' }};{% endif %} {% if overlay_img_path %}background-image: {% if overlay_filter %}{{ overlay_filter }}, {% endif %}url('{{ overlay_img_path }}');{% endif %}"
 >
   <div id="particles-js"></div>
+
   {% if page.header.overlay_color or page.header.overlay_image %}
   <div class="wrapper" id="wrapp">
     <h1 id="page-title" class="page__title" itemprop="headline">
@@ -35,6 +36,27 @@
         <p class="page__lead">{{ page.tagline | markdownify | remove: "<p>" | remove: "</p>" }}</p>
       {% elsif page.header.show_overlay_excerpt != false and page.excerpt %}
         <p class="page__lead">{{ page.excerpt | markdownify | remove: "<p>" | remove: "</p>" }}</p>
+      {% endif %}
+
+      <!-- Featured card (only shows if page.featured is set) -->
+      {% if page.featured %}
+        {% if page.featured_link %}
+          <a href="{{ page.featured_link }}" class="check-card">
+            <div class="check-card__title">Featured</div>
+            <div class="check-card__text">{{ page.featured }}</div>
+            {% if page.featured_date %}
+              <div class="check-card__date">{{ page.featured_date }}</div>
+            {% endif %}
+          </a>
+        {% else %}
+          <div class="check-card check-card--no-link">
+            <div class="check-card__title">Featured</div>
+            <div class="check-card__text">{{ page.featured }}</div>
+            {% if page.featured_date %}
+              <div class="check-card__date">{{ page.featured_date }}</div>
+            {% endif %}
+          </div>
+        {% endif %}
       {% endif %}
       {% include page__meta.html %}
       {% if page.header.actions %}

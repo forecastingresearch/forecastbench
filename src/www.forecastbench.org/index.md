@@ -5,6 +5,7 @@ head_scripts:
     - https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js
 footer_scripts:
     - /assets/js/particles.js
+    - /assets/js/align-check-card.js
 head_css:
   - https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css
   - https://cdn.datatables.net/1.13.7/css/dataTables.semanticui.min.css
@@ -25,6 +26,9 @@ after_footer_scripts:
 header:
   overlay_color: "#171e29"
 excerpt: "A dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
+featured: "ForecastBench relaunch<br>blog post"
+featured_link: "https://forecastingresearch.substack.com/p/ai-llm-forecasting-model-forecastbench-benchmark"
+featured_date: "Oct 8, 2025"
 ---
 
 <!-- Baseline leaderboard Section with Background -->
