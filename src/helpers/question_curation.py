@@ -17,8 +17,11 @@ from . import (
     yfinance,
 )
 
-FREEZE_NUM_LLM_QUESTIONS = 1000
+FREEZE_NUM_LLM_QUESTIONS = 500
 FREEZE_NUM_HUMAN_QUESTIONS = 200
+
+assert FREEZE_NUM_LLM_QUESTIONS % 2 == 0, "FREEZE_NUM_LLM_QUESTIONS must be even"
+assert FREEZE_NUM_HUMAN_QUESTIONS % 2 == 0, "FREEZE_NUM_HUMAN_QUESTIONS must be even"
 
 METADATA_MODEL_NAME = "gpt-4o-mini"
 
@@ -94,12 +97,6 @@ FREEZE_DATETIME = os.environ.get("FREEZE_DATETIME", dates.get_datetime_today()).
 FORECAST_DATETIME = FREEZE_DATETIME + timedelta(days=FREEZE_WINDOW_IN_DAYS)
 
 FORECAST_DATE = FORECAST_DATETIME.date()
-
-COMBINATION_PROMPT = (
-    "We are presenting you with two probability questions. Please predict the probability that both "
-    "will happen, that one will happen but not the other, and that neither will happen. In other "
-    "words, for each resolution date please provide 4 predictions."
-)
 
 
 def get_num_days_since_original_forecast_due_date():
