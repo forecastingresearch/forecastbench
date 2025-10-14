@@ -30,10 +30,13 @@ def get_questions(forecast_due_date, num_questions):
     _, local_repo_dir, _ = git.clone(repo_url=keys.API_GITHUB_DATASET_REPO_URL)
     LOCAL_QUESTIONS_FILE = f"{local_repo_dir}/datasets/question_sets/{forecast_due_date}-llm.json"
 
-    single_market, single_non_market, combo_market, combo_non_market = model_eval.process_questions(
+    single_market, single_non_market = model_eval.process_questions(
         LOCAL_QUESTIONS_FILE, num_per_source=num_questions
     )
-    questions = [single_non_market, single_market, combo_market, combo_non_market]
+    questions = [
+        single_non_market,
+        single_market,
+    ]
 
     shutil.rmtree(local_repo_dir)
     return questions
@@ -150,8 +153,6 @@ def main():
     question_types = [
         "market",
         "non_market",
-        "combo_market",
-        "combo_non_market",
         "final",
         "final_with_freeze",
     ]

@@ -24,7 +24,6 @@ from . import (
     data_utils,
     env,
     keys,
-    llm_crowd_prompts,
     llm_prompts,
     question_curation,
 )
@@ -47,12 +46,6 @@ xai_client = openai.OpenAI(
     base_url="https://api.x.ai/v1",
 )
 mistral_client = MistralClient(api_key=keys.API_KEY_MISTRAL)
-HUMAN_JOINT_PROMPTS = [
-    llm_prompts.HUMAN_JOINT_PROMPT_1,
-    llm_prompts.HUMAN_JOINT_PROMPT_2,
-    llm_prompts.HUMAN_JOINT_PROMPT_3,
-    llm_prompts.HUMAN_JOINT_PROMPT_4,
-]
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -650,15 +643,11 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
             dirs = [
                 f"{prompt_type}/non_market",
                 f"{prompt_type}/market/with_freeze_values",
-                f"{prompt_type}/combo_non_market",
-                f"{prompt_type}/combo_market/with_freeze_values",
             ]
         else:
             dirs = [
                 f"{prompt_type}/non_market",
                 f"{prompt_type}/market",
-                f"{prompt_type}/combo_non_market",
-                f"{prompt_type}/combo_market",
             ]
 
         if test_or_prod == "TEST":
@@ -755,9 +744,8 @@ def worker(
 
     question = questions_to_eval[index]
     is_market_question = question["source"] in question_curation.MARKET_SOURCES
-    is_joint_question = question["combination_of"] != "N/A"
 
-    question_type = determine_type(is_market_question, is_joint_question, market_use_freeze_value)
+    question_type = determine_type(is_market_question, market_use_freeze_value)
 
     if not is_market_question and market_use_freeze_value:
         # Don't run for data source questions when market_use_freeze_value is True
@@ -765,145 +753,39 @@ def worker(
         return
 
     if is_market_question:
-        if is_joint_question:
-            if market_use_freeze_value:  # we don't run superforecaster prompts with freeze values
-                prompt = (
-                    llm_prompts.ZERO_SHOT_MARKET_JOINT_QUESTION_WITH_FREEZE_VALUE_PROMPT
-                    if prompt_type == "zero_shot"
-                    else (
-                        llm_prompts.SCRATCH_PAD_MARKET_JOINT_QUESTION_WITH_FREEZE_VALUE_PROMPT
-                        if prompt_type == "scratchpad"
-                        else llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_MARKET_JOINT_QUESTION_WITH_FREEZE_VALUE_PROMPT  # noqa: B950
-                    )
+        if market_use_freeze_value:  # we don't run superforecaster prompts with freeze values
+            prompt = (
+                llm_prompts.ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT
+                if prompt_type == "zero_shot"
+                else (
+                    llm_prompts.SCRATCH_PAD_MARKET_WITH_FREEZE_VALUE_PROMPT
+                    if prompt_type == "scratchpad"
+                    else llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_MARKET_WITH_FREEZE_VALUE_PROMPT
                 )
-            else:
-                prompt = (
-                    llm_prompts.ZERO_SHOT_MARKET_JOINT_QUESTION_PROMPT
-                    if prompt_type == "zero_shot"
-                    else (
-                        llm_prompts.SCRATCH_PAD_MARKET_JOINT_QUESTION_PROMPT
-                        if prompt_type == "scratchpad"
-                        else (
-                            llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_MARKET_JOINT_QUESTION_PROMPT
-                            if prompt_type == "scratchpad_with_news"
-                            else (
-                                llm_crowd_prompts.SUPERFORECASTER_MARKET_JOINT_QUESTION_PROMPT_1
-                                if prompt_type == "superforecaster_with_news_1"
-                                else (
-                                    llm_crowd_prompts.SUPERFORECASTER_MARKET_JOINT_QUESTION_PROMPT_2
-                                    if prompt_type == "superforecaster_with_news_2"
-                                    else (
-                                        llm_crowd_prompts.SUPERFORECASTER_MARKET_JOINT_QUESTION_PROMPT_3
-                                        if prompt_type == "superforecaster_with_news_3"
-                                        else None
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
+            )
         else:
-            if market_use_freeze_value:  # we don't run superforecaster prompts with freeze values
-                prompt = (
-                    llm_prompts.ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT
-                    if prompt_type == "zero_shot"
-                    else (
-                        llm_prompts.SCRATCH_PAD_MARKET_WITH_FREEZE_VALUE_PROMPT
-                        if prompt_type == "scratchpad"
-                        else llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_MARKET_WITH_FREEZE_VALUE_PROMPT
-                    )
+            prompt = (
+                llm_prompts.ZERO_SHOT_MARKET_PROMPT
+                if prompt_type == "zero_shot"
+                else (
+                    llm_prompts.SCRATCH_PAD_MARKET_PROMPT if prompt_type == "scratchpad" else None
                 )
-            else:
-                prompt = (
-                    llm_prompts.ZERO_SHOT_MARKET_PROMPT
-                    if prompt_type == "zero_shot"
-                    else (
-                        llm_prompts.SCRATCH_PAD_MARKET_PROMPT
-                        if prompt_type == "scratchpad"
-                        else (
-                            llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_MARKET_PROMPT
-                            if prompt_type == "scratchpad_with_news"
-                            else (
-                                llm_crowd_prompts.SUPERFORECASTER_MARKET_PROMPT_1
-                                if prompt_type == "superforecaster_with_news_1"
-                                else (
-                                    llm_crowd_prompts.SUPERFORECASTER_MARKET_PROMPT_2
-                                    if prompt_type == "superforecaster_with_news_2"
-                                    else (
-                                        llm_crowd_prompts.SUPERFORECASTER_MARKET_PROMPT_3
-                                        if prompt_type == "superforecaster_with_news_3"
-                                        else None
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
+            )
     else:
-        if is_joint_question:
-            prompt = (
-                llm_prompts.ZERO_SHOT_NON_MARKET_JOINT_QUESTION_PROMPT
-                if prompt_type == "zero_shot"
-                else (
-                    llm_prompts.SCRATCH_PAD_NON_MARKET_JOINT_QUESTION_PROMPT
-                    if prompt_type == "scratchpad"
-                    else (
-                        llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_NON_MARKET_JOINT_QUESTION_PROMPT
-                        if prompt_type == "scratchpad_with_news"
-                        else (
-                            llm_crowd_prompts.SUPERFORECASTER_NON_MARKET_JOINT_QUESTION_PROMPT_1
-                            if prompt_type == "superforecaster_with_news_1"
-                            else (
-                                llm_crowd_prompts.SUPERFORECASTER_NON_MARKET_JOINT_QUESTION_PROMPT_2
-                                if prompt_type == "superforecaster_with_news_2"
-                                else (
-                                    llm_crowd_prompts.SUPERFORECASTER_NON_MARKET_JOINT_QUESTION_PROMPT_3
-                                    if prompt_type == "superforecaster_with_news_3"
-                                    else None
-                                )
-                            )
-                        )
-                    )
-                )
+        prompt = (
+            llm_prompts.ZERO_SHOT_NON_MARKET_PROMPT
+            if prompt_type == "zero_shot"
+            else (
+                llm_prompts.SCRATCH_PAD_NON_MARKET_PROMPT if prompt_type == "scratchpad" else None
             )
-        else:
-            prompt = (
-                llm_prompts.ZERO_SHOT_NON_MARKET_PROMPT
-                if prompt_type == "zero_shot"
-                else (
-                    llm_prompts.SCRATCH_PAD_NON_MARKET_PROMPT
-                    if prompt_type == "scratchpad"
-                    else (
-                        llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_NON_MARKET_PROMPT
-                        if prompt_type == "scratchpad_with_news"
-                        else (
-                            llm_crowd_prompts.SUPERFORECASTER_NON_MARKET_PROMPT_1
-                            if prompt_type == "superforecaster_with_news_1"
-                            else (
-                                llm_crowd_prompts.SUPERFORECASTER_NON_MARKET_PROMPT_2
-                                if prompt_type == "superforecaster_with_news_2"
-                                else (
-                                    llm_crowd_prompts.SUPERFORECASTER_NON_MARKET_PROMPT_3
-                                    if prompt_type == "superforecaster_with_news_3"
-                                    else None
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-
-    use_news = True if "with_news" in prompt_type else False
-    assert not use_news, "`use_news` should always be False"
+        )
 
     prompt = prompt.format(
         **get_prompt_params(
             question,
             is_market_question,
-            is_joint_question,
             forecast_due_date,
             market_use_freeze_value,
-            use_news,
         )
     )
 
@@ -984,24 +866,15 @@ def executor(
         return list(executor.map(worker_with_args, range(len(questions_to_eval))))
 
 
-def determine_type(is_market_question, is_joint_question, market_use_freeze_value):
+def determine_type(is_market_question, market_use_freeze_value):
     """Determine question type for debugging."""
     if is_market_question:
-        if is_joint_question:
-            if market_use_freeze_value:
-                return "joint market with freeze value"
-            else:
-                return "joint market"
+        if market_use_freeze_value:
+            return "single market with freeze value"
         else:
-            if market_use_freeze_value:
-                return "single market with freeze value"
-            else:
-                return "single market"
+            return "single market"
     else:
-        if is_joint_question:
-            return "joint non-market"
-        else:
-            return "single non-market"
+        return "single non-market"
 
 
 def get_all_retrieved_info(all_retrieved_info):
@@ -1016,10 +889,8 @@ def get_all_retrieved_info(all_retrieved_info):
 def get_prompt_params(
     question,
     is_market_question,
-    is_joint_question,
     forecast_due_date,
     market_use_freeze_value,
-    use_news,
 ):
     """Get prompt parameters."""
 
@@ -1056,82 +927,7 @@ def get_prompt_params(
             }
         )
 
-    if use_news and not is_joint_question:
-        base_params.update(
-            {
-                "retrieved_info": get_all_retrieved_info(question["news"]),
-            }
-        )
-
-    if is_joint_question:
-        joint_params = {
-            "human_prompt": HUMAN_JOINT_PROMPTS[question["combo_index"]],
-            "question_1": formatted_question(question["combination_of"][0]),
-            "question_2": formatted_question(question["combination_of"][1]),
-            "background_1": question["combination_of"][0]["background"]
-            + "\n"
-            + question["combination_of"][0]["market_info_resolution_criteria"],
-            "background_2": question["combination_of"][1]["background"]
-            + "\n"
-            + question["combination_of"][1]["market_info_resolution_criteria"],
-            "resolution_criteria_1": question["combination_of"][0]["resolution_criteria"],
-            "resolution_criteria_2": question["combination_of"][1]["resolution_criteria"],
-            "today_date": TODAY_DATE,
-        }
-
-        if use_news:
-            joint_params.update(
-                {
-                    "retrieved_info_1": get_all_retrieved_info(
-                        question["combination_of"][0]["news"]
-                    ),
-                    "retrieved_info_2": get_all_retrieved_info(
-                        question["combination_of"][1]["news"]
-                    ),
-                }
-            )
-
-        if is_market_question:
-            joint_params["resolution_date"] = max(
-                question["combination_of"][0]["market_info_close_datetime"],
-                question["combination_of"][1]["market_info_close_datetime"],
-            )
-            if market_use_freeze_value:
-                joint_params.update(
-                    {
-                        "freeze_datetime_1": question["combination_of"][0]["freeze_datetime"],
-                        "freeze_datetime_2": question["combination_of"][1]["freeze_datetime"],
-                        "freeze_datetime_value_1": question["combination_of"][0][
-                            "freeze_datetime_value"
-                        ],
-                        "freeze_datetime_value_2": question["combination_of"][1][
-                            "freeze_datetime_value"
-                        ],
-                    }
-                )
-        else:
-            joint_params.update(
-                {
-                    "freeze_datetime_1": question["combination_of"][0]["freeze_datetime"],
-                    "freeze_datetime_2": question["combination_of"][1]["freeze_datetime"],
-                    "freeze_datetime_value_1": question["combination_of"][0][
-                        "freeze_datetime_value"
-                    ],
-                    "freeze_datetime_value_2": question["combination_of"][1][
-                        "freeze_datetime_value"
-                    ],
-                    "freeze_datetime_value_explanation_1": question["combination_of"][0][
-                        "freeze_datetime_value_explanation"
-                    ],
-                    "freeze_datetime_value_explanation_2": question["combination_of"][1][
-                        "freeze_datetime_value_explanation"
-                    ],
-                    "list_of_resolution_dates": question["resolution_dates"],
-                }
-            )
-        return joint_params
-    else:
-        return base_params
+    return base_params
 
 
 def download_and_read_saved_forecasts(filename, base_file_path):
@@ -1178,13 +974,11 @@ def process_model(
 def determine_test_type(question_set, prompt_type, market_use_freeze_value, test_or_prod):
     """Determine the test type based on the question set and prompt type."""
     if question_set[0]["source"] in question_curation.MARKET_SOURCES:
-        base_type = "market" if question_set[0]["combination_of"] == "N/A" else "combo_market"
+        base_type = "market"
         if market_use_freeze_value:
             base_type += "/with_freeze_values"
     else:
-        base_type = (
-            "non_market" if question_set[0]["combination_of"] == "N/A" else "combo_non_market"
-        )
+        base_type = "non_market"
     return f"{prompt_type}/{base_type}" + ("_test" if test_or_prod == "TEST" else "")
 
 
@@ -1215,12 +1009,6 @@ def generate_data_source_forecasts(model, results, question, index, prompt_type)
             "resolution_date": resolution_date,
             "reasoning": None if prompt_type == "zero_shot" else results[model][index]["reasoning"],
         }
-        # if "with_news" not in prompt_type:
-        #     forecast_data["prompt"] = results[model][index]["prompt"]
-        forecast_data["direction"] = None
-        if question["combination_of"] != "N/A":
-            forecast_data["direction"] = get_direction(question["combo_index"])
-
         forecasts.append(forecast_data)
     return forecasts
 
@@ -1234,19 +1022,7 @@ def generate_non_data_source_forecast(model, results, question, index, prompt_ty
         "resolution_date": None,
         "reasoning": None if prompt_type == "zero_shot" else results[model][index]["reasoning"],
     }
-    # if "with_news" not in prompt_type:
-    #     forecast_data["prompt"] = results[model][index]["prompt"]
-    forecast_data["direction"] = None
-    if question["combination_of"] != "N/A":
-        forecast_data["direction"] = get_direction(question["combo_index"])
-
     return forecast_data
-
-
-def get_direction(combo_index):
-    """Get the direction based on the combo index."""
-    directions = {0: [1, 1], 1: [1, -1], 2: [-1, 1], 3: [-1, -1]}
-    return directions.get(combo_index, [0, 0])
 
 
 def save_and_upload_results(forecasts, test_type, model, base_file_path):
@@ -1270,8 +1046,7 @@ def process_questions(questions_file, num_per_source=None):
     """
     Process questions from a JSON file and categorize them.
 
-    Load questions from the specified JSON file. Categorize them into single and combo
-    questions for both market and non-market sources. Unroll combo questions.
+    Load questions from the specified JSON file.
     Optionally limit the number of questions per source.
     """
     with open(questions_file, "r") as file:
@@ -1279,50 +1054,14 @@ def process_questions(questions_file, num_per_source=None):
 
     questions = questions_data["questions"]
 
-    single_market_questions = [
-        q
-        for q in questions
-        if q["combination_of"] == "N/A" and q["source"] in question_curation.MARKET_SOURCES
-    ]
-    single_non_market_questions = [
-        q
-        for q in questions
-        if q["combination_of"] == "N/A" and q["source"] in question_curation.DATA_SOURCES
-    ]
-
-    combo_market_questions = [
-        q
-        for q in questions
-        if q["combination_of"] != "N/A" and q["source"] in question_curation.MARKET_SOURCES
-    ]
-    combo_non_market_questions = [
-        q
-        for q in questions
-        if q["combination_of"] != "N/A" and q["source"] in question_curation.DATA_SOURCES
-    ]
-
-    def unroll(combo_questions):
-        """Unroll combo questions by directions."""
-        combo_questions_unrolled = []
-        for q in combo_questions:
-            for i in range(4):
-                new_q = q.copy()
-                new_q["combo_index"] = i
-                combo_questions_unrolled.append(new_q)
-        return combo_questions_unrolled
-
-    combo_market_questions_unrolled = unroll(combo_market_questions)
-    combo_non_market_questions_unrolled = unroll(combo_non_market_questions)
+    market_questions = [q for q in questions if q["source"] in question_curation.MARKET_SOURCES]
+    non_market_questions = [q for q in questions if q["source"] in question_curation.DATA_SOURCES]
 
     if num_per_source is not None:
-        single_market_questions = single_market_questions[:num_per_source]
-        single_non_market_questions = single_non_market_questions[:num_per_source]
-        combo_market_questions_unrolled = combo_market_questions_unrolled[:num_per_source]
-        combo_non_market_questions_unrolled = combo_non_market_questions_unrolled[:num_per_source]
+        market_questions = market_questions[:num_per_source]
+        non_market_questions = non_market_questions[:num_per_source]
 
     return (
-        single_market_questions,
-        single_non_market_questions,
-        combo_market_questions_unrolled,
-        combo_non_market_questions_unrolled,
+        market_questions,
+        non_market_questions,
     )

@@ -1,6 +1,5 @@
 """Generate the naive forecast."""
 
-import itertools
 import json
 import logging
 import os
@@ -55,48 +54,11 @@ def get_day_before_forecast_due_date(forecast_due_date):
     return forecast_due_date - timedelta(days=1)
 
 
-def _helper_split_df(df, source):
-    """Split df into source df and standard & combo question df."""
-    df_source, df = resolution.split_dataframe_on_source(df=df, source=source)
-
-    combo_mask = df_source["id"].apply(resolution.is_combo)
-    df_standard = df_source[~combo_mask].copy()
-    df_combo = df_source[combo_mask].copy()
-
-    return df, df_standard, df_combo
-
-
-def _helper_fill_combo(df_standard, df_combo):
-    """Fill in forecasts for df_combo given forecasts in df_standard."""
-
-    def update_col(index, id0, id1, dir0, dir1, col):
-        value_id0 = df_standard.loc[df_standard["id"] == id0, col].iloc[0]
-        value_id1 = df_standard.loc[df_standard["id"] == id1, col].iloc[0]
-        df_combo.at[index, col] = get_bounded_forecast(
-            resolution.combo_change_sign(value_id0, dir0)
-            * resolution.combo_change_sign(value_id1, dir1)
-        )
-
-    for index, row in df_combo.iterrows():
-        id0, id1 = row["id"]
-        dir0, dir1 = row["direction"]
-        update_col(
-            index=index,
-            id0=id0,
-            id1=id1,
-            dir0=dir0,
-            dir1=dir1,
-            col="forecast",
-        )
-
-    return df_combo
-
-
 def get_prophet_forecast(
     source, df, dfr, day_before_forecast_due_date, prophet_args, forecast_due_date_plus_max_horizon
 ):
     """Get forecast for source from Prophet."""
-    df, df_standard, df_combo = _helper_split_df(df=df, source=source)
+    df_standard, df = resolution.split_dataframe_on_source(df=df, source=source)
 
     dfr["value"] = pd.to_numeric(dfr["value"], errors="coerce")
 
@@ -139,15 +101,20 @@ def get_prophet_forecast(
             mask = (df_standard["id"] == mid) & (df_standard["resolution_date"] == resolution_date)
             df_standard.loc[mask, "forecast"] = get_bounded_forecast(prob_increase)
 
-    df_combo = _helper_fill_combo(df_standard=df_standard, df_combo=df_combo)
-    df = pd.concat([df, df_standard, df_combo], ignore_index=True)
+    df = pd.concat(
+        [
+            df,
+            df_standard,
+        ],
+        ignore_index=True,
+    )
     return df
 
 
 def get_wikipedia_forecast(df, dfr, forecast_due_date_plus_max_horizon):
     """Return the forecasts for all wikipedia questions in df."""
     wikipedia.populate_hash_mapping()
-    df, df_standard, df_combo = _helper_split_df(df=df, source="wikipedia")
+    df_standard, df = resolution.split_dataframe_on_source(df=df, source="wikipedia")
 
     resolution_dates = sorted(df_standard["resolution_date"].unique())
 
@@ -197,15 +164,20 @@ def get_wikipedia_forecast(df, dfr, forecast_due_date_plus_max_horizon):
                 )
             )
 
-    df_combo = _helper_fill_combo(df_standard=df_standard, df_combo=df_combo)
-    df = pd.concat([df, df_standard, df_combo], ignore_index=True)
+    df = pd.concat(
+        [
+            df,
+            df_standard,
+        ],
+        ignore_index=True,
+    )
     return df
 
 
 def get_acled_forecast(df, dfr, day_before_forecast_due_date, forecast_due_date_plus_max_horizon):
     """Return the forecasts for all acled questions in df."""
     acled.populate_hash_mapping()
-    df, df_standard, df_combo = _helper_split_df(df=df, source="acled")
+    df_standard, df = resolution.split_dataframe_on_source(df=df, source="acled")
 
     resolution_dates = sorted(df_standard["resolution_date"].unique())
 
@@ -258,8 +230,7 @@ def get_acled_forecast(df, dfr, day_before_forecast_due_date, forecast_due_date_
                 )
             )
 
-    df_combo = _helper_fill_combo(df_standard=df_standard, df_combo=df_combo)
-    df = pd.concat([df, df_standard, df_combo], ignore_index=True)
+    df = pd.concat([df, df_standard], ignore_index=True)
     return df
 
 
@@ -393,18 +364,7 @@ def prepare_df_and_set_null_values(df, forecast_due_date, last_date_for_data):
     df.rename(columns={"resolution_dates": "resolution_date"}, inplace=True)
     df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
 
-    # Expand directions for combo questions
-    df["direction"] = df.apply(
-        lambda x: (
-            list(itertools.product((1, -1), repeat=len(x["id"])))
-            if isinstance(x["id"], tuple)
-            else [()]
-        ),
-        axis=1,
-    )
-    df = df.explode("direction", ignore_index=True)
     df = df.sort_values(by=["source", "resolution_date"], ignore_index=True)
-
     return df
 
 
@@ -500,8 +460,15 @@ def driver(_):
             forecast_due_date=forecast_due_date,
         )
 
-    df = df[["id", "source", "forecast", "resolution_date", "reasoning", "direction"]]
-    df["direction"] = df["direction"].mask(df["direction"].apply(lambda x: x == ()), None)
+    df = df[
+        [
+            "id",
+            "source",
+            "forecast",
+            "resolution_date",
+            "reasoning",
+        ]
+    ]
     df["resolution_date"] = df["resolution_date"].astype(str).replace("NaT", None)
 
     forecast_due_date = forecast_due_date.strftime("%Y-%m-%d")
