@@ -126,9 +126,6 @@ def main():
         ),
     )
 
-    if question_curation.is_today_question_curation_date():
-        slack.send_message(message="Question set successfully created 😊")
-
     operation_compress_question_bank_bucket = compress_bucket(bucket=env.QUESTION_BANK_BUCKET)
 
     dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
@@ -149,11 +146,6 @@ def main():
 
     summarize_question_bank()
 
-    dict_to_use_create_question_set = "create_question_set"
-    operation_create_question_set = call_worker(
-        dict_to_use=dict_to_use_create_question_set, task_count=1
-    )
-
     dict_to_use_naive_and_dummy_forecasters = "naive_and_dummy_forecasters"
     operation_naive_and_dummy_forecasters = call_worker(
         dict_to_use=dict_to_use_naive_and_dummy_forecasters, task_count=1
@@ -170,11 +162,19 @@ def main():
         bucket=env.PROCESSED_FORECAST_SETS_BUCKET
     )
 
+    dict_to_use_create_question_set = "create_question_set"
+    operation_create_question_set = call_worker(
+        dict_to_use=dict_to_use_create_question_set, task_count=1
+    )
+
     cloud_run.block_and_check_job_result(
         operation=operation_create_question_set,
         name=dict_to_use_create_question_set,
         exit_on_error=True,
     )
+
+    if question_curation.is_today_question_curation_date():
+        slack.send_message(message="Question set successfully created 😊")
 
     dict_to_use_website = "website"
     operation_website = call_worker(dict_to_use=dict_to_use_website, task_count=1)
