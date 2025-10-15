@@ -419,11 +419,12 @@ def write_and_upload_forecast_file(data, df, model_name):
     with open(local_filename, "w") as f:
         f.write(json.dumps(data, indent=4))
 
-    gcp.storage.upload(
-        bucket_name=env.FORECAST_SETS_BUCKET,
-        local_filename=local_filename,
-        filename=f"{forecast_due_date}/{forecast_filename}",
-    )
+    if not env.RUNNING_LOCALLY:
+        gcp.storage.upload(
+            bucket_name=env.FORECAST_SETS_BUCKET,
+            local_filename=local_filename,
+            filename=f"{forecast_due_date}/{forecast_filename}",
+        )
 
 
 def create_dummy_files(data, df):
@@ -480,10 +481,7 @@ def driver(_):
     )
 
     logger.info("Downloading latest resolution data...")
-    resolution_values = resolution.get_and_pickle_resolution_values(
-        filename="resolution_values.pkl",
-        save_pickle_file=env.RUNNING_LOCALLY,
-    )
+    resolution_values = resolution.get_resolution_values()
     logger.info("Done downloading resolution data.")
 
     # truncate resolution values to last date of data to consider for the forecast
