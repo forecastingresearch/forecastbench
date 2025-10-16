@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -1058,8 +1059,12 @@ def process_questions(questions_file, num_per_source=None):
     non_market_questions = [q for q in questions if q["source"] in question_curation.DATA_SOURCES]
 
     if num_per_source is not None:
-        market_questions = market_questions[:num_per_source]
-        non_market_questions = non_market_questions[:num_per_source]
+        market_questions = random.sample(
+            market_questions, k=min(num_per_source, len(market_questions))
+        )
+        non_market_questions = random.sample(
+            non_market_questions, k=min(num_per_source, len(non_market_questions))
+        )
 
     return (
         market_questions,
