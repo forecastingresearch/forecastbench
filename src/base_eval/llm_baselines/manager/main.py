@@ -51,10 +51,10 @@ def main() -> None:
 
     forecast_due_date = question_sets.get_field_from_latest_question_set_file("forecast_due_date")
 
-    logger.info(f"Running LLM baselines for: {forecast_due_date}-llm.json")
+    logger.info(f"Running {args.mode.value} run of LLM baselines for {forecast_due_date}-llm.json")
 
     timeout = cloud_run.timeout_1h * 24
-    task_count = len(constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE.keys())
+    task_count = len(constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.keys()) * len(constants.PROMPT_TYPES)
     operation = cloud_run.call_worker(
         job_name="func-baseline-llm-forecasts-worker",
         env_vars={

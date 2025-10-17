@@ -1,6 +1,5 @@
 """LLM-related util."""
 
-import asyncio
 import json
 import logging
 import os
@@ -19,6 +18,7 @@ from google import genai
 from google.genai import types
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
+from termcolor import colored
 
 from . import (
     constants,
@@ -33,8 +33,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
 from utils import gcp  # noqa: E402
 
 anthropic_console = anthropic.Anthropic(api_key=keys.API_KEY_ANTHROPIC)
-anthropic_async_client = anthropic.AsyncAnthropic(api_key=keys.API_KEY_ANTHROPIC)
-oai_async_client = openai.AsyncOpenAI(api_key=keys.API_KEY_OPENAI)
 oai = openai.OpenAI(api_key=keys.API_KEY_OPENAI)
 together.api_key = keys.API_KEY_TOGETHERAI
 google_ai_client = genai.Client(api_key=keys.API_KEY_GOOGLE)
@@ -66,6 +64,26 @@ def infer_model_source(model_name):
     if model_name not in constants.MODEL_NAME_TO_SOURCE:
         raise ValueError(f"Invalid model name: {model_name}")
     return constants.MODEL_NAME_TO_SOURCE[model_name]
+
+
+def get_local_final_submit_directory(
+    prompt_type: str,
+    run_mode: constants.RunMode,
+) -> str:
+    """
+    Construct the local directory path for final forecast submission.
+
+    Args:
+        prompt_type (str): The prompt style used for the run (e.g., "zero_shot" or "scratchpad").
+        run_mode (constants.RunMode): Execution mode indicating TEST or PROD context.
+
+    Returns:
+        directory (str): Absolute path to the local final submission directory under /tmp.
+    """
+    directory = f"/tmp/{prompt_type}/final_submit"
+    if run_mode == constants.RunMode.TEST:
+        directory += "_test"
+    return directory
 
 
 def get_model_org(model_name):
@@ -134,39 +152,32 @@ def get_response_from_oai_model(
         def get_bool_param_from_model_def(p):
             return constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.get(model_name, {}).get(p, False)
 
-        is_reasoning_model = get_bool_param_from_model_def("reasoning_model")
-        use_web_search = get_bool_param_from_model_def("use_web_search")
-
-        if is_reasoning_model and system_prompt:
-            print(system_prompt)
-            logger.error("OpenAI reasoning models do NOT support system prompts.")
+        if system_prompt:
+            logger.error("System prompt should not be sent. Keeping check for legacy.")
             sys.exit(1)
-
-        model_input = [{"role": "system", "content": system_prompt}] if system_prompt else []
-        model_input.append({"role": "user", "content": prompt})
 
         params = {
             "model": model_name,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
         }
-        if use_web_search:
-            params["input"] = prompt
-            params["tools"] = [{"type": "web_search_preview"}]
-            params["tool_choice"] = {"type": "web_search_preview"}
-            if not is_reasoning_model:
-                params["temperature"] = temperature
 
-            response = oai.responses.create(**params)
-            return response.output_text
-        else:
-            params["messages"] = model_input
-            if not is_reasoning_model:
-                params["temperature"] = temperature
-                params["max_tokens"] = max_tokens
+        is_reasoning_model = get_bool_param_from_model_def("reasoning_model")
+        if not is_reasoning_model:
+            params["temperature"] = temperature
 
-            response = oai.chat.completions.create(**params)
-            return response.choices[0].message.content
+        response = oai.chat.completions.create(**params)
+        return response.choices[0].message.content
 
-    return get_response_with_retry(api_call, wait_time, "OpenAI API request exceeded rate limit.")
+    return get_response_with_retry(
+        api_call,
+        wait_time,
+        "OpenAI API request exceeded rate limit.",
+    )
 
 
 def get_response_from_xai_model(model_name, prompt, max_tokens, temperature, wait_time):
@@ -187,12 +198,21 @@ def get_response_from_xai_model(model_name, prompt, max_tokens, temperature, wai
     def api_call():
         response = xai_client.chat.completions.create(
             model=model_name,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
             temperature=temperature,
         )
         return response.choices[0].message.content
 
-    return get_response_with_retry(api_call, wait_time, "xAI API request exceeded rate limit.")
+    return get_response_with_retry(
+        api_call,
+        wait_time,
+        "xAI API request exceeded rate limit.",
+    )
 
 
 def get_response_from_anthropic_model(model_name, prompt, max_tokens, temperature, wait_time):
@@ -211,13 +231,21 @@ def get_response_from_anthropic_model(model_name, prompt, max_tokens, temperatur
     """
 
     def api_call():
-        completion = anthropic_console.messages.create(
+
+        with anthropic_console.messages.stream(
             model=model_name,
-            messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
             max_tokens=1024,
-        )
-        return completion.content[0].text
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+        ) as stream:
+            stream.until_done()
+
+        return stream.get_final_message().content[0].text
 
     return get_response_with_retry(
         api_call, wait_time, "Anthropic API request exceeded rate limit."
@@ -287,7 +315,10 @@ def get_response_from_together_ai_model(model_name, prompt, max_tokens, temperat
             chat_completion = togetherai_client.chat.completions.create(
                 model=model_name,
                 messages=[
-                    {"role": "user", "content": prompt},
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
                 ],
                 temperature=temperature,
             )
@@ -396,73 +427,6 @@ def get_response_from_model(
         return get_response_from_xai_model(model_name, prompt, max_tokens, temperature, wait_time)
     else:
         return "Not a valid model source."
-
-
-async def get_async_response(
-    prompt,
-    model_name="gpt-4o-mini",
-    temperature=0.0,
-    max_tokens=8000,
-):
-    """
-    Asynchronously get a response from the OpenAI API.
-
-    Args:
-        prompt (str): Fully specififed prompt to use for the API call.
-        model_name (str, optional): Name of the model to use (such as "gpt-3.5-turbo").
-        temperature (float, optional): Sampling temperature.
-        max_tokens (int, optional): Maximum number of tokens to sample.
-
-    Returns:
-        str: Response string from the API call (not the dictionary).
-    """
-    model_source = infer_model_source(model_name)
-    while True:
-        try:
-            if model_source == constants.OAI_SOURCE:
-                response = await oai_async_client.chat.completions.create(
-                    model=model_name,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=temperature,
-                )
-                return response.choices[0].message.content
-            elif model_source == constants.ANTHROPIC_SOURCE:
-                response = await anthropic_async_client.messages.create(
-                    model=model_name,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                return response.content[0].text
-            elif model_source == constants.GOOGLE_SOURCE:
-                response = await google_ai_client.aio.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        candidate_count=1,
-                        temperature=temperature,
-                    ),
-                )
-                return response.text
-            elif model_source == constants.TOGETHER_AI_SOURCE:
-                chat_completion = await asyncio.to_thread(
-                    togetherai_client.chat.completions.create,
-                    model=model_name,
-                    messages=[
-                        {"role": "user", "content": prompt},
-                    ],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                return chat_completion.choices[0].message.content
-            else:
-                logger.debug("Not a valid model source: {model_source}")
-                return ""
-        except Exception as e:
-            logger.info(f"Exception, erorr message: {e}")
-            logger.info("Waiting for 30 seconds before retrying...")
-            time.sleep(30)
-            continue
 
 
 def extract_probability(text):
@@ -635,33 +599,33 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, run_mo
     """
     models_to_test = list(models.keys())
 
-    def get_final_dir(with_freeze_values):
-        return "final_with_freeze" if with_freeze_values else "final"
+    def get_final_dir(with_freeze_values, run_mode):
+        final_dir = "final_with_freeze" if with_freeze_values else "final"
+        if run_mode == constants.RunMode.TEST:
+            final_dir += "_test"
+        return final_dir
 
     def write_file(model, with_freeze_values, run_mode):
         current_model_forecasts = []
+        dataset_dir = f"{prompt_type}/dataset"
+        market_dir = f"{prompt_type}/market"
         if with_freeze_values:
-            dirs = [
-                f"{prompt_type}/non_market",
-                f"{prompt_type}/market/with_freeze_values",
-            ]
-        else:
-            dirs = [
-                f"{prompt_type}/non_market",
-                f"{prompt_type}/market",
-            ]
+            market_dir += "_with_freeze_values"
 
         if run_mode == constants.RunMode.TEST:
-            dirs = [dir_ + "_test" for dir_ in dirs]
+            dataset_dir += "_test"
+            market_dir += "_test"
 
-        for test_type in dirs:
-            file_path = f"/tmp/{test_type}/{model}.jsonl"
+        dirs = [
+            dataset_dir,
+            market_dir,
+        ]
+        for question_type in dirs:
+            file_path = f"/tmp/{question_type}/{model}.jsonl"
             questions = data_utils.read_jsonl(file_path)
             current_model_forecasts.extend(questions)
 
-        final_dir = get_final_dir(with_freeze_values)
-        if run_mode == constants.RunMode.TEST:
-            final_dir += "_test"
+        final_dir = get_final_dir(with_freeze_values, run_mode)
 
         final_file_name = f"/tmp/{prompt_type}/{final_dir}/{model}"
         os.makedirs(os.path.dirname(final_file_name), exist_ok=True)
@@ -671,30 +635,27 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, run_mo
                 file.write(json_line + "\n")
 
     def create_final_file(model, with_freeze_values, run_mode):
-        final_dir = get_final_dir(with_freeze_values)
-        if run_mode == constants.RunMode.TEST:
-            final_dir += "_test"
+        final_dir = get_final_dir(with_freeze_values, run_mode)
         file_path = f"/tmp/{prompt_type}/{final_dir}/{model}"
         questions = data_utils.read_jsonl(file_path)
         org = get_model_org(model)
 
-        directory = f"/tmp/{prompt_type}/final_submit"
-        if run_mode == constants.RunMode.TEST:
-            directory += "_test"
-        os.makedirs(directory, exist_ok=True)
+        local_submit_dir = get_local_final_submit_directory(
+            prompt_type=prompt_type,
+            run_mode=run_mode,
+        )
+        os.makedirs(local_submit_dir, exist_ok=True)
 
         file_prompt_type = prompt_type
         if with_freeze_values:
             file_prompt_type += "_with_freeze_values"
 
-        # Only possible for some OpenAI models
-        if models[model].get("use_web_search", False):
-            file_prompt_type += "_with_web_search"
-
-        new_file_name = f"{directory}/{forecast_due_date}.{org}.{model}_{file_prompt_type}.json"
+        new_file_name = (
+            f"{local_submit_dir}/{forecast_due_date}.{org}.{model}_{file_prompt_type}.json"
+        )
         if run_mode == constants.RunMode.TEST:
             new_file_name = (
-                f"{directory}/{constants.TEST_FORECAST_FILE_PREFIX}.{forecast_due_date}."
+                f"{local_submit_dir}/{constants.TEST_FORECAST_FILE_PREFIX}.{forecast_due_date}."
                 f"{org}.{model}_{file_prompt_type}.json"
             )
 
@@ -735,6 +696,9 @@ def worker(
     market_use_freeze_value=False,
 ):
     """Worker function for question evaluation."""
+    assert prompt_type in ["zero_shot", "scratchpad"]
+    assert market_use_freeze_value in [True, False]
+
     if save_dict[index] != "":
         return
 
@@ -746,40 +710,27 @@ def worker(
     question = questions_to_eval[index]
     is_market_question = question["source"] in question_curation.MARKET_SOURCES
 
-    question_type = determine_type(is_market_question, market_use_freeze_value)
-
     if not is_market_question and market_use_freeze_value:
         # Don't run for data source questions when market_use_freeze_value is True
         # because we will have already run these requests when it was False.
         return
 
     if is_market_question:
-        if market_use_freeze_value:  # we don't run superforecaster prompts with freeze values
-            prompt = (
-                llm_prompts.ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT
-                if prompt_type == "zero_shot"
-                else (
-                    llm_prompts.SCRATCH_PAD_MARKET_WITH_FREEZE_VALUE_PROMPT
-                    if prompt_type == "scratchpad"
-                    else llm_prompts.SCRATCH_PAD_WITH_SUMMARIES_MARKET_WITH_FREEZE_VALUE_PROMPT
-                )
-            )
+        if market_use_freeze_value:
+            prompt = {
+                "zero_shot": llm_prompts.ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT,
+                "scratchpad": llm_prompts.SCRATCH_PAD_MARKET_WITH_FREEZE_VALUE_PROMPT,
+            }.get(prompt_type)
         else:
-            prompt = (
-                llm_prompts.ZERO_SHOT_MARKET_PROMPT
-                if prompt_type == "zero_shot"
-                else (
-                    llm_prompts.SCRATCH_PAD_MARKET_PROMPT if prompt_type == "scratchpad" else None
-                )
-            )
+            prompt = {
+                "zero_shot": llm_prompts.ZERO_SHOT_MARKET_PROMPT,
+                "scratchpad": llm_prompts.SCRATCH_PAD_MARKET_PROMPT,
+            }.get(prompt_type)
     else:
-        prompt = (
-            llm_prompts.ZERO_SHOT_NON_MARKET_PROMPT
-            if prompt_type == "zero_shot"
-            else (
-                llm_prompts.SCRATCH_PAD_NON_MARKET_PROMPT if prompt_type == "scratchpad" else None
-            )
-        )
+        prompt = {
+            "zero_shot": llm_prompts.ZERO_SHOT_NON_MARKET_PROMPT,
+            "scratchpad": llm_prompts.SCRATCH_PAD_NON_MARKET_PROMPT,
+        }.get(prompt_type)
 
     prompt = prompt.format(
         **get_prompt_params(
@@ -788,6 +739,10 @@ def worker(
             forecast_due_date,
             market_use_freeze_value,
         )
+    )
+
+    logger.info(
+        f"IN WORKER: ... {model_name}. {prompt_type}. Is market_question: {is_market_question}."
     )
 
     try:
@@ -804,9 +759,6 @@ def worker(
         logger.error(f"Error in worker: {e}")
         response = None
 
-    logger.info(
-        f"IN WORKER: ... {model_name}. {prompt_type}. Is market_question: {is_market_question}."
-    )
     if prompt_type == "zero_shot":
         if is_market_question:
             save_dict[index] = {"forecast": extract_probability(response)}
@@ -826,15 +778,20 @@ def worker(
                 "reasoning": response,
             }
 
-    # if "with_news" not in prompt_type:
-    #     # not saving prompts with news because it's too large
-    #     save_dict[index]["prompt"] = prompt
+    prompt_col = colored(prompt_type, "red", attrs=["bold"])
+    question_type_col = colored("Market" if is_market_question else "Dataset", "yellow")
+    model_info = f"{prompt_col} {question_type_col}"
+    if is_market_question:
+        freeze_vals = "with freeze values" if market_use_freeze_value else "no freeze values"
+        freeze_col = colored(freeze_vals, "yellow")
+        model_info = f"{model_info} {freeze_col}"
 
     logger.info(
-        f"Model: {model_name} | Prompt: {prompt_type} | Question Type: {question_type} | "
-        f"Answer: {save_dict[index]['forecast']}"
+        f"\n\nModel: {model_name} {model_info}"
+        f"\nQuestion source // id // url: "
+        f"{question['source']} // {question['id']} // {question['url']}"
+        f"\nForecast: {save_dict[index]['forecast']}\n"
     )
-
     if rate_limit:
         end_time = datetime.now()
         elapsed_time = (end_time - start_time).total_seconds()
@@ -867,17 +824,6 @@ def executor(
         return list(executor.map(worker_with_args, range(len(questions_to_eval))))
 
 
-def determine_type(is_market_question, market_use_freeze_value):
-    """Determine question type for debugging."""
-    if is_market_question:
-        if market_use_freeze_value:
-            return "single market with freeze value"
-        else:
-            return "single market"
-    else:
-        return "single non-market"
-
-
 def get_all_retrieved_info(all_retrieved_info):
     """Get all retrieved news."""
     retrieved_info = ""
@@ -902,9 +848,13 @@ def get_prompt_params(
         )
         return question
 
+    background = question["background"]
+    if question["market_info_resolution_criteria"] != "N/A":
+        background += "\n" + question["market_info_resolution_criteria"]
+
     base_params = {
         "question": formatted_question(question),
-        "background": question["background"] + "\n" + question["market_info_resolution_criteria"],
+        "background": background,
         "resolution_criteria": question["resolution_criteria"],
         "today_date": TODAY_DATE,
     }
@@ -974,13 +924,17 @@ def process_model(
 
 def determine_test_type(question_set, prompt_type, market_use_freeze_value, run_mode):
     """Determine the test type based on the question set and prompt type."""
-    if question_set[0]["source"] in question_curation.MARKET_SOURCES:
-        base_type = "market"
-        if market_use_freeze_value:
-            base_type += "/with_freeze_values"
-    else:
-        base_type = "non_market"
-    return f"{prompt_type}/{base_type}" + ("_test" if run_mode == constants.RunMode.TEST else "")
+    base_type = (
+        "market" if question_set[0]["source"] in question_curation.MARKET_SOURCES else "dataset"
+    )
+
+    if base_type == "market" and market_use_freeze_value:
+        base_type += "_with_freeze_values"
+
+    if run_mode == constants.RunMode.TEST:
+        base_type += "_test"
+
+    return f"{prompt_type}/{base_type}"
 
 
 def generate_forecasts(model, results, questions_to_eval, prompt_type):
@@ -1043,7 +997,7 @@ def save_and_upload_results(forecasts, test_type, model, base_file_path):
     )
 
 
-def process_questions(questions_file, num_per_source=None):
+def process_questions(questions_file, num_questions_per_question_type=None):
     """
     Process questions from a JSON file and categorize them.
 
@@ -1056,17 +1010,17 @@ def process_questions(questions_file, num_per_source=None):
     questions = questions_data["questions"]
 
     market_questions = [q for q in questions if q["source"] in question_curation.MARKET_SOURCES]
-    non_market_questions = [q for q in questions if q["source"] in question_curation.DATA_SOURCES]
+    dataset_questions = [q for q in questions if q["source"] in question_curation.DATA_SOURCES]
 
-    if num_per_source is not None:
+    if num_questions_per_question_type is not None:
         market_questions = random.sample(
-            market_questions, k=min(num_per_source, len(market_questions))
+            market_questions, k=min(num_questions_per_question_type, len(market_questions))
         )
-        non_market_questions = random.sample(
-            non_market_questions, k=min(num_per_source, len(non_market_questions))
+        dataset_questions = random.sample(
+            dataset_questions, k=min(num_questions_per_question_type, len(dataset_questions))
         )
 
     return (
         market_questions,
-        non_market_questions,
+        dataset_questions,
     )

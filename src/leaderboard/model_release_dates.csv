@@ -38,6 +38,10 @@ Claude-3-Haiku-20240307 (superforecaster with news 2),2024-03-13
 Claude-3-Haiku-20240307 (superforecaster with news 3),2024-03-13
 Claude-3-Haiku-20240307 (zero shot with freeze values),2024-03-13
 Claude-3-Haiku-20240307 (zero shot),2024-03-13
+Claude-Haiku-4-5-20251001 (scratchpad with freeze values),2025-10-01
+Claude-Haiku-4-5-20251001 (scratchpad),2025-10-01
+Claude-Haiku-4-5-20251001 (zero shot with freeze values),2025-10-01
+Claude-Haiku-4-5-20251001 (zero shot),2025-10-01
 Claude-3-Opus-20240229 (scratchpad with freeze values),2024-02-29
 Claude-3-Opus-20240229 (scratchpad with news with freeze values),2024-02-29
 Claude-3-Opus-20240229 (scratchpad with news),2024-02-29
@@ -59,6 +63,10 @@ Claude-Sonnet-4-20250514 (scratchpad with freeze values),2025-05-22
 Claude-Sonnet-4-20250514 (scratchpad),2025-05-22
 Claude-Sonnet-4-20250514 (zero shot with freeze values),2025-05-22
 Claude-Sonnet-4-20250514 (zero shot),2025-05-22
+Claude-Sonnet-4-5-20250929 (scratchpad with freeze values),2025-09-29
+Claude-Sonnet-4-5-20250929 (scratchpad),2025-09-29
+Claude-Sonnet-4-5-20250929 (zero shot with freeze values),2025-09-29
+Claude-Sonnet-4-5-20250929 (zero shot),2025-09-29
 DeepSeek-R1 (scratchpad with freeze values),2025-01-20
 DeepSeek-R1 (scratchpad),2025-01-20
 DeepSeek-R1 (zero shot with freeze values),2025-01-20
@@ -67,6 +75,10 @@ DeepSeek-V3 (scratchpad with freeze values),2024-12-25
 DeepSeek-V3 (scratchpad),2024-12-25
 DeepSeek-V3 (zero shot with freeze values),2024-12-25
 DeepSeek-V3 (zero shot),2024-12-25
+DeepSeek-V3.1 (scratchpad with freeze values),2025-08-21
+DeepSeek-V3.1 (scratchpad),2025-08-21
+DeepSeek-V3.1 (zero shot with freeze values),2025-08-21
+DeepSeek-V3.1 (zero shot),2025-08-21
 GLM-4.5-Air-FP8 (scratchpad with freeze values),2025-07-28
 GLM-4.5-Air-FP8 (scratchpad),2025-07-28
 GLM-4.5-Air-FP8 (zero shot with freeze values),2025-07-28
@@ -114,10 +126,16 @@ GPT-4o-2024-11-20 (scratchpad with freeze values with web search),2024-11-20
 GPT-4o-2024-11-20 (scratchpad with web search),2024-11-20
 GPT-4o-2024-11-20 (zero shot with freeze values with web search),2024-11-20
 GPT-4o-2024-11-20 (zero shot with web search),2024-11-20
+GPT-5-2025-08-07 (scratchpad with freeze values),2025-08-07
+GPT-5-2025-08-07 (scratchpad),2025-08-07
 GPT-5-2025-08-07 (zero shot with freeze values),2025-08-07
 GPT-5-2025-08-07 (zero shot),2025-08-07
+GPT-5-Mini-2025-08-07 (scratchpad with freeze values),2025-08-07
+GPT-5-Mini-2025-08-07 (scratchpad),2025-08-07
 GPT-5-Mini-2025-08-07 (zero shot with freeze values),2025-08-07
 GPT-5-Mini-2025-08-07 (zero shot),2025-08-07
+GPT-5-Nano-2025-08-07 (scratchpad with freeze values),2025-08-07
+GPT-5-Nano-2025-08-07 (scratchpad),2025-08-07
 GPT-5-Nano-2025-08-07 (zero shot with freeze values),2025-08-07
 GPT-5-Nano-2025-08-07 (zero shot),2025-08-07
 Gemini-1.5-Flash (scratchpad with freeze values),2024-05-01
@@ -142,12 +160,16 @@ Gemini-2.0-Flash-Lite-001 (scratchpad with freeze values),2025-02-05
 Gemini-2.0-Flash-Lite-001 (scratchpad),2025-02-05
 Gemini-2.0-Flash-Lite-001 (zero shot with freeze values),2025-02-05
 Gemini-2.0-Flash-Lite-001 (zero shot),2025-02-05
+Gemini-2.5-Flash (scratchpad with freeze values),2025-06-17
+Gemini-2.5-Flash (scratchpad),2025-06-17
 Gemini-2.5-Flash (zero shot with freeze values),2025-06-17
 Gemini-2.5-Flash (zero shot),2025-06-17
 Gemini-2.5-Flash-Preview-04-17 (scratchpad with freeze values),2025-04-17
 Gemini-2.5-Flash-Preview-04-17 (scratchpad),2025-04-17
 Gemini-2.5-Flash-Preview-04-17 (zero shot with freeze values),2025-04-17
 Gemini-2.5-Flash-Preview-04-17 (zero shot),2025-04-17
+Gemini-2.5-Pro (scratchpad with freeze values),2025-06-17
+Gemini-2.5-Pro (scratchpad),2025-06-17
 Gemini-2.5-Pro (zero shot with freeze values),2025-06-17
 Gemini-2.5-Pro (zero shot),2025-06-17
 Gemini-2.5-Pro-Exp-03-25 (scratchpad with freeze values),2025-03-25
@@ -162,6 +184,18 @@ Grok-beta (scratchpad with freeze values),2024-11-04
 Grok-beta (scratchpad),2024-11-04
 Grok-beta (zero shot with freeze values),2024-11-04
 Grok-beta (zero shot),2024-11-04
+Grok-4-0709 (scratchpad with freeze values),2025-07-09
+Grok-4-0709 (scratchpad),2025-07-09
+Grok-4-0709 (zero shot with freeze values),2025-07-09
+Grok-4-0709 (zero shot),2025-07-09
+Grok-4-fast-reasoning (scratchpad with freeze values),2025-09-19
+Grok-4-fast-reasoning (scratchpad),2025-09-19
+Grok-4-fast-reasoning (zero shot with freeze values),2025-09-19
+Grok-4-fast-reasoning (zero shot),2025-09-19
+Grok-4-fast-non-reasoning (scratchpad with freeze values),2025-09-19
+Grok-4-fast-non-reasoning (scratchpad),2025-09-19
+Grok-4-fast-non-reasoning (zero shot with freeze values),2025-09-19
+Grok-4-fast-non-reasoning (zero shot),2025-09-19
 UnusedGrok-2-1212 (scratchpad with freeze values),2024-12-12
 UnusedGrok-2-1212 (scratchpad),2024-12-12
 UnusedGrok-2-1212 (zero shot with freeze values),2024-12-12
@@ -187,6 +221,10 @@ Kimi-K2-Instruct (scratchpad with freeze values),2025-07-12
 Kimi-K2-Instruct (scratchpad),2025-07-12
 Kimi-K2-Instruct (zero shot with freeze values),2025-07-12
 Kimi-K2-Instruct (zero shot),2025-07-12
+Kimi-K2-Instruct-0905 (scratchpad with freeze values),2025-09-05
+Kimi-K2-Instruct-0905 (scratchpad),2025-09-05
+Kimi-K2-Instruct-0905 (zero shot with freeze values),2025-09-05
+Kimi-K2-Instruct-0905 (zero shot),2025-09-05
 "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean log odds with news",
 "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean with news",
 "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) median with news",
@@ -296,5 +334,9 @@ Qwen3-235B-A22B-Fp8-Tput (scratchpad with freeze values),2025-04-29
 Qwen3-235B-A22B-Fp8-Tput (scratchpad),2025-04-29
 Qwen3-235B-A22B-Fp8-Tput (zero shot with freeze values),2025-04-29
 Qwen3-235B-A22B-Fp8-Tput (zero shot),2025-04-29
+Qwen3-235B-A22B-Thinking-2507 (scratchpad with freeze values),2025-07-25
+Qwen3-235B-A22B-Thinking-2507 (scratchpad),2025-07-25
+Qwen3-235B-A22B-Thinking-2507 (zero shot with freeze values),2025-07-25
+Qwen3-235B-A22B-Thinking-2507 (zero shot),2025-07-25
 Random Uniform,
 Superforecaster median forecast,

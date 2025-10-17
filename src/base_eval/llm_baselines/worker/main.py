@@ -25,95 +25,80 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
 
 
-def get_questions(forecast_due_date, num_questions):
-    """Load the questions file from the git repo."""
+def get_questions(forecast_due_date: str, num_questions_per_question_type: int | None) -> list:
+    """
+    Load and prepare questions for evaluation.
+
+    Args:
+        forecast_due_date (str): Forecast due date used to locate the questions file.
+        num_questions_per_question_type (int | None): Limit per question type (None for all).
+
+    Returns:
+        questions (list): Ordered list of question sets: [dataset_questions, market_questions].
+    """
     _, local_repo_dir, _ = git.clone(repo_url=keys.API_GITHUB_DATASET_REPO_URL)
     LOCAL_QUESTIONS_FILE = f"{local_repo_dir}/datasets/question_sets/{forecast_due_date}-llm.json"
 
-    single_market, single_non_market = model_eval.process_questions(
-        LOCAL_QUESTIONS_FILE, num_per_source=num_questions
+    market_questions, dataset_questions = model_eval.process_questions(
+        LOCAL_QUESTIONS_FILE,
+        num_questions_per_question_type=num_questions_per_question_type,
     )
     questions = [
-        single_non_market,
-        single_market,
+        dataset_questions,
+        market_questions,
     ]
 
     shutil.rmtree(local_repo_dir)
     return questions
 
 
-def delete_and_upload_to_the_cloud(
-    base_file_path, prompt_type, question_types, forecast_due_date, run_mode
-):
-    """Upload local forecast files to GCP and then delete them."""
-    # submits the final forecasts to forecastbench-forecast-sets-dev
-    local_directory = f"/tmp/{prompt_type}/final_submit"
-    if run_mode == constants.RunMode.TEST:
-        local_directory += "_test"
+def upload_forecast_files(
+    base_file_path: str,
+    prompt_type: str,
+    forecast_due_date: str,
+    run_mode: constants.RunMode,
+) -> None:
+    """
+    Upload local forecast artifacts to GCP.
 
-    forecast_filenames = data_utils.list_files(local_directory)
+    Args:
+        base_file_path (str): GCS base path prefix for storing intermediate records.
+        prompt_type (str): Prompt variant used ("zero_shot" or "scratchpad").
+        forecast_due_date (str): Forecast due date used in remote path.
+        run_mode (constants.RunMode): Execution mode controlling paths and behavior.
+
+    Returns:
+        None: Uploads forecast files
+    """
+    local_submit_dir = model_eval.get_local_final_submit_directory(
+        prompt_type=prompt_type,
+        run_mode=run_mode,
+    )
+
+    forecast_filenames = data_utils.list_files(local_submit_dir)
     for forecast_filename in forecast_filenames:
-        local_filename = local_directory + "/" + forecast_filename
+        local_filename = local_submit_dir + "/" + forecast_filename
         gcp.storage.upload(
             bucket_name=env.FORECAST_SETS_BUCKET,
             local_filename=local_filename,
             filename=f"{forecast_due_date}/{forecast_filename}",
         )
-        os.remove(local_filename)
-        print(f"deleted... {local_filename}")
-
-    # save intermediate results to forecastbench-forecast-sets-dev/individual_forecast_records
-    # in case the notebook is interrupted, it would pick up where it left off and continue running.
-    for question_type in question_types:
-        local_directory = f"/tmp/{prompt_type}/{question_type}"
-        if run_mode == constants.RunMode.TEST:
-            local_directory += "_test"
-        if os.path.exists(local_directory):
-            forecast_filenames = data_utils.list_files(local_directory)
-            for forecast_filename in forecast_filenames:
-                local_filename = local_directory + f"/{forecast_filename}"
-                remote_filename = local_directory.replace("/tmp/", "") + f"/{forecast_filename}"
-                gcp.storage.upload(
-                    bucket_name=env.FORECAST_SETS_BUCKET,
-                    local_filename=local_filename,
-                    filename=f"{base_file_path}/{remote_filename}",
-                )
-
-                os.remove(local_filename)
-                print(f"{local_filename} is deleted.")
-
-        # delete freeze values files in local location
-        if "non_market" not in question_type and question_type not in [
-            "final",
-            "final_with_freeze",
-        ]:
-            local_directory = f"/tmp/{prompt_type}/{question_type}/with_freeze_values"
-            if run_mode == constants.RunMode.TEST:
-                local_directory += "_test"
-
-            if os.path.exists(local_directory):
-                forecast_filenames = data_utils.list_files(local_directory)
-                for forecast_filename in forecast_filenames:
-                    local_filename = os.path.join(local_directory, forecast_filename)
-                    if os.path.exists(local_filename):
-                        os.remove(local_filename)
-                        print(f"{local_filename} is deleted.")
-                    else:
-                        print(f"Warning: {local_filename} does not exist.")
-            else:
-                print(f"Directory {local_directory} does not exist. Skipping deletion.")
 
 
-@decorator.log_runtime
-def main():
+def parse_env_vars() -> tuple[str, constants.RunMode, str, str]:
     """
-    Process questions for different models and prompt types.
+    Parse and validate environment variables, and derive model and prompt selection.
 
-    Steps:
-    1. Determine test type for each question set.
-    2. Load existing results or initialize new ones.
-    3. Process each model for each question set.
-    4. Save and upload results.
+    Environment variables:
+        FORECAST_DUE_DATE (str): Required. Date string used by downstream processes.
+        TEST_OR_PROD (str): Required. Must be valid constants.RunMode
+        CLOUD_RUN_TASK_INDEX (int): Required. Zero-based task index provided by Cloud Run.
+    Args:
+        None
+
+    Returns:
+        result (tuple[str, constants.RunMode, str, str]):
+            (forecast_due_date, run_mode, model_to_test, prompt_type).
     """
     forecast_due_date = os.getenv("FORECAST_DUE_DATE")
     if not forecast_due_date:
@@ -121,9 +106,9 @@ def main():
         sys.exit(1)
 
     try:
-        run_mode = constants.RunMode(os.getenv("TEST_OR_PROD"))
+        run_mode = constants.RunMode(os.getenv("TEST_OR_PROD", ""))
     except ValueError:
-        logger.error("`run_mode` must be one of TEST or PROD.")
+        logger.error("`TEST_OR_PROD` must be one of TEST or PROD.")
         sys.exit(1)
 
     try:
@@ -133,89 +118,100 @@ def main():
         logger.error(e)
         sys.exit(1)
 
-    sources = list(constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE.keys())
-    max_tasks = len(sources) if run_mode == constants.RunMode.PROD else 1
+    all_models = list(constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.keys())
+    n_prompts = len(constants.PROMPT_TYPES)
+    max_tasks = len(all_models) * n_prompts if run_mode == constants.RunMode.PROD else 1
     if task_num >= max_tasks:
         logger.info(f"task number {task_num} not needed, winding down.")
         sys.exit(0)
 
-    source = sources[task_num]
-    models = constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE[source]
-    market_use_freeze_values = [False, True]
-    prompt_types = ["zero_shot", "scratchpad"]
-    num_questions = None
-    if run_mode == constants.RunMode.TEST:
-        num_questions = 1
-        first_key = list(models.keys())[0]
-        models = {first_key: models[first_key]}
-        prompt_types = prompt_types[:1]
+    model_idx = task_num // n_prompts
+    model_to_test = all_models[model_idx]
 
-    base_file_path = f"individual_forecast_records/{forecast_due_date}"
-    question_types = [
-        "market",
-        "non_market",
-        "final",
-        "final_with_freeze",
-    ]
-
-    results = {}
-    models_to_test = list(models.keys())
-    model_result_loaded = {model: False for model in models_to_test}
+    prompt_type_idx = task_num % n_prompts
+    prompt_type = constants.PROMPT_TYPES[prompt_type_idx]
 
     # Sleep `task_num` seconds to avoid cloning the same git repo too quickly
     time.sleep(task_num)
-    questions = get_questions(forecast_due_date=forecast_due_date, num_questions=num_questions)
 
-    for prompt_type in prompt_types:
-        for question_set in questions:
-            for market_use_freeze_value in market_use_freeze_values:
-                test_type = model_eval.determine_test_type(
-                    question_set, prompt_type, market_use_freeze_value, run_mode
+    return forecast_due_date, run_mode, model_to_test, prompt_type
+
+
+@decorator.log_runtime
+def main() -> None:
+    """
+    Orchestrate evaluation: load questions, run models, and persist results.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    forecast_due_date, run_mode, model_to_test, prompt_type = parse_env_vars()
+    logger.info(f"TESTING: {model_to_test} {prompt_type}")
+
+    model_dict = {model_to_test: constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.get(model_to_test)}
+    num_questions_per_question_type = 2 if run_mode == constants.RunMode.TEST else None
+
+    base_file_path = f"individual_forecast_records/{forecast_due_date}"
+
+    results = {}
+    questions = get_questions(
+        forecast_due_date=forecast_due_date,
+        num_questions_per_question_type=num_questions_per_question_type,
+    )
+    for question_set in questions:
+        for market_use_freeze_value in [False, True]:
+            test_type = model_eval.determine_test_type(
+                question_set,
+                prompt_type,
+                market_use_freeze_value,
+                run_mode,
+            )
+            questions_to_eval = question_set
+
+            gcp_file_path = f"{base_file_path}/{test_type}/{model_to_test}.jsonl"
+
+            results[model_to_test] = model_eval.download_and_read_saved_forecasts(
+                filename=gcp_file_path,
+                base_file_path=base_file_path,
+            )
+
+            if results[model_to_test]:
+                logger.info(f"Downloaded {gcp_file_path}. Skipping.")
+            else:
+                logger.info(
+                    f"No results loaded for {gcp_file_path}. {model_to_test} is running inference..."
                 )
-                questions_to_eval = question_set
-                for model in models_to_test:
-                    gcp_file_path = f"{base_file_path}/{test_type}/{model}.jsonl"
+                results[model_to_test] = {i: "" for i in range(len(questions_to_eval))}
+                model_eval.process_model(
+                    model=model_to_test,
+                    models=model_dict,
+                    test_type=test_type,
+                    results=results,
+                    questions_to_eval=questions_to_eval,
+                    forecast_due_date=forecast_due_date,
+                    prompt_type=prompt_type,
+                    market_use_freeze_value=market_use_freeze_value,
+                    base_file_path=base_file_path,
+                )
 
-                    results[model] = model_eval.download_and_read_saved_forecasts(
-                        gcp_file_path, base_file_path
-                    )
+    model_eval.generate_final_forecast_files(
+        forecast_due_date=forecast_due_date,
+        prompt_type=prompt_type,
+        models=model_dict,
+        run_mode=run_mode,
+    )
+    upload_forecast_files(
+        base_file_path=base_file_path,
+        prompt_type=prompt_type,
+        forecast_due_date=forecast_due_date,
+        run_mode=run_mode,
+    )
 
-                    if results[model]:
-                        model_result_loaded[model] = True
-                        logger.info(f"Downloaded {gcp_file_path}.")
-                    else:
-                        logger.info(f"No results loaded for {gcp_file_path}.")
-                        model_result_loaded[model] = False
-                        results[model] = {i: "" for i in range(len(questions_to_eval))}
-
-                for model in models_to_test:
-                    if not model_result_loaded[model]:
-                        logger.info(f"{model} is running inference...")
-                        model_eval.process_model(
-                            model,
-                            models,
-                            test_type,
-                            results,
-                            questions_to_eval,
-                            forecast_due_date,
-                            prompt_type,
-                            market_use_freeze_value,
-                            base_file_path,
-                        )
-
-        model_eval.generate_final_forecast_files(
-            forecast_due_date=forecast_due_date,
-            prompt_type=prompt_type,
-            models=models,
-            run_mode=run_mode,
-        )
-        delete_and_upload_to_the_cloud(
-            base_file_path=base_file_path,
-            prompt_type=prompt_type,
-            question_types=question_types,
-            forecast_due_date=forecast_due_date,
-            run_mode=run_mode,
-        )
+    logger.info(f"Done for {model_to_test}")
+    logger.info(f"Model info {model_dict}")
 
 
 if __name__ == "__main__":

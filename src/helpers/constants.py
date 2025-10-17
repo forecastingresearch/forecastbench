@@ -92,6 +92,12 @@ QUESTION_CATEGORIES = [
 ]
 
 
+PROMPT_TYPES = [
+    "zero_shot",
+    "scratchpad",
+]
+
+
 class RunMode(str, Enum):
     """Run modes for code execution.
 
@@ -158,8 +164,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": True,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
     },
     "gpt-5-mini-2025-08-07": {
         "source": OAI_SOURCE,
@@ -169,8 +173,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": True,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
     },
     "gpt-5-nano-2025-08-07": {
         "source": OAI_SOURCE,
@@ -180,8 +182,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": True,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
     },
     "gpt-4.1-2025-04-14": {
         "source": OAI_SOURCE,
@@ -191,8 +191,6 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": False,
-        # use_web_search is OpenAI specific. It sets web_search_preview as a tool for the model.
-        "use_web_search": False,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
     "Qwen3-235B-A22B-fp8-tput": {
