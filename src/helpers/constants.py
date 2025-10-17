@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 from datetime import datetime, timedelta
+from enum import Enum
 
 BENCHMARK_NAME = "ForecastBench"
 BENCHMARK_EMAIL = "forecastbench@forecastingresearch.org"
@@ -66,8 +67,6 @@ RESOLUTION_FILE_COLUMN_DTYPE = {
     "date": str,
 }
 
-TEST_FORECAST_FILE_PREFIX = "TEST"
-
 # value is not included in dytpe because it's of type ANY
 RESOLUTION_FILE_COLUMNS = list(RESOLUTION_FILE_COLUMN_DTYPE.keys()) + ["value"]
 
@@ -91,6 +90,29 @@ QUESTION_CATEGORIES = [
     "Sports",
     "Other",
 ]
+
+
+class RunMode(str, Enum):
+    """Run modes for code execution.
+
+    - TEST: Test/dev runs; use to reduce costs when running models.
+    - PROD: Full production runs; execute all models with full question set.
+
+    Construction is case-insensitive (e.g., RunMode("teST") --> RunMode.TEST).
+    Invalid values raise ValueError.
+    """
+
+    TEST = "TEST"
+    PROD = "PROD"
+
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            return cls.__members__.get(value.upper())
+        return None
+
+
+TEST_FORECAST_FILE_PREFIX = RunMode.TEST.value
 
 OAI_SOURCE = "OAI"
 ANTHROPIC_SOURCE = "ANTHROPIC"

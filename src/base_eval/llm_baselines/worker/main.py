@@ -43,12 +43,12 @@ def get_questions(forecast_due_date, num_questions):
 
 
 def delete_and_upload_to_the_cloud(
-    base_file_path, prompt_type, question_types, forecast_due_date, test_or_prod
+    base_file_path, prompt_type, question_types, forecast_due_date, run_mode
 ):
     """Upload local forecast files to GCP and then delete them."""
     # submits the final forecasts to forecastbench-forecast-sets-dev
     local_directory = f"/tmp/{prompt_type}/final_submit"
-    if test_or_prod == "TEST":
+    if run_mode == constants.RunMode.TEST:
         local_directory += "_test"
 
     forecast_filenames = data_utils.list_files(local_directory)
@@ -66,7 +66,7 @@ def delete_and_upload_to_the_cloud(
     # in case the notebook is interrupted, it would pick up where it left off and continue running.
     for question_type in question_types:
         local_directory = f"/tmp/{prompt_type}/{question_type}"
-        if test_or_prod == "TEST":
+        if run_mode == constants.RunMode.TEST:
             local_directory += "_test"
         if os.path.exists(local_directory):
             forecast_filenames = data_utils.list_files(local_directory)
@@ -88,7 +88,7 @@ def delete_and_upload_to_the_cloud(
             "final_with_freeze",
         ]:
             local_directory = f"/tmp/{prompt_type}/{question_type}/with_freeze_values"
-            if test_or_prod == "TEST":
+            if run_mode == constants.RunMode.TEST:
                 local_directory += "_test"
 
             if os.path.exists(local_directory):
@@ -120,9 +120,10 @@ def main():
         logger.error(f"`forecast_due_date` was not set: {forecast_due_date}.")
         sys.exit(1)
 
-    test_or_prod = os.getenv("TEST_OR_PROD")
-    if test_or_prod not in ["TEST", "PROD"]:
-        logger.error("`test_or_prod` must be one of TEST or PROD.")
+    try:
+        run_mode = constants.RunMode(os.getenv("TEST_OR_PROD"))
+    except ValueError:
+        logger.error("`run_mode` must be one of TEST or PROD.")
         sys.exit(1)
 
     try:
@@ -133,7 +134,7 @@ def main():
         sys.exit(1)
 
     sources = list(constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE.keys())
-    max_tasks = len(sources) if test_or_prod == "PROD" else 1
+    max_tasks = len(sources) if run_mode == constants.RunMode.PROD else 1
     if task_num >= max_tasks:
         logger.info(f"task number {task_num} not needed, winding down.")
         sys.exit(0)
@@ -143,7 +144,7 @@ def main():
     market_use_freeze_values = [False, True]
     prompt_types = ["zero_shot", "scratchpad"]
     num_questions = None
-    if test_or_prod == "TEST":
+    if run_mode == constants.RunMode.TEST:
         num_questions = 1
         first_key = list(models.keys())[0]
         models = {first_key: models[first_key]}
@@ -169,7 +170,7 @@ def main():
         for question_set in questions:
             for market_use_freeze_value in market_use_freeze_values:
                 test_type = model_eval.determine_test_type(
-                    question_set, prompt_type, market_use_freeze_value, test_or_prod
+                    question_set, prompt_type, market_use_freeze_value, run_mode
                 )
                 questions_to_eval = question_set
                 for model in models_to_test:
@@ -206,14 +207,14 @@ def main():
             forecast_due_date=forecast_due_date,
             prompt_type=prompt_type,
             models=models,
-            test_or_prod=test_or_prod,
+            run_mode=run_mode,
         )
         delete_and_upload_to_the_cloud(
             base_file_path=base_file_path,
             prompt_type=prompt_type,
             question_types=question_types,
             forecast_due_date=forecast_due_date,
-            test_or_prod=test_or_prod,
+            run_mode=run_mode,
         )
 
 

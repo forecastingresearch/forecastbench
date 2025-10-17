@@ -13,22 +13,40 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from helpers import cloud_run, constants, decorator, question_sets  # noqa: E402
 
 
-def parse_arguments():
-    """Parse command-line arguments."""
+def parse_arguments() -> argparse.Namespace:
+    """
+    Parse command-line arguments for the LLM baselines manager.
+
+    Args:
+        None
+
+    Returns:
+        argparse.Namespace: Parsed arguments with:
+            - mode (constants.RunMode): Run mode ("TEST" or "PROD"), case-insensitive; defaults to TEST.
+    """
     parser = argparse.ArgumentParser(description="Run LLM evaluations.")
     parser.add_argument(
         "mode",
         nargs="?",
-        choices=["TEST", "PROD"],
-        default="TEST",
+        type=constants.RunMode,
+        choices=list(constants.RunMode),
+        default=constants.RunMode.TEST,
         help="Run mode: TEST for specific models and 2 questions, PROD for all models and questions",
     )
     return parser.parse_args()
 
 
 @decorator.log_runtime
-def main():
-    """Launch worker processes to generate LLM baselines."""
+def main() -> None:
+    """
+    Run zero-shot and scratchpad evaluations for LLM models.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     args = parse_arguments()
 
     forecast_due_date = question_sets.get_field_from_latest_question_set_file("forecast_due_date")
@@ -41,7 +59,7 @@ def main():
         job_name="func-baseline-llm-forecasts-worker",
         env_vars={
             "FORECAST_DUE_DATE": forecast_due_date,
-            "TEST_OR_PROD": args.mode,
+            "TEST_OR_PROD": args.mode.value,
         },
         task_count=task_count,
         timeout=timeout,

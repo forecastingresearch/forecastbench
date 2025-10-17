@@ -621,7 +621,7 @@ def capitalize_substrings(model_name):
     return "-".join(capitalized_substrings)
 
 
-def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_or_prod):
+def generate_final_forecast_files(forecast_due_date, prompt_type, models, run_mode):
     """
     Generate final forecast files for given models, merging individual forecasts into final files.
 
@@ -638,7 +638,7 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
     def get_final_dir(with_freeze_values):
         return "final_with_freeze" if with_freeze_values else "final"
 
-    def write_file(model, with_freeze_values, test_or_prod):
+    def write_file(model, with_freeze_values, run_mode):
         current_model_forecasts = []
         if with_freeze_values:
             dirs = [
@@ -651,7 +651,7 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
                 f"{prompt_type}/market",
             ]
 
-        if test_or_prod == "TEST":
+        if run_mode == constants.RunMode.TEST:
             dirs = [dir_ + "_test" for dir_ in dirs]
 
         for test_type in dirs:
@@ -660,7 +660,7 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
             current_model_forecasts.extend(questions)
 
         final_dir = get_final_dir(with_freeze_values)
-        if test_or_prod == "TEST":
+        if run_mode == constants.RunMode.TEST:
             final_dir += "_test"
 
         final_file_name = f"/tmp/{prompt_type}/{final_dir}/{model}"
@@ -670,16 +670,16 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
                 json_line = json.dumps(entry)
                 file.write(json_line + "\n")
 
-    def create_final_file(model, with_freeze_values, test_or_prod):
+    def create_final_file(model, with_freeze_values, run_mode):
         final_dir = get_final_dir(with_freeze_values)
-        if test_or_prod == "TEST":
+        if run_mode == constants.RunMode.TEST:
             final_dir += "_test"
         file_path = f"/tmp/{prompt_type}/{final_dir}/{model}"
         questions = data_utils.read_jsonl(file_path)
         org = get_model_org(model)
 
         directory = f"/tmp/{prompt_type}/final_submit"
-        if test_or_prod == "TEST":
+        if run_mode == constants.RunMode.TEST:
             directory += "_test"
         os.makedirs(directory, exist_ok=True)
 
@@ -692,7 +692,7 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
             file_prompt_type += "_with_web_search"
 
         new_file_name = f"{directory}/{forecast_due_date}.{org}.{model}_{file_prompt_type}.json"
-        if test_or_prod == "TEST":
+        if run_mode == constants.RunMode.TEST:
             new_file_name = (
                 f"{directory}/{constants.TEST_FORECAST_FILE_PREFIX}.{forecast_due_date}."
                 f"{org}.{model}_{file_prompt_type}.json"
@@ -717,10 +717,10 @@ def generate_final_forecast_files(forecast_due_date, prompt_type, models, test_o
             json.dump(forecast_file, f, indent=4)
 
     for model in models_to_test:
-        write_file(model=model, with_freeze_values=True, test_or_prod=test_or_prod)
-        create_final_file(model=model, with_freeze_values=True, test_or_prod=test_or_prod)
-        write_file(model=model, with_freeze_values=False, test_or_prod=test_or_prod)
-        create_final_file(model=model, with_freeze_values=False, test_or_prod=test_or_prod)
+        write_file(model=model, with_freeze_values=True, run_mode=run_mode)
+        create_final_file(model=model, with_freeze_values=True, run_mode=run_mode)
+        write_file(model=model, with_freeze_values=False, run_mode=run_mode)
+        create_final_file(model=model, with_freeze_values=False, run_mode=run_mode)
 
 
 def worker(
@@ -972,7 +972,7 @@ def process_model(
     save_and_upload_results(current_model_forecasts, test_type, model, base_file_path)
 
 
-def determine_test_type(question_set, prompt_type, market_use_freeze_value, test_or_prod):
+def determine_test_type(question_set, prompt_type, market_use_freeze_value, run_mode):
     """Determine the test type based on the question set and prompt type."""
     if question_set[0]["source"] in question_curation.MARKET_SOURCES:
         base_type = "market"
@@ -980,7 +980,7 @@ def determine_test_type(question_set, prompt_type, market_use_freeze_value, test
             base_type += "/with_freeze_values"
     else:
         base_type = "non_market"
-    return f"{prompt_type}/{base_type}" + ("_test" if test_or_prod == "TEST" else "")
+    return f"{prompt_type}/{base_type}" + ("_test" if run_mode == constants.RunMode.TEST else "")
 
 
 def generate_forecasts(model, results, questions_to_eval, prompt_type):
