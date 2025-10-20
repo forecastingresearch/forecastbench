@@ -475,6 +475,7 @@ def driver(_):
 
     data = {
         "organization": constants.BENCHMARK_NAME,
+        "model_organization": constants.BENCHMARK_NAME,
         "question_set": question_set_filename,
         "forecast_due_date": forecast_due_date,
     }
