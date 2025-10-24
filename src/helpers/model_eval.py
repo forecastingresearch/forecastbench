@@ -74,7 +74,7 @@ def get_local_final_submit_directory(
     Construct the local directory path for final forecast submission.
 
     Args:
-        prompt_type (str): The prompt style used for the run (e.g., "zero_shot" or "scratchpad").
+        prompt_type (str): The prompt style used for the run (e.g., "zero_shot").
         run_mode (constants.RunMode): Execution mode indicating TEST or PROD context.
 
     Returns:
@@ -150,7 +150,7 @@ def get_response_from_oai_model(
         """
 
         def get_bool_param_from_model_def(p):
-            return constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.get(model_name, {}).get(p, False)
+            return constants.MODELS_TO_RUN.get(model_name, {}).get(p, False)
 
         if system_prompt:
             logger.error("System prompt should not be sent. Keeping check for legacy.")
@@ -696,7 +696,7 @@ def worker(
     market_use_freeze_value=False,
 ):
     """Worker function for question evaluation."""
-    assert prompt_type in ["zero_shot", "scratchpad"]
+    assert prompt_type in ["zero_shot"]
     assert market_use_freeze_value in [True, False]
 
     if save_dict[index] != "":
@@ -719,17 +719,14 @@ def worker(
         if market_use_freeze_value:
             prompt = {
                 "zero_shot": llm_prompts.ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT,
-                "scratchpad": llm_prompts.SCRATCH_PAD_MARKET_WITH_FREEZE_VALUE_PROMPT,
             }.get(prompt_type)
         else:
             prompt = {
                 "zero_shot": llm_prompts.ZERO_SHOT_MARKET_PROMPT,
-                "scratchpad": llm_prompts.SCRATCH_PAD_MARKET_PROMPT,
             }.get(prompt_type)
     else:
         prompt = {
             "zero_shot": llm_prompts.ZERO_SHOT_NON_MARKET_PROMPT,
-            "scratchpad": llm_prompts.SCRATCH_PAD_NON_MARKET_PROMPT,
         }.get(prompt_type)
 
     prompt = prompt.format(
@@ -748,9 +745,7 @@ def worker(
     try:
         response = get_response_from_model(
             prompt=prompt,
-            max_tokens=(
-                100 if prompt_type == "zero_shot" else 2000 if prompt_type == "scratchpad" else 2500
-            ),
+            max_tokens=100,
             model_name=model_name,
             temperature=0,
             wait_time=30,

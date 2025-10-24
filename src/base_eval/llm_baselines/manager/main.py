@@ -54,7 +54,7 @@ def main() -> None:
     logger.info(f"Running {args.mode.value} run of LLM baselines for {forecast_due_date}-llm.json")
 
     timeout = cloud_run.timeout_1h * 24
-    task_count = len(constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.keys()) * len(constants.PROMPT_TYPES)
+    task_count = len(constants.MODELS_TO_RUN.keys()) * len(constants.PROMPT_TYPES)
     operation = cloud_run.call_worker(
         job_name="func-baseline-llm-forecasts-worker",
         env_vars={

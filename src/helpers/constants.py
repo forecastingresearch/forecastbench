@@ -94,7 +94,6 @@ QUESTION_CATEGORIES = [
 
 PROMPT_TYPES = [
     "zero_shot",
-    "scratchpad",
 ]
 
 
@@ -154,7 +153,7 @@ ORG_TO_LOGO = {
     ZAI_ORG: "zai.svg",
 }
 
-ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
+MODELS_TO_RUN = {
     # oai context window from: https://platform.openai.com/docs/models/
     "gpt-5-2025-08-07": {
         "source": OAI_SOURCE,
@@ -306,13 +305,13 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
 MODEL_TOKEN_LIMITS = dict()
 MODEL_NAME_TO_ORG = dict()
 MODEL_NAME_TO_SOURCE = dict()
-ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE = defaultdict(dict)
-for key, value in ZERO_SHOT_AND_SCRATCHPAD_MODELS.items():
+MODELS_TO_RUN_BY_SOURCE = defaultdict(dict)
+for key, value in MODELS_TO_RUN.items():
     MODEL_TOKEN_LIMITS[value["full_name"]] = value["token_limit"]
     MODEL_NAME_TO_SOURCE[value["full_name"]] = value["source"]
     MODEL_NAME_TO_ORG[value["full_name"]] = value["org"]
     MODEL_NAME_TO_ORG[key] = value["org"]
-    ZERO_SHOT_AND_SCRATCHPAD_MODELS_BY_SOURCE[value["source"]][key] = value
+    MODELS_TO_RUN_BY_SOURCE[value["source"]][key] = value
 
 # "gpt-4o-mini" Model used by metadata functions in question_curation.METADATA_MODEL_NAME
 MODEL_TOKEN_LIMITS["gpt-4o-mini"] = 128000

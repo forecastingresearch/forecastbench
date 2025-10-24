@@ -118,7 +118,7 @@ def parse_env_vars() -> tuple[str, constants.RunMode, str, str]:
         logger.error(e)
         sys.exit(1)
 
-    all_models = list(constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.keys())
+    all_models = list(constants.MODELS_TO_RUN.keys())
     n_prompts = len(constants.PROMPT_TYPES)
     max_tasks = len(all_models) * n_prompts if run_mode == constants.RunMode.PROD else 1
     if task_num >= max_tasks:
@@ -151,7 +151,7 @@ def main() -> None:
     forecast_due_date, run_mode, model_to_test, prompt_type = parse_env_vars()
     logger.info(f"TESTING: {model_to_test} {prompt_type}")
 
-    model_dict = {model_to_test: constants.ZERO_SHOT_AND_SCRATCHPAD_MODELS.get(model_to_test)}
+    model_dict = {model_to_test: constants.MODELS_TO_RUN.get(model_to_test)}
     num_questions_per_question_type = 2 if run_mode == constants.RunMode.TEST else None
 
     base_file_path = f"individual_forecast_records/{forecast_due_date}"
