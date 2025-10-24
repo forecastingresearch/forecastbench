@@ -183,6 +183,15 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": True,
     },
+    "o3-2025-04-16": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "o3-2025-04-16",
+        "token_limit": 200000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+    },
     "gpt-4.1-2025-04-14": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -193,11 +202,23 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "reasoning_model": False,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
+    "DeepSeek-V3.1": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": DEEPSEEK_ORG,
+        "full_name": "deepseek-ai/DeepSeek-V3.1",
+        "token_limit": 128000,
+    },
     "Qwen3-235B-A22B-fp8-tput": {
         "source": TOGETHER_AI_SOURCE,
         "org": QWEN_ORG,
         "full_name": "Qwen/Qwen3-235B-A22B-fp8-tput",
-        "token_limit": 128000,
+        "token_limit": 40960,
+    },
+    "Qwen3-235B-A22B-Thinking-2507": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": QWEN_ORG,
+        "full_name": "Qwen/Qwen3-235B-A22B-Thinking-2507",
+        "token_limit": 262144,
     },
     "Kimi-K2-Instruct": {
         "source": TOGETHER_AI_SOURCE,
@@ -205,36 +226,29 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "moonshotai/Kimi-K2-Instruct",
         "token_limit": 128000,
     },
+    "Kimi-K2-Instruct-0905": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": MOONSHOT_ORG,
+        "full_name": "moonshotai/Kimi-K2-Instruct-0905",
+        "token_limit": 262144,
+    },
     "GLM-4.5-Air-FP8": {
         "source": TOGETHER_AI_SOURCE,
         "org": ZAI_ORG,
         "full_name": "zai-org/GLM-4.5-Air-FP8",
         "token_limit": 131072,
     },
-    # Mistral
-    "mistral-large-2411": {
-        "source": MISTRAL_SOURCE,
-        "org": MISTRAL_ORG,
-        "full_name": "mistral-large-2411",
-        "token_limit": 128000,
-    },
-    "magistral-medium-2506": {
-        "source": MISTRAL_SOURCE,
-        "org": MISTRAL_ORG,
-        "full_name": "magistral-medium-2506",
-        "token_limit": 40000,
-    },
     # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
-    "claude-3-5-sonnet-20240620": {
+    "claude-sonnet-4-5-20250929": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
-        "full_name": "claude-3-5-sonnet-20240620",
+        "full_name": "claude-sonnet-4-5-20250929",
         "token_limit": 200000,
     },
-    "claude-sonnet-4-20250514": {
+    "claude-haiku-4-5-20251001": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
-        "full_name": "claude-sonnet-4-20250514",
+        "full_name": "claude-haiku-4-5-20251001",
         "token_limit": 200000,
     },
     "claude-opus-4-1-20250805": {
@@ -243,18 +257,36 @@ ZERO_SHOT_AND_SCRATCHPAD_MODELS = {
         "full_name": "claude-opus-4-1-20250805",
         "token_limit": 200000,
     },
+    "claude-sonnet-4-20250514": {
+        "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
+        "full_name": "claude-sonnet-4-20250514",
+        "token_limit": 200000,
+    },
+    "claude-3-7-sonnet-20250219": {
+        "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
+        "full_name": "claude-3-7-sonnet-20250219",
+        "token_limit": 200000,
+    },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
+    "grok-4-fast-reasoning": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-4-fast-reasoning",
+        "token_limit": 2000000,
+    },
+    "grok-4-fast-non-reasoning": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-4-fast-non-reasoning",
+        "token_limit": 2000000,
+    },
     "grok-4-0709": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
         "full_name": "grok-4-0709",
         "token_limit": 256000,
-    },
-    "grok-3-mini": {
-        "source": XAI_SOURCE,
-        "org": XAI_ORG,
-        "full_name": "grok-3-mini",
-        "token_limit": 131072,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models
     "gemini-2.5-pro": {
