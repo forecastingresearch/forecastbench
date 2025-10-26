@@ -35,6 +35,8 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+DELAY_IN_DAYS_BEFORE_FIRST_RESOLOUTION = 14
+
 required_forecast_file_keys = [
     "organization",
     "model",
@@ -620,6 +622,9 @@ def driver(_: Any) -> None:
         bucket=env.FORECAST_SETS_BUCKET
     )
 
+    # only consider forecasts asked > `DELAY_IN_DAYS_BEFORE_FIRST_RESOLOUTION` days ago
+    cutoff_date = dates.get_date_today() - timedelta(days=DELAY_IN_DAYS_BEFORE_FIRST_RESOLOUTION)
+    valid_dates = [d for d in valid_dates if dates.convert_iso_str_to_date(d) <= cutoff_date]
     if task_num >= len(valid_dates):
         logger.info(f"task number {task_num} not needed, winding down...")
         return "OK", 200
