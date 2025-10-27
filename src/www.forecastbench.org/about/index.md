@@ -62,17 +62,17 @@ footer_scripts:
     </div>
 
     <div class="team-member">
-      <img src="/assets/images/team/ezra.png" alt="Ezra Karger" class="team-photo">
-      <h3>Ezra Karger</h3>
-      <p class="team-role">Advisor</p>
-      <p class="team-link"><a href="https://ezrakarger.com/">website <i class="fa-solid fa-arrow-up-right-from-square"></i></a></p>
-    </div>
-
-    <div class="team-member">
       <img src="/assets/images/team/phil.jpg" alt="Philip E. Tetlock" class="team-photo">
       <h3>Philip E. Tetlock</h3>
       <p class="team-role">Advisor</p>
       <p class="team-link"><a href="https://www.sas.upenn.edu/tetlock/">website <i class="fa-solid fa-arrow-up-right-from-square"></i></a></p>
+    </div>
+
+    <div class="team-member">
+      <img src="/assets/images/team/ezra.png" alt="Ezra Karger" class="team-photo">
+      <h3>Ezra Karger</h3>
+      <p class="team-role">Principal Investigator</p>
+      <p class="team-link"><a href="https://ezrakarger.com/">website <i class="fa-solid fa-arrow-up-right-from-square"></i></a></p>
     </div>
   </div>
 
