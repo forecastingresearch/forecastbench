@@ -26,9 +26,9 @@ after_footer_scripts:
 header:
   overlay_color: "#171e29"
 excerpt: "A dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
-featured: "ForecastBench relaunch<br>blog post"
-featured_link: "https://forecastingresearch.substack.com/p/ai-llm-forecasting-model-forecastbench-benchmark"
-featured_date: "Oct 8, 2025"
+featured: "Submitting to ForecastBench<br>blog post"
+featured_link: "https://forecastingresearch.substack.com/p/put-your-ai-forecaster-to-the-test"
+featured_date: "Oct 28, 2025"
 ---
 
 <!-- Baseline leaderboard Section with Background -->

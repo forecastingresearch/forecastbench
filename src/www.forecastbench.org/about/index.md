@@ -29,7 +29,8 @@ footer_scripts:
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
       <h1 class="site-feature-row__title">Blog</h1>
-      <p>For a high-level overview of ForecastBench, including motivation, key design decisions, and early results, see our <a href="https://forecastingresearch.substack.com/p/ai-llm-forecasting-model-forecastbench-benchmark">introductory blog post <i class="fa-solid fa-arrow-up-right-from-square"></i></a> on the <a href="https://forecastingresearch.substack.com/">Forecasting Research Institute Substack <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
+      <p><strong>Re-introduction</strong>. For a high-level overview of ForecastBench, including motivation, key design decisions, and early results, see our <a href="https://forecastingresearch.substack.com/p/ai-llm-forecasting-model-forecastbench-benchmark">re-introductory blog post <i class="fa-solid fa-arrow-up-right-from-square"></i></a> on the <a href="https://forecastingresearch.substack.com/">Forecasting Research Institute Substack <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
+      <p><strong>Evaluate your LLM</strong>. To learn more about testing your LLM's forecasting ability on ForecastBench, see our <a href="https://forecastingresearch.substack.com/p/put-your-ai-forecaster-to-the-test">blog post about creating submissions<i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
     </div>
   </div>
 </section>
