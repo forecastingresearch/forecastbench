@@ -355,6 +355,15 @@ a.site-title:focus {
     color: rgba(234,234,234,1);
 }
 
+.page__footer-copyright + .page__footer-copyright {
+  font-size: 0.6rem;
+  color: #a7b0c2;
+}
+
+.page__footer-copyright + .page__footer-copyright a {
+  color: inherit;
+}
+
 .git-sha {
   font-family: "Courier New", Courier, monospace;
 }

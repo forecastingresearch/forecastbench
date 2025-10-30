@@ -6,6 +6,8 @@
   <li>
       {% if link.label == "Datasets" %}
         <img src="{{ '/assets/images/footer/huggingface.svg' | relative_url }}" alt="Hugging Face" width="18" height="18" style="padding-bottom:0.25em;">
+      {% elsif link.label == "FRI Blog" %}
+        <img src="{{ '/assets/images/footer/substack.svg' | relative_url }}" alt="FRI Blog" width="18" height="18" style="padding-bottom:0.25em;">
       {% else %}
         <i class="{{ link.icon | default: 'fas fa-link' }}" aria-hidden="true"></i>
         {% endif %}
