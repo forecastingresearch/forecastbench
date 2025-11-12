@@ -32,12 +32,15 @@ fri_url: "https://forecastingresearch.org/"
 
 footer:
   links:
-    - label: "@Research_FRI"
+    - label: "X"
       icon: "fab fa-fw fa-x-twitter"
       url: "https://x.com/Research_FRI"
-    - label: "FRI Blog"
+    - label: "Substack"
       icon: ""
       url: "https://substack.com/@forecastingresearchinstitute"
+    - label: "LinkedIn"
+      icon: ""
+      url: "https://www.linkedin.com/company/forecasting-research-institute"
     - label: "Code"
       icon: "fab fa-fw fa-github"
       url: "https://github.com/forecastingresearch/forecastbench"
