@@ -1134,7 +1134,7 @@ def write_leaderboard(
         col_name_simple = col_name + "_simple"
         df[col_name_simple] = df[col_name].apply(
             lambda p: (
-                "Yes" if p < 0.001 else "Yes" if p < 0.01 else "Likely" if p < 0.05 else "No"
+                "Yes" if p < 0.01 else "Likely" if p < 0.1 else "No"
             )
         )
         df[col_name] = df[col_name].apply(
