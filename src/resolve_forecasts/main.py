@@ -398,7 +398,7 @@ def impute_missing_forecasts(
     Returns:
         pd.DataFrame: with imputed values if any.
     """
-    logger.info("Impute mising forecasts.")
+    logger.info("Impute missing forecasts.")
     df["forecast"] = df["forecast"].astype(float)
     df["imputed"] = False
     n_orig = df["forecast"].isna().sum()
@@ -647,9 +647,11 @@ def driver(_: Any) -> None:
         organization = data.get("organization")
         model = data.get("model")
         model_organization = data.get("model_organization")
-        forecast_due_date = data.get("forecast_due_date")
         question_set_filename = data.get("question_set")
+        forecast_due_date = question_set_filename[:10]
         df = data.get("df")
+        if "direction" not in df:
+            df["direction"] = None
 
         is_human_question_set = "human" in question_set_filename
         human_llm_key = "human" if is_human_question_set else "llm"

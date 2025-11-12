@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -428,30 +429,20 @@ def read_forecast_file(filename: str, f: Optional[TextIO] = None) -> Dict[str, A
     organization = data.get("organization")
     model = data.get("model")
     model_organization = data.get("model_organization")
-    forecast_due_date = data.get("forecast_due_date")
     question_set = data.get("question_set")
+    date_match = re.search(r"\d{4}-\d{2}-\d{2}", question_set)
+    forecast_due_date = date_match.group(0) if date_match else None
     forecasts = data.get("forecasts")
-    if (
-        not organization
-        or not model
-        or not model_organization
-        or not forecast_due_date
-        or not question_set
-        or not forecasts
-    ):
+    if not organization or not model or not model_organization or not question_set or not forecasts:
         logger.error(colored(f"Problem processing {filename}. Missing required fields.", "yellow"))
         return retval_null
 
-    if question_set not in [
-        f"{forecast_due_date}-llm.json",
-        f"{forecast_due_date}-human.json",
-    ]:
+    if not forecast_due_date:
         logger.error(
             colored(
-                f"In {filename}: forecast_due_date: {forecast_due_date}. "
-                f"question_set: {question_set}."
-            ),
-            "yellow",
+                f"Problem processing {filename}. Issue with question set filename: {question_set}",
+                "yellow",
+            )
         )
         return retval_null
 
