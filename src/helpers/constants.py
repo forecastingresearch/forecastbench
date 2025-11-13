@@ -219,11 +219,11 @@ MODELS_TO_RUN = {
         "full_name": "Qwen/Qwen3-235B-A22B-Thinking-2507",
         "token_limit": 262144,
     },
-    "Kimi-K2-Instruct": {
+    "Kimi-K2-Thinking": {
         "source": TOGETHER_AI_SOURCE,
         "org": MOONSHOT_ORG,
-        "full_name": "moonshotai/Kimi-K2-Instruct",
-        "token_limit": 128000,
+        "full_name": "moonshotai/Kimi-K2-Thinking",
+        "token_limit": 262144,
     },
     "Kimi-K2-Instruct-0905": {
         "source": TOGETHER_AI_SOURCE,
@@ -231,11 +231,11 @@ MODELS_TO_RUN = {
         "full_name": "moonshotai/Kimi-K2-Instruct-0905",
         "token_limit": 262144,
     },
-    "GLM-4.5-Air-FP8": {
+    "GLM-4.6": {
         "source": TOGETHER_AI_SOURCE,
         "org": ZAI_ORG,
-        "full_name": "zai-org/GLM-4.5-Air-FP8",
-        "token_limit": 131072,
+        "full_name": "zai-org/GLM-4.6",
+        "token_limit": 202752,
     },
     # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
     "claude-sonnet-4-5-20250929": {
