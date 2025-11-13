@@ -1133,9 +1133,7 @@ def write_leaderboard(
         col_name = get_comparison_p_val_col(comparison)
         col_name_simple = col_name + "_simple"
         df[col_name_simple] = df[col_name].apply(
-            lambda p: (
-                "Yes" if p < 0.01 else "Likely" if p < 0.1 else "No"
-            )
+            lambda p: ("Yes" if p < 0.01 else "Likely" if p < 0.1 else "No")
         )
         df[col_name] = df[col_name].apply(
             lambda p: (
