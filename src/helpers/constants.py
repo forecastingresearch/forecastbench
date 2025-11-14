@@ -155,10 +155,10 @@ ORG_TO_LOGO = {
 
 MODELS_TO_RUN = {
     # oai context window from: https://platform.openai.com/docs/models/
-    "gpt-5-2025-08-07": {
+    "gpt-5.1-2025-11-13": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
-        "full_name": "gpt-5-2025-08-07",
+        "full_name": "gpt-5.1-2025-11-13",
         "token_limit": 128000,
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
