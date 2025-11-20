@@ -275,10 +275,22 @@ MODELS_TO_RUN = {
         "full_name": "grok-4-fast-reasoning",
         "token_limit": 2000000,
     },
+    "grok-4-1-fast-reasoning": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-4-1-fast-reasoning",
+        "token_limit": 2000000,
+    },
     "grok-4-fast-non-reasoning": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
         "full_name": "grok-4-fast-non-reasoning",
+        "token_limit": 2000000,
+    },
+    "grok-4-1-fast-non-reasoning": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-4-1-fast-non-reasoning",
         "token_limit": 2000000,
     },
     "grok-4-0709": {
@@ -288,6 +300,12 @@ MODELS_TO_RUN = {
         "token_limit": 256000,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models
+    "gemini-3-pro-preview": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "gemini-3-pro-preview",
+        "token_limit": 1048576,
+    },
     "gemini-2.5-pro": {
         "source": GOOGLE_SOURCE,
         "org": GOOGLE_ORG,

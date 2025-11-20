@@ -83,6 +83,8 @@ GLM-4.5-Air-FP8 (scratchpad with freeze values),2025-07-28
 GLM-4.5-Air-FP8 (scratchpad),2025-07-28
 GLM-4.5-Air-FP8 (zero shot with freeze values),2025-07-28
 GLM-4.5-Air-FP8 (zero shot),2025-07-28
+GLM-4.6 (zero shot with freeze values),2025-11-13
+GLM-4.6 (zero shot),2025-11-13
 GPT-3.5-Turbo-0125 (scratchpad with freeze values),2024-01-25
 GPT-3.5-Turbo-0125 (scratchpad),2024-01-25
 GPT-3.5-Turbo-0125 (zero shot with freeze values),2024-01-25
@@ -138,6 +140,8 @@ GPT-5-Nano-2025-08-07 (scratchpad with freeze values),2025-08-07
 GPT-5-Nano-2025-08-07 (scratchpad),2025-08-07
 GPT-5-Nano-2025-08-07 (zero shot with freeze values),2025-08-07
 GPT-5-Nano-2025-08-07 (zero shot),2025-08-07
+GPT-5.1-2025-11-13 (zero shot with freeze values),2025-11-13
+GPT-5.1-2025-11-13 (zero shot),2025-11-13
 Gemini-1.5-Flash (scratchpad with freeze values),2024-05-01
 Gemini-1.5-Flash (scratchpad with news with freeze values),2024-05-01
 Gemini-1.5-Flash (scratchpad with news),2024-05-01
@@ -180,6 +184,8 @@ Gemini-2.5-Pro-Preview-03-25 (scratchpad with freeze values),2025-04-04
 Gemini-2.5-Pro-Preview-03-25 (scratchpad),2025-04-04
 Gemini-2.5-Pro-Preview-03-25 (zero shot with freeze values),2025-04-04
 Gemini-2.5-Pro-Preview-03-25 (zero shot),2025-04-04
+Gemini-3-pro-preview (zero shot with freeze values),2025-11-18
+Gemini-3-pro-preview (zero shot),2025-11-18
 Grok-beta (scratchpad with freeze values),2024-11-04
 Grok-beta (scratchpad),2024-11-04
 Grok-beta (zero shot with freeze values),2024-11-04
@@ -196,6 +202,10 @@ Grok-4-fast-non-reasoning (scratchpad with freeze values),2025-09-19
 Grok-4-fast-non-reasoning (scratchpad),2025-09-19
 Grok-4-fast-non-reasoning (zero shot with freeze values),2025-09-19
 Grok-4-fast-non-reasoning (zero shot),2025-09-19
+Grok-4-1-fast-reasoning (zero shot with freeze values),2025-11-17
+Grok-4-1-fast-reasoning (zero shot),2025-11-17
+Grok-4-1-fast-non-reasoning (zero shot with freeze values),2025-11-17
+Grok-4-1-fast-non-reasoning (zero shot),2025-11-17
 UnusedGrok-2-1212 (scratchpad with freeze values),2024-12-12
 UnusedGrok-2-1212 (scratchpad),2024-12-12
 UnusedGrok-2-1212 (zero shot with freeze values),2024-12-12
@@ -225,6 +235,8 @@ Kimi-K2-Instruct-0905 (scratchpad with freeze values),2025-09-05
 Kimi-K2-Instruct-0905 (scratchpad),2025-09-05
 Kimi-K2-Instruct-0905 (zero shot with freeze values),2025-09-05
 Kimi-K2-Instruct-0905 (zero shot),2025-09-05
+Kimi-K2-Thinking (zero shot with freeze values),2025-11-05
+Kimi-K2-Thinking (zero shot),2025-11-05
 "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean log odds with news",
 "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean with news",
 "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) median with news",
