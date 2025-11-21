@@ -888,6 +888,10 @@ def download_and_read_saved_forecasts(filename, base_file_path):
         filename=filename,
         local_filename=local_filename,
     )
+
+    if not os.path.exists(local_filename):
+        return None
+
     return data_utils.read_jsonl(local_filename)
 
 
