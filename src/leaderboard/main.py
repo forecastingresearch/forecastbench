@@ -1136,11 +1136,7 @@ def write_leaderboard(
             lambda p: ("Yes" if p < 0.01 else "Likely" if p < 0.1 else "No")
         )
         df[col_name] = df[col_name].apply(
-            lambda p: (
-                "<0.001"
-                if p < 0.001
-                else "<0.01" if p < 0.01 else "<0.05" if p < 0.05 else f"{p:.2f}"
-            )
+            lambda p: ("<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}")
         )
         # Set the p-value for the best to N/A
         comparison_idx = get_comparison_model_index(df=df, comparison=comparison)
