@@ -106,7 +106,7 @@ footer_scripts:
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
       <h1 class="site-feature-row__title">Funding</h1>
-      <p>ForecastBench is supported by <a href="https://www.openphilanthropy.org/grants/forecasting-research-institute-forecasting-benchmark/">a grant from Open Philanthropy <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
+      <p>ForecastBench is supported by a grant from <a href="https://coefficientgiving.org/funds/forecasting/">Coefficient Giving <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
       <p>The Forecasting Research Institute's funders exercise no editorial control or influence over our research methodology, findings, or conclusions.</p>
     </div>
   </div>
