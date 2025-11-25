@@ -1485,3 +1485,78 @@ input[type="checkbox"]:checked + .toggle-slider:before {
     max-width: 100% !important;
   }
 }
+
+/* ForecastBench footer (LEAP-style) */
+.fb-footer {
+  color: #e8ecf5;
+  padding: 2rem 1.5rem 1.5rem;
+  font-size: 0.6rem;
+}
+
+.fb-footer a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.fb-footer a:hover {
+  color: #f97316;
+}
+
+.fb-footer__grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+.fb-footer__title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 0.75rem 0;
+  color: #cbd5e1;
+}
+
+.fb-footer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.fb-footer__socials a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: inherit;
+}
+
+.fb-footer__icon img {
+  display: block;
+}
+
+.fb-footer__icon i {
+  color: inherit;
+  font-size: 1.15em;
+}
+
+.fb-footer__bottom {
+  max-width: 1200px;
+  margin: 2rem auto 0 auto;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(107, 114, 128, 0.25);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.55rem;
+  color: #6b7280;
+}
+
+.fb-footer__divider {
+  opacity: 0.6;
+}
