@@ -3,6 +3,9 @@
 import logging
 import os
 import sys
+import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import backoff
 import certifi
@@ -57,11 +60,37 @@ def _get_market(market_id):
     endpoint = f"https://www.metaculus.com/api/posts/{market_id}"
     headers = {"Authorization": f"Token {keys.API_KEY_METACULUS}"}
     response = requests.get(endpoint, headers=headers, verify=certifi.where())
-    if not response.ok:
-        logger.error(
-            f"Request to market endpoint failed for {market_id}: {response.status_code} Error. "
-            f"{response.text}"
+    if response.status_code == 429:
+        retry_after = response.headers.get("Retry-After")
+        wait = None
+        if retry_after:
+            try:
+                # Case 1: "Retry-After" is a number of seconds
+                wait = int(retry_after)
+            except ValueError:
+                # Case 2: "Retry-After" is an HTTP date
+                retry_dt = parsedate_to_datetime(retry_after)
+                if retry_dt.tzinfo is None:
+                    retry_dt = retry_dt.replace(tzinfo=timezone.utc)
+                wait = max(0, (retry_dt - datetime.now(timezone.utc)).total_seconds())
+
+        if wait is None:
+            # The Metaculus 429 timeout is 10s
+            # Setting default to 15 in case something goes wrong below
+            wait = 15
+
+        logger.warning(
+            f"Received 429 from Metaculus for market {market_id}. "
+            f"Respecting Retry-After and sleeping for {wait:.0f} seconds."
         )
+        time.sleep(wait)
+
+    if not response.ok:
+        if response.status_code != 429:
+            logger.error(
+                f"Request to market endpoint failed for {market_id}: {response.status_code} Error. "
+                f"{response.text}"
+            )
         response.raise_for_status()
     return response.json()
 
