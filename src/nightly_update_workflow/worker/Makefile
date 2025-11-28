@@ -20,7 +20,7 @@ deploy : main.py requirements.txt  Procfile
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--task-timeout 1m \
-		--memory 512Mi \
+		--memory 1Gi \
 		--max-retries 0 \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),DICT_TO_USE=none_provided  \

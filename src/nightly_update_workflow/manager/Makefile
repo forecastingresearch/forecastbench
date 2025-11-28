@@ -21,7 +21,7 @@ deploy : main.py requirements.txt  Procfile
 		--tasks 1 \
 		--parallelism 1 \
 		--task-timeout 12h \
-		--memory 512Mi \
+		--memory 1Gi \
 		--max-retries 0 \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
