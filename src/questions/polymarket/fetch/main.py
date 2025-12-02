@@ -15,7 +15,14 @@ import requests
 from tqdm import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import constants, data_utils, dates, decorator, env  # noqa: E402
+from helpers import (  # noqa: E402
+    constants,
+    data_utils,
+    dates,
+    decorator,
+    env,
+    polymarket,
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -232,9 +239,11 @@ def fetch_all_questions(dfq):
     logger.info(f"Total (removing duplicates): {len(unresolved_ids)}")
 
     all_existing_unresolved_questions = []
-    invalid_question_ids = set()
+    invalid_question_ids = set(polymarket.NULLIFIED_QUESTION_IDS)
     for id_ in unresolved_ids:
         time.sleep(0.1)
+        if id_ in invalid_question_ids:
+            continue
         q = get_market(condition_id=id_)
         if not is_market_binary(q):
             # Questions that were not Yes/No questions should be marked as resolved/closed so
