@@ -259,6 +259,9 @@ def fetch_all(dfq, FRED_QUESTIONS_NAMES):
     # get the dict version of FRED_QUESTIONS_NAMES for easy acceess
     fred_questions = {q["id"]: q for q in FRED_QUESTIONS_NAMES}
 
+    # drop nullified questions from dfq
+    dfq = dfq[~dfq["id"].isin(fred.NULLIFIED_IDS)]
+
     # get current series ids that are not in newly fetched set
     dfq_dict = dfq.to_dict(orient="records")
     questions_bank_dict = {q["id"]: q for q in dfq_dict}

@@ -8,16 +8,16 @@ SOURCE_INTRO = (
 
 RESOLUTION_CRITERIA = "Resolves to the value found at {url} once the data is published."
 
+NULLIFIED_IDS = [
+    "AMERIBOR",
+]
+
 # flake8: noqa: B950
 
 fred_questions = [
     {
         "id": "AAA10Y",
         "series_name": "Moody's Aaa Corporate Bond Yield compared to the 10-year Treasury yield",
-    },
-    {
-        "id": "AMERIBOR",
-        "series_name": "AMERIBOR, an interest rate based on overnight loans made between banks on the American Financial Exchange,",
     },
     {
         "id": "ANFCI",

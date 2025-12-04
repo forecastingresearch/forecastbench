@@ -7,7 +7,7 @@ import sys
 import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
-from helpers import constants, data_utils, decorator, env  # noqa: E402
+from helpers import constants, data_utils, decorator, env, fred  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -65,6 +65,9 @@ def update_questions(dfq, dff):
     It also appends new series to dfr for each question in all_questions_to_add.
     """
     dff_list = dff.to_dict("records")
+
+    # drop nullified questions from dfq
+    dfq = dfq[~dfq["id"].isin(fred.NULLIFIED_IDS)]
 
     for question in dff_list:
         create_resolution_file(question, SOURCE)
