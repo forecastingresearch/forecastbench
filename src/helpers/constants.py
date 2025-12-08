@@ -1,5 +1,6 @@
 """Constants."""
 
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 from enum import Enum
@@ -138,6 +139,14 @@ QWEN_ORG = "Qwen"
 XAI_ORG = "xAI"
 ZAI_ORG = "Z.ai"
 
+EXTERNAL_TOURNAMENT_MODELS_TO_LOGO = {
+    "Cassi-AI": "cassi-ai.png",
+    "FractalAIResearch": "fractal-ai.png",
+    "Lightning Rod Labs": "lightningrod.jpg",
+    "Mantic": "mantic.jpg",
+    "Stochastic Radiant": "stochastic-radiant.svg",
+}
+
 ORG_TO_LOGO = {
     BENCHMARK_NAME: "fri.png",
     ANTHROPIC_ORG: "anthropic.svg",
@@ -152,6 +161,37 @@ ORG_TO_LOGO = {
     XAI_ORG: "xai.svg",
     ZAI_ORG: "zai.svg",
 }
+_ANON_TEAM_RE = re.compile(r"^anonymous\s+(\d+)$", re.IGNORECASE)
+
+
+def get_org_logo(org: str) -> str:
+    """Get the logo filename associated with an organization.
+
+    The function first checks internal benchmark organizations, then external
+    tournament participants, and finally handles anonymous teams. If no match
+    is found, it returns the original input string.
+
+    Args:
+        org (str): The name of the organization or team.
+
+    Returns:
+        str: The corresponding logo filename or the original organization name
+             if no logo mapping is found.
+    """
+    if org in ORG_TO_LOGO.keys():
+        return ORG_TO_LOGO[org]
+
+    if org in EXTERNAL_TOURNAMENT_MODELS_TO_LOGO.keys():
+        return EXTERNAL_TOURNAMENT_MODELS_TO_LOGO[org]
+
+    match = _ANON_TEAM_RE.match(org.strip())
+    if match:
+        num = int(match.group(1))
+        if num >= 1:
+            return f"anonymous_{num}.svg"
+
+    return org
+
 
 MODELS_TO_RUN = {
     # oai context window from: https://platform.openai.com/docs/models/

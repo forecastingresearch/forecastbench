@@ -7,6 +7,7 @@
 
   const fmt = d3.format('.3f');
   const fmtDate = d3.timeFormat('%Y-%m-%d');
+  const fmtMonthYear = d3.timeFormat('%B %d, %Y');
   const fmt3or4 = (v) => {
     const s3 = fmt(v);
     if (s3 === '0.000' || s3 === '-0.000') return d3.format('.4f')(v);
@@ -122,6 +123,41 @@
   let selectionRect = null;
   let isShiftPressed = false;
   let updateOverlayInteraction = null;
+
+  function findParityAchievementDate(rows, superforecasterScore) {
+    if (!Array.isArray(rows) || !Number.isFinite(superforecasterScore)) return null;
+
+    const baselineModels = new Set([
+      'Superforecaster median forecast',
+      'Public median forecast',
+      'Imputed Forecaster',
+      'Naive Forecaster',
+      'Always 0',
+      'Always 1',
+      'Always 0.5',
+      'Random Uniform',
+      'LLM Crowd'
+    ]);
+
+    let earliest = null;
+    for (const row of rows) {
+      if (!row || baselineModels.has(row.model)) continue;
+      if (!Number.isFinite(row.overall_score)) continue;
+      if (!(row.release_date instanceof Date) || Number.isNaN(row.release_date.getTime())) continue;
+      if (row.overall_score > superforecasterScore) continue;
+
+      if (!earliest || row.release_date < earliest) {
+        earliest = row.release_date;
+      }
+    }
+
+    return earliest ? new Date(earliest.getTime()) : null;
+  }
+
+  function formatParityAchievedDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+    return fmtMonthYear(date);
+  }
 
   function draw(data, baselines = {}, showErrorBars = false, currentType = 'overall') {
     // Preserve scroll position during redraw
@@ -489,6 +525,8 @@
       // Determine which parity dates to use based on current type and tournament toggle
       const useTournament = shouldIncludeFreeze();
       const dataSource = useTournament ? 'tournament' : 'baseline';
+      const parityAchievedDate = findParityAchievementDate(data, baselines.superforecaster);
+      const parityAchieved = parityAchievedDate !== null;
 
       let parityData = null;
       if (currentType === 'dataset') {
@@ -502,8 +540,10 @@
       if (parityData) {
         const intersectionDisplay = g.append('g').attr('class', 'intersection-display');
 
-        // Use the parity dates from JSON
-        const mainText = `Projected LLM-superforecaster parity: ${parityData.intersection}`;
+        // Use achieved parity date if already reached, otherwise show projected parity
+        const mainText = parityAchieved
+          ? `LLM-superforecaster parity achieved: ${formatParityAchievedDate(parityAchievedDate)}`
+          : `Projected LLM-superforecaster parity: ${parityData.intersection}`;
         const ciText = `(95% CI: ${parityData.lower} – ${parityData.upper})`;
 
         const displayY = showLegend ? 55 : 15; // Position below legend if legend is shown
@@ -512,7 +552,7 @@
 
         // Use same width as legend box for consistency
         // Calculate height with equal padding above and below
-        const boxHeight = 48; // Always show CI text
+        const boxHeight = parityAchieved ? 32 : 48; // Show CI text only when projected
         const boxWidth = totalWidth + 16; // Match legend width exactly
 
         // Background - styled by CSS but with same width as legend
@@ -532,13 +572,15 @@
           .style('font-weight', '600')
           .text(mainText);
 
-        // Confidence interval text on second line
-        intersectionDisplay.append('text')
-          .attr('x', textX).attr('y', 28)
-          .attr('class', 'legend-text')
-          .style('font-size', '10px')
-          .style('opacity', '0.8')
-          .text(ciText);
+        if (!parityAchieved) {
+          // Confidence interval text on second line
+          intersectionDisplay.append('text')
+            .attr('x', textX).attr('y', 28)
+            .attr('class', 'legend-text')
+            .style('font-size', '10px')
+            .style('opacity', '0.8')
+            .text(ciText);
+        }
       }
     }
 

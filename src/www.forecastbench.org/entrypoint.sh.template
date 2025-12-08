@@ -30,6 +30,14 @@ LEADERBOARD_DIR="assets/js"
 mkdir -p "$ASSETS_MNT/$LEADERBOARD_DIR"
 cp -a "$PUBLIC_RELEASE_MNT/leaderboards/js/." "$ASSETS_MNT/$LEADERBOARD_DIR/"
 
+# leaderboard anonymous logos
+ANON_LOGO_DIR="assets/images/org_logos"
+ANON_LOGO_SRC="$PUBLIC_RELEASE_MNT/anonymous_logos"
+if [ -d "$ANON_LOGO_SRC" ]; then
+  mkdir -p "$ASSETS_MNT/$ANON_LOGO_DIR"
+  cp -a "$ANON_LOGO_SRC/." "$ASSETS_MNT/$ANON_LOGO_DIR/"
+fi
+
 # leaderboard sota_graph_tournament.csv
 DATA_DIR="assets/data"
 mkdir -p "$ASSETS_MNT/$DATA_DIR"

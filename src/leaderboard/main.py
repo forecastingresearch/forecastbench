@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import sys
 import traceback
 from datetime import datetime, timedelta
@@ -78,6 +79,55 @@ MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 50
 
 MODEL_RELEASE_DAYS_CUTOFF = 365
 
+_ANON_TEAM_RE = re.compile(r"^anonymous\s+(\d+)$", re.IGNORECASE)
+_ANON_LOGO_DESTINATION = "anonymous_logos"
+_ANON_LOGO_TEMPLATE = """<svg
+  height="1em"
+  width="1em"
+  style="flex:none;line-height:1"
+  viewBox="16 8 36 44"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <title>Anonymous Ghost {num}</title>
+
+  <!-- Arcade-style blue ghost -->
+  <path
+    d="
+      M20 48
+      V26
+      C20 17 25.5 12 32 12
+      C38.5 12 44 17 44 26
+      V48
+      L40 46
+      L36 48
+      L32 46
+      L28 48
+      L24 46
+      L20 48
+      Z
+    "
+    fill="#1E3A8A"
+  />
+
+  <!-- Big white eyes -->
+  <circle cx="28" cy="26" r="2.4" fill="#FFFFFF" />
+  <circle cx="36" cy="26" r="2.4" fill="#FFFFFF" />
+
+  <!-- Number badge (change this character for 1, 2, 3, ...) -->
+  <text
+    x="59" y="50"
+    text-anchor="end"
+    dominant-baseline="alphabetic"
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="24"
+    fill="#000000"
+  >
+    {num}
+  </text>
+</svg>
+"""
+
+
 SIM_BOOTSTRAP_COL_PREFIX = "bootstrap"
 
 N_REPLICATES = 1999 if not env.RUNNING_LOCALLY else 5
@@ -147,6 +197,54 @@ TOOLTIP_COLUMN_DESCRIPTIONS = {
         "Brier Skill Score using the ForecastBench Naive Forecaster. " "Higher scores are better."
     ),
 }
+
+
+def collect_anonymous_numbers(
+    team_names: List[str],
+) -> List[int]:
+    """Collect sorted anonymous team numbers from team names.
+
+    Args:
+        team_names (List[str]): Team names to scan for anonymous entries.
+
+    Returns:
+        List[int]: Sorted anonymous team numbers (>= 1).
+    """
+    numbers = set()
+    for name in team_names:
+        if not isinstance(name, str):
+            continue
+        match = _ANON_TEAM_RE.match(name.strip())
+        if not match:
+            continue
+        num = int(match.group(1))
+        if num >= 1:
+            numbers.add(num)
+    return sorted(numbers)
+
+
+def write_anonymous_logos(
+    team_names: List[str],
+) -> List[str]:
+    """Write anonymous logo SVGs to the public release bucket.
+
+    Args:
+        team_names (List[str]): Team names to scan for anonymous entries.
+
+    Returns:
+        List[str]: Filenames written.
+    """
+    filenames: List[str] = []
+    for num in collect_anonymous_numbers(team_names):
+        filename = f"anonymous_{num}.svg"
+        data_utils.write_file_to_bucket(
+            bucket=env.PUBLIC_RELEASE_BUCKET,
+            basename=filename,
+            destination_folder=_ANON_LOGO_DESTINATION,
+            data=_ANON_LOGO_TEMPLATE.format(num=num),
+        )
+        filenames.append(filename)
+    return filenames
 
 
 def download_question_set_save_in_cache(
@@ -292,6 +390,9 @@ def get_df_info(
 
     df = resolution.make_columns_hashable(df)
 
+    # Remove combination questions
+    df = df[~df["id"].apply(resolution.is_combo)]
+
     # Do not run test for the dummy models ForecastBench produces:
     #   e.g. Imputed Forecaster, Naive Forecaster, ...
     run_imputed_test_for_model = not (
@@ -302,9 +403,6 @@ def get_df_info(
     # Ignore if too many imputed forecasts overall
     if run_imputed_test_for_model and over_imputed_cutoff(d=df):
         return None
-
-    # Remove combination questions
-    df = df[~df["id"].apply(resolution.is_combo)]
 
     # Drop market unresolved questions
     masks = get_masks(df)
@@ -694,13 +792,21 @@ def write_leaderboard_js_file_full(
         $(function()
         {
             const data = {{ data }};
-            const cols = ["Rank", {% if include_team %} "Team",{% endif %}
+            const isTournament = {{ is_tournament | lower }};
+            const cols = ["Rank", {% if is_tournament %} "Team",{% endif %}
                           "Model Organization", "Model Organization Logo", "Model",
                           "Dataset", "N dataset", "Dataset 95% CI",
                           "Market", "N market", "Market 95% CI",
                           "Overall", "N", "Overall 95% CI",
                           "Supers > Forecaster?", "p-val Supers > Forecaster?",
                           "Forecaster > Public?", "p-val Forecaster > Public?"];
+            const teamColIndex = cols.indexOf("Team");
+            const escapeTooltip = (text) =>
+              String(text ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/\"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
             const columns = cols.map(name => {
                 const col = { data: name, title: name };
                 if (name === "Rank") {
@@ -708,10 +814,17 @@ def write_leaderboard_js_file_full(
                 }
                 if (name === "Team") {
                   col.className = 'dt-center';
-                  col.render = d =>
-                      d
-                      ? `<img src="/assets/images/org_logos/${d}" alt="" style="height:20px">`
-                      : '';
+                  col.render = (d, t, row) => {
+                      if (t !== 'display') return d;
+                      if (!d) return '';
+                      const tooltip = escapeTooltip(row['Team Name'] || d);
+                      return `<span class="cell-tooltip" data-tooltip="${tooltip}"
+                                    style="cursor:help; display:inline-flex;
+                                    align-items:center;">` +
+                             `<img src="/assets/images/org_logos/${d}" alt="${tooltip}"
+                                   style="height:20px">` +
+                             `</span>`;
+                  };
                 }
 
                 if (name === "Model Organization") {
@@ -719,10 +832,17 @@ def write_leaderboard_js_file_full(
                   col.className = 'dt-center';
                   col.render = (d, t, row) => {
                     if (t === 'display') {
-                      return row['Model Organization Logo']
-                        ? `<img src="/assets/images/org_logos/${row['Model Organization Logo']}"
-                                alt="${d}" style="height:20px">`
-                        : d;
+                      const tooltip = escapeTooltip(d);
+                      if (row['Model Organization Logo']) {
+                        return `<span class="cell-tooltip" data-tooltip="${tooltip}"
+                                      style="cursor:help; display:inline-flex;
+                                      align-items:center;">` +
+                               `<img src="/assets/images/org_logos/${row['Model Organization Logo']}"
+                                alt="${tooltip}" style="height:20px">` +
+                               `</span>`;
+                      }
+                      return `<span class="cell-tooltip" data-tooltip="${tooltip}"
+                                    style="cursor:help">${d}</span>`;
                     }
                     return d; // Use text value for search/sort
                   };
@@ -808,12 +928,32 @@ def write_leaderboard_js_file_full(
                 return col;
             });
 
+            // Register anonymous-team filter before DataTable init so it applies on first draw
+            if (isTournament && teamColIndex >= 0) {
+              $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, rowData) {
+                if (settings.nTable.id !== 'lb') return true;
+                const showAnon = document.getElementById('show-anonymous')?.checked;
+                if (showAnon) return true;
+                const teamName =
+                  (rowData && rowData["Team Name"]) ||
+                  (settings.aoData?.[dataIndex]?._aData?.["Team Name"]) ||
+                  '';
+                return !(typeof teamName === 'string' &&
+                         teamName.toLowerCase().trim().startsWith('anonymous'));
+              });
+            }
+
             $('#leaderboard-table-full').html(`
+               ${isTournament ? `<div id="anon-toggle" style="margin-bottom:8px; display:flex;
+                                      align-items:center; gap:6px;">
+                   <input type="checkbox" id="show-anonymous" aria-label="Show anonymous teams">
+                   <label for="show-anonymous" style="margin:0; cursor:pointer;">Show anonymous teams</label>
+                 </div>` : ''}
                <table id="lb" class="display compact hover" style="width:100%">
                <thead>
                  <tr>
                    <th>Rank</th>
-                   {% if include_team %}
+                   {% if is_tournament %}
                    <th class="column-header-tooltip" data-tooltip="Team">Team</th>
                    {% endif %}
                    <th class="column-header-tooltip" data-tooltip="Org">Org</th>
@@ -859,9 +999,15 @@ def write_leaderboard_js_file_full(
                    return pre + '<br>last updated {{ last_updated_date }}';
                }
            });
-           table.on('draw.dt', function () {
-             initializeTooltips();
-           });
+
+           if (isTournament && teamColIndex >= 0) {
+             $('#show-anonymous').on('change', function() { table.draw(); });
+             // Apply the filter once on load so anonymous rows start hidden
+             table.draw();
+           }
+            table.on('draw.dt', function () {
+              initializeTooltips();
+            });
            // Initialize tooltips after table is created
            initializeTooltips();
         });
@@ -886,7 +1032,7 @@ def write_leaderboard_js_file_full(
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
-        include_team=leaderboard_type != LeaderboardType.BASELINE,
+        is_tournament=leaderboard_type == LeaderboardType.TOURNAMENT,
     )
 
     return {
@@ -915,6 +1061,19 @@ def write_leaderboard_js_file_compact(
         $(function()
         {
             const data = {{ data }};
+            const escapeTooltip = (text) =>
+              String(text ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/\"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            const runTooltips = () => {
+              if (typeof initializeTooltips === 'function') {
+                initializeTooltips();
+              } else {
+                setTimeout(runTooltips, 50);
+              }
+            };
             $('#leaderboard-{{ leaderboard_type }}-compact').html(`
             <table id="lb-{{ leaderboard_type }}" class="display stripe hover" style="width:100%">
               <thead>
@@ -937,10 +1096,15 @@ def write_leaderboard_js_file_compact(
                   width:'10%',
                   render: (d, type, row) => {
                     if (type === 'display') {
+                      const tooltip = escapeTooltip(d);
                       return row['Model Organization Logo']
-                        ? `<img src="/assets/images/org_logos/${row['Model Organization Logo']}"
-                                alt="${d}" style="height:20px">`
-                        : d;
+                        ? `<span class="cell-tooltip" data-tooltip="${tooltip}"
+                                 style="cursor:help; display:inline-flex; align-items:center;">` +
+                          `<img src="/assets/images/org_logos/${row['Model Organization Logo']}"
+                                alt="${tooltip}" style="height:20px">` +
+                          `</span>`
+                        : `<span class="cell-tooltip" data-tooltip="${tooltip}"
+                                 style="cursor:help">${d}</span>`;
                     }
                     return d; // Use text value for search/sort
                   }
@@ -967,10 +1131,10 @@ def write_leaderboard_js_file_compact(
               }
             });
             table.on('draw.dt', function () {
-              initializeTooltips();
+              runTooltips();
             });
             // Initialize tooltips after table is created
-            initializeTooltips();
+            runTooltips();
           });
         // Tooltip content object (defined globally for access)
         // Keys MUST match the <th data-tooltip="..."> values
@@ -982,9 +1146,19 @@ def write_leaderboard_js_file_compact(
         })();"""
     )
 
+    # Remove anonymous submissions from compact leaderboards
+    df = df.copy()
+    anonymous_mask = df["Team Name"].fillna("").str.lower().str.strip().str.startswith("anonymous")
+    df = df[~anonymous_mask]
     js = template.render(
         data=df[
-            ["Rank", "Model Organization", "Model Organization Logo", "Model", "Overall"]
+            [
+                "Rank",
+                "Model Organization",
+                "Model Organization Logo",
+                "Model",
+                "Overall",
+            ]
         ].to_dict(orient="records"),
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
@@ -1013,8 +1187,10 @@ def write_leaderboard_js_files(
         None.
     """
     df = df.copy()
-    df["Model Organization Logo"] = df["Model Organization"].map(constants.ORG_TO_LOGO).fillna("")
-    df["Team"] = df["Team"].apply(lambda x: constants.ORG_TO_LOGO.get(x, x))
+    df["Team Name"] = df["Team"]
+    write_anonymous_logos(df["Team Name"].tolist())
+    df["Model Organization Logo"] = df["Model Organization"].apply(constants.get_org_logo)
+    df["Team"] = df["Team"].apply(constants.get_org_logo)
 
     leaderboards = [
         write_leaderboard_js_file_compact(df=df, leaderboard_type=leaderboard_type),
@@ -1248,6 +1424,9 @@ def combine_forecasting_rounds(leaderboard: List[pd.DataFrame]) -> pd.DataFrame:
     """
     forecasts = [entry.copy() for entry in leaderboard]
     df = pd.concat(forecasts).reset_index(drop=True)
+
+    # Add column for date of first submission
+    df["first_forecast_due_date"] = df.groupby(["model_pk"])["forecast_due_date"].transform("min")
     return df
 
 
@@ -1465,6 +1644,7 @@ def score_models(
             question_fixed_effects[question_type] = df_qt[
                 [
                     "forecast_due_date",
+                    "first_forecast_due_date",
                     "source",
                     "id",
                     "horizon",
@@ -1495,6 +1675,7 @@ def score_models(
                         "count",
                     )
                 },
+                first_forecast_due_date=("first_forecast_due_date", "first"),
             )
             .reset_index()
         )
@@ -1509,6 +1690,7 @@ def score_models(
             "model_organization",
             "model",
             "model_pk",
+            "first_forecast_due_date",
         ],
         how="outer",
     )
@@ -2039,11 +2221,17 @@ def get_model_release_date_info(
             (if `days_since_release` is True) and/or 'model_release_date' (if `model_release_date`
             is True). Rows with missing release dates are excluded.
     """
-    df = df.copy()
     cols_to_return = df.columns.tolist()
+    df_forecastbench_models = df[df["organization"] == constants.BENCHMARK_NAME].copy()
+    df_external_submissions = df[df["organization"] != constants.BENCHMARK_NAME].copy()
+
+    # Set model release dates for external submissions to the forecast_due_date
+    df_external_submissions["model_release_date"] = df_external_submissions[
+        "first_forecast_due_date"
+    ]
 
     df_with_release_dates = pd.merge(
-        df,
+        df_forecastbench_models,
         df_release_dates,
         how="inner",
         on="model",
@@ -2052,7 +2240,7 @@ def get_model_release_date_info(
     # Send a message to Slack if models were dropped from the df because their release date was
     # missing in `df_release_dates`. Prefer this to stopping processing.
     outer = pd.merge(
-        df,
+        df_forecastbench_models,
         df_release_dates,
         how="outer",
         on="model",
@@ -2061,10 +2249,16 @@ def get_model_release_date_info(
     dropped_models = sorted(outer.loc[outer["_merge"] == "left_only", "model"].unique())
     if dropped_models:
         slack.send_message(
-            "\n*Models dropped from consideration in 2wfe estimation:*\n```"
+            f"\n*{constants.BENCHMARK_NAME} Models dropped from consideration in 2wfe "
+            + "estimation:*\n```"
             + "\n".join(dropped_models)
             + "```"
         )
+
+    df_with_release_dates = pd.concat(
+        [df_with_release_dates, df_external_submissions],
+        ignore_index=True,
+    )
 
     if model_release_date:
         cols_to_return += ["model_release_date"]
@@ -2076,6 +2270,9 @@ def get_model_release_date_info(
             - pd.to_datetime(df_with_release_dates["model_release_date"])
         ).dt.days
 
+    df_with_release_dates["model_release_date"] = pd.to_datetime(
+        df_with_release_dates["model_release_date"]
+    ).dt.date
     return df_with_release_dates[cols_to_return].reset_index(drop=True)
 
 
