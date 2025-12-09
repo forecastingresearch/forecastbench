@@ -31,7 +31,7 @@ fri_motto: "Advancing the science of forecasting for the public good"
 fri_url: "https://forecastingresearch.org/"
 
 footer:
-  links:
+  social:
     - label: "X"
       icon: "fab fa-fw fa-x-twitter"
       url: "https://x.com/Research_FRI"
@@ -43,13 +43,15 @@ footer:
       url: "https://www.linkedin.com/company/forecasting-research-institute"
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
-      url: "https://github.com/forecastingresearch/forecastbench"
+      url: "https://github.com/forecastingresearch"
     - label: "Hugging Face"
       icon: ""
-      url: "https://huggingface.co/datasets/forecastingresearch/forecastbench-datasets"
+      url: "https://huggingface.co/forecastingresearch"
     - label: "Wiki"
       icon: "fa-brands fa-wikipedia-w"
-      url: https://github.com/forecastingresearch/forecastbench/wiki/
+      url: "https://github.com/forecastingresearch/forecastbench/wiki"
+
+  contact:
     - label: "forecastbench@forecastingresearch.org"
       icon: "fas fa-fw fa-envelope"
       url: "mailto:forecastbench@forecastingresearch.org"

@@ -20,10 +20,9 @@
     <div class="fb-footer__col">
       <p class="fb-footer__title">Follow Us</p>
       <ul class="fb-footer__list fb-footer__socials">
-        {% if site.footer.links %}
-          {% for link in site.footer.links %}
+        {% if site.footer.social %}
+          {% for link in site.footer.social %}
             {% assign label_down = link.label | downcase %}
-            {% if label_down == "x" or label_down == "substack" or label_down == "linkedin" or label_down == "code" or label_down == "github" or label_down == "hugging face" %}
             <li>
               <a href="{{ link.url }}" rel="nofollow noopener noreferrer">
                 <span class="fb-footer__icon">
@@ -44,7 +43,6 @@
                 <span>{{ link.label | strip }}</span>
               </a>
             </li>
-            {% endif %}
           {% endfor %}
         {% endif %}
       </ul>
@@ -53,7 +51,11 @@
     <div class="fb-footer__col">
       <p class="fb-footer__title">Contact</p>
       <ul class="fb-footer__list">
-        <li><a href="mailto:forecastbench@forecastingresearch.org">forecastbench@forecastingresearch.org</a></li>
+        {% if site.footer.contact %}
+          {% for link in site.footer.contact %}
+          <li><a href="{{ link.url }}">{{ link.label | default: link.url | replace: 'mailto:', '' }}</a></li>
+          {% endfor %}
+        {% endif %}
       </ul>
     </div>
   </div>
