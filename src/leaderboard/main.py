@@ -270,6 +270,41 @@ def filter_forecast_files_by_forecast_due_date(
     return forecast_files, valid_dates
 
 
+def temporary_delay_to_handle_eoy_sampling(
+    forecast_files: List[str],
+    valid_dates: List[str],
+) -> Tuple[List[str], List[str]]:
+    """Do not update rankings with any rounds, starting with 2025-10-26.
+
+    We need to improve sampling for market questions to handle EOY effects, where many questions
+    resolved on Dec 31 or Jan 1. This has the potential to suddenly change rankings.
+
+    Wait until after the new year to include these.
+
+    Args:
+        forecast_files (List[str]): List of forecast file paths on GCP bucket, where each path
+                                    begins with a date folder in the format YYYY-MM-DD.
+        valid_dates (List[str]): List of valid dates (YYYY-MM-DD) associated with the forecast
+                                 files.
+
+    Returns:
+        tuple(List[str], List[str]): A tuple containing:
+            - forecast_files (List[str]): Filtered forecast files, keeping only those in date
+                                          folders older than the exclusion round
+            - valid_dates (List[str]): The input valid_dates, passed through unchanged.
+    """
+    forecast_round_exclusion_start_date = datetime.strptime("2025-10-26", "%Y-%m-%d").date()
+    valid_dates = sorted(
+        [
+            d
+            for d in valid_dates
+            if datetime.strptime(d, "%Y-%m-%d").date() < forecast_round_exclusion_start_date
+        ]
+    )
+    forecast_files = [f for f in forecast_files if f.split("/")[0] in valid_dates]
+    return forecast_files, valid_dates
+
+
 def get_df_info(
     df: pd.DataFrame,
     org_and_model: Dict[str, str],
@@ -2529,6 +2564,10 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
     """
     forecast_files, valid_dates = resolution.get_valid_forecast_files_and_dates(bucket=bucket)
     forecast_files, valid_dates = filter_forecast_files_by_forecast_due_date(
+        forecast_files=forecast_files,
+        valid_dates=valid_dates,
+    )
+    forecast_files, valid_dates = temporary_delay_to_handle_eoy_sampling(
         forecast_files=forecast_files,
         valid_dates=valid_dates,
     )
