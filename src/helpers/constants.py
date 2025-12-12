@@ -155,6 +155,15 @@ ORG_TO_LOGO = {
 
 MODELS_TO_RUN = {
     # oai context window from: https://platform.openai.com/docs/models/
+    "gpt-5.2-2025-12-11": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-5.2-2025-12-11",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+    },
     "gpt-5.1-2025-11-13": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -178,15 +187,6 @@ MODELS_TO_RUN = {
         "org": OAI_ORG,
         "full_name": "gpt-5-nano-2025-08-07",
         "token_limit": 128000,
-        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
-        # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": True,
-    },
-    "o3-2025-04-16": {
-        "source": OAI_SOURCE,
-        "org": OAI_ORG,
-        "full_name": "o3-2025-04-16",
-        "token_limit": 200000,
         # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": True,
