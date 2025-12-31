@@ -312,10 +312,10 @@ MODELS_TO_RUN = {
         "full_name": "gemini-2.5-pro",
         "token_limit": 1048576,
     },
-    "gemini-2.5-flash": {
+    "gemini-3-flash-preview": {
         "source": GOOGLE_SOURCE,
         "org": GOOGLE_ORG,
-        "full_name": "models/gemini-2.5-flash",
+        "full_name": "gemini-3-flash-preview",
         "token_limit": 1048576,
     },
 }
