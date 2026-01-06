@@ -8,3 +8,4 @@ mistralai==0.4.2
 functions-framework==3.*
 scipy
 google-genai>=1.20.0
+termcolor
