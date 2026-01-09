@@ -1,16 +1,20 @@
 """Metaculus-specific variables."""
 
 CATEGORIES = [
+    "artificial-intelligence",
+    "computing-and-math",
+    "elections",
+    "environment-climate",
     "geopolitics",
-    "natural-sciences",
-    "sports-entertainment",
     "health-pandemics",
     "law",
-    "computing-and-math",
-    "artificial-intelligence",
+    "natural-sciences",
     "nuclear",
+    "politics",
     "social-sciences",
-    "elections",
+    "space",
+    "sports-entertainment",
+    "technology",
 ]
 
 SOURCE_INTRO = (

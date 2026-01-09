@@ -29,7 +29,11 @@ logger = logging.getLogger(__name__)
 
 filenames = data_utils.generate_filenames(source="metaculus")
 
-MIN_NUM_FORECASTERS_ON_MARKET = 50
+MIN_NUM_FORECASTERS_ON_MARKET = 5
+
+TODAY = dates.get_date_today()
+
+MAX_RESOLUTION_DATE_IN_DAYS = 365 * 2
 
 
 @backoff.on_exception(
@@ -39,19 +43,20 @@ MIN_NUM_FORECASTERS_ON_MARKET = 50
     on_backoff=data_utils.print_error_info_handler,
 )
 def call_endpoint(additional_params=None):
-    """Get the top 100 markets from Metaculus."""
+    """Get the top markets from Metaculus."""
     ids = set()
     endpoint = "https://www.metaculus.com/api/posts/"
+    min_resolution_date = TODAY + timedelta(days=question_curation.FREEZE_WINDOW_IN_DAYS)
+    max_resolution_date = TODAY + timedelta(days=MAX_RESOLUTION_DATE_IN_DAYS)
     params = {
         "statuses": "open",
-        "with_cp": "false",
-        "scheduled_resolve_time__gt": (
-            dates.get_date_today() + timedelta(days=question_curation.FREEZE_WINDOW_IN_DAYS)
-        ).strftime("%Y-%m-%d"),
+        "scheduled_resolve_time__gt": min_resolution_date.strftime("%Y-%m-%d"),
+        "scheduled_resolve_time__lt": max_resolution_date.strftime("%Y-%m-%d"),
+        "include_cp_history": "false",
+        "include_descriptions": "false",
         "forecast_type": "binary",
         "order_by": "-hotness",
-        "limit": 150,  # not listed as a parameter but valid
-        "for_main_feed": "true",  # not listed as a parameter but valid
+        "limit": 200,
     }
     if additional_params:
         params.update(additional_params)
@@ -68,7 +73,7 @@ def call_endpoint(additional_params=None):
             if "cp_reveal_time" in market["question"]:
                 cp_reveal_date = market["question"]["cp_reveal_time"]
                 cp_reveal_date = datetime.strptime(cp_reveal_date[:10], "%Y-%m-%d").date()
-                if cp_reveal_date < dates.get_date_today():
+                if cp_reveal_date < TODAY:
                     ids.add(str(market["id"]))
     return ids
 
