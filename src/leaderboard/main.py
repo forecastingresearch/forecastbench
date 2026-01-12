@@ -2729,7 +2729,6 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
         forecast_files=forecast_files,
         valid_dates=valid_dates,
     )
-    # forecast_files = [f for f in forecast_files if f.startswith("2024")]
     logger.info(f"Processing forecast due dates: {valid_dates}.")
     local_forecast_set_dir = data_utils.get_local_file_dir(bucket=bucket)
     leaderboard_entries = []
