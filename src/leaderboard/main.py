@@ -2741,19 +2741,21 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
         organization = data.get("organization")
         model = data.get("model")
         model_organization = data.get("model_organization")
+        leaderboard_eligible = data.get("leaderboard_eligible")
         forecast_due_date = data.get("forecast_due_date")
         df = data.get("df")
 
-        process_forecast_file(
-            leaderboard_entries=leaderboard_entries,
-            org_and_model={
-                "organization": organization,
-                "model": model,
-                "model_organization": model_organization,
-            },
-            df=df,
-            forecast_due_date=forecast_due_date,
-        )
+        if leaderboard_eligible:
+            process_forecast_file(
+                leaderboard_entries=leaderboard_entries,
+                org_and_model={
+                    "organization": organization,
+                    "model": model,
+                    "model_organization": model_organization,
+                },
+                df=df,
+                forecast_due_date=forecast_due_date,
+            )
 
     return leaderboard_entries, valid_dates
 

@@ -648,6 +648,9 @@ def driver(_: Any) -> None:
         model = data.get("model")
         model_organization = data.get("model_organization")
         question_set_filename = data.get("question_set")
+        # Forecast sets that were submitted after the deadline can still be resolved but are
+        # excluded from the leaderboard. #157
+        leaderboard_eligible = data.get("leaderboard_eligible", True)
         forecast_due_date = question_set_filename[:10]
         df = data.get("df")
         if "direction" not in df:
@@ -694,6 +697,7 @@ def driver(_: Any) -> None:
             "model_organization": model_organization,
             "forecast_due_date": forecast_due_date,
             "question_set": question_set_filename,
+            "leaderboard_eligible": leaderboard_eligible,
             # Convert to json then load to keep pandas json conversion
             # df.to_dict has different variable conversions and hence is undesireable
             "forecasts": json.loads(df.to_json(orient="records", date_format="iso")),
