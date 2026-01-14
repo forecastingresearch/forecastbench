@@ -24,7 +24,7 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 		--tasks 1 \
 		--parallelism 1 \
 		--task-timeout 540s \
-		--memory 512Mi \
+		--memory 2Gi \
 		--max-retries 0 \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
