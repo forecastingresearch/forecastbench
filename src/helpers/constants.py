@@ -271,13 +271,13 @@ MODELS_TO_RUN = {
         "full_name": "moonshotai/Kimi-K2-Instruct-0905",
         "token_limit": 262144,
     },
-    "GLM-4.6": {
+    "GLM-4.7": {
         "source": TOGETHER_AI_SOURCE,
         "org": ZAI_ORG,
-        "full_name": "zai-org/GLM-4.6",
+        "full_name": "zai-org/GLM-4.7",
         "token_limit": 202752,
     },
-    # anthropic context window from: https://docs.anthropic.com/en/docs/about-claude/models
+    # anthropic context window from: https://platform.claude.com/docs/en/about-claude/models/overview
     "claude-sonnet-4-5-20250929": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
@@ -302,10 +302,10 @@ MODELS_TO_RUN = {
         "full_name": "claude-opus-4-1-20250805",
         "token_limit": 200000,
     },
-    "claude-3-7-sonnet-20250219": {
+    "claude-sonnet-4-20250514": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
-        "full_name": "claude-3-7-sonnet-20250219",
+        "full_name": "claude-sonnet-4-20250514",
         "token_limit": 200000,
     },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
@@ -332,12 +332,6 @@ MODELS_TO_RUN = {
         "org": XAI_ORG,
         "full_name": "grok-4-1-fast-non-reasoning",
         "token_limit": 2000000,
-    },
-    "grok-4-0709": {
-        "source": XAI_SOURCE,
-        "org": XAI_ORG,
-        "full_name": "grok-4-0709",
-        "token_limit": 256000,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models
     "gemini-3-pro-preview": {
