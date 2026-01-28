@@ -247,12 +247,6 @@ MODELS_TO_RUN = {
         "full_name": "deepseek-ai/DeepSeek-V3.1",
         "token_limit": 128000,
     },
-    "Qwen3-235B-A22B-fp8-tput": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": QWEN_ORG,
-        "full_name": "Qwen/Qwen3-235B-A22B-fp8-tput",
-        "token_limit": 40960,
-    },
     "Qwen3-235B-A22B-Thinking-2507": {
         "source": TOGETHER_AI_SOURCE,
         "org": QWEN_ORG,
