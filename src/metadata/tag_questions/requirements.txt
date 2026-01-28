@@ -1,6 +1,6 @@
 google-cloud-storage
 google-cloud-secret-manager
-pandas
+pandas>=2.2.2,<3.0
 anthropic
 openai
 together

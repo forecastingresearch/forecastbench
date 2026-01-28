@@ -1,7 +1,7 @@
 google-cloud-storage
 google-cloud-secret-manager
 beautifulsoup4
-pandas
+pandas>=2.2.2,<3.0
 tqdm
 lxml
 scipy

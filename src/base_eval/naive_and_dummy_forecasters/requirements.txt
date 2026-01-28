@@ -1,7 +1,7 @@
 google-cloud-storage
 google-cloud-secret-manager
 gcsfs==2024.3.1
-pandas
+pandas>=2.2.2,<3.0
 pandas-market-calendars
 tqdm
 GitPython

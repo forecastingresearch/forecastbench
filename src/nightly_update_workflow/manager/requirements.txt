@@ -2,7 +2,7 @@ google-cloud-run
 google-cloud-storage
 google-cloud-secret-manager
 slack_sdk
-pandas >= 2.2.2
+pandas>=2.2.2,<3.0
 tqdm
 tabulate
 gcsfs==2024.3.1

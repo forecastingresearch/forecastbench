@@ -13,7 +13,7 @@ google-api-python-client
 requests
 certifi
 google-cloud-secret-manager
-pandas
+pandas>=2.2.2,<3.0
 backoff
 google-cloud-aiplatform
 google-cloud-container

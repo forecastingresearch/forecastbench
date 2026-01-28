@@ -4,5 +4,5 @@ google-cloud-secret-manager
 slack_sdk
 pytz
 tqdm
-pandas >= 2.2.2
+pandas>=2.2.2,<3.0
 scipy
