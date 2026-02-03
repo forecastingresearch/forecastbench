@@ -146,6 +146,8 @@ IDS_TO_NULLIFY = set(
         # Names on table: "Praggnanandhaa R", "R Praggnanandhaa",
         "7687186d5e0807f8925a694beafb3d6e057978a9a01f0d1a3e0eaf1a49959e78",  # ranking
         "d2cfcce09363ddad01df31559624e330557f69eabcab39ed3734c11a60f153c7",  # elo rating
+        # Virus common name changed from "Monkeypox" to "Mpox"
+        "f9323386a651ce67fc0da31285bee22a4ec53b8a2ea5220431ecb4560fb44c77",
     ]
 )
 
