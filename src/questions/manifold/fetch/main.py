@@ -4,13 +4,14 @@ import json
 import logging
 import os
 import sys
+from datetime import timedelta
 
 import backoff
 import certifi
 import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from helpers import data_utils, decorator, env  # noqa: E402
+from helpers import data_utils, dates, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from utils import gcp  # noqa: E402
@@ -20,7 +21,52 @@ logger = logging.getLogger(__name__)
 
 filenames = data_utils.generate_filenames(source="manifold")
 
-MANIFOLD_TOPIC_SLUGS = ["entertainment", "sports-default", "technology-default"]
+MANIFOLD_TOPIC_SLUGS = [
+    "ai",
+    "biotech",
+    "business",
+    "celebrities",
+    "chess",
+    "china",
+    "climate",
+    "culture-default",
+    "economics-default",
+    "entertainment",
+    "europe",
+    "finance",
+    "gaming",
+    "geopolitics",
+    "health",
+    "india",
+    "mathematics",
+    "middle-east",
+    "movies",
+    "music-f213cbf1eab5",
+    "politics-default",
+    "programming",
+    "russia",
+    "science-default",
+    "space",
+    "sports-default",
+    "stocks",
+    "technical-ai-timelines",
+    "technology-default",
+    "uk-politics",
+    "ukraine",
+    "us-politics",
+    "wars",
+    "world-default",
+]
+
+TODAY = dates.get_date_today()
+
+MAX_RESOLUTION_DATE_IN_DAYS = 365 * 2
+
+MAX_RESOLUTION_DATE = TODAY + timedelta(days=MAX_RESOLUTION_DATE_IN_DAYS)
+
+MIN_BETTER_COUNT = 17
+
+MIN_LIQUIDITY = 120
 
 
 @backoff.on_exception(
@@ -50,7 +96,19 @@ def _call_endpoint(ids, additional_params=None):
         )
         response.raise_for_status()
 
-    ids.update(market["id"] for market in response.json())
+    def resolves_by(close_time_epoch_ms) -> bool:
+        close_sec = min(close_time_epoch_ms / 1000, dates.MAX_EPOCH_SEC)
+        close_date = dates.convert_epoch_time_in_sec_to_datetime(close_sec).date()
+        return close_date <= MAX_RESOLUTION_DATE
+
+    selected_markets = {
+        market["id"]
+        for market in response.json()
+        if market["uniqueBettorCount"] >= MIN_BETTER_COUNT
+        and market["totalLiquidity"] >= MIN_LIQUIDITY
+        and resolves_by(market["closeTime"])
+    }
+    ids.update(selected_markets)
     return ids
 
 

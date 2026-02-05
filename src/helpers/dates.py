@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 import pytz
 from dateutil import parser
 
+MAX_EPOCH_SEC = datetime(9999, 12, 31, 23, 59, 59, tzinfo=pytz.utc).timestamp()
+
 
 def convert_iso_str_to_date(iso_date_str):
     """Get date_str as date."""
