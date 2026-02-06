@@ -284,10 +284,10 @@ MODELS_TO_RUN = {
         "full_name": "claude-haiku-4-5-20251001",
         "token_limit": 200000,
     },
-    "claude-opus-4-5-20251101": {
+    "claude-opus-4-6": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
-        "full_name": "claude-opus-4-5-20251101",
+        "full_name": "claude-opus-4-6",
         "token_limit": 200000,
     },
     "claude-opus-4-1-20250805": {
