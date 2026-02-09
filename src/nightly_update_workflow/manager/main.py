@@ -127,6 +127,11 @@ def main():
     )
 
     operation_compress_question_bank_bucket = compress_bucket(bucket=env.QUESTION_BANK_BUCKET)
+    cloud_run.block_and_check_job_result(
+        operation=operation_compress_question_bank_bucket,
+        name=env.QUESTION_BANK_BUCKET,
+        exit_on_error=False,
+    )
 
     dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
     timeout_resolve_and_leaderboard = cloud_run.timeout_1h * 5
@@ -217,12 +222,6 @@ def main():
         name=env.FORECAST_SETS_BUCKET,
         exit_on_error=False,
     )
-    cloud_run.block_and_check_job_result(
-        operation=operation_compress_question_bank_bucket,
-        name=env.QUESTION_BANK_BUCKET,
-        exit_on_error=False,
-    )
-
     cloud_run.block_and_check_job_result(
         operation=operation_compress_processed_forecast_sets_bucket,
         name=env.QUESTION_BANK_BUCKET,
