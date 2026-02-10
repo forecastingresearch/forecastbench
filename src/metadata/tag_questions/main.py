@@ -37,7 +37,6 @@ def get_categories_from_llm(dfq):
                 model_name=question_curation.METADATA_MODEL_NAME,
                 prompt=prompt,
                 max_tokens=50,
-                temperature=0,
             )
             category = response.strip('"').strip("'").strip(" ").strip(".")
             logger.info(

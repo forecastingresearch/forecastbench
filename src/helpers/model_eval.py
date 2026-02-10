@@ -150,6 +150,10 @@ def get_response_from_oai_model(
         """
 
         def get_bool_param_from_model_def(p):
+            if p == "reasoning_model" and model_name == "gpt-5-mini":
+                # Hack: workaround until LLM forecasters are fixed
+                # This supports using gpt-5-mini as the question_curation.METADATA_MODEL_NAME
+                return True
             return constants.MODELS_TO_RUN.get(model_name, {}).get(p, False)
 
         if system_prompt:

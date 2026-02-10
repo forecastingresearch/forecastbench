@@ -36,7 +36,6 @@ def validate_questions(dfq):
                 model_name=question_curation.METADATA_MODEL_NAME,
                 prompt=prompt,
                 max_tokens=500,
-                temperature=0,
             )
             if "Classification:" not in response:
                 logger.error(f"'Classification:' is not in the response for question: {question}")

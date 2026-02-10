@@ -9,10 +9,14 @@ UPLOAD_DIR = upload
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
 
-Procfile:
-	cp -r $(ROOT_DIR)src/helpers/Procfile .
+Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
+	sed \
+		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
+		-e 's/STACK/google-22-full/g' \
+		-e 's/PYTHON_VERSION/python312/g' \
+		$< > Dockerfile
 
-deploy : main.py .gcloudignore requirements.txt Procfile
+deploy : main.py .gcloudignore requirements.txt Dockerfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
@@ -31,4 +35,4 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore Procfile
+	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile

@@ -359,10 +359,15 @@ for key, value in MODELS_TO_RUN.items():
     MODEL_NAME_TO_ORG[key] = value["org"]
     MODELS_TO_RUN_BY_SOURCE[value["source"]][key] = value
 
-# "gpt-4o-mini" Model used by metadata functions in question_curation.METADATA_MODEL_NAME
+# "gpt-4o-mini" Model used by forecaster to reformat raw response
 MODEL_TOKEN_LIMITS["gpt-4o-mini"] = 128000
 MODEL_NAME_TO_ORG["gpt-4o-mini"] = OAI_ORG
 MODEL_NAME_TO_SOURCE["gpt-4o-mini"] = OAI_SOURCE
+
+# "gpt-5-mini" Model used by metadata functions in question_curation.METADATA_MODEL_NAME
+MODEL_TOKEN_LIMITS["gpt-5-mini"] = 128000
+MODEL_NAME_TO_ORG["gpt-5-mini"] = OAI_ORG
+MODEL_NAME_TO_SOURCE["gpt-5-mini"] = OAI_SOURCE
 
 # remove models with less than ~17000 token limits
 SUPERFORECASTER_WITH_NEWS_MODELS = SCRATCHPAD_WITH_NEWS_MODELS = {
