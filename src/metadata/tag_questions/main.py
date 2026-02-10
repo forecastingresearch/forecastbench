@@ -1,5 +1,6 @@
 """Generate meta data for questions."""
 
+import asyncio
 import logging
 import os
 import sys
@@ -26,14 +27,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_categories_from_llm(dfq):
-    """Get category for question using the model from `question_curation.METADATA_MODEL_NAME`."""
-    for index, row in dfq[dfq["category"] == ""].iterrows():
+async def _get_category_single(index, row, semaphore):
+    """Get category for a single question asynchronously."""
+    async with semaphore:
         prompt = llm_prompts.ASSIGN_CATEGORY_PROMPT.format(
             question=row["question"], background=row["background"]
         )
         try:
-            response = model_eval.get_response_from_model(
+            response = await asyncio.to_thread(
+                model_eval.get_response_from_model,
                 model_name=question_curation.METADATA_MODEL_NAME,
                 prompt=prompt,
                 max_tokens=50,
@@ -42,12 +44,34 @@ def get_categories_from_llm(dfq):
             logger.info(
                 f"Got category for {row['source']}: {row['id']} {row['question']}--> {category}"
             )
-            dfq.at[index, "category"] = (
-                category if category in constants.QUESTION_CATEGORIES else "Other"
-            )
+            valid_category = category if category in constants.QUESTION_CATEGORIES else "Other"
+            return (index, valid_category)
         except Exception as e:
             logger.error(f"Error in assign_category: {e}")
-            dfq.at[index, "category"] = "Other"
+            return (index, "Other")
+
+
+async def _get_categories_async(dfq):
+    """Run all category lookups concurrently."""
+    semaphore = asyncio.Semaphore(50)
+
+    tasks = [
+        _get_category_single(index, row, semaphore)
+        for index, row in dfq[dfq["category"] == ""].iterrows()
+    ]
+
+    return await asyncio.gather(*tasks)
+
+
+def get_categories_from_llm(dfq):
+    """Get category for questions using concurrent API calls."""
+    n_to_tag = len(dfq[dfq["category"] == ""])
+    logger.info(f"Tagging {n_to_tag} questions.")
+    results = asyncio.run(_get_categories_async(dfq))
+
+    for index, category in results:
+        dfq.at[index, "category"] = category
+
     return dfq
 
 

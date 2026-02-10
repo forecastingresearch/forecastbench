@@ -1,11 +1,13 @@
 """Generate meta data for questions to filter."""
 
+import asyncio
 import logging
 import os
 import sys
 import time
 
 import pandas as pd
+from tqdm.asyncio import tqdm_asyncio
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import (  # noqa: E402
@@ -25,40 +27,67 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def validate_questions(dfq):
-    """Validate question using the model from `question_curation.METADATA_MODEL_NAME`."""
-    invalid_questions = []
-    for index, row in dfq[dfq["valid_question"] == ""].iterrows():
-        question = row["question"]
+async def _validate_single_question(index, question, semaphore):
+    """Validate a single question asynchronously."""
+    async with semaphore:
         prompt = llm_prompts.VALIDATE_QUESTION_PROMPT.format(question=question)
         try:
-            response = model_eval.get_response_from_model(
+            response = await asyncio.to_thread(
+                model_eval.get_response_from_model,
                 model_name=question_curation.METADATA_MODEL_NAME,
                 prompt=prompt,
                 max_tokens=500,
             )
             if "Classification:" not in response:
-                logger.error(f"'Classification:' is not in the response for question: {question}")
-                dfq.loc[index, "valid_question"] = None
+                logger.error(f"'Classification:' not in response for: {question}")
+                return (index, None, question)
+
+            end_resp = response.split("Classification:")[1]
+            if "ok" in end_resp:
+                return (index, True, question)
+            elif "flag" in end_resp:
+                logger.info(f"Ill-defined question: {question}")
+                return (index, False, question)
             else:
-                end_resp = response.split("Classification:")[1]
-                if "ok" in end_resp:
-                    dfq.loc[index, "valid_question"] = True
-                elif "flag" in end_resp:
-                    dfq.loc[index, "valid_question"] = False
-                    invalid_questions += [question]
-                    logger.info(f"The following question is ill-defined: {question}")
-                else:
-                    dfq.loc[index, "valid_question"] = True
-                    logger.error(f"Ambiguous response for question: {question}")
+                logger.error(f"Ambiguous response for: {question}")
+                return (index, True, question)
         except Exception as e:
-            logger.error(f"Error in assign_category: {e}")
-            dfq.loc[index, "valid_question"] = True
+            logger.error(f"Error validating question: {e}")
+            return (index, True, question)
+
+
+async def _validate_questions_async(dfq):
+    """Run all validations concurrently."""
+    semaphore = asyncio.Semaphore(50)
+
+    tasks = [
+        _validate_single_question(index, row["question"], semaphore)
+        for index, row in dfq[dfq["valid_question"] == ""].iterrows()
+    ]
+
+    return await tqdm_asyncio.gather(*tasks, desc="Validating questions")
+
+
+def validate_questions(dfq):
+    """Validate questions using concurrent API calls."""
+    n_to_validate = len(dfq[dfq["valid_question"] == ""])
+    logger.info(f"Validating {n_to_validate} questions.")
+    results = asyncio.run(_validate_questions_async(dfq))
+
+    invalid_questions = []
+    for index, is_valid, question in results:
+        if is_valid is None:
+            dfq.loc[index, "valid_question"] = None
+        else:
+            dfq.loc[index, "valid_question"] = is_valid
+            if not is_valid:
+                invalid_questions.append(question)
+
     dfq.loc[:, "valid_question"] = dfq["valid_question"].apply(
         lambda x: x if x in [True, False] else ""
     )
     if invalid_questions:
-        logger.warning(f"Invalid_questions found:\n\n{'\n'.join(invalid_questions)}\n")
+        logger.warning(f"Invalid questions found:\n\n{'\n'.join(invalid_questions)}\n")
     return dfq
 
 
