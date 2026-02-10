@@ -27,8 +27,8 @@ deploy : main.py .gcloudignore requirements.txt Dockerfile
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout "30m" \
-		--memory "2Gi" \
+		--task-timeout 30m \
+		--memory 2Gi \
 		--max-retries 0 \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
