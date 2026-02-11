@@ -4,8 +4,6 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 
 import backoff
 import certifi
@@ -21,7 +19,6 @@ from helpers import (  # noqa: E402
     decorator,
     env,
     keys,
-    metaculus,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))  # noqa: E402
@@ -33,17 +30,26 @@ logger = logging.getLogger(__name__)
 source = "metaculus"
 filenames = data_utils.generate_filenames(source=source)
 
-# The Metaculus rate limit is 1,000 queries per hour, so we limit the number of questions we use
-# to 1,000 - number of queries executed by the `fetch` function.
-# Edit: bump limit to 10k as it seems Metaculus has removed the limit. Maintain code for a while to
-#       in case it is reinstated.
-QUESTION_LIMIT = 10000 - (len(metaculus.CATEGORIES) + 1)
+# The Metaculus rate limit is 8 requests / 10 seconds. Limit to 2000 calls to allow for wiggle room
+# because the rate limit is inconsistent; sometimes it throttles before 8 requests / 10 seconds.
+QUESTION_LIMIT = 2000
 N_API_CALLS = 0
 
 # The maximum timestamp pandas can handle
 # Set this as the max possible date, even when questions resolve later:
 # * e.g. https://www.metaculus.com/questions/1535/
 MAX_PANDAS_TS = pd.Timestamp.max.tz_localize("UTC")
+
+
+def _parse_retry_after(response):
+    """Parse Retry-After header, returning seconds to wait or None if not present/parseable."""
+    retry_after = response.headers.get("Retry-After")
+    if not retry_after:
+        return None
+    try:
+        return int(retry_after)
+    except ValueError:
+        return None
 
 
 @backoff.on_exception(
@@ -55,43 +61,37 @@ MAX_PANDAS_TS = pd.Timestamp.max.tz_localize("UTC")
 def _get_market(market_id):
     """Get the market description and resolution criteria for the specified market."""
     global N_API_CALLS
-    N_API_CALLS += 1
-    logger.info(f"Calling market endpoint for {market_id}. This is API call number {N_API_CALLS}.")
-    endpoint = f"https://www.metaculus.com/api/posts/{market_id}"
+    endpoint = f"https://www.metaculus.com/api/posts/{market_id}/"
     headers = {"Authorization": f"Token {keys.API_KEY_METACULUS}"}
-    response = requests.get(endpoint, headers=headers, verify=certifi.where())
-    if response.status_code == 429:
-        retry_after = response.headers.get("Retry-After")
-        wait = None
-        if retry_after:
-            try:
-                # Case 1: "Retry-After" is a number of seconds
-                wait = int(retry_after)
-            except ValueError:
-                # Case 2: "Retry-After" is an HTTP date
-                retry_dt = parsedate_to_datetime(retry_after)
-                if retry_dt.tzinfo is None:
-                    retry_dt = retry_dt.replace(tzinfo=timezone.utc)
-                wait = max(0, (retry_dt - datetime.now(timezone.utc)).total_seconds())
 
-        if wait is None:
-            # The Metaculus 429 timeout is 10s
-            # Setting default to 15 in case something goes wrong below
-            wait = 15
+    max_rate_limit_retries = 5
+    for attempt in range(max_rate_limit_retries):
+        N_API_CALLS += 1
+        logger.info(
+            f"Calling market endpoint for {market_id}. This is API call number {N_API_CALLS}."
+        )
+        response = requests.get(endpoint, headers=headers, verify=certifi.where())
 
+        if response.status_code != 429:
+            break
+
+        wait = _parse_retry_after(response) or 10
         logger.warning(
-            f"Received 429 from Metaculus for market {market_id}. "
-            f"Respecting Retry-After and sleeping for {wait:.0f} seconds."
+            f"Received 429 from Metaculus for market {market_id} (attempt {attempt + 1}). "
+            f"Sleeping for {wait:.0f} seconds."
         )
         time.sleep(wait)
+    else:
+        # Exhausted all rate limit retries
+        response.raise_for_status()
 
     if not response.ok:
-        if response.status_code != 429:
-            logger.error(
-                f"Request to market endpoint failed for {market_id}: {response.status_code} Error. "
-                f"{response.text}"
-            )
+        logger.error(
+            f"Request to market endpoint failed for {market_id}: {response.status_code} Error. "
+            f"{response.text}"
+        )
         response.raise_for_status()
+
     return response.json()
 
 
