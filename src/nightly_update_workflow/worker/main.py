@@ -97,7 +97,7 @@ def get_fetch_and_update():
         ]
     return [
         [
-            (f"func-data-{source}-fetch", True, cloud_run.timeout_1h * 2, 1),
+            (f"func-data-{source}-fetch", True, cloud_run.timeout_1h * 3, 1),
             (f"func-data-{source}-update-questions", True, cloud_run.timeout_1h * 3, 1),
         ]
         for source in sources
