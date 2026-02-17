@@ -18,6 +18,7 @@ from helpers import (  # noqa: E402
     llm_prompts,
     model_eval,
     question_curation,
+    wikipedia,
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
@@ -123,6 +124,11 @@ def driver(_):
             "metaculus",
         ]:
             dfq["valid_question"] = True
+            if source == "wikipedia":
+                invalid_ids = set(wikipedia.transform_id_mapping.keys()) | {
+                    entry["id"] for entry in wikipedia.IDS_TO_NULLIFY
+                }
+                dfq.loc[dfq["id"].isin(invalid_ids), "valid_question"] = False
         else:
             dfq = validate_questions(dfq)
 

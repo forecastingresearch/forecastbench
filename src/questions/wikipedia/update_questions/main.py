@@ -176,7 +176,7 @@ def update_page_questions(page, dfq, dff):
 
 
 def resolve_questions_for_dropped_pages(dfq):
-    """Resovlve questions for pages that have been removed from page.PAGES.
+    """Resolve questions for pages that have been removed from page.PAGES.
 
     If we ever remove pages, we want to stop sampling from those questions.
     Simply resolve them.
@@ -186,6 +186,21 @@ def resolve_questions_for_dropped_pages(dfq):
         d = wikipedia.id_unhash(hash_key=row["id"])
         if d is None or d.get("id_root") not in id_roots:
             dfq.loc[index, "resolved"] = True
+    return dfq
+
+
+def resolve_questions_for_id_transformations(dfq):
+    """Resolve questions for keys in `wikipedia.transform_id_mapping`.
+
+    `wikipedia.transform_id_mapping` contains keys of questions that were erroneously made for one
+    reason or another. Those keys point to the correct IDs for those questions. When the correct ID
+    is resolved, ensure the original question ID is resolved too.
+    """
+    for key, value in wikipedia.transform_id_mapping.items():
+        resolved_series = dfq[dfq["id"] == value]["resolved"]
+        if not resolved_series.empty and resolved_series.iloc[0]:
+            dfq.loc[dfq["id"] == key, "resolved"] = True
+            logger.info(f"Resolving: {key}")
     return dfq
 
 
@@ -205,6 +220,7 @@ def update_all_forecast_questions(dfq):
             dfq = update_page_questions(page=page, dfq=dfq, dff=dff)
 
     dfq = resolve_questions_for_dropped_pages(dfq=dfq)
+    dfq = resolve_questions_for_id_transformations(dfq=dfq)
     return dfq
 
 
