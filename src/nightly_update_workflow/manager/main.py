@@ -134,7 +134,7 @@ def main():
     )
 
     dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
-    timeout_resolve_and_leaderboard = cloud_run.timeout_1h * 5
+    timeout_resolve_and_leaderboard = cloud_run.timeout_1h * 6
     operation_resolve_and_leaderboard = call_worker(
         dict_to_use=dict_to_use_resolve_and_leaderboard,
         task_count=1,
