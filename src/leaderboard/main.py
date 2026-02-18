@@ -1644,7 +1644,6 @@ def score_models(
             question_fixed_effects[question_type] = df_qt[
                 [
                     "forecast_due_date",
-                    "first_forecast_due_date",
                     "source",
                     "id",
                     "horizon",
