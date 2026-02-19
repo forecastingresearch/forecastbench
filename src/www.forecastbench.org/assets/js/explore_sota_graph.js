@@ -2,17 +2,12 @@
   const CSV_PATH_TOURNAMENT = '/assets/data/sota_graph_tournament.csv';
   const CSV_PATH_BASELINE = '/assets/data/sota_graph_baseline.csv';
   const PARITY_DATE_PATH = '/assets/data/parity_dates.json';
-  const Y_DOMAIN = [0.05, 0.35];
+  const Y_DOMAIN = [40, 85];
   const SHOW_REFS = true;
 
-  const fmt = d3.format('.3f');
+  const fmt = d3.format('.1f');
   const fmtDate = d3.timeFormat('%Y-%m-%d');
   const fmtMonthYear = d3.timeFormat('%B %d, %Y');
-  const fmt3or4 = (v) => {
-    const s3 = fmt(v);
-    if (s3 === '0.000' || s3 === '-0.000') return d3.format('.4f')(v);
-    return s3;
-  };
 
   const tip = d3.select('#tooltip');
   let parityDates = null;
@@ -99,19 +94,19 @@
     const pad = n => String(n).padStart(2, '0');
     const dateKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const byDate = d3.group(rows, r => dateKey(r.release_date));
-    let best = Infinity, tol = 1e-12;
+    let best = -Infinity, tol = 1e-12;
 
     for (const [, sameDayRows] of Array.from(byDate).sort((a, b) => d3.ascending(a[0], b[0]))) {
       sameDayRows.forEach(r => { r.is_sota_at_release = false; });
       sameDayRows.sort((a, b) => {
-        const scoreComp = d3.ascending(a.overall_score, b.overall_score);
+        const scoreComp = d3.descending(a.overall_score, b.overall_score);
         if (scoreComp !== 0) return scoreComp;
         return d3.ascending(a.model, b.model);
       });
       const bestOfDay = sameDayRows[0]?.overall_score;
-      if (bestOfDay !== undefined && bestOfDay < best - tol) {
+      if (bestOfDay !== undefined && bestOfDay > best + tol) {
         sameDayRows[0].is_sota_at_release = true;
-        best = Math.min(best, bestOfDay);
+        best = Math.max(best, bestOfDay);
       }
     }
   }
@@ -144,7 +139,7 @@
       if (!row || baselineModels.has(row.model)) continue;
       if (!Number.isFinite(row.overall_score)) continue;
       if (!(row.release_date instanceof Date) || Number.isNaN(row.release_date.getTime())) continue;
-      if (row.overall_score > superforecasterScore) continue;
+      if (row.overall_score < superforecasterScore) continue;
 
       if (!earliest || row.release_date < earliest) {
         earliest = row.release_date;
@@ -221,14 +216,14 @@
       .attr('transform', 'rotate(-90)')
       .attr('x', -height / 2).attr('y', -46)
       .attr('text-anchor', 'middle')
-      .text('Difficulty-adjusted Brier score');
+      .text('Brier Index (%)');
 
     // Reference lines
     if (SHOW_REFS) {
       const selectedBenchmarks = getSelectedBenchmarks();
       const refs = [];
 
-      if (selectedBenchmarks.includes('always_0.5')) refs.push({ y: 0.25, label: 'Always 0.5', key: 'always_0.5' });
+      if (selectedBenchmarks.includes('always_0.5')) refs.push({ y: 50, label: 'Always 0.5', key: 'always_0.5' });
       if (selectedBenchmarks.includes('public') && baselines.public !== undefined) refs.push({ y: baselines.public, label: 'Public', key: 'public' });
       if (selectedBenchmarks.includes('superforecaster') && baselines.superforecaster !== undefined) refs.push({ y: baselines.superforecaster, label: 'Superforecaster', key: 'superforecaster' });
       if (selectedBenchmarks.includes('imputed') && baselines.imputed !== undefined) refs.push({ y: baselines.imputed, label: 'Imputed Forecaster', key: 'imputed' });
@@ -322,7 +317,7 @@
 
         // Calculate confidence interval for intersection date if we have slope CI
         let intersectionCI = null;
-        if (regression.slopeCI && regression.b < 0) {
+        if (regression.slopeCI && regression.b > 0) {
           // For CI bounds, use the same intercept but different slopes
           const intersectionMonthsLower = (superforecasterScore - regression.a) / regression.slopeCI.lower;
           const intersectionMonthsUpper = (superforecasterScore - regression.a) / regression.slopeCI.upper;
@@ -340,7 +335,7 @@
         const now = new Date();
         const maxFutureDate = new Date(now.getFullYear() + 20, now.getMonth(), now.getDate());
 
-        if (intersectionDate > now && intersectionDate < maxFutureDate && regression.b < 0) {
+        if (intersectionDate > now && intersectionDate < maxFutureDate && regression.b > 0) {
           // Store intersection date for display in legend/info area
           window.intersectionInfo = {
             date: intersectionDate,
@@ -436,7 +431,7 @@
     const labels = sg.selectAll('text.lab').data(sota).join('text')
       .attr('class', 'lab')
       .attr('x', d => x(d.release_date))
-      .attr('y', d => y(Number.isFinite(d.conf_int_lb) ? d.conf_int_lb : d.overall_score) + 20)
+      .attr('y', d => y(Number.isFinite(d.conf_int_ub) ? d.conf_int_ub : d.overall_score) - 10)
       .text(d => shortLabel(d.model));
 
     const nodes = labels.nodes()
@@ -462,7 +457,7 @@
 
     if (regression && sota.length >= 2) {
       legendItems.push({ type: 'trend', x: currentX });
-      currentX += 110; // trend line takes more space
+      currentX += 110;
     }
 
     legendItems.push({ type: 'sota', x: currentX });
@@ -471,13 +466,45 @@
     legendItems.push({ type: 'regular', x: currentX });
     currentX += 100;
 
-    const totalWidth = currentX + 20; // Add more padding for text to match left side
-    const legendX = width - totalWidth - 15; // Right align with space matching top
+    const totalWidth = currentX + 20;
+    const legendX = width - totalWidth - 15;
+
+    // Pre-compute parity data so we can calculate bottom-up positions
+    let parityData = null;
+    let parityAchieved = false;
+    let parityAchievedDate = null;
+    if (shouldShowIntersection() && parityDates && baselines.superforecaster !== undefined) {
+      const useTournament = shouldIncludeFreeze();
+      const dataSource = useTournament ? 'tournament' : 'baseline';
+      parityAchievedDate = findParityAchievementDate(data, baselines.superforecaster);
+      parityAchieved = parityAchievedDate !== null;
+
+      if (currentType === 'dataset') {
+        parityData = parityDates.dataset[dataSource];
+      } else if (currentType === 'market') {
+        parityData = parityDates.market[dataSource];
+      } else {
+        parityData = parityDates.overall[dataSource];
+      }
+    }
+    const showParity = parityData !== null;
+
+    // Position legend and parity display at lower right, computed bottom-up
+    const parityBoxHeight = (showParity && !parityAchieved) ? 48 : 32;
+    let legendY, displayY;
+
+    if (showParity && showLegend) {
+      displayY = height - 4 - parityBoxHeight;
+      legendY = displayY - 40;
+    } else if (showParity) {
+      displayY = height - 4 - parityBoxHeight;
+    } else {
+      legendY = height - 36;
+    }
 
     // Show legend if enabled
     if (showLegend) {
       const legend = g.append('g').attr('class', 'legend');
-      const legendY = 15;
 
       legend.attr('transform', `translate(${legendX}, ${legendY})`);
 
@@ -521,66 +548,39 @@
     }
 
     // Show intersection date display if enabled
-    if (shouldShowIntersection() && parityDates && baselines.superforecaster !== undefined) {
-      // Determine which parity dates to use based on current type and tournament toggle
-      const useTournament = shouldIncludeFreeze();
-      const dataSource = useTournament ? 'tournament' : 'baseline';
-      const parityAchievedDate = findParityAchievementDate(data, baselines.superforecaster);
-      const parityAchieved = parityAchievedDate !== null;
+    if (showParity) {
+      const intersectionDisplay = g.append('g').attr('class', 'intersection-display');
 
-      let parityData = null;
-      if (currentType === 'dataset') {
-        parityData = parityDates.dataset[dataSource];
-      } else if (currentType === 'market') {
-        parityData = parityDates.market[dataSource];
-      } else {
-        parityData = parityDates.overall[dataSource];
-      }
+      const mainText = parityAchieved
+        ? `LLM-superforecaster parity achieved: ${formatParityAchievedDate(parityAchievedDate)}`
+        : `Projected LLM-superforecaster parity: ${parityData.intersection}`;
+      const ciText = `(95% CI: ${parityData.lower} – ${parityData.upper})`;
 
-      if (parityData) {
-        const intersectionDisplay = g.append('g').attr('class', 'intersection-display');
+      intersectionDisplay.attr('transform', `translate(${legendX}, ${displayY})`);
 
-        // Use achieved parity date if already reached, otherwise show projected parity
-        const mainText = parityAchieved
-          ? `LLM-superforecaster parity achieved: ${formatParityAchievedDate(parityAchievedDate)}`
-          : `Projected LLM-superforecaster parity: ${parityData.intersection}`;
-        const ciText = `(95% CI: ${parityData.lower} – ${parityData.upper})`;
+      const boxWidth = totalWidth + 16;
 
-        const displayY = showLegend ? 55 : 15; // Position below legend if legend is shown
+      intersectionDisplay.append('rect')
+        .attr('x', -8).attr('y', -8)
+        .attr('width', boxWidth).attr('height', parityBoxHeight)
+        .attr('rx', 6);
 
-        intersectionDisplay.attr('transform', `translate(${legendX}, ${displayY})`);
+      const trendItem = legendItems.find(item => item.type === 'trend');
+      const textX = trendItem ? trendItem.x + 5 : 8;
 
-        // Use same width as legend box for consistency
-        // Calculate height with equal padding above and below
-        const boxHeight = parityAchieved ? 32 : 48; // Show CI text only when projected
-        const boxWidth = totalWidth + 16; // Match legend width exactly
+      intersectionDisplay.append('text')
+        .attr('x', textX).attr('y', 12)
+        .attr('class', 'legend-text')
+        .style('font-weight', '600')
+        .text(mainText);
 
-        // Background - styled by CSS but with same width as legend
-        intersectionDisplay.append('rect')
-          .attr('x', -8).attr('y', -8)
-          .attr('width', boxWidth).attr('height', boxHeight)
-          .attr('rx', 6);
-
-        // Find the trend line item's x position to align text with the left edge of the orange line
-        const trendItem = legendItems.find(item => item.type === 'trend');
-        const textX = trendItem ? trendItem.x + 5 : 8; // Align with left edge of trend line (x1 position), fallback to 8
-
-        // Main text line
+      if (!parityAchieved) {
         intersectionDisplay.append('text')
-          .attr('x', textX).attr('y', 12)
+          .attr('x', textX).attr('y', 28)
           .attr('class', 'legend-text')
-          .style('font-weight', '600')
-          .text(mainText);
-
-        if (!parityAchieved) {
-          // Confidence interval text on second line
-          intersectionDisplay.append('text')
-            .attr('x', textX).attr('y', 28)
-            .attr('class', 'legend-text')
-            .style('font-size', '10px')
-            .style('opacity', '0.8')
-            .text(ciText);
-        }
+          .style('font-size', '10px')
+          .style('opacity', '0.8')
+          .text(ciText);
       }
     }
 
@@ -590,8 +590,8 @@
       return `
         <div><strong>${d.model}</strong></div>
         <div>Release date: ${fmtDate(d.release_date)}</div>
-        <div>Diff.-adj. Brier: ${fmt(d.overall_score)}</div>
-        ${hasCI ? `<div>95% CI: [${fmt(d.conf_int_lb)}, ${fmt(d.conf_int_ub)}]</div>` : ''}
+        <div>Brier Index: ${fmt(d.overall_score)}%</div>
+        ${hasCI ? `<div>95% CI: [${fmt(d.conf_int_lb)}%, ${fmt(d.conf_int_ub)}%]</div>` : ''}
         ${hasN ? `<div>Sample size: ${d.sample_size}</div>` : ''}
       `;
     }
@@ -611,7 +611,7 @@
       const config = benchmarkConfig[key] || { title: label, model: null };
       let html = `
         <div><strong>${config.title}</strong></div>
-        <div>Diff-Adj. Brier: ${fmt(score)}</div>
+        <div>Brier Index: ${fmt(score)}%</div>
       `;
 
       if (config.model) {
@@ -620,7 +620,7 @@
           const lbNum = +baselineRow.conf_int_lb;
           const ubNum = +baselineRow.conf_int_ub;
           if (Number.isFinite(lbNum) && Number.isFinite(ubNum)) {
-            html += `<div>95% CI: [${fmt(lbNum)}, ${fmt(ubNum)}]</div>`;
+            html += `<div>95% CI: [${fmt(lbNum)}%, ${fmt(ubNum)}%]</div>`;
           }
         }
 
@@ -764,6 +764,7 @@
     const publicRow = filteredRows.find(d => d.model === 'Public median forecast' && isType(d));
     const imputedForecastRow = filteredRows.find(d => d.model === 'Imputed Forecaster' && isType(d));
     const naiveForecastRow = filteredRows.find(d => d.model === 'Naive Forecaster' && isType(d));
+    const always05Row = filteredRows.find(d => d.model === 'Always 0.5' && isType(d));
     const always0Row = filteredRows.find(d => d.model === 'Always 0' && isType(d));
     const always1Row = filteredRows.find(d => d.model === 'Always 1' && isType(d));
     const randomUniformRow = filteredRows.find(d => d.model === 'Random Uniform' && isType(d));
@@ -772,7 +773,7 @@
     const toNumOrNaN = v => (v === undefined || v === null || String(v).trim() === '') ? NaN : +v;
     const parsed = filtered.map(d => ({
       model: d.model,
-      overall_score: +d.diff_adj_brier,
+      overall_score: +d.brier_index,
       release_date: new Date(d.release_date),
       conf_int_lb: toNumOrNaN(d.conf_int_lb),
       conf_int_ub: toNumOrNaN(d.conf_int_ub),
@@ -780,13 +781,13 @@
     }));
 
     const baselines = {};
-    if (superforecasterRow) baselines.superforecaster = +superforecasterRow.diff_adj_brier;
-    if (publicRow) baselines.public = +publicRow.diff_adj_brier;
-    if (imputedForecastRow) baselines.imputed = +imputedForecastRow.diff_adj_brier;
-    if (naiveForecastRow) baselines.naive = +naiveForecastRow.diff_adj_brier;
-    if (always0Row) baselines.always_0 = +always0Row.diff_adj_brier;
-    if (always1Row) baselines.always_1 = +always1Row.diff_adj_brier;
-    if (randomUniformRow) baselines.random_uniform = +randomUniformRow.diff_adj_brier;
+    if (superforecasterRow) baselines.superforecaster = +superforecasterRow.brier_index;
+    if (publicRow) baselines.public = +publicRow.brier_index;
+    if (imputedForecastRow) baselines.imputed = +imputedForecastRow.brier_index;
+    if (naiveForecastRow) baselines.naive = +naiveForecastRow.brier_index;
+    if (always0Row) baselines.always_0 = +always0Row.brier_index;
+    if (always1Row) baselines.always_1 = +always1Row.brier_index;
+    if (randomUniformRow) baselines.random_uniform = +randomUniformRow.brier_index;
 
     markSOTA(parsed);
     const showErrorBars = true; // Show error bars for all types (dataset, market, overall)
@@ -825,7 +826,7 @@
           team: team,
           model: model,
           type: 'dataset',
-          diff_adj_brier: parseFloat(row.Dataset),
+          brier_index: parseFloat(row.Dataset),
           release_date: releaseDate,
           conf_int_lb: datasetCI.lb,
           conf_int_ub: datasetCI.ub,
@@ -840,7 +841,7 @@
           team: team,
           model: model,
           type: 'market',
-          diff_adj_brier: parseFloat(row.Market),
+          brier_index: parseFloat(row.Market),
           release_date: releaseDate,
           conf_int_lb: marketCI.lb,
           conf_int_ub: marketCI.ub,
@@ -850,12 +851,12 @@
 
       // Create overall row
       if (row.Overall && row.Overall !== '') {
-        const overallCI = parseCI(row['95% CI']);
+        const overallCI = parseCI(row['Overall 95% CI']);
         transformedRows.push({
           team: team,
           model: model,
           type: 'overall',
-          diff_adj_brier: parseFloat(row.Overall),
+          brier_index: parseFloat(row.Overall),
           release_date: releaseDate,
           conf_int_lb: overallCI.lb,
           conf_int_ub: overallCI.ub,

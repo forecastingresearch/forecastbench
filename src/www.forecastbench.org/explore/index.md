@@ -11,7 +11,7 @@ after_footer_scripts:
 <div id="sota-chart" class="leaderboard-wrapper">
   <h1 class="leaderboard-title">State-of-the-art model forecasting performance over time</h1>
   <p>This interactive visualization charts the evolution of AI forecasting accuracy on ForecastBench.
-  Each point represents a model's difficulty-adjusted Brier score across all questions it predicted on (lower is better), plotted by model release date.
+  Each point represents a model's Brier Index across all questions it predicted on (higher is better), plotted by model release date.
   <ul>
   <li>Orange points mark models that were state of the art (SOTA) when released; they had the best benchmark performance given their release date.</li>
   <li>Vertical bars indicate 95% confidence intervals.</li>

@@ -71,13 +71,15 @@ HUMAN_PUBLIC = {
 HUMAN_MODELS = [HUMAN_SUPERFORECASTER, HUMAN_PUBLIC]
 HUMAN_MODELS_TO_HIGHLIGHT = [m["model"] for m in HUMAN_MODELS]
 
-LEADERBOARD_DECIMAL_PLACES = 3
+LEADERBOARD_DECIMAL_PLACES = 1
 
 IMPUTED_CUTOFF_PCT = 5
 
 MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 50
 
 MODEL_RELEASE_DAYS_CUTOFF = 365
+
+BRIER_INDEX_COL_PREFIX = "brier_index"
 
 _ANON_TEAM_RE = re.compile(r"^anonymous\s+(\d+)$", re.IGNORECASE)
 _ANON_LOGO_DESTINATION = "anonymous_logos"
@@ -149,23 +151,23 @@ TOOLTIP_COLUMN_DESCRIPTIONS = {
     "Model Organization": "The organization that developed the model.",
     "Model": "The name of the model that was used to generate the forecasts.",
     "Dataset": (
-        "Average difficulty-adjusted Brier score on dataset questions. "
-        "Rescaled so that Always 0.5 has a score of 0.25. "
-        "Lower scores are better."
+        "Brier Index (%) on dataset questions. "
+        "Scale: 100 = perfect, 50 = always predicting 50%, 0 = maximally wrong. "
+        "Higher scores are better."
     ),
-    "Dataset 95% CI": "Bootstrapped 95% confidence interval for the Dataset score.",
+    "Dataset 95% CI": "Bootstrapped 95% confidence interval for the Dataset Brier Index (%).",
     "Market": (
-        "Average difficulty-adjusted Brier score on market questions. "
-        "Rescaled so that Always 0.5 has a score of 0.25. "
-        "Lower scores are better."
+        "Brier Index (%) on market questions. "
+        "Scale: 100 = perfect, 50 = always predicting 50%, 0 = maximally wrong. "
+        "Higher scores are better."
     ),
-    "Market 95% CI": "Bootstrapped 95% confidence interval for the Market score.",
+    "Market 95% CI": "Bootstrapped 95% confidence interval for the Market Brier Index (%).",
     "Overall": (
-        "Average difficulty-adjusted Brier score across all questions. "
-        "Rescaled so that the Always 0.5 forecaster has a score of 0.25. "
-        "Lower scores are better."
+        "Brier Index (%) across all questions. "
+        "Scale: 100 = perfect, 50 = always predicting 50%, 0 = maximally wrong. "
+        "Higher scores are better."
     ),
-    "Overall 95% CI": "Bootstrapped 95% confidence interval for the Overall score.",
+    "Overall 95% CI": "Bootstrapped 95% confidence interval for the Overall Brier Index (%).",
     "Supers > Forecaster?": (
         "One-sided p-value comparing each forecaster to the superforecaster median based on "
         f"{N_REPLICATES:,} simulations, with<br>"
@@ -179,15 +181,10 @@ TOOLTIP_COLUMN_DESCRIPTIONS = {
         "H₁: This forecaster outperforms the public median."
     ),
     "Pct times № 1": (
-        f"Percentage of {N_REPLICATES:,} simulations in which this model was the best " "performer."
+        f"Percentage of {N_REPLICATES:,} simulations in which this model was the best performer."
     ),
     "Pct times top 5%": (
         f"Percentage of {N_REPLICATES:,} simulations in which this model ranked in the top 5%."
-    ),
-    "x% oracle equiv": (
-        "This model is most similar to a reference model that forecasts x% when the question "
-        "resolved to 1 and (1-x)% when the question resolved to 0. x moves in increments of 1 "
-        "from 0 - 100 inclusive. The 100% forecaster can be viewed as an oracle."
     ),
     "Peer": (
         "Peer score relative to the average Brier score on each question. "
@@ -626,7 +623,6 @@ def write_leaderboard_html_file(
         <th>p-val Forecaster > Public?</th>
         <th>Pct times № 1</th>
         <th>Pct times top 5%</th>
-        <th>x% oracle equiv</th>
         <th>Peer</th>
         <th>BSS</th>
       </tr>
@@ -644,28 +640,28 @@ def write_leaderboard_html_file(
             col.title = 'Dataset (N) <i class="info circle icon" '
                         + ' data-html="{{ col_desc["Dataset"] }}"></i>';
             col.render = function(d,t,row){
-                return t==='display'?parseFloat(d).toFixed(3)+
+                return t==='display'?parseFloat(d).toFixed(1)+
                            ' <span class="n-count">('+
                            Number(row['N dataset']).toLocaleString()+')</span>':d; };
-            col.orderSequence = ['asc','desc'];
+            col.orderSequence = ['desc','asc'];
           }
           if (name==='Market') {
             col.title = 'Market (N) <i class="info circle icon" '
                         + ' data-html="{{ col_desc["Market"] }}"></i>';
             col.render = function(d,t,row){
-                return t==='display'?parseFloat(d).toFixed(3) +
+                return t==='display'?parseFloat(d).toFixed(1) +
                 ' <span class="n-count">('+
                 Number(row['N market']).toLocaleString()+')</span>':d; };
-            col.orderSequence = ['asc','desc'];
+            col.orderSequence = ['desc','asc'];
           }
           if (name==='Overall') {
             col.title = 'Overall (N) <i class="info circle icon" '
                         + ' data-html="{{ col_desc["Overall"] }}"></i>';
             col.render = function(d,t,row){
-                return t==='display'?parseFloat(d).toFixed(3) +
+                return t==='display'?parseFloat(d).toFixed(1) +
                 ' <span class="n-count">('+
                 Number(row['N']).toLocaleString()+')</span>':d; };
-            col.orderSequence = ['asc','desc'];
+            col.orderSequence = ['desc','asc'];
           }
           if (name==='Supers > Forecaster?') {
             col.title = 'Supers > Forecaster? <i class="info circle icon" '
@@ -704,11 +700,6 @@ def write_leaderboard_html_file(
                         'data-html="{{ col_desc["Overall 95% CI"] }}"></i>';
             col.orderable=false;
           }
-          if (name==='x% oracle equiv') {
-            col.title = 'x% oracle equiv <i class="info circle icon" '
-                        + ' data-html="{{ col_desc["x% oracle equiv"] }}"></i>';
-            col.orderable=false;
-          }
           if (name==="Peer") {
             col.title = 'Peer <i class="info circle icon" data-html="{{ col_desc["Peer"] }}"></i>';
             col.render = function(d,t){ return t==='display'?parseFloat(d).toFixed(3):d; };
@@ -724,7 +715,7 @@ def write_leaderboard_html_file(
         $('#dataTable').DataTable({
           data: rawData,
           columns: columns,
-          order: [[ cols.indexOf('Overall'), 'asc' ]],
+          order: [[ cols.indexOf('Overall'), 'desc' ]],
           responsive: true,
           paging: false,
           info: true,
@@ -739,10 +730,36 @@ def write_leaderboard_html_file(
 </html>"""
     )
 
+    # The HTML template has a hardcoded <thead> expecting exactly these columns.
+    # Any extra columns (e.g. Rescaled Brier) are CSV-only.
+    html_cols = [
+        "Rank",
+        "Team",
+        "Model Organization",
+        "Model",
+        "Dataset",
+        "N dataset",
+        "Dataset 95% CI",
+        "Market",
+        "N market",
+        "Market 95% CI",
+        "Overall",
+        "N",
+        "Overall 95% CI",
+        "Supers > Forecaster?",
+        "p-val Supers > Forecaster?",
+        "Forecaster > Public?",
+        "p-val Forecaster > Public?",
+        "Pct times № 1",
+        "Pct times top 5%",
+        "Peer",
+        "BSS",
+    ]
+    df_html = df[[c for c in html_cols if c in df.columns]]
     html = template.render(
         title=f"{constants.BENCHMARK_NAME} Leaderboard",
-        data=df.to_dict(orient="records"),
-        columns=json.dumps(df.columns.tolist()),
+        data=df_html.to_dict(orient="records"),
+        columns=json.dumps(df_html.columns.tolist()),
         leaderboard_update_date=LEADERBOARD_UPDATED_DATE_STR,
         sorting_column_number=sorting_column_number,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
@@ -857,36 +874,36 @@ def write_leaderboard_js_file_full(
                   col.title = "Dataset (N)";
                   col.render = (d, t, row) =>
                     t === "display"
-                      ? parseFloat(d).toFixed(3) +
+                      ? parseFloat(d).toFixed(1) +
                         ' <span class="n-count">(' +
                         Number(row["N dataset"]).toLocaleString() +
                         ")</span>"
                       : d;
-                  col.orderSequence = ["asc", "desc"];
+                  col.orderSequence = ["desc", "asc"];
                 }
 
                 if (name === "Market") {
                   col.title = "Market (N)";
                   col.render = (d, t, row) =>
                     t === "display"
-                      ? parseFloat(d).toFixed(3) +
+                      ? parseFloat(d).toFixed(1) +
                         ' <span class="n-count">(' +
                         Number(row["N market"]).toLocaleString() +
                         ")</span>"
                       : d;
-                  col.orderSequence = ["asc", "desc"];
+                  col.orderSequence = ["desc", "asc"];
                 }
 
                 if (name === "Overall") {
                   col.title = "Overall (N)";
                   col.render = (d, t, row) =>
                     t === "display"
-                      ? parseFloat(d).toFixed(3) +
+                      ? parseFloat(d).toFixed(1) +
                         ' <span class="n-count">(' +
                         Number(row["N"]).toLocaleString() +
                         ")</span>"
                       : d;
-                  col.orderSequence = ["asc", "desc"];
+                  col.orderSequence = ["desc", "asc"];
                 }
 
                 if (name === "Supers > Forecaster?"
@@ -959,13 +976,16 @@ def write_leaderboard_js_file_full(
                    <th class="column-header-tooltip" data-tooltip="Org">Org</th>
                    <th><!-- Model Organization Logo --></th>
                    <th class="column-header-tooltip" data-tooltip="Model">Model</th>
-                   <th class="column-header-tooltip" data-tooltip="Dataset (N)">Dataset (N)</th>
+                   <th class="column-header-tooltip"
+                       data-tooltip="Dataset (N)">Dataset (N)</th>
                    <th><!-- N dataset --></th>
                    <th class="column-header-tooltip" data-tooltip="Dataset 95% CI">Dataset 95% CI</th>
-                   <th class="column-header-tooltip" data-tooltip="Market (N)">Market (N)</th>
+                   <th class="column-header-tooltip"
+                       data-tooltip="Market (N)">Market (N)</th>
                    <th><!-- N market --></th>
                    <th class="column-header-tooltip" data-tooltip="Market 95% CI">Market 95% CI</th>
-                   <th class="column-header-tooltip" data-tooltip="Overall (N)">Overall (N)</th>
+                   <th class="column-header-tooltip"
+                       data-tooltip="Overall (N)">Overall (N)</th>
                    <th><!-- N --></th>
                    <th class="column-header-tooltip" data-tooltip="Overall 95% CI">Overall 95% CI</th>
                    <th class="column-header-tooltip"
@@ -982,7 +1002,7 @@ def write_leaderboard_js_file_full(
              const table = $("#lb").DataTable({
                data: data,
                columns: columns,
-               order: [[cols.indexOf("Overall"), "asc"]],
+               order: [[cols.indexOf("Overall"), "desc"]],
                pageLength:25,
                lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
                paging: true,
@@ -1110,10 +1130,10 @@ def write_leaderboard_js_file_compact(
                   }
                 },
                 {data:'Model', width:'70%'},
-                {data:'Overall', render:d=>parseFloat(d).toFixed(3), width:'15%'}
+                {data:'Overall', render:d=>parseFloat(d).toFixed(1), width:'15%'}
               ],
               autoWidth:false,
-              order:[[3,'asc']],
+              order:[[3,'desc']],
               pageLength:10,
               pagingType:'simple',
               lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
@@ -1266,13 +1286,18 @@ def write_leaderboard(
     # Replace NaN with empty strings for display
     df = df.fillna("")
 
-    # Round columns to LEADERBOARD_DECIMAL_PLACES decimal places
+    # Round Brier Index columns to 1 decimal place, others to 3.
     numeric_cols = df.select_dtypes(include="number").columns
-    df[numeric_cols] = df[numeric_cols].round(LEADERBOARD_DECIMAL_PLACES)
+    brier_index_cols = [c for c in numeric_cols if c.startswith(BRIER_INDEX_COL_PREFIX)]
+    other_numeric_cols = [c for c in numeric_cols if c not in brier_index_cols]
+    df[brier_index_cols] = df[brier_index_cols].round(LEADERBOARD_DECIMAL_PLACES)
+    df[other_numeric_cols] = df[other_numeric_cols].round(3)
 
-    # Add rank
-    df["Rank"] = df[f"{primary_scoring_func.__name__}_overall"].rank(
-        ascending=True,
+    # Rank and order by displayed overall score; break ties by larger sample size.
+    brier_index = BRIER_INDEX_COL_PREFIX
+    overall_col = f"{brier_index}_overall"
+    df["Rank"] = df[overall_col].rank(
+        ascending=False,
         method="min",
     )
 
@@ -1286,7 +1311,7 @@ def write_leaderboard(
 
     # Format CI
     def format_ci(df, question_type):
-        col_prefix = f"{primary_scoring_func.__name__}_{question_type}"
+        col_prefix = f"{brier_index}_{question_type}"
         df[f"{col_prefix}_ci_lower"] = (
             df[f"{col_prefix}_ci_lower"].round(LEADERBOARD_DECIMAL_PLACES).astype(str)
         )
@@ -1302,7 +1327,7 @@ def write_leaderboard(
     df = format_ci(df, "market")
     df = format_ci(df, "overall")
 
-    df = df.sort_values(by=f"{primary_scoring_func.__name__}_overall", ignore_index=True)
+    df = df.sort_values(by=[overall_col, "n_overall"], ascending=[False, False], ignore_index=True)
 
     p_value_cols = {}
     for comparison in HUMAN_MODELS:
@@ -1327,35 +1352,36 @@ def write_leaderboard(
         else:
             raise ValueError("Comparison model not handled")
 
-    df["x_pct_oracle_equivalent"] = df["x_pct_oracle_equivalent"].map("{:.0%}".format)
-
     # For website communication purposes, change "freeze values" to "crowd forecast"
     benchmark_mask = df["organization"] == constants.BENCHMARK_NAME
     df.loc[benchmark_mask, "model"] = df.loc[benchmark_mask, "model"].str.replace(
         "freeze values", "crowd forecast"
     )
 
+    rescaled = primary_scoring_func.__name__
     df = df[
         [
             "Rank",
             "organization",
             "model_organization",
             "model",
-            f"{primary_scoring_func.__name__}_dataset",
+            f"{brier_index}_dataset",
             "n_dataset",
-            f"{primary_scoring_func.__name__}_dataset_ci",
-            f"{primary_scoring_func.__name__}_market",
+            f"{brier_index}_dataset_ci",
+            f"{brier_index}_market",
             "n_market",
-            f"{primary_scoring_func.__name__}_market_ci",
-            f"{primary_scoring_func.__name__}_overall",
+            f"{brier_index}_market_ci",
+            f"{brier_index}_overall",
             "n_overall",
-            f"{primary_scoring_func.__name__}_overall_ci",
+            f"{brier_index}_overall_ci",
             *p_value_cols.keys(),
             "pct_times_best_performer",
             "pct_times_top_5_percentile",
-            "x_pct_oracle_equivalent",
             "peer_score_overall",
             "brier_skill_score_overall",
+            f"{rescaled}_dataset",
+            f"{rescaled}_market",
+            f"{rescaled}_overall",
             "model_release_date",
         ]
     ].rename(
@@ -1363,21 +1389,23 @@ def write_leaderboard(
             "organization": "Team",
             "model_organization": "Model Organization",
             "model": "Model",
-            f"{primary_scoring_func.__name__}_dataset": "Dataset",
+            f"{brier_index}_dataset": "Dataset",
             "n_dataset": "N dataset",
-            f"{primary_scoring_func.__name__}_dataset_ci": "Dataset 95% CI",
-            f"{primary_scoring_func.__name__}_market": "Market",
+            f"{brier_index}_dataset_ci": "Dataset 95% CI",
+            f"{brier_index}_market": "Market",
             "n_market": "N market",
-            f"{primary_scoring_func.__name__}_market_ci": "Market 95% CI",
-            f"{primary_scoring_func.__name__}_overall": "Overall",
+            f"{brier_index}_market_ci": "Market 95% CI",
+            f"{brier_index}_overall": "Overall",
             "n_overall": "N",
-            f"{primary_scoring_func.__name__}_overall_ci": "Overall 95% CI",
+            f"{brier_index}_overall_ci": "Overall 95% CI",
             **p_value_cols,
             "pct_times_best_performer": "Pct times № 1",
             "pct_times_top_5_percentile": "Pct times top 5%",
-            "x_pct_oracle_equivalent": "x% oracle equiv",
             "peer_score_overall": "Peer",
             "brier_skill_score_overall": "BSS",
+            f"{rescaled}_dataset": "Brier Dataset",
+            f"{rescaled}_market": "Brier Market",
+            f"{rescaled}_overall": "Brier Overall",
             "model_release_date": "Model release date",
         }
     )
@@ -1401,9 +1429,11 @@ def write_leaderboard(
         columns=[
             "Pct times № 1",
             "Pct times top 5%",
-            "x% oracle equiv",
             "Peer",
             "BSS",
+            "Brier Dataset",
+            "Brier Market",
+            "Brier Overall",
         ]
     )
     write_leaderboard_js_files(
@@ -1488,13 +1518,10 @@ def two_way_fixed_effects(df: pd.DataFrame, question_type) -> pd.DataFrame:
     df = df.copy()
     orig_cols = df.columns.tolist()
 
-    # Remove x pct forecasters
-    df_fe = remove_x_pct_oracles(df=df)
-
     # Remove models that only belong in the Tournament Leaderboard
     # e.g. with freeze values
     # After this, all models were submitted by the ForecastBench organization
-    df_fe = remove_tournament_models(df=df_fe)
+    df_fe = remove_tournament_models(df=df)
 
     if question_type == "dataset":
         # Drop some Benchmark models
@@ -1707,6 +1734,10 @@ def score_models(
             df_leaderboard=df_leaderboard,
             primary_scoring_func=two_way_fixed_effects,
         )
+        df_leaderboard = apply_brier_index_transform(
+            df_leaderboard=df_leaderboard,
+            primary_scoring_func=two_way_fixed_effects,
+        )
     return df_leaderboard, question_fixed_effects
 
 
@@ -1770,13 +1801,13 @@ def generate_simulated_leaderboards(
 
         df_scores = df_simulated_leaderboard.set_index("model_pk")
         return (
-            df_scores[f"{primary_scoring_func.__name__}_dataset"].rename(
+            df_scores[f"{BRIER_INDEX_COL_PREFIX}_dataset"].rename(
                 f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}"
             ),
-            df_scores[f"{primary_scoring_func.__name__}_market"].rename(
+            df_scores[f"{BRIER_INDEX_COL_PREFIX}_market"].rename(
                 f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}"
             ),
-            df_scores[f"{primary_scoring_func.__name__}_overall"].rename(
+            df_scores[f"{BRIER_INDEX_COL_PREFIX}_overall"].rename(
                 f"{SIM_BOOTSTRAP_COL_PREFIX}_{idx}"
             ),
         )
@@ -1856,7 +1887,7 @@ def get_confidence_interval(
     method = method.lower()
     if method == "bca":
         # BCa notation from page 190 of https://hastie.su.domains/CASI/index.html
-        theta_hat = df_leaderboard[f"{primary_scoring_func.__name__}_{question_type}"].values
+        theta_hat = df_leaderboard[f"{BRIER_INDEX_COL_PREFIX}_{question_type}"].values
         bs = df_simulated_scores.reindex(df_leaderboard["model_pk"]).values
         p0 = np.mean(bs < theta_hat[:, None], axis=1)
         z0 = norm.ppf(p0)
@@ -1876,7 +1907,7 @@ def get_confidence_interval(
     else:
         raise ValueError(f"Value passed for method ({method}) is not valid.")
 
-    col_prefix = f"{primary_scoring_func.__name__}_{question_type}"
+    col_prefix = f"{BRIER_INDEX_COL_PREFIX}_{question_type}"
     df_leaderboard[f"{col_prefix}_ci_lower"] = df_leaderboard["model_pk"].map(lower).values
     df_leaderboard[f"{col_prefix}_ci_upper"] = df_leaderboard["model_pk"].map(upper).values
     return df_leaderboard
@@ -1927,6 +1958,9 @@ def get_comparison_p_val(
 ) -> pd.DataFrame:
     """Compute one-sided p-values comparing each model to the human comparison groups.
 
+    NB: This function only works for scoring methods where higher scores are
+        better. Adjust if testing for scoring methods where lower is better.
+
     Args:
         df_leaderboard (pd.DataFrame): Leaderboard.
         df_simulated_scores (pd.DataFrame): Bootstrapped replicates of overall scores.
@@ -1941,13 +1975,9 @@ def get_comparison_p_val(
         raise ValueError("Must provide comparison")
     logger.info(colored(f"Comparing to {comparison['model']}", "red"))
 
-    overall_score_col = "two_way_fixed_effects_overall"
+    overall_score_col = f"{BRIER_INDEX_COL_PREFIX}_overall"
     if overall_score_col not in df_leaderboard.columns:
-        raise ValueError(
-            f"Metric {overall_score_col} not found in leaderboard DataFrame."
-            "This function only works for scoring methods where lower scores are "
-            "better. Adjust if testing for scoring methods where higher is better."
-        )
+        raise ValueError(f"Metric {overall_score_col} not found in leaderboard DataFrame.")
 
     out_col = get_comparison_p_val_col(comparison)
     comparison_idx = get_comparison_model_index(df=df_leaderboard, comparison=comparison)
@@ -1965,12 +1995,12 @@ def get_comparison_p_val(
                     (sim_comparison_scores.values - sim_comp_scores.values)
                     - observed_diff_dict[model_pk]
                 )
-                <= observed_diff_dict[model_pk]
+                >= observed_diff_dict[model_pk]
             )
             for model_pk, sim_comp_scores in df_simulated_scores.iterrows()
         }
     else:
-        comparison_df = df_simulated_scores.le(sim_comparison_scores, axis=1)
+        comparison_df = df_simulated_scores.ge(sim_comparison_scores, axis=1)
         p_value_one_sided = comparison_df.mean(axis=1)
 
     df_leaderboard[out_col] = df_leaderboard["model_pk"].map(p_value_one_sided)
@@ -2012,8 +2042,8 @@ def get_simulation_performance_metrics(
             - pct_times_top_5_percentile: percent of simulations each model was in top 5th percentile.
     """
     metrics = {
-        "pct_times_best_performer": lambda df: df.idxmin(axis=0).value_counts(),
-        "pct_times_top_5_percentile": lambda df: df.le(df.quantile(0.05, axis=0)).sum(axis=1),
+        "pct_times_best_performer": lambda df: df.idxmax(axis=0).value_counts(),
+        "pct_times_top_5_percentile": lambda df: df.ge(df.quantile(0.95, axis=0)).sum(axis=1),
     }
 
     for col, func in metrics.items():
@@ -2055,147 +2085,29 @@ def rescale_difficulty_adjusted_brier(
     return df_leaderboard
 
 
-def get_x_pct_oracle_model_name(pct: float):
-    """
-    Get the name of the pct forecaster.
-
-    Args:
-        pct (float): the x% of `add_x_pct_oracles`.
-
-    Returns:
-        str: the model name associated with `pct`.
-    """
-    return f"{round(pct*100, 1)}% forecaster"
-
-
-def get_x_pct_oracle_increments() -> List[float]:
-    """
-    Get the increments for the x% oracles.
-
-    Args:
-        None.
-
-    Returns:
-        List[float]: the threshholds for the x% oracles.
-    """
-    return [round(i * 0.005, 3) for i in range(201)]
-
-
-def add_x_pct_oracles(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add x% oracles to the combined forecast set.
-
-    Args:
-        df (pd.DataFrame): Combined forecast set.
-
-    Returns:
-        pd.DataFrame: Combined forecast set with x% oracles.
-    """
-    # Copy a model that has forecast on every question
-    dummy_model_to_copy = BASELINE_ORG_NAIVE_MODEL
-
-    df_dummy = df[
-        (df["organization"] == dummy_model_to_copy["organization"])
-        & (df["model"] == dummy_model_to_copy["model"])
-    ].reset_index(drop=True)
-
-    for pct in get_x_pct_oracle_increments():
-        x_pct_oracle = df_dummy.copy()
-        x_pct_oracle["model"] = get_x_pct_oracle_model_name(pct)
-        x_pct_oracle["organization"] = constants.BENCHMARK_NAME
-        x_pct_oracle["model_organization"] = constants.BENCHMARK_NAME
-        x_pct_oracle = set_model_pk(df=x_pct_oracle)
-        x_pct_oracle["forecast"] = -1.0
-        x_pct_oracle.loc[x_pct_oracle["resolved_to"] == 1, "forecast"] = pct
-        x_pct_oracle.loc[x_pct_oracle["resolved_to"] == 0, "forecast"] = 1 - pct
-        df_unset = x_pct_oracle[x_pct_oracle["forecast"] < 0]
-        if not df_unset.empty:
-            logger.warning(
-                df_unset[
-                    [
-                        "forecast_due_date",
-                        "model",
-                        "forecast",
-                        "resolved",
-                        "source",
-                        "id",
-                        "resolved_to",
-                    ]
-                ]
-            )
-            pd.set_option("display.max_columns", None)
-            pd.set_option("display.width", None)
-
-            for _, row in df_unset.iterrows():
-                print()
-                print(row.to_string())
-
-            raise ValueError("One of the resolved_to values was not 0 or 1")
-
-        df = pd.concat([df, x_pct_oracle], ignore_index=True)
-
-    return df
-
-
-def remove_x_pct_oracles(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Remove the x% forecasters from the dataframe.
-
-    Args:
-        df (pd.DataFrame): The combined forecast set or the leaderboard.
-
-    Returns:
-        pd.DataFrame: The same dataframe without the x% forecasters.
-    """
-    org_mask = df["organization"] == constants.BENCHMARK_NAME
-
-    x_pct_oracle_models = [
-        get_x_pct_oracle_model_name(pct) for pct in get_x_pct_oracle_increments()
-    ]
-    x_pct_oracle_mask = df["model"].isin(x_pct_oracle_models)
-
-    mask = org_mask & x_pct_oracle_mask
-    return df[~mask].reset_index(drop=True)
-
-
-def get_x_pct_oracle_equivalent(
+def apply_brier_index_transform(
     df_leaderboard: pd.DataFrame,
     primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
 ) -> pd.DataFrame:
-    """Set the value for the pct forecaster equivalent column.
+    """Transform rescaled difficulty-adjusted Brier scores to the Brier Index scale.
+
+    Brier Index = (1 - sqrt(rescaled_score)) * 100
+
+    The scale is 0-100 where 100 = perfect, 50 = always predicting 50%, 0 = maximally wrong.
+    Higher is better. The original difficulty-adjusted Brier columns are preserved.
 
     Args:
-        df_leaderboard (pd.DataFrame): Leaderboard.
+        df_leaderboard (pd.DataFrame): Leaderboard with rescaled scores.
         primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]):
             Function used to compute the primary overall score.
 
     Returns:
-        pd.DataFrame: Leaderboard with pct forecaster equivalent column
+        pd.DataFrame: Leaderboard with new brier_index_* columns added.
     """
-    sorting_col = f"{primary_scoring_func.__name__}_overall"
-    df_leaderboard["x_pct_oracle_equivalent"] = -1.0
-
-    for pct in get_x_pct_oracle_increments():
-        x_pct_model_name = get_x_pct_oracle_model_name(pct)
-        x_pct_ref_model = df_leaderboard[
-            (df_leaderboard["organization"] == constants.BENCHMARK_NAME)
-            & (df_leaderboard["model"] == x_pct_model_name)
-        ]
-        if x_pct_ref_model.empty:
-            raise ValueError(f"Problem finding x% model for {x_pct_model_name}, using `pct={pct}`.")
-        threshold = x_pct_ref_model[sorting_col].iloc[0]
-        df_leaderboard.loc[df_leaderboard[sorting_col] <= threshold, "x_pct_oracle_equivalent"] = (
-            pct
-        )
-
-    df_leaderboard["x_pct_oracle_equivalent"] = (
-        np.ceil(df_leaderboard["x_pct_oracle_equivalent"] * 100) / 100
-    )
-
-    df_unset = df_leaderboard[df_leaderboard["x_pct_oracle_equivalent"] < 0]
-    if not df_unset.empty:
-        logger.warning(df_unset)
-        raise ValueError("Unable to set the x% oracle equivalents for the above models.")
+    for question_type in ["dataset", "market", "overall"]:
+        src_col = f"{primary_scoring_func.__name__}_{question_type}"
+        dst_col = f"{BRIER_INDEX_COL_PREFIX}_{question_type}"
+        df_leaderboard[dst_col] = (1 - np.sqrt(df_leaderboard[src_col])) * 100
 
     return df_leaderboard
 
@@ -2296,13 +2208,13 @@ def find_sota_models(
     if "model_release_date_ordinal" in df.columns:
         cols += ["model_release_date_ordinal"]
     df = df[cols].copy()
-    best = np.inf
-    tol = 1e-12
+    best = -np.inf
+    tol = 1e-10
     chosen_idx = []
     for _, g in df.groupby("model_release_date", sort=True):
-        g_sorted = g.sort_values([bootstrap_col, "model"], ascending=[True, True])
+        g_sorted = g.sort_values([bootstrap_col, "model"], ascending=[False, True])
         best_of_day = g_sorted.iloc[0][bootstrap_col]
-        if best_of_day < best - tol:
+        if best_of_day > best + tol:
             chosen_idx.append(g_sorted.index[0])
             best = best_of_day
 
@@ -2344,7 +2256,7 @@ def calculate_sota_super_intersection_date(
         return pd.NaT
 
     m = np.dot(xc, yc) / denom
-    if not np.isfinite(m) or m >= 0:
+    if not np.isfinite(m) or m <= 0:
         return pd.NaT
 
     b = ym - m * xm
@@ -2500,7 +2412,7 @@ def get_sota_super_parity_expected_dates(
     }
 
     for question_type in question_types:
-        leaderboard_score_col = f"two_way_fixed_effects_{question_type}"
+        leaderboard_score_col = f"{BRIER_INDEX_COL_PREFIX}_{question_type}"
         for leaderboard_type in LeaderboardType:
             if question_type == "dataset" and leaderboard_type == LeaderboardType.TOURNAMENT:
                 # For dataset questions, the FB tournament models just repeat the forecasts from,
@@ -2607,7 +2519,6 @@ def make_leaderboard(
         days_since_release=True,
         model_release_date=False,
     )
-    df = add_x_pct_oracles(df=df)
 
     # The scoring functions to consider
     primary_scoring_func = two_way_fixed_effects
@@ -2622,16 +2533,6 @@ def make_leaderboard(
         df=df,
         scoring_funcs=scoring_funcs,
     )
-
-    # x% oracle equivalent
-    df_leaderboard = get_x_pct_oracle_equivalent(
-        df_leaderboard=df_leaderboard,
-        primary_scoring_func=primary_scoring_func,
-    )
-
-    # Remove x% oracles
-    df = remove_x_pct_oracles(df=df)
-    df_leaderboard = remove_x_pct_oracles(df=df_leaderboard)
 
     # Get simulated scores
     df_simulated_scores_dataset, df_simulated_scores_market, df_simulated_scores_overall = (
