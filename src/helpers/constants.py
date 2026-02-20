@@ -297,10 +297,10 @@ MODELS_TO_RUN = {
         "full_name": "claude-opus-4-1-20250805",
         "token_limit": 200000,
     },
-    "claude-sonnet-4-20250514": {
+    "claude-sonnet-4-6": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
-        "full_name": "claude-sonnet-4-20250514",
+        "full_name": "claude-sonnet-4-6",
         "token_limit": 200000,
     },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
@@ -329,6 +329,12 @@ MODELS_TO_RUN = {
         "token_limit": 2000000,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models
+    "gemini-3.1-pro-preview": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "gemini-3.1-pro-preview",
+        "token_limit": 1048576,
+    },
     "gemini-3-pro-preview": {
         "source": GOOGLE_SOURCE,
         "org": GOOGLE_ORG,
