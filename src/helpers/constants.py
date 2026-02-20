@@ -143,6 +143,7 @@ EXTERNAL_TOURNAMENT_MODELS_TO_LOGO = {
     "Cassi-AI": "cassi-ai.png",
     "FractalAIResearch": "fractal-ai.png",
     "Lightning Rod Labs": "lightningrod.jpg",
+    "LightningRodLabs": "lightningrod.jpg",
     "Mantic": "mantic.jpg",
     "Stochastic Radiant": "stochastic-radiant.svg",
 }
