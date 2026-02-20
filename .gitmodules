@@ -1,6 +1,6 @@
 [submodule "utils"]
 	path = utils
-	url = git@github.com:forecastingresearch/utils.git
+	url = https://github.com/forecastingresearch/utils.git
 [submodule "experiments/stability-analysis"]
 	path = experiments/stability-analysis
 	url = https://github.com/forecastingresearch/forecastbench-stability-analysis.git
