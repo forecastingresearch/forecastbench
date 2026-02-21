@@ -2,7 +2,7 @@ all :
 	$(MAKE) clean
 	$(MAKE) deploy
 
-.PHONY : all clean deploy
+.PHONY : all clean deploy dev-build dev-serve
 
 UPLOAD_DIR = upload
 
@@ -67,3 +67,16 @@ deploy : entrypoint.sh Dockerfile .gcloudignore
 
 clean :
 	rm -rf $(UPLOAD_DIR) .gcloudignore entrypoint.sh _site
+
+LOCAL_DOCKER_IMAGE_TAG = forecastbench-website
+
+dev-build : Dockerfile
+	@test -f entrypoint.sh || echo '#!/bin/sh' > entrypoint.sh
+	docker build -t $(LOCAL_DOCKER_IMAGE_TAG) .
+
+dev-serve : dev-build
+	docker run --rm -it -p 4000:4000 \
+		-v "$$(pwd):/srv/jekyll" \
+		-w /srv/jekyll --entrypoint "" \
+		$(LOCAL_DOCKER_IMAGE_TAG) \
+		bundle exec jekyll serve --host 0.0.0.0 --config _config.yml,_config_dev.yml --livereload
