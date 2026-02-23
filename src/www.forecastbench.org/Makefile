@@ -71,7 +71,6 @@ clean :
 LOCAL_DOCKER_IMAGE_TAG = forecastbench-website
 
 dev-build : Dockerfile
-	@test -f entrypoint.sh || echo '#!/bin/sh' > entrypoint.sh
 	docker build -t $(LOCAL_DOCKER_IMAGE_TAG) .
 
 dev-serve : dev-build
@@ -79,4 +78,4 @@ dev-serve : dev-build
 		-v "$$(pwd):/srv/jekyll" \
 		-w /srv/jekyll --entrypoint "" \
 		$(LOCAL_DOCKER_IMAGE_TAG) \
-		bundle exec jekyll serve --host 0.0.0.0 --config _config.yml,_config_dev.yml --livereload
+		bundle exec jekyll serve --host 0.0.0.0 --config _config.yml --livereload
