@@ -130,6 +130,7 @@ XAI_SOURCE = "XAI"
 ANTHROPIC_ORG = "Anthropic"
 DEEPSEEK_ORG = "DeepSeek"
 MOONSHOT_ORG = "Moonshot"
+MINIMAX_ORG = "Minimax"
 GOOGLE_ORG = "Google"
 META_ORG = "Meta"
 MISTRAL_ORG = "Mistral AI"
@@ -153,6 +154,7 @@ ORG_TO_LOGO = {
     ANTHROPIC_ORG: "anthropic.svg",
     DEEPSEEK_ORG: "deepseek.svg",
     MOONSHOT_ORG: "moonshot.svg",
+    MINIMAX_ORG: "minimax.svg",
     GOOGLE_ORG: "deepmind.svg",
     META_ORG: "meta.svg",
     MISTRAL_ORG: "mistral.svg",
@@ -248,10 +250,22 @@ MODELS_TO_RUN = {
         "full_name": "deepseek-ai/DeepSeek-V3.1",
         "token_limit": 128000,
     },
+    "MiniMax-M2.5": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": MINIMAX_ORG,
+        "full_name": "MiniMaxAI/MiniMax-M2.5",
+        "token_limit": 228700,
+    },
     "Qwen3-235B-A22B-Thinking-2507": {
         "source": TOGETHER_AI_SOURCE,
         "org": QWEN_ORG,
         "full_name": "Qwen/Qwen3-235B-A22B-Thinking-2507",
+        "token_limit": 262144,
+    },
+    "Kimi-K2.5": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": MOONSHOT_ORG,
+        "full_name": "moonshotai/Kimi-K2.5",
         "token_limit": 262144,
     },
     "Kimi-K2-Thinking": {
@@ -260,16 +274,16 @@ MODELS_TO_RUN = {
         "full_name": "moonshotai/Kimi-K2-Thinking",
         "token_limit": 262144,
     },
-    "Kimi-K2-Instruct-0905": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": MOONSHOT_ORG,
-        "full_name": "moonshotai/Kimi-K2-Instruct-0905",
-        "token_limit": 262144,
-    },
     "GLM-4.7": {
         "source": TOGETHER_AI_SOURCE,
         "org": ZAI_ORG,
         "full_name": "zai-org/GLM-4.7",
+        "token_limit": 202752,
+    },
+    "GLM-5": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": ZAI_ORG,
+        "full_name": "zai-org/GLM-5",
         "token_limit": 202752,
     },
     # anthropic context window from: https://platform.claude.com/docs/en/about-claude/models/overview
