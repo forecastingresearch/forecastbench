@@ -44,6 +44,13 @@ mkdir -p "$ASSETS_MNT/$DATA_DIR"
 cp -a "$PUBLIC_RELEASE_MNT/leaderboards/csv/sota_graph_baseline.csv" "$ASSETS_MNT/$DATA_DIR/"
 cp -a "$PUBLIC_RELEASE_MNT/leaderboards/csv/sota_graph_tournament.csv" "$ASSETS_MNT/$DATA_DIR/"
 
+# calibration data
+for f in calibration_metrics_baseline.csv calibration_metrics_tournament.csv \
+         calibration_curves_baseline.json calibration_curves_tournament.json; do
+  [ -f "$PUBLIC_RELEASE_MNT/leaderboards/csv/$f" ] && \
+    cp -a "$PUBLIC_RELEASE_MNT/leaderboards/csv/$f" "$ASSETS_MNT/$DATA_DIR/"
+done
+
 # archived forecast sets
 FORECAST_SETS_MNT="$MOUNT_POINT/FORECAST_SETS_BUCKET"
 FORECAST_SETS_DIR="assets/data/forecast-sets"

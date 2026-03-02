@@ -1595,6 +1595,139 @@ def brier_skill_score(df: pd.DataFrame) -> pd.DataFrame:
     return df[orig_cols + ["brier_skill_score"]]
 
 
+def compute_calibration_metrics(
+    df: pd.DataFrame,
+    n_bins: int = 10,
+) -> pd.DataFrame:
+    """Compute calibration metrics for each model.
+
+    Metrics computed per model:
+    - ECE (Expected Calibration Error): weighted mean of |forecast_mean - resolution_rate| per bin
+    - Brier decomposition (Murphy 1973): reliability, resolution, uncertainty
+    - Sharpness: standard deviation of forecasts
+
+    Args:
+        df (pd.DataFrame): Resolved forecasts with 'forecast', 'resolved_to',
+            'model_pk', 'organization', 'model_organization', 'model' columns.
+        n_bins (int): Number of equal-width bins on [0, 1].
+
+    Returns:
+        pd.DataFrame: One row per model with columns: model_pk, organization, model_organization,
+            model, ece, reliability, resolution, uncertainty, sharpness, n_forecasts.
+    """
+    bin_edges = np.linspace(0, 1, n_bins + 1)
+    df = df.copy()
+    df["bin"] = np.digitize(df["forecast"], bin_edges, right=True).clip(1, n_bins)
+
+    overall_base_rate = df["resolved_to"].mean()
+    overall_uncertainty = overall_base_rate * (1 - overall_base_rate)
+
+    rows = []
+    for (model_pk, org, model_org, model), grp in df.groupby(
+        ["model_pk", "organization", "model_organization", "model"]
+    ):
+        n_total = len(grp)
+        ece = 0.0
+        reliability = 0.0
+        resolution = 0.0
+
+        for _, bin_grp in grp.groupby("bin"):
+            n_k = len(bin_grp)
+            weight = n_k / n_total
+            forecast_mean = bin_grp["forecast"].mean()
+            observed_rate = bin_grp["resolved_to"].mean()
+            ece += weight * abs(forecast_mean - observed_rate)
+            reliability += weight * (forecast_mean - observed_rate) ** 2
+            resolution += weight * (observed_rate - overall_base_rate) ** 2
+
+        sharpness = grp["forecast"].std()
+
+        rows.append(
+            {
+                "model_pk": model_pk,
+                "organization": org,
+                "model_organization": model_org,
+                "model": model,
+                "ece": round(ece, 6),
+                "reliability": round(reliability, 6),
+                "resolution": round(resolution, 6),
+                "uncertainty": round(overall_uncertainty, 6),
+                "sharpness": round(sharpness, 6),
+                "n_forecasts": n_total,
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def compute_calibration_curve_data(
+    df: pd.DataFrame,
+    n_bins: int = 10,
+) -> pd.DataFrame:
+    """Compute per-bin calibration curve data for reliability diagrams.
+
+    Args:
+        df (pd.DataFrame): Resolved forecasts with 'forecast', 'resolved_to',
+            'model_pk', 'organization', 'model' columns.
+        n_bins (int): Number of equal-width bins on [0, 1].
+
+    Returns:
+        pd.DataFrame: Per-(model, bin) rows with columns: model_pk, organization, model,
+            bin_midpoint, forecast_mean, resolution_rate, n_bin.
+    """
+    bin_edges = np.linspace(0, 1, n_bins + 1)
+    bin_midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
+    df = df.copy()
+    df["bin"] = np.digitize(df["forecast"], bin_edges, right=True).clip(1, n_bins)
+
+    rows = []
+    for (model_pk, org, model), grp in df.groupby(["model_pk", "organization", "model"]):
+        for bin_idx, bin_grp in grp.groupby("bin"):
+            rows.append(
+                {
+                    "model_pk": model_pk,
+                    "organization": org,
+                    "model": model,
+                    "bin_midpoint": round(bin_midpoints[bin_idx - 1], 3),
+                    "forecast_mean": round(bin_grp["forecast"].mean(), 4),
+                    "resolution_rate": round(bin_grp["resolved_to"].mean(), 4),
+                    "n_bin": len(bin_grp),
+                }
+            )
+
+    return pd.DataFrame(rows)
+
+
+def write_calibration_data(
+    df_calibration_metrics: pd.DataFrame,
+    df_calibration_curves: pd.DataFrame,
+    leaderboard_type: "LeaderboardType",
+) -> None:
+    """Write calibration metrics CSV and curve data JSON to the public bucket.
+
+    Args:
+        df_calibration_metrics (pd.DataFrame): One row per model with calibration metrics.
+        df_calibration_curves (pd.DataFrame): Per-(model, bin) curve data for reliability diagrams.
+        leaderboard_type (LeaderboardType): baseline or tournament.
+
+    Returns:
+        None.
+    """
+    directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
+    destination_folder = "leaderboards/csv"
+    os.makedirs(f"{directory}/{destination_folder}", exist_ok=True)
+
+    # Write metrics CSV
+    metrics_filename = f"{destination_folder}/calibration_metrics_{leaderboard_type.value}.csv"
+    df_calibration_metrics.to_csv(f"{directory}/{metrics_filename}", index=False)
+
+    # Write curves JSON
+    curves_filename = f"{destination_folder}/calibration_curves_{leaderboard_type.value}.json"
+    df_calibration_curves.to_json(f"{directory}/{curves_filename}", orient="records", indent=2)
+
+    logger.info(f"Wrote calibration data for {leaderboard_type.value} leaderboard.")
+
+
 def score_models(
     df: pd.DataFrame,
     scoring_funcs: List[Callable[[pd.DataFrame], pd.DataFrame]],
@@ -2633,6 +2766,11 @@ def make_leaderboard(
     df = remove_x_pct_oracles(df=df)
     df_leaderboard = remove_x_pct_oracles(df=df_leaderboard)
 
+    # Calibration analysis (oracles already removed from df above)
+    df_resolved = df[df["resolved"].astype(bool)].copy()
+    df_calibration_metrics = compute_calibration_metrics(df=df_resolved)
+    df_calibration_curves = compute_calibration_curve_data(df=df_resolved)
+
     # Get simulated scores
     df_simulated_scores_dataset, df_simulated_scores_market, df_simulated_scores_overall = (
         generate_simulated_leaderboards(
@@ -2709,6 +2847,20 @@ def make_leaderboard(
         write_leaderboard(
             df=df_leaderboard_lt,
             primary_scoring_func=primary_scoring_func,
+            leaderboard_type=leaderboard_type,
+        )
+
+        # Write calibration data for this leaderboard type
+        lt_model_pks = set(df_leaderboard_lt["model_pk"].unique())
+        df_cal_lt = df_calibration_metrics[
+            df_calibration_metrics["model_pk"].isin(lt_model_pks)
+        ]
+        df_curves_lt = df_calibration_curves[
+            df_calibration_curves["model_pk"].isin(lt_model_pks)
+        ]
+        write_calibration_data(
+            df_calibration_metrics=df_cal_lt,
+            df_calibration_curves=df_curves_lt,
             leaderboard_type=leaderboard_type,
         )
 
