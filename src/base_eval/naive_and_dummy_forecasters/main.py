@@ -16,6 +16,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import (  # noqa: E402
     acled,
     constants,
+    data_utils,
     decorator,
     env,
     question_sets,
@@ -373,8 +374,7 @@ def write_and_upload_forecast_file(data, df, model_name):
     data["model"] = model_name
     data["forecasts"] = df.reset_index(drop=True).to_dict(orient="records")
     forecast_due_date = data["forecast_due_date"]
-    model_name_for_file = model_name.lower().replace(" ", "-")
-    forecast_filename = f"{forecast_due_date}.{constants.BENCHMARK_NAME}.{model_name_for_file}.json"
+    forecast_filename = data_utils.get_forecast_filename(forecast_due_date, model_name)
     local_filename = f"/tmp/{forecast_filename}"
     with open(local_filename, "w") as f:
         f.write(json.dumps(data, indent=4))

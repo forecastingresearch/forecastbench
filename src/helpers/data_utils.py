@@ -365,3 +365,17 @@ def make_directory(path: str, recreate_folder: bool = False) -> str:
     logger.info(f"Creating {path}")
     os.makedirs(path)
     return path
+
+
+def get_forecast_filename(forecast_due_date: str, model_name: str) -> str:
+    """Generate the forecast filename for a given date and model.
+
+    Args:
+        forecast_due_date (str): Forecast due date (YYYY-MM-DD).
+        model_name (str): Model name (e.g., "Naive Forecaster").
+
+    Returns:
+        str: Filename like "{date}.ForecastBench.naive-forecaster.json".
+    """
+    model_name_for_file = model_name.lower().replace(" ", "-")
+    return f"{forecast_due_date}.{constants.BENCHMARK_NAME}.{model_name_for_file}.json"

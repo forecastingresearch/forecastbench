@@ -76,6 +76,7 @@ LEADERBOARD_DECIMAL_PLACES = 1
 IMPUTED_CUTOFF_PCT = 5
 
 MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 50
+MIN_NUM_MARKET_QUESTIONS_BEFORE_QUESTION_SET_IS_INCLUDED = 50
 
 MODEL_RELEASE_DAYS_CUTOFF = 365
 
@@ -363,6 +364,56 @@ def filter_forecast_files_by_forecast_due_date(
     )
     forecast_files = [f for f in forecast_files if f.split("/")[0] in valid_dates]
     return forecast_files, valid_dates
+
+
+def filter_forecast_files_by_min_num_market_questions(
+    forecast_files: List[str],
+    valid_dates: List[str],
+    local_forecast_set_dir: str,
+) -> Tuple[List[str], List[str]]:
+    """Filter forecast files to exclude dates with too few resolved market questions.
+
+    For each forecast due date, reads the Naive Forecaster file and counts resolved market
+    questions. Dates with fewer than `MIN_NUM_MARKET_QUESTIONS_BEFORE_QUESTION_SET_IS_INCLUDED`
+    are excluded.
+
+    Args:
+        forecast_files (List[str]): List of forecast file paths on GCP bucket, where each path
+                                    begins with a date folder in the format YYYY-MM-DD.
+        valid_dates (List[str]): List of valid dates (YYYY-MM-DD) associated with the forecast
+                                 files.
+        local_forecast_set_dir (str): Local directory containing the processed forecast files.
+
+    Returns:
+        tuple(List[str], List[str]): A tuple containing:
+            - forecast_files (List[str]): Filtered forecast files, keeping only those in date
+                                          folders with enough resolved market questions.
+            - valid_dates (List[str]): Filtered valid dates.
+    """
+    dates_to_keep = []
+    for date in valid_dates:
+        naive_filename = data_utils.get_forecast_filename(date, BASELINE_ORG_NAIVE_MODEL["model"])
+        data = resolution.read_forecast_file(
+            filename=f"{local_forecast_set_dir}/{date}/{naive_filename}"
+        )
+        if data is None:
+            logger.warning(f"Could not read Naive Forecaster file for {date}. Excluding date.")
+            continue
+
+        df = resolution.make_columns_hashable(data["df"])
+        n_resolved_market = get_masks(df)["market_resolved"].sum()
+
+        if n_resolved_market >= MIN_NUM_MARKET_QUESTIONS_BEFORE_QUESTION_SET_IS_INCLUDED:
+            dates_to_keep.append(date)
+        else:
+            logger.info(
+                f"Excluding forecast due date {date}: {n_resolved_market} resolved market "
+                "questions (minimum required: "
+                f"{MIN_NUM_MARKET_QUESTIONS_BEFORE_QUESTION_SET_IS_INCLUDED})."
+            )
+
+    forecast_files = [f for f in forecast_files if f.split("/")[0] in dates_to_keep]
+    return forecast_files, dates_to_keep
 
 
 def get_df_info(
@@ -2631,6 +2682,12 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
     )
     logger.info(f"Processing forecast due dates: {valid_dates}.")
     local_forecast_set_dir = data_utils.get_local_file_dir(bucket=bucket)
+    forecast_files, valid_dates = filter_forecast_files_by_min_num_market_questions(
+        forecast_files=forecast_files,
+        valid_dates=valid_dates,
+        local_forecast_set_dir=local_forecast_set_dir,
+    )
+    logger.info(f"Processing forecast due dates: {valid_dates}.")
     leaderboard_entries = []
     for f in forecast_files:
         data = resolution.read_forecast_file(filename=f"{local_forecast_set_dir}/{f}")
