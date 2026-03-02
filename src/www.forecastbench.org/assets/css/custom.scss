@@ -1560,3 +1560,45 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 .fb-footer__divider {
   opacity: 0.6;
 }
+
+/* ── Calibration page ── */
+
+#reliability-diagram {
+  width: 100%;
+  max-width: 580px;
+  margin: 1.5rem auto;
+}
+
+#reliability-diagram svg {
+  display: block;
+}
+
+.calibration-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 1rem 0;
+}
+
+.calibration-table th,
+.calibration-table td {
+  padding: 0.45rem 0.75rem;
+  text-align: right;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.calibration-table th {
+  font-weight: 600;
+  background: #f9fafb;
+  position: sticky;
+  top: 0;
+}
+
+.calibration-table td:first-child,
+.calibration-table th:first-child {
+  text-align: left;
+}
+
+.calibration-table tbody tr:hover {
+  background: #f1f5f9;
+}
