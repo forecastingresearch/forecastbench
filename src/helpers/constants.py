@@ -256,22 +256,10 @@ MODELS_TO_RUN = {
         "full_name": "MiniMaxAI/MiniMax-M2.5",
         "token_limit": 228700,
     },
-    "Qwen3-235B-A22B-Thinking-2507": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": QWEN_ORG,
-        "full_name": "Qwen/Qwen3-235B-A22B-Thinking-2507",
-        "token_limit": 262144,
-    },
     "Kimi-K2.5": {
         "source": TOGETHER_AI_SOURCE,
         "org": MOONSHOT_ORG,
         "full_name": "moonshotai/Kimi-K2.5",
-        "token_limit": 262144,
-    },
-    "Kimi-K2-Thinking": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": MOONSHOT_ORG,
-        "full_name": "moonshotai/Kimi-K2-Thinking",
         "token_limit": 262144,
     },
     "GLM-4.7": {
