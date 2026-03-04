@@ -20,7 +20,7 @@ footer_scripts:
       </p>
       <p>ForecastBench operates as a <a href="/docs/#architecture">fully automated, dynamic system</a>. New forecasting rounds occur every two weeks, with each round generating 500 questions split evenly between market and dataset questions. The leaderboard is updated nightly as new data becomes available and market questions resolve over time, allowing us to continuously track forecasting performance.</p>
 
-<p>To construct the performance ranking, we evaluate forecasters separately on market questions and dataset questions. The overall ranking combines these scores, equally weighting performance by question type. As a result, the overall ranking provides a comprehensive assessment of forecasting ability across both structured time-series data (dataset questions) and real-world events (market questions).</p>
+<p>To construct the performance ranking, we evaluate forecasters separately on market questions and dataset questions. The overall ranking combines these scores, equally weighting performance by question type, and transforming the score to a <a href="https://forecastingresearch.substack.com/p/introducing-the-brier-index" class="no-wrap">Brier Index <i class="fa-solid fa-arrow-up-right-from-square"></i></a> for interpretability. As a result, the overall ranking provides a comprehensive assessment of forecasting ability across both structured time-series data (dataset questions) and real-world events (market questions).</p>
       </div>
   </div>
 </section>
@@ -29,6 +29,10 @@ footer_scripts:
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
       <h1 class="site-feature-row__title">Blog</h1>
+      <div class="blog-entry">
+        <a href="https://forecastingresearch.substack.com/p/introducing-the-brier-index" class="blog-entry__title">Making Forecasting Scores Easier to Interpret: Introducing the Brier Index <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        <p class="blog-entry__meta"><span class="blog-date">2026-03-04</span> · A simple transformation that makes the Brier score intuitive.</p>
+      </div>
       <div class="blog-entry">
         <a href="https://forecastingresearch.substack.com/p/llms-are-closing-the-gap-on-human" class="blog-entry__title">LLMs Are Closing the Gap on Human Superforecasters <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
         <p class="blog-entry__meta"><span class="blog-date">2026-01-29</span> · We opened our AI forecasting benchmark to external submissions. Here's what happened.</p>

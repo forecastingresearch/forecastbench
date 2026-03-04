@@ -26,9 +26,9 @@ after_footer_scripts:
 header:
   overlay_color: "#171e29"
 excerpt: "A dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
-featured:
-featured_link:
-featured_date:
+featured: "Scoring with the<br>Brier Index"
+featured_link: "https://forecastingresearch.substack.com/p/introducing-the-brier-index"
+featured_date: "Mar 4, 2026"
 ---
 
 <!-- Baseline leaderboard Section with Background -->
