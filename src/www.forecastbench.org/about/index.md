@@ -29,8 +29,18 @@ footer_scripts:
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
       <h1 class="site-feature-row__title">Blog</h1>
-      <p><strong>Re-introduction</strong>. For a high-level overview of ForecastBench, including motivation, key design decisions, and early results, see our <a href="https://forecastingresearch.substack.com/p/ai-llm-forecasting-model-forecastbench-benchmark">re-introductory blog post <i class="fa-solid fa-arrow-up-right-from-square"></i></a> on the <a href="https://forecastingresearch.substack.com/">Forecasting Research Institute Substack <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
-      <p><strong>Evaluate your LLM</strong>. To learn more about testing your LLM's forecasting ability on ForecastBench, see our <a href="https://forecastingresearch.substack.com/p/put-your-ai-forecaster-to-the-test">blog post about creating submissions<i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
+      <div class="blog-entry">
+        <a href="https://forecastingresearch.substack.com/p/llms-are-closing-the-gap-on-human" class="blog-entry__title">LLMs Are Closing the Gap on Human Superforecasters <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        <p class="blog-entry__meta"><span class="blog-date">2026-01-29</span> · We opened our AI forecasting benchmark to external submissions. Here's what happened.</p>
+      </div>
+      <div class="blog-entry">
+        <a href="https://forecastingresearch.substack.com/p/put-your-ai-forecaster-to-the-test" class="blog-entry__title">Put Your AI Forecaster to the Test on ForecastBench <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        <p class="blog-entry__meta"><span class="blog-date">2025-10-28</span> · Our LLM forecasting accuracy benchmark is now open to public submissions. Here's how to submit your model.</p>
+      </div>
+      <div class="blog-entry">
+        <a href="https://forecastingresearch.substack.com/p/ai-llm-forecasting-model-forecastbench-benchmark" class="blog-entry__title">How Well Can Large Language Models Predict the Future? <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        <p class="blog-entry__meta"><span class="blog-date">2025-10-08</span> · We've released an updated version of ForecastBench. Here's what the results reveal about the accuracy of state-of-the-art models.</p>
+      </div>
     </div>
   </div>
 </section>

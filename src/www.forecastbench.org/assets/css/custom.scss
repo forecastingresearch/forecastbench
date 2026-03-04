@@ -1399,6 +1399,28 @@ input[type="checkbox"]:checked + .toggle-slider:before {
     font-size: 0.4rem;
   }
 }
+/* Blog post entries */
+.blog-entry {
+  margin-bottom: 1.25rem;
+}
+
+.blog-entry__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.blog-entry__meta {
+  font-size: 0.7rem !important;
+  color: #64748b;
+  margin: 0 !important;
+}
+
+.blog-date {
+  font-family: "Courier New", Courier, monospace;
+}
+
 /*
  * End team section styles
  */
