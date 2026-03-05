@@ -198,6 +198,15 @@ def get_org_logo(org: str) -> str:
 
 MODELS_TO_RUN = {
     # oai context window from: https://platform.openai.com/docs/models/
+    "gpt-5.4-2026-03-05": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-5.4-2026-03-05",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+    },
     "gpt-5.2-2025-12-11": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -335,6 +344,12 @@ MODELS_TO_RUN = {
         "source": GOOGLE_SOURCE,
         "org": GOOGLE_ORG,
         "full_name": "gemini-3.1-pro-preview",
+        "token_limit": 1048576,
+    },
+    "gemini-3.1-flash-lite-preview": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "gemini-3.1-flash-lite-preview",
         "token_limit": 1048576,
     },
     "gemini-2.5-pro": {

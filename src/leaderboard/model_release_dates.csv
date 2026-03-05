@@ -154,6 +154,8 @@ GPT-5.1-2025-11-13 (zero shot with freeze values),2025-11-13
 GPT-5.1-2025-11-13 (zero shot),2025-11-13
 GPT-5.2-2025-12-11 (zero shot with freeze values),2025-12-11
 GPT-5.2-2025-12-11 (zero shot),2025-12-11
+GPT-5.4-2026-03-05 (zero shot with freeze values),2026-03-05
+GPT-5.4-2026-03-05 (zero shot),2026-03-05
 Gemini-1.5-Flash (scratchpad with freeze values),2024-05-01
 Gemini-1.5-Flash (scratchpad with news with freeze values),2024-05-01
 Gemini-1.5-Flash (scratchpad with news),2024-05-01
@@ -186,6 +188,8 @@ Gemini-2.5-Flash-Preview-04-17 (zero shot with freeze values),2025-04-17
 Gemini-2.5-Flash-Preview-04-17 (zero shot),2025-04-17
 Gemini-3-Flash-Preview (zero shot with freeze values),2025-12-17
 Gemini-3-Flash-Preview (zero shot),2025-12-17
+Gemini-3-1-Flash-Lite-Preview (zero shot with freeze values),2026-03-03
+Gemini-3-1-Flash-Lite-Preview (zero shot),2026-03-03
 Gemini-2.5-Pro (scratchpad with freeze values),2025-06-17
 Gemini-2.5-Pro (scratchpad),2025-06-17
 Gemini-2.5-Pro (zero shot with freeze values),2025-06-17
