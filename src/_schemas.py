@@ -43,7 +43,7 @@ class ResolutionFrame(pa.DataFrameModel):
 
     id: Series[str]
     date: Series[str]
-    value: Series[object]
+    value: Series[object] = pa.Field(nullable=True)
 
     class Config:
         """Schema configuration."""
