@@ -196,6 +196,11 @@ def load_question_bank(sources_to_get: list[str] | None = None) -> QuestionBank:
     if any_out_of_date_dfq:
         raise ValueError("Market-based dfq files need updating.")
 
+    question_bank = _build_question_bank(sources_to_get)
+    return question_bank
+
+def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
+    """Read question and resolution DataFrames from disk."""
     local_question_bank_dir = _get_local_file_dir(bucket=env.QUESTION_BANK_BUCKET)
     question_bank: QuestionBank = {}
 
