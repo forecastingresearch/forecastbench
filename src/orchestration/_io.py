@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import re
-import sys
 import tempfile
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -18,12 +17,10 @@ import pandas as pd
 from termcolor import colored
 
 from _types import QuestionBank, SourceQuestionBank
-from helpers_new import constants, dates, env
+from helpers_new import constants, dates, env, git, keys
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from utils import gcp  # noqa: E402
+from utils import archiving, gcp
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -62,8 +59,6 @@ def _get_local_file_dir(bucket: str) -> str:
     local_dir = "/tmp"
     if env.RUNNING_LOCALLY:
         return f"{local_dir}/{bucket}"
-
-    from utils import archiving  # noqa: E402
 
     filename = f"{bucket}.tar.gz"
     local_filename = f"{local_dir}/{filename}"
@@ -413,11 +408,6 @@ def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set
     )
     logger.info(f"Uploaded Resolution File {local_filename} to {upload_folder}.")
 
-    from helpers_new import keys  # noqa: E402
-
-    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-    from helpers import git  # noqa: E402
-
     mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
     mirrors = [mirrors] if mirrors else []
     git.clone_and_push_files(
@@ -439,19 +429,4 @@ def upload_processed_forecast_file(data: dict, forecast_due_date: str, filename:
         local_filename=local_filename,
         filename=filename,
     )
-
-
-# ---------------------------------------------------------------------------
-# Slack notifications
-# ---------------------------------------------------------------------------
-
-
-def send_resolve_warnings(warnings: list[str]):
-    """Send resolve warning messages via Slack."""
-    if not warnings:
-        return
-    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-    from helpers import slack  # noqa: E402
-
-    for message in warnings:
-        slack.send_message(message=message)
+    

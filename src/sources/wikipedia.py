@@ -320,7 +320,7 @@ class WikipediaSource(DataSource):
 
     def _resolve_single_question(self, mid, dfr, forecast_due_date, resolution_date):
         """Resolve an individual Wikipedia question by comparing values at two dates.
-        
+
         Nullification is handled by
         BaseSource.resolve() which strips nullified rows before calling _resolve().
         """
