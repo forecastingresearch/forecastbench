@@ -1,7 +1,4 @@
-"""Prepare and validate forecast files for resolution.
-
-Port of resolve_forecasts/main.py lines 497-596 and 421-462.
-"""
+"""Prepare and validate forecast files for resolution."""
 
 from __future__ import annotations
 

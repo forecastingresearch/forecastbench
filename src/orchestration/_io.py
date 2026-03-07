@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Filename generation (port of data_utils.generate_filenames)
+# Filename generation
 # ---------------------------------------------------------------------------
 
 
@@ -47,7 +47,7 @@ def _generate_filenames(source: str) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Local directory / GCS-FUSE mount (port of data_utils.get_local_file_dir)
+# Local directory / GCS-FUSE mount
 # ---------------------------------------------------------------------------
 
 
@@ -82,8 +82,7 @@ def _get_local_file_dir(bucket: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Question bank loading (port of resolution.get_resolution_values +
-#                         resolution.get_and_unpack_question_bank)
+# Question bank loading
 # ---------------------------------------------------------------------------
 
 
@@ -97,10 +96,7 @@ def _get_last_modified_time_of_dfq(source: str):
 
 
 def _read_acled_dfr(local_question_bank_dir: str) -> pd.DataFrame:
-    """Read ACLED fetch file and prepare dfr.
-
-    Port of helpers/acled.py:read_dff() + download_dff_and_prepare_dfr().
-    """
+    """Read ACLED fetch file and prepare the resolution DataFrame."""
     acled_fetch_column_dtype = {
         "event_id_cnty": str,
         "event_date": str,
@@ -199,6 +195,7 @@ def load_question_bank(sources_to_get: list[str] | None = None) -> QuestionBank:
     question_bank = _build_question_bank(sources_to_get)
     return question_bank
 
+
 def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
     """Read question and resolution DataFrames from disk."""
     local_question_bank_dir = _get_local_file_dir(bucket=env.QUESTION_BANK_BUCKET)
@@ -282,10 +279,7 @@ def load_hash_mapping(source: BaseSource, source_name: str) -> None:
 
 
 def download_question_set_file(filename: str) -> pd.DataFrame:
-    """Download and read a question set file.
-
-    Port of resolution.download_and_read_question_set_file().
-    """
+    """Download and read a question set file from GCS."""
     with tempfile.NamedTemporaryFile(dir="/tmp/", delete=False) as tmp:
         local_filename = tmp.name
     gcp.storage.download(
@@ -320,10 +314,7 @@ def get_valid_forecast_files_and_dates(
     bucket: str,
     only_keep_date: str = "",
 ) -> Tuple[List[str], List[str]]:
-    """Return valid forecast filenames and date folders.
-
-    Port of resolution.get_valid_forecast_files_and_dates().
-    """
+    """Return valid forecast filenames and date folders from GCS."""
     files = gcp.storage.list(bucket_name=bucket, mnt=env.BUCKET_MOUNT_POINT)
     files = [
         f
@@ -350,10 +341,7 @@ def get_valid_forecast_files_and_dates(
 
 
 def read_forecast_file(filename: str) -> Optional[Dict[str, Any]]:
-    """Read a forecast JSON file and validate its content.
-
-    Port of resolution.read_forecast_file().
-    """
+    """Read a forecast JSON file and validate its content."""
     logger.info(f"Reading forecast file {filename}")
 
     with open(filename, "r", encoding="utf-8") as f:
@@ -402,10 +390,7 @@ def read_forecast_file(filename: str) -> Optional[Dict[str, Any]]:
 
 
 def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set_filename: str):
-    """Upload resolution set to GCS and push to git.
-
-    Port of main.py:upload_resolution_set().
-    """
+    """Upload resolution set to GCS and push to git."""
     basename = f"{forecast_due_date}_resolution_set.json"
     local_filename = f"/tmp/{basename}"
     df = df[["id", "source", "direction", "resolution_date", "resolved_to", "resolved"]]
@@ -444,10 +429,7 @@ def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set
 
 
 def upload_processed_forecast_file(data: dict, forecast_due_date: str, filename: str):
-    """Upload processed forecast file to GCS.
-
-    Port of main.py:upload_processed_forecast_file().
-    """
+    """Upload processed forecast file to GCS."""
     local_filename = "/tmp/tmp.json"
     with open(local_filename, "w") as f:
         f.write(json.dumps(data, indent=4))

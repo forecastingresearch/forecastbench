@@ -1,8 +1,8 @@
-"""Shared types used across multiple modules."""
+"""Shared types used across modules."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from enum import Enum, auto
 
@@ -45,43 +45,3 @@ class SourceQuestionBank:
 
 
 QuestionBank = dict[str, SourceQuestionBank]
-"""Full question bank: {source_name: SourceQuestionBank}."""
-
-
-@dataclass
-class UpdateResult:
-    """Return value of every source's update() method.
-
-    Makes all outputs explicit so orchestration can handle IO.
-    """
-
-    dfq: pd.DataFrame  # QuestionFrame
-    resolution_files: dict[str, pd.DataFrame] | None = None  # {question_id: ResolutionFrame}
-    hash_mapping: dict[str, dict] | None = None  # updated mapping, if source uses one
-
-
-@dataclass
-class QuestionSamplingConfig:
-    """Configuration for question set creation."""
-
-    num_llm_questions: int = 500
-    num_human_questions: int = 200
-    freeze_window_days: int = 10
-    forecast_horizons: list[int] = field(default_factory=list)
-
-
-@dataclass
-class QuestionSetResult:
-    """Return value of question sampling."""
-
-    llm_question_set: dict  # full JSON structure
-    human_question_set: dict
-
-
-@dataclass
-class LeaderboardResult:
-    """Return value of leaderboard computation."""
-
-    tables: dict[str, pd.DataFrame]
-    html_assets: dict[str, str]  # filename: html_content
-    csv_assets: dict[str, str]  # filename: csv_content

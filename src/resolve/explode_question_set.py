@@ -1,7 +1,4 @@
-"""Explode a question set into one row per (question x resolution_date x direction).
-
-Port of resolve_forecasts/main.py:get_resolutions_for_llm_question_set() lines 234-276.
-"""
+"""Explode a question set into one row per (question x resolution_date x direction)."""
 
 from __future__ import annotations
 

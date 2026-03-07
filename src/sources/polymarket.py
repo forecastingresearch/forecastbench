@@ -7,22 +7,15 @@ from typing import ClassVar
 from _types import NullifiedQuestion, SourceType
 from helpers_new.constants import BENCHMARK_START_DATE_DATETIME_DATE
 
-from ._base import MarketSource
+from ._market import MarketSource
 
 
 class PolymarketSource(MarketSource):
-    """Polymarket prediction market source — inherits standard market resolution."""
+    """Polymarket prediction market source."""
 
     name: ClassVar[str] = "polymarket"
     display_name: ClassVar[str] = "Polymarket"
     source_type: ClassVar[SourceType] = SourceType.MARKET
-    source_intro: ClassVar[str] = (
-        "We would like you to predict the outcome of a prediction market. A prediction market, "
-        "in this context, is the aggregate of predictions submitted by users on the website "
-        "Polymarket. You're going to predict the probability that the market will resolve "
-        "as 'Yes'."
-    )
-    resolution_criteria: ClassVar[str] = "Resolves to the outcome of the question found at {url}."
     nullified_questions: ClassVar[list[NullifiedQuestion]] = [
         NullifiedQuestion(
             id="0x525820c5314f4143091d05079a8d810ecc07c8d5c8954ec2e6b6e163e40de9cb",
