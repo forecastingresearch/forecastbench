@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class BaseSource(ABC):
     """Abstract base for every question source.
-    
+
     Identity ClassVars are set on concrete subclasses.
     """
 

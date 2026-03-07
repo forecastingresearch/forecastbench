@@ -44,7 +44,7 @@ RESOLUTION_FILE_COLUMN_DTYPE = {
     "date": str,
 }
 
-# value is not included in dytpe because it's of type ANY
+# value is not included in dtype because it's of type ANY
 RESOLUTION_FILE_COLUMNS = list(RESOLUTION_FILE_COLUMN_DTYPE.keys()) + ["value"]
 
 
