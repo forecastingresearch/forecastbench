@@ -14,8 +14,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
+import pandera.pandas as pa
 from termcolor import colored
 
+from _schemas import QuestionFrame, ResolutionFrame
 from _types import QuestionBank, SourceQuestionBank
 from helpers_new import constants, dates, env, git, keys
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
@@ -197,20 +199,13 @@ def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
     question_bank: QuestionBank = {}
 
     # Load question DataFrames
-    dtype = constants.QUESTION_FILE_COLUMN_DTYPE
     for source in sources_to_get:
         filenames = _generate_filenames(source)
         source_question_file = filenames.get("jsonl_question")
         local_filename = f"{local_question_bank_dir}/{source_question_file}"
-        df = pd.read_json(
-            local_filename,
-            lines=True,
-            dtype=dtype,
-            convert_dates=False,
-        )
-        assert not df.empty, f"Could not read {local_filename}"
-        dtype_modified = {k: v for k, v in dtype.items() if k in df.columns}
-        dfq = df.astype(dtype=dtype_modified) if dtype_modified else df
+        dfq = pd.read_json(local_filename, lines=True, convert_dates=False)
+        assert not dfq.empty, f"Could not read {local_filename}"
+        dfq = QuestionFrame.validate(dfq)
         question_bank[source] = SourceQuestionBank(dfq=dfq, dfr=pd.DataFrame())
 
     # Load resolution DataFrames
@@ -225,22 +220,16 @@ def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
                 for filename in filenames_list
                 if "hash_mapping.json" not in filename
             ]
-            df_list = [
-                pd.read_json(
-                    f,
-                    lines=True,
-                    dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
-                    convert_dates=False,
-                )
-                for f in files
-            ]
-            df_list = [
-                df for df in df_list if set(df.columns) == set(constants.RESOLUTION_FILE_COLUMNS)
-            ]
-            assert len(df_list) > 0, f"Could not find a resolution file for {source}."
-            dfr = pd.concat(df_list, ignore_index=True)
+            validated = []
+            for f in files:
+                raw = pd.read_json(f, lines=True, convert_dates=False)
+                try:
+                    validated.append(ResolutionFrame.validate(raw))
+                except pa.errors.SchemaError:
+                    continue
+            assert len(validated) > 0, f"Could not find a resolution file for {source}."
+            dfr = pd.concat(validated, ignore_index=True)
             dfr["date"] = pd.to_datetime(dfr["date"])
-            dfr["id"] = dfr["id"].astype(str)
             question_bank[source].dfr = dfr
 
     logger.info("Done!")
@@ -429,4 +418,3 @@ def upload_processed_forecast_file(data: dict, forecast_due_date: str, filename:
         local_filename=local_filename,
         filename=filename,
     )
-    

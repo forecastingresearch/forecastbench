@@ -23,30 +23,6 @@ FORECAST_HORIZONS_IN_DAYS = [
     3650,  # 10 years
 ]
 
-QUESTION_FILE_COLUMN_DTYPE = {
-    "id": str,
-    "question": str,
-    "background": str,
-    "url": str,
-    "resolved": bool,
-    "forecast_horizons": object,
-    "freeze_datetime_value": str,
-    "freeze_datetime_value_explanation": str,
-    "market_info_resolution_criteria": str,
-    "market_info_open_datetime": str,
-    "market_info_close_datetime": str,
-    "market_info_resolution_datetime": str,
-}
-QUESTION_FILE_COLUMNS = list(QUESTION_FILE_COLUMN_DTYPE.keys())
-
-RESOLUTION_FILE_COLUMN_DTYPE = {
-    "id": str,
-    "date": str,
-}
-
-# value is not included in dtype because it's of type ANY
-RESOLUTION_FILE_COLUMNS = list(RESOLUTION_FILE_COLUMN_DTYPE.keys()) + ["value"]
-
 
 class RunMode(str, Enum):
     """Run modes for code execution.
