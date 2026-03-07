@@ -12,7 +12,7 @@ TL;DR of the nightly workflow is, in sequential order:
 
 1. Pull in new questions and resolution values from forecasting platforms and datasets (code `src/questions/`)
 2. Generate question metadata (invalidate and tag questions) (code `src/metadata/`)
-3. Resolve forecast files (code `src/resolve_forecasts/`)
+3. Resolve forecast files (code `src/resolve/`)
 4. Create leaderboard (code `src/leaderboard/`)
 5. Create website (code `src/www.forecastbench.org/`)
 
@@ -33,7 +33,7 @@ Every two weeks, on the forecast due date, forecasts are generated with the code
 │   ├── metadata/                 # Generate metadata: categorize and validate forecast questions that have been pulled in
 │   ├── nightly_update_workflow/  # Orchestrate the nightly runs on GCP
 │   ├── questions/                # Pull questions and resolution values into the system
-│   ├── resolve_forecasts/        # Resolve forecast files
+│   ├── resolve/                   # Resolve forecast files
 │   └── www.forecastbench.org/    # Jekyll website
 ```
 

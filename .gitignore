@@ -24,7 +24,7 @@ src/metadata/tag_questions/Dockerfile
 src/questions/polymarket/fetch/Dockerfile
 src/curate_questions/publish_question_set/Dockerfile
 src/leaderboard/Dockerfile
-src/resolve_forecasts/Dockerfile
+src/orchestration/func_resolve/Dockerfile
 .gcloudignore
 tmp.yaml
 Procfile

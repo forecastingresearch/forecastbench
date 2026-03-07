@@ -5,3 +5,5 @@ tqdm
 requests
 bs4
 backoff
+pandera
+termcolor

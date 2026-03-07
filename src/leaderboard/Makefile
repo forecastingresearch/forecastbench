@@ -25,6 +25,12 @@ deploy : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudigno
 	mkdir -p $(LEADERBOARD_UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(LEADERBOARD_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(LEADERBOARD_UPLOAD_DIR)/
+	cp -r $(ROOT_DIR)src/sources $(LEADERBOARD_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_fb_types.py $(LEADERBOARD_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_schemas.py $(LEADERBOARD_UPLOAD_DIR)/
+	mkdir -p $(LEADERBOARD_UPLOAD_DIR)/orchestration
+	cp $(ROOT_DIR)src/orchestration/__init__.py $(LEADERBOARD_UPLOAD_DIR)/orchestration/
+	cp $(ROOT_DIR)src/orchestration/_io.py $(LEADERBOARD_UPLOAD_DIR)/orchestration/
 	cp $^ $(LEADERBOARD_UPLOAD_DIR)/
 	gcloud run jobs deploy \
 		func-leaderboard \
@@ -51,6 +57,12 @@ deploy-dataset : main.py requirements.txt Dockerfile model_release_dates.csv .gc
 	mkdir -p $(DATASET_UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(DATASET_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(DATASET_UPLOAD_DIR)/
+	cp -r $(ROOT_DIR)src/sources $(DATASET_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_fb_types.py $(DATASET_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_schemas.py $(DATASET_UPLOAD_DIR)/
+	mkdir -p $(DATASET_UPLOAD_DIR)/orchestration
+	cp $(ROOT_DIR)src/orchestration/__init__.py $(DATASET_UPLOAD_DIR)/orchestration/
+	cp $(ROOT_DIR)src/orchestration/_io.py $(DATASET_UPLOAD_DIR)/orchestration/
 	cp $^ $(DATASET_UPLOAD_DIR)/
 	gcloud run jobs deploy \
 		func-leaderboard-dataset \

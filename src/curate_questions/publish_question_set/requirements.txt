@@ -4,3 +4,5 @@ GitPython
 pandas>=2.2.2,<3.0
 tqdm
 scipy
+pandera
+termcolor

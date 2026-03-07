@@ -23,3 +23,4 @@ slack_sdk
 GitPython
 scipy
 termcolor
+pandera

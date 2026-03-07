@@ -1,5 +1,12 @@
 """FRED Question List."""
 
+import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+from sources.fred import NULLIFIED_IDS  # noqa: F401, E402
+
 SOURCE_INTRO = (
     "The Federal Reserve Economic Data database (FRED) provides economic data from national, "
     "international, public, and private sources.You're going to predict how questions based on "
@@ -7,10 +14,6 @@ SOURCE_INTRO = (
 )
 
 RESOLUTION_CRITERIA = "Resolves to the value found at {url} once the data is published."
-
-NULLIFIED_IDS = [
-    "AMERIBOR",
-]
 
 # flake8: noqa: B950
 

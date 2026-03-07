@@ -9,3 +9,4 @@ scipy
 google-genai>=1.20.0
 termcolor
 tqdm
+pandera

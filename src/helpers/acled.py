@@ -1,64 +1,52 @@
 """ACLED-specific variables."""
 
-import hashlib
-import json
-import os
-import sys
 from datetime import timedelta
 from enum import Enum
 
 import numpy as np
 import pandas as pd
 
-from . import data_utils, env
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
-from utils import gcp  # noqa: E402
+from . import data_utils
 
 source = "acled"
-hash_mapping = {}
-hash_filename = "hash_mapping.json"
-local_hash_filename = f"/tmp/{hash_filename}"
+
+# Lazy import to avoid circular imports at module level
+_source = None
+
+
+def _get_source():
+    global _source
+    if _source is None:
+        from sources import SOURCES
+
+        _source = SOURCES[source]
+    return _source
 
 
 def id_hash(d: dict) -> str:
     """Encode ACLED Ids."""
-    global hash_mapping
-    dictionary_json = json.dumps(d, sort_keys=True)
-    hash_key = hashlib.sha256(dictionary_json.encode()).hexdigest()
-    hash_mapping[hash_key] = d
-    return hash_key
+    return _get_source()._id_hash(d)
 
 
 def id_unhash(hash_key: str) -> tuple:
     """Decode ACLED Ids."""
-    return hash_mapping[hash_key] if hash_key in hash_mapping else None
+    return _get_source()._id_unhash(hash_key)
 
 
 def populate_hash_mapping():
-    """Download the hash_mapping from storage and load into global."""
-    global hash_mapping
-    remote_filename = f"{source}/{hash_filename}"
-    gcp.storage.download_no_error_message_on_404(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        filename=remote_filename,
-        local_filename=local_hash_filename,
-    )
-    if os.path.getsize(local_hash_filename) > 0:
-        with open(local_hash_filename, "r") as file:
-            hash_mapping = json.load(file)
+    """Download and load hash mapping into source singleton."""
+    from orchestration._io import load_hash_mapping
+
+    _get_source().populate_hash_mapping(load_hash_mapping(source))
 
 
 def upload_hash_mapping():
-    """Write and upload the hash_mapping to storage from global."""
-    with open(local_hash_filename, "w") as file:
-        json.dump(hash_mapping, file, indent=4)
+    """Dump and upload hash mapping from source singleton."""
+    from orchestration._io import upload_hash_mapping as _upload
 
-    gcp.storage.upload(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        local_filename=local_hash_filename,
-        destination_folder=source,
-    )
+    raw_json = _get_source().dump_hash_mapping()
+    if raw_json:
+        _upload(raw_json, source)
 
 
 FETCH_COLUMN_DTYPE = {
@@ -249,31 +237,6 @@ def get_base_comparison_value(key, dfr, country, col, ref_date):
             dfr=dfr, country=country, col=col, ref_date=ref_date
         )
     raise ValueError("Invalid key.")
-
-
-def resolve(
-    key,
-    dfr,
-    country,
-    event_type,
-    forecast_due_date,
-    resolution_date,
-):
-    """Resolve given the QuestionType."""
-    lhs = sum_over_past_30_days(
-        dfr=dfr,
-        country=country,
-        col=event_type,
-        ref_date=resolution_date,
-    )
-    rhs = get_base_comparison_value(
-        key=key,
-        dfr=dfr,
-        country=country,
-        col=event_type,
-        ref_date=forecast_due_date,
-    )
-    return int(lhs > rhs)
 
 
 def get_freeze_value(key, dfr, country, event_type, today):

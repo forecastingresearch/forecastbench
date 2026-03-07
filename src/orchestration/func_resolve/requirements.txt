@@ -7,3 +7,6 @@ GitPython
 scipy
 termcolor
 slack_sdk
+pandera
+pytz
+python-dateutil
