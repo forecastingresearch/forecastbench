@@ -1,4 +1,9 @@
-"""Pandera DataFrame schemas for cross-module data contracts."""
+"""Pandera DataFrame schemas for cross-module data contracts.
+
+Schemas with coerce=True are used as the type-casting step when reading data
+from disk: read loosely with pd.read_json, then call Schema.validate(df) to
+coerce columns to the declared types and catch structural problems early.
+"""
 
 from __future__ import annotations
 
@@ -26,24 +31,25 @@ class QuestionFrame(pa.DataFrameModel):
         """Schema configuration."""
 
         strict = False
-        coerce = False
+        coerce = True
 
 
 class ResolutionFrame(pa.DataFrameModel):
     """Per-question resolution time series.
 
-    `value` is intentionally untyped: float for markets and data, str or
-    int for some wikipedia pages.
+    `value` is typed as object because it can be float, str, or int
+    depending on the source.
     """
 
     id: Series[str]
     date: Series[str]
+    value: Series[object]
 
     class Config:
         """Schema configuration."""
 
         strict = False
-        coerce = False
+        coerce = True
 
 
 class AcledResolutionFrame(pa.DataFrameModel):
@@ -60,7 +66,7 @@ class AcledResolutionFrame(pa.DataFrameModel):
         """Schema configuration."""
 
         strict = False
-        coerce = False
+        coerce = True
 
 
 class MetadataFrame(pa.DataFrameModel):
@@ -75,7 +81,7 @@ class MetadataFrame(pa.DataFrameModel):
         """Schema configuration."""
 
         strict = False
-        coerce = False
+        coerce = True
 
 
 class ForecastFrame(pa.DataFrameModel):
@@ -91,13 +97,13 @@ class ForecastFrame(pa.DataFrameModel):
         """Schema configuration."""
 
         strict = False
-        coerce = False
+        coerce = True
 
 
 class ExplodedQuestionSetFrame(pa.DataFrameModel):
-    """The question set after explosion into one row per (question × resolution_date × combo_direction).
+    """One row per (question x resolution_date x combo_direction).
 
-    This is the input to resolve_all() and is produced by explode_question_set() in resolve/prepare.py.
+    Produced by explode_question_set(), consumed by resolve_all().
     """
 
     id: Series[object]  # str or tuple for combo
@@ -110,4 +116,4 @@ class ExplodedQuestionSetFrame(pa.DataFrameModel):
         """Schema configuration."""
 
         strict = False
-        coerce = False
+        coerce = True
