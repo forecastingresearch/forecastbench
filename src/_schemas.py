@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series
 
 # pandera >= 0.29 renamed SchemaModel to DataFrameModel
