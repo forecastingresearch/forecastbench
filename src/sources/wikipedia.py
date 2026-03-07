@@ -332,9 +332,8 @@ class WikipediaSource(DataSource):
     def _resolve_single_question(self, mid, dfr, forecast_due_date, resolution_date):
         """Resolve an individual Wikipedia question.
 
-        Port of helpers/wikipedia.py:resolve(). Note: nullification is handled by
-        BaseSource.resolve() before _resolve() is called, so we do NOT check
-        IDS_TO_NULLIFY here.
+        Port of helpers/wikipedia.py:resolve(). Nullification is handled by
+        BaseSource.resolve() which strips nullified rows before calling _resolve().
         """
         mid = self._transform_id(mid)
         d = self._id_unhash(mid)
