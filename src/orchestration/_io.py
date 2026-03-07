@@ -318,6 +318,7 @@ def download_question_set_file(filename: str) -> pd.DataFrame:
 
 def get_valid_forecast_files_and_dates(
     bucket: str,
+    only_keep_date: str = "",
 ) -> Tuple[List[str], List[str]]:
     """Return valid forecast filenames and date folders.
 
@@ -329,6 +330,9 @@ def get_valid_forecast_files_and_dates(
         for f in files
         if f.endswith(".json") and not f.startswith(constants.TEST_FORECAST_FILE_PREFIX)
     ]
+    if only_keep_date:
+        filtered = [f for f in files if f.startswith(only_keep_date)]
+        return filtered, [only_keep_date]
 
     date_folders = set()
     for f in files:
