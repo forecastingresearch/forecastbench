@@ -58,15 +58,25 @@ class BaseSource(ABC):
     ) -> pd.DataFrame:
         """Resolve questions for this source.
 
-        Handles nullification, then delegates to _resolve().
+        Nullified rows are removed before _resolve() so source-specific logic never sees them,
+        then added back with resolved_to=NaN afterward.
         """
         nullified_ids = self.get_nullified_ids(as_of=as_of)
         if nullified_ids:
-            mask = df["id"].isin(nullified_ids) & (df["source"] == self.name)
-            df.loc[mask, "resolved_to"] = np.nan
-            df.loc[mask, "resolved"] = True
+            null_mask = self._nullification_mask(df, nullified_ids)
+            df_nullified = df[null_mask].copy()
+            df = df[~null_mask]
+        else:
+            df_nullified = None
 
-        return self._resolve(df, dfq, dfr)
+        df = self._resolve(df, dfq, dfr)
+
+        if df_nullified is not None and not df_nullified.empty:
+            df_nullified["resolved_to"] = np.nan
+            df_nullified["resolved"] = True
+            df = pd.concat([df, df_nullified], ignore_index=True)
+
+        return df
 
     def get_nullified_ids(self, as_of: date | None = None) -> set[str]:
         """Return IDs that are nullified as of the given date."""
@@ -75,6 +85,19 @@ class BaseSource(ABC):
         if as_of is None:
             return {nq.id for nq in self.nullified_questions}
         return {nq.id for nq in self.nullified_questions if nq.nullification_start_date <= as_of}
+
+    @staticmethod
+    def _id_is_nullified(id_val, nullified_ids: set[str]) -> bool:
+        """Check whether a question ID (single or combo tuple) is nullified."""
+        if isinstance(id_val, tuple):
+            return any(sub_id in nullified_ids for sub_id in id_val)
+        return id_val in nullified_ids
+
+    def _nullification_mask(self, df: pd.DataFrame, nullified_ids: set[str]) -> pd.Series:
+        """Build a mask for rows that should be nullified, including combo questions."""
+        return df["id"].apply(self._id_is_nullified, nullified_ids=nullified_ids) & (
+            df["source"] == self.name
+        )
 
     # ------------------------------------------------------------------
     # Abstract methods
