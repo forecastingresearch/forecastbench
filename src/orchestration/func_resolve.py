@@ -1,7 +1,4 @@
-"""Resolve forecasts — refactored entry point.
-
-Port of resolve_forecasts/main.py:driver().
-"""
+"""Resolve forecasts entry point."""
 
 from __future__ import annotations
 

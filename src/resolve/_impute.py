@@ -1,7 +1,4 @@
-"""Impute missing forecasts.
-
-Port of resolve_forecasts/main.py:impute_missing_forecasts() lines 376-418.
-"""
+"""Impute missing forecasts."""
 
 from __future__ import annotations
 

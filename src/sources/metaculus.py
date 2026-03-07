@@ -6,18 +6,12 @@ from typing import ClassVar
 
 from _types import SourceType
 
-from ._base import MarketSource
+from ._market import MarketSource
 
 
 class MetaculusSource(MarketSource):
-    """Metaculus prediction market source — inherits standard market resolution."""
+    """Metaculus prediction market source."""
 
     name: ClassVar[str] = "metaculus"
     display_name: ClassVar[str] = "Metaculus"
     source_type: ClassVar[SourceType] = SourceType.MARKET
-    source_intro: ClassVar[str] = (
-        "We would like you to predict the outcome of a prediction market. A prediction market, "
-        "in this context, is the aggregate of predictions submitted by users on the website "
-        "Metaculus. You're going to predict the probability that the market will resolve as 'Yes'."
-    )
-    resolution_criteria: ClassVar[str] = "Resolves to the outcome of the question found at {url}."

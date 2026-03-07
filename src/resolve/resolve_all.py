@@ -1,7 +1,4 @@
-"""Resolve all questions across sources.
-
-Port of resolve_forecasts/main.py:resolve_questions() lines 127-195.
-"""
+"""Resolve all questions across sources."""
 
 from __future__ import annotations
 

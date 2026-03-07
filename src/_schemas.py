@@ -5,16 +5,9 @@ from __future__ import annotations
 import pandera.pandas as pa
 from pandera.typing import Series
 
-# pandera >= 0.29 renamed SchemaModel to DataFrameModel
-_BaseModel = getattr(pa, "SchemaModel", None) or pa.DataFrameModel
 
-
-class QuestionFrame(_BaseModel):
-    """Output of every source's update().
-
-    The 12-column canonical question schema.
-    From: src/helpers/constants.py QUESTION_FILE_COLUMNS.
-    """
+class QuestionFrame(pa.DataFrameModel):
+    """Output of every source's update()."""
 
     id: Series[str]
     question: Series[str]
@@ -36,13 +29,11 @@ class QuestionFrame(_BaseModel):
         coerce = False
 
 
-class ResolutionFrame(_BaseModel):
+class ResolutionFrame(pa.DataFrameModel):
     """Per-question resolution time series.
 
-    Used by all sources except ACLED (which uses AcledResolutionFrame).
     `value` is intentionally untyped: float for markets and data, str or
     int for some wikipedia pages.
-    From: src/helpers/constants.py RESOLUTION_FILE_COLUMNS.
     """
 
     id: Series[str]
@@ -55,12 +46,11 @@ class ResolutionFrame(_BaseModel):
         coerce = False
 
 
-class AcledResolutionFrame(_BaseModel):
+class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 
     One column per event type plus fatalities. Columns are dynamic so
     strict=False.
-    From: src/helpers/acled.py read_dff() output.
     """
 
     country: Series[str]
@@ -73,11 +63,8 @@ class AcledResolutionFrame(_BaseModel):
         coerce = False
 
 
-class MetadataFrame(_BaseModel):
-    """Question metadata produced by tag() and validate().
-
-    From: src/helpers/constants.py META_DATA_FILE_COLUMNS.
-    """
+class MetadataFrame(pa.DataFrameModel):
+    """Question metadata produced by tag() and validate()."""
 
     source: Series[str]
     id: Series[str]
@@ -91,7 +78,7 @@ class MetadataFrame(_BaseModel):
         coerce = False
 
 
-class ForecastFrame(_BaseModel):
+class ForecastFrame(pa.DataFrameModel):
     """What forecasters submit (and what naive/dummy forecasters produce)."""
 
     id: Series[object]  # str or tuple for combo
@@ -107,11 +94,10 @@ class ForecastFrame(_BaseModel):
         coerce = False
 
 
-class ExplodedQuestionSetFrame(_BaseModel):
-    """The question set after explosion into one row per (question x resolution_date x direction).
+class ExplodedQuestionSetFrame(pa.DataFrameModel):
+    """The question set after explosion into one row per (question × resolution_date × combo_direction).
 
-    This is the input to resolve_all() and is produced by explode_question_set().
-    From: src/resolve_forecasts/main.py lines 218-287 (get_resolutions_for_llm_question_set).
+    This is the input to resolve_all() and is produced by explode_question_set() in resolve/prepare.py.
     """
 
     id: Series[object]  # str or tuple for combo
