@@ -17,7 +17,7 @@ import pandas as pd
 import pandera.pandas as pa
 from termcolor import colored
 
-from _schemas import QuestionFrame, ResolutionFrame
+from _schemas import AcledResolutionFrame, QuestionFrame, ResolutionFrame
 from _types import QuestionBank, SourceQuestionBank
 from helpers_new import constants, dates, env, git, keys
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
@@ -137,6 +137,7 @@ def _read_acled_dfr(local_question_bank_dir: str) -> pd.DataFrame:
         .reset_index()
     )
 
+    dfr = AcledResolutionFrame.validate(dfr)
     return dfr
 
 
