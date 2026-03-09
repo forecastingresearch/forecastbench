@@ -33,4 +33,20 @@ class PolymarketSource(MarketSource):
             id="0x738a551b7e2680669ea268911b2dc2079d156c350e40dc847d2a00eb0c57cfc2",
             nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
         ),
+        NullifiedQuestion(
+            id="0x0edd688013e4d08dd5367b9171bf85c6df73f2a4f561ed3c8ce004271c8278b7",
+            nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+        ),
+        NullifiedQuestion(
+            id="0x42b4e02c1e95ca7b5e8610c3c1fad1dff6c0a46d01de6ae12565df026e3fc5a6",
+            nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+        ),
+        NullifiedQuestion(
+            id="0x4afb076c5d9dfe1c33bf300cfd9fb93a5a8d9bfce8fe2beaeccbde5f8c269fc1",
+            nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+        ),
+        NullifiedQuestion(
+            id="0x5642824719fa2e4d164de9a9ddaa1b5ca4f6fc57483eb222bec54082ad0bb57c",
+            nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+        ),
     ]
