@@ -67,6 +67,13 @@ class BaseSource(ABC):
         else:
             df_nullified = None
 
+        if df[df["source"] == self.name].empty:
+            if df_nullified is not None and not df_nullified.empty:
+                df_nullified["resolved_to"] = np.nan
+                df_nullified["resolved"] = True
+                df = pd.concat([df, df_nullified], ignore_index=True)
+            return df
+
         df = self._resolve(df, dfq, dfr)
 
         if df_nullified is not None and not df_nullified.empty:
