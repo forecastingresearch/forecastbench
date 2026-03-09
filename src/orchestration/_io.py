@@ -126,6 +126,7 @@ def _read_acled_dfr(local_question_bank_dir: str) -> pd.DataFrame:
         return date_str
 
     df["event_date"] = df["event_date"].apply(fix_year_prefix)
+    df = AcledResolutionFrame.validate(df)
     df["event_date"] = pd.to_datetime(df["event_date"])
 
     df = df[["country", "event_date", "event_type", "fatalities"]].copy()
@@ -137,7 +138,6 @@ def _read_acled_dfr(local_question_bank_dir: str) -> pd.DataFrame:
         .reset_index()
     )
 
-    dfr = AcledResolutionFrame.validate(dfr)
     return dfr
 
 
