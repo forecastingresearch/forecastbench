@@ -173,14 +173,14 @@ def get_org_logo(org: str) -> str:
 
     The function first checks internal benchmark organizations, then external
     tournament participants, and finally handles anonymous teams. If no match
-    is found, it returns the original input string.
+    is found, it returns a default placeholder logo.
 
     Args:
         org (str): The name of the organization or team.
 
     Returns:
-        str: The corresponding logo filename or the original organization name
-             if no logo mapping is found.
+        str: The corresponding logo filename, or "default.svg" if no logo
+             mapping is found.
     """
     if org in ORG_TO_LOGO.keys():
         return ORG_TO_LOGO[org]
@@ -194,7 +194,7 @@ def get_org_logo(org: str) -> str:
         if num >= 1:
             return f"anonymous_{num}.svg"
 
-    return org
+    return "default.svg"
 
 
 MODELS_TO_RUN = {

@@ -35,7 +35,7 @@ from utils import gcp  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DELAY_IN_DAYS_BEFORE_FIRST_RESOLOUTION = 14
+DELAY_IN_DAYS_BEFORE_FIRST_RESOLOUTION = 10
 
 required_forecast_file_keys = [
     "organization",

@@ -40,13 +40,15 @@ logger = logging.getLogger(__name__)
 class LeaderboardType(str, Enum):
     """Enumeration of leaderboard types.
 
-    This enum distinguishes between the two supported leaderboard variants:
+    This enum distinguishes between the supported leaderboard variants:
     * BASELINE: The baseline leaderboard: FB forecast files w/o freeze values.
     * TOURNAMENT: The tournament leaderboard. All forecast files.
+    * DATASET: The dataset-only leaderboard.
     """
 
     BASELINE = "baseline"
     TOURNAMENT = "tournament"
+    DATASET = "dataset"
 
 
 LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %-d, %Y")
@@ -75,8 +77,7 @@ LEADERBOARD_DECIMAL_PLACES = 1
 
 IMPUTED_CUTOFF_PCT = 5
 
-MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED = 50
-MIN_NUM_MARKET_QUESTIONS_BEFORE_QUESTION_SET_IS_INCLUDED = 50
+MIN_NUM_DATASET_QUESTIONS = 190
 
 MODEL_RELEASE_DAYS_CUTOFF = 365
 
@@ -341,16 +342,16 @@ def set_model_pk(df: pd.DataFrame) -> pd.DataFrame:
 def filter_forecast_files_by_forecast_due_date(
     forecast_files: List[str],
     valid_dates: List[str],
+    min_days: int,
 ) -> Tuple[List[str], List[str]]:
     """Filter forecast files to include only those from sufficiently old date folders.
-
-    The cutoff is determined by `MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED`.
 
     Args:
         forecast_files (List[str]): List of forecast file paths on GCP bucket, where each path
                                     begins with a date folder in the format YYYY-MM-DD.
         valid_dates (List[str]): List of valid dates (YYYY-MM-DD) associated with the forecast
                                  files.
+        min_days (int): Minimum number of days before today a question set must be to be included.
 
     Returns:
         tuple(List[str], List[str]): A tuple containing:
@@ -358,7 +359,10 @@ def filter_forecast_files_by_forecast_due_date(
                                           folders older than the cutoff date.
             - valid_dates (List[str]): The input valid_dates, passed through unchanged.
     """
-    cutoff = dates.get_date_today() - timedelta(days=MIN_DAYS_BEFORE_QUESTION_SET_IS_INCLUDED)
+    if min_days == 0:
+        return forecast_files, valid_dates
+
+    cutoff = dates.get_date_today() - timedelta(days=min_days)
     valid_dates = sorted(
         [d for d in valid_dates if datetime.strptime(d, "%Y-%m-%d").date() <= cutoff]
     )
@@ -366,16 +370,16 @@ def filter_forecast_files_by_forecast_due_date(
     return forecast_files, valid_dates
 
 
-def filter_forecast_files_by_min_num_market_questions(
+def filter_forecast_files_by_min_resolved_questions(
     forecast_files: List[str],
     valid_dates: List[str],
     local_forecast_set_dir: str,
+    min_counts: Dict[str, int],
 ) -> Tuple[List[str], List[str]]:
-    """Filter forecast files to exclude dates with too few resolved market questions.
+    """Filter forecast files to exclude dates with too few resolved questions.
 
-    For each forecast due date, reads the Naive Forecaster file and counts resolved market
-    questions. Dates with fewer than `MIN_NUM_MARKET_QUESTIONS_BEFORE_QUESTION_SET_IS_INCLUDED`
-    are excluded.
+    For each forecast due date, reads the Naive Forecaster file and counts resolved questions
+    for each mask_key. Dates that fail any threshold are excluded.
 
     Args:
         forecast_files (List[str]): List of forecast file paths on GCP bucket, where each path
@@ -383,13 +387,20 @@ def filter_forecast_files_by_min_num_market_questions(
         valid_dates (List[str]): List of valid dates (YYYY-MM-DD) associated with the forecast
                                  files.
         local_forecast_set_dir (str): Local directory containing the processed forecast files.
+        min_counts (Dict[str, int]): Mapping of mask key (e.g. "market_resolved", "dataset") to
+                                     minimum number of resolved questions required. Zero or falsy
+                                     values are ignored.
 
     Returns:
         tuple(List[str], List[str]): A tuple containing:
             - forecast_files (List[str]): Filtered forecast files, keeping only those in date
-                                          folders with enough resolved market questions.
+                                          folders with enough resolved questions.
             - valid_dates (List[str]): Filtered valid dates.
     """
+    min_counts = {k: v for k, v in min_counts.items() if v}
+    if not min_counts:
+        return forecast_files, valid_dates
+
     dates_to_keep = []
     for date in valid_dates:
         naive_filename = data_utils.get_forecast_filename(date, BASELINE_ORG_NAIVE_MODEL["model"])
@@ -401,16 +412,20 @@ def filter_forecast_files_by_min_num_market_questions(
             continue
 
         df = resolution.make_columns_hashable(data["df"])
-        n_resolved_market = get_masks(df)["market_resolved"].sum()
+        masks = get_masks(df)
 
-        if n_resolved_market >= MIN_NUM_MARKET_QUESTIONS_BEFORE_QUESTION_SET_IS_INCLUDED:
+        keep = True
+        for mask_key, min_count in min_counts.items():
+            n_resolved = masks[mask_key].sum()
+            if n_resolved < min_count:
+                logger.info(
+                    f"Excluding forecast due date {date}: {n_resolved} resolved {mask_key} "
+                    f"questions (minimum required: {min_count})."
+                )
+                keep = False
+                break
+        if keep:
             dates_to_keep.append(date)
-        else:
-            logger.info(
-                f"Excluding forecast due date {date}: {n_resolved_market} resolved market "
-                "questions (minimum required: "
-                f"{MIN_NUM_MARKET_QUESTIONS_BEFORE_QUESTION_SET_IS_INCLUDED})."
-            )
 
     forecast_files = [f for f in forecast_files if f.split("/")[0] in dates_to_keep]
     return forecast_files, dates_to_keep
@@ -841,6 +856,224 @@ def write_leaderboard_html_file(
     )
 
 
+def write_dataset_leaderboard_html_file(
+    df: pd.DataFrame,
+    sorting_column_number: int,
+) -> None:
+    """Generate HTML and CSV leaderboard files for the dataset-only leaderboard.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+        sorting_column_number (int): column to sort by.
+
+    Returns:
+        None.
+    """
+    template = Template(
+        """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.semanticui.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/components/icon.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.semanticui.min.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.7/js/dataTables.semanticui.min.js"></script>
+  <script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+  <style>
+    body {
+        font-family: Arial,
+        sans-serif;
+        padding: 20px;
+    }
+    .n-count {
+        color: #b9b9b9;
+    }
+    #dataTable td:nth-child({{ sorting_column_number }}) {
+        background-color: #feffeb;
+    }
+    h1 {
+        font-size: 1.5em;
+        font-weight: 600;
+        margin-bottom: 0.75em;
+        text-align: center;
+    }
+    .dataTables_wrapper {
+        width: 100%;
+    }
+    #dataTable {
+        width: 100% !important;
+    }
+    #dataTable tbody tr:hover {
+      background-color: #f1f1f1 !important;
+      cursor: pointer;
+    }
+    .info.circle.icon {
+        color: rgba(185, 185, 185, 0.7) !important;
+    }
+    .updated-date {
+         font-size: 10px;
+         text-align: center;
+         margin-top: -10px;
+    }
+  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <h1>{{ title }}</h1>
+  <p class="updated-date">{{ leaderboard_update_date }}</p>
+  <table id="dataTable" class="ui celled table">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Organization</th>
+        <th>Model Organization</th>
+        <th>Model</th>
+        <th>Dataset (N)</th>
+        <th><!-- N dataset --></th>
+        <th>Dataset 95% CI</th>
+        <th>Supers > Forecaster?</th>
+        <th>p-val Supers > Forecaster?</th>
+        <th>Forecaster > Public?</th>
+        <th>p-val Forecaster > Public?</th>
+        <th>Pct times № 1</th>
+        <th>Pct times top 5%</th>
+        <th>Peer</th>
+        <th>BSS</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>
+      $(document).ready(function(){
+        const rawData = {{ data }};
+        const cols = {{ columns }};
+        const columns = cols.map(name => {
+          const col = { data: name, title: name };
+          if (['N dataset'].includes(name)) col.visible = false;
+          if (name==='Dataset') {
+            col.title = 'Dataset (N) <i class="info circle icon" '
+                        + ' data-html="{{ col_desc["Dataset"] }}"></i>';
+            col.render = function(d,t,row){
+                return t==='display'?parseFloat(d).toFixed(1)+
+                           ' <span class="n-count">('+
+                           Number(row['N dataset']).toLocaleString()+')</span>':d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          if (name==='Supers > Forecaster?') {
+            col.title = 'Supers > Forecaster? <i class="info circle icon" '
+                        + ' data-html="{{ col_desc["Supers > Forecaster?"] }}"></i>';
+            col.orderable=false;
+          }
+          if (name==='Forecaster > Public?') {
+            col.title = 'Forecaster > Public? <i class="info circle icon" '
+                        + ' data-html="{{ col_desc["Forecaster > Public?"] }}"></i>';
+            col.orderable=false;
+          }
+          if (name==='Pct times № 1') {
+            col.title = 'Pct times № 1 <i class="info circle icon" '
+                        + ' data-html="{{ col_desc["Pct times № 1"] }}"></i>';
+            col.render = function(d,t){ return t==='display'?Math.round(d)+'%':d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          if (name==='Pct times top 5%') {
+            col.title = 'Pct times top 5% <i class="info circle icon" '
+                        + ' data-html="{{ col_desc["Pct times top 5%"] }}"></i>';
+            col.render = function(d,t){ return t==='display'?Math.round(d)+'%':d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          if (name==='Dataset 95% CI') {
+            col.title = 'Dataset 95% CI <i class="info circle icon" ' +
+                        'data-html="{{ col_desc["Dataset 95% CI"] }}"></i>';
+            col.orderable=false;
+          }
+          if (name==="Peer") {
+            col.title = 'Peer <i class="info circle icon" data-html="{{ col_desc["Peer"] }}"></i>';
+            col.render = function(d,t){ return t==='display'?parseFloat(d).toFixed(3):d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          if (name==="BSS") {
+            col.title = 'BSS <i class="info circle icon" data-html="{{ col_desc["BSS"] }}"></i>';
+            col.render = function(d,t){ return t==='display'?parseFloat(d).toFixed(3):d; };
+            col.orderSequence = ['desc','asc'];
+          }
+          return col;
+        });
+        $('#dataTable').DataTable({
+          data: rawData,
+          columns: columns,
+          order: [[ cols.indexOf('Dataset'), 'desc' ]],
+          responsive: true,
+          paging: false,
+          info: true,
+          search: { regex:true, smart:true },
+          initComplete: function() {
+            $('.info.circle.icon').popup({ html: true} );
+          }
+        });
+      });
+  </script>
+  </body>
+</html>"""
+    )
+
+    html_cols = [
+        "Rank",
+        "Team",
+        "Model Organization",
+        "Model",
+        "Dataset",
+        "N dataset",
+        "Dataset 95% CI",
+        "Supers > Forecaster?",
+        "p-val Supers > Forecaster?",
+        "Forecaster > Public?",
+        "p-val Forecaster > Public?",
+        "Pct times № 1",
+        "Pct times top 5%",
+        "Peer",
+        "BSS",
+    ]
+    df_html = df[[c for c in html_cols if c in df.columns]]
+    html = template.render(
+        title=f"{constants.BENCHMARK_NAME} Dataset Leaderboard",
+        data=df_html.to_dict(orient="records"),
+        columns=json.dumps(df_html.columns.tolist()),
+        leaderboard_update_date=LEADERBOARD_UPDATED_DATE_STR,
+        sorting_column_number=sorting_column_number,
+        col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
+    )
+
+    leaderboard_type = LeaderboardType.DATASET
+    stem = f"leaderboard_{leaderboard_type.value}"
+    destination_folder = "leaderboards/html"
+    local_filename_html, destination_filename_html = data_utils.write_file_to_bucket(
+        bucket=env.PUBLIC_RELEASE_BUCKET,
+        basename=f"{stem}.html",
+        destination_folder=f"{destination_folder}",
+        data=html,
+    )
+
+    directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
+    destination_folder = "leaderboards/csv"
+    os.makedirs(f"{directory}/{destination_folder}", exist_ok=True)
+    destination_filename_csv = f"{destination_folder}/{stem}.csv"
+    local_filename_csv = f"{directory}/{destination_filename_csv}"
+    df.to_csv(local_filename_csv, index=False)
+
+    git.clone_commit_and_push(
+        files={
+            local_filename_html: destination_filename_html,
+            local_filename_csv: destination_filename_csv,
+        },
+        commit_message=f"leaderboard {leaderboard_type.value}: automatic update html & csv files.",
+    )
+
+
 def write_leaderboard_js_file_full(
     df: pd.DataFrame,
     leaderboard_type: LeaderboardType,
@@ -883,7 +1116,7 @@ def write_leaderboard_js_file_full(
                 if (name === "Team") {
                   col.className = 'dt-center';
                   col.render = (d, t, row) => {
-                      if (t !== 'display') return d;
+                      if (t !== 'display') return row['Team Name'] || d;
                       if (!d) return '';
                       const tooltip = escapeTooltip(row['Team Name'] || d);
                       return `<span class="cell-tooltip" data-tooltip="${tooltip}"
@@ -1108,6 +1341,237 @@ def write_leaderboard_js_file_full(
 
     return {
         "filename": f"leaderboard_{leaderboard_type.value}_full.js",
+        "js": js,
+    }
+
+
+def write_dataset_leaderboard_js_file_full(
+    df: pd.DataFrame,
+) -> Dict[str, str]:
+    """Generate JS file for website Dataset Leaderboard page.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+
+    Returns:
+        Dict[str, str]: Dictionary with 'filename' and 'js' keys.
+    """
+    template = Template(
+        """
+        $(function()
+        {
+            const data = {{ data }};
+            const isTournament = {{ is_tournament | lower }};
+            const cols = ["Rank", "Team",
+                          "Model Organization", "Model Organization Logo", "Model",
+                          "Dataset", "N dataset", "Dataset 95% CI",
+                          "Supers > Forecaster?", "p-val Supers > Forecaster?",
+                          "Forecaster > Public?", "p-val Forecaster > Public?"];
+            const teamColIndex = cols.indexOf("Team");
+            const escapeTooltip = (text) =>
+              String(text ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/\"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            const columns = cols.map(name => {
+                const col = { data: name, title: name };
+                if (name === "Rank") {
+                  col.className = 'dt-center';
+                }
+                if (name === "Team") {
+                  col.className = 'dt-center';
+                  col.render = (d, t, row) => {
+                      if (t !== 'display') return row['Team Name'] || d;
+                      if (!d) return '';
+                      const tooltip = escapeTooltip(row['Team Name'] || d);
+                      return `<span class="cell-tooltip" data-tooltip="${tooltip}"
+                                    style="cursor:help; display:inline-flex;
+                                    align-items:center;">` +
+                             `<img src="/assets/images/org_logos/${d}" alt="${tooltip}"
+                                   style="height:20px">` +
+                             `</span>`;
+                  };
+                }
+
+                if (name === "Model Organization") {
+                  col.title = "Org";
+                  col.className = 'dt-center';
+                  col.render = (d, t, row) => {
+                    if (t === 'display') {
+                      const tooltip = escapeTooltip(d);
+                      if (row['Model Organization Logo']) {
+                        return `<span class="cell-tooltip" data-tooltip="${tooltip}"
+                                      style="cursor:help; display:inline-flex;
+                                      align-items:center;">` +
+                               `<img src="/assets/images/org_logos/${row['Model Organization Logo']}"
+                                alt="${tooltip}" style="height:20px">` +
+                               `</span>`;
+                      }
+                      return `<span class="cell-tooltip" data-tooltip="${tooltip}"
+                                    style="cursor:help">${d}</span>`;
+                    }
+                    return d; // Use text value for search/sort
+                  };
+                }
+
+                if (["N dataset", "Model Organization Logo",
+                     "p-val Supers > Forecaster?", "p-val Forecaster > Public?"].includes(name)) {
+                  col.visible = false;
+                }
+
+                if (name === "Dataset") {
+                  col.title = "Dataset (N)";
+                  col.render = (d, t, row) =>
+                    t === "display"
+                      ? parseFloat(d).toFixed(1) +
+                        ' <span class="n-count">(' +
+                        Number(row["N dataset"]).toLocaleString() +
+                        ")</span>"
+                      : d;
+                  col.orderSequence = ["desc", "asc"];
+                }
+
+                if (name === "Supers > Forecaster?"
+                    || name === "Forecaster > Public?") {
+                      col.orderable = false;
+                }
+
+                // Add cell tooltips that show the hidden p-values
+                // Supers > Forecaster?
+                if (name === "Supers > Forecaster?") {
+                  col.className = (col.className ? col.className + ' ' : '') + 'dt-center';
+                  col.render = (d, t, row) => {
+                    if (t !== 'display') return d;
+                    const p = row['p-val Supers > Forecaster?'];
+                    const tip = (p == null || p === '') ? 'p-value unavailable' : 'p-val: ' + String(p);
+                    const val = (d ?? '') === '' ? '' : d;
+                    return `<span class="cell-tooltip" data-tooltip="${tip}"
+                                  style="cursor:help">${val}</span>`;
+                  };
+                }
+
+                // Forecaster > Public?
+                if (name === "Forecaster > Public?") {
+                  col.className = (col.className ? col.className + ' ' : '') + 'dt-center';
+                  col.render = (d, t, row) => {
+                    if (t !== 'display') return d;
+                    const p = row['p-val Forecaster > Public?'];
+                    const tip = (p == null || p === '') ? 'p-value unavailable' : 'p-val: ' + String(p);
+                    const val = (d ?? '') === '' ? '' : d;
+                    return `<span class="cell-tooltip" data-tooltip="${tip}"
+                                  style="cursor:help">${val}</span>`;
+                  };
+                }
+
+                if (["Dataset 95% CI"].includes(name)) {
+                  col.orderable = false;
+                }
+
+                return col;
+            });
+
+            // Register anonymous-team filter before DataTable init so it applies on first draw
+            if (isTournament && teamColIndex >= 0) {
+              $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, rowData) {
+                if (settings.nTable.id !== 'lb-dataset') return true;
+                const showAnon = document.getElementById('show-anonymous-dataset')?.checked;
+                if (showAnon) return true;
+                const teamName =
+                  (rowData && rowData["Team Name"]) ||
+                  (settings.aoData?.[dataIndex]?._aData?.["Team Name"]) ||
+                  '';
+                return !(typeof teamName === 'string' &&
+                         teamName.toLowerCase().trim().startsWith('anonymous'));
+              });
+            }
+
+            $('#leaderboard-table-full').html(`
+               ${isTournament ? `<div id="anon-toggle-dataset" style="margin-bottom:8px; display:flex;
+                                      align-items:center; gap:6px;">
+                   <input type="checkbox" id="show-anonymous-dataset" aria-label="Show anonymous teams">
+                   <label for="show-anonymous-dataset"
+                     style="margin:0; cursor:pointer;">Show anonymous teams</label>
+                 </div>` : ''}
+               <table id="lb-dataset" class="display compact hover" style="width:100%">
+               <thead>
+                 <tr>
+                   <th>Rank</th>
+                   {% if is_tournament %}
+                   <th class="column-header-tooltip" data-tooltip="Team">Team</th>
+                   {% endif %}
+                   <th class="column-header-tooltip" data-tooltip="Org">Org</th>
+                   <th><!-- Model Organization Logo --></th>
+                   <th class="column-header-tooltip" data-tooltip="Model">Model</th>
+                   <th class="column-header-tooltip"
+                       data-tooltip="Dataset (N)">Dataset (N)</th>
+                   <th><!-- N dataset --></th>
+                   <th class="column-header-tooltip" data-tooltip="Dataset 95% CI">Dataset 95% CI</th>
+                   <th class="column-header-tooltip"
+                       data-tooltip="Supers > Forecaster?">Supers > Forecaster?</th>
+                   <th><!-- p-val Supers > Forecaster? --></th>
+                   <th class="column-header-tooltip"
+                       data-tooltip="Forecaster > Public?">Forecaster > Public?</th>
+                   <th><!-- p-val Forecaster > Public? --></th>
+                 </tr>
+               </thead>
+               <tbody></tbody>
+             </table>
+             `);
+             const table = $("#lb-dataset").DataTable({
+               data: data,
+               columns: columns,
+               order: [[cols.indexOf("Dataset"), "desc"]],
+               pageLength:25,
+               lengthMenu:[[10,25,50,100,-1],[10,25,50,100,"All"]],
+               paging: true,
+               info: true,
+               dom:'<"top"lfr>t<"bottom"<"info-pagination-wrapper"ip>>',
+               responsive: true,
+               search: { regex: true, smart: true },
+               createdRow: function(row, data, dataIndex) {
+                 if ({{ model_highlight_rows | tojson }}.includes(data.Model)) {
+                   $(row).css('background-color', '#fdece8');
+                 }
+               },
+               infoCallback: function(settings, start, end, max, total, pre) {
+                   return pre + '<br>last updated {{ last_updated_date }}';
+               }
+           });
+
+           if (isTournament && teamColIndex >= 0) {
+             $('#show-anonymous-dataset').on('change', function() { table.draw(); });
+             // Apply the filter once on load so anonymous rows start hidden
+             table.draw();
+           }
+            table.on('draw.dt', function () {
+              initializeTooltips();
+            });
+           // Initialize tooltips after table is created
+           initializeTooltips();
+        });
+        // Tooltip content object (defined globally for access)
+        const tooltipContent = {
+          'Team': `{{ col_desc["Organization"] }}`,
+          'Org': `{{ col_desc["Model Organization"] }}`,
+          'Model': `{{ col_desc["Model"] }}`,
+          'Dataset (N)': `{{ col_desc["Dataset"] }}`,
+          'Dataset 95% CI': `{{ col_desc["Dataset 95% CI"] }}`,
+          'Supers > Forecaster?': `{{ col_desc["Supers > Forecaster?"] }}`,
+          'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`
+        };"""
+    )
+
+    js = template.render(
+        data=df.to_dict(orient="records"),
+        last_updated_date=LAST_UPDATED_DATE,
+        model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
+        col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
+        is_tournament=True,
+    )
+
+    return {
+        "filename": f"leaderboard_{LeaderboardType.DATASET.value}_full.js",
         "js": js,
     }
 
@@ -1493,6 +1957,156 @@ def write_leaderboard(
     )
 
 
+def write_dataset_leaderboard(
+    df: pd.DataFrame,
+    primary_scoring_func: Callable[..., any],
+) -> None:
+    """Generate HTML, CSV, and JS leaderboard files for the dataset-only leaderboard.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the leaderboard.
+        primary_scoring_func (Callable): Function used to compute the primary score.
+
+    Returns:
+        None.
+    """
+    logger.info("Making dataset-only leaderboard files.")
+
+    # Replace NaN with empty strings for display
+    df = df.fillna("")
+
+    # Round Brier Index columns to 1 decimal place, others to 3.
+    numeric_cols = df.select_dtypes(include="number").columns
+    brier_index_cols = [c for c in numeric_cols if c.startswith(BRIER_INDEX_COL_PREFIX)]
+    other_numeric_cols = [c for c in numeric_cols if c not in brier_index_cols]
+    df[brier_index_cols] = df[brier_index_cols].round(LEADERBOARD_DECIMAL_PLACES)
+    df[other_numeric_cols] = df[other_numeric_cols].round(3)
+
+    # Rank and order by displayed dataset score; break ties by larger sample size.
+    brier_index = BRIER_INDEX_COL_PREFIX
+    dataset_col = f"{brier_index}_dataset"
+    df["Rank"] = df[dataset_col].rank(
+        ascending=False,
+        method="min",
+    )
+
+    for col in [
+        "n_dataset",
+        "Rank",
+    ]:
+        df[col] = df[col].astype(int)
+
+    # Format CI
+    def format_ci(df, question_type):
+        col_prefix = f"{brier_index}_{question_type}"
+        df[f"{col_prefix}_ci_lower"] = (
+            df[f"{col_prefix}_ci_lower"].round(LEADERBOARD_DECIMAL_PLACES).astype(str)
+        )
+        df[f"{col_prefix}_ci_upper"] = (
+            df[f"{col_prefix}_ci_upper"].round(LEADERBOARD_DECIMAL_PLACES).astype(str)
+        )
+        df[f"{col_prefix}_ci"] = (
+            "[" + df[f"{col_prefix}_ci_lower"] + ", " + df[f"{col_prefix}_ci_upper"] + "]"
+        )
+        return df
+
+    df = format_ci(df, "dataset")
+
+    df = df.sort_values(by=[dataset_col, "n_dataset"], ascending=[False, False], ignore_index=True)
+
+    p_value_cols = {}
+    for comparison in HUMAN_MODELS:
+        col_name = get_comparison_p_val_col(comparison)
+        col_name_simple = col_name + "_simple"
+        df[col_name_simple] = df[col_name].apply(
+            lambda p: ("Yes" if p < 0.01 else "Likely" if p < 0.1 else "No")
+        )
+        df[col_name] = df[col_name].apply(
+            lambda p: ("<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}")
+        )
+        # Set the p-value for the best to N/A
+        comparison_idx = get_comparison_model_index(df=df, comparison=comparison)
+        df.loc[comparison_idx, col_name] = "—"
+        df.loc[comparison_idx, col_name_simple] = "—"
+        if comparison == HUMAN_SUPERFORECASTER:
+            p_value_cols[col_name_simple] = "Supers > Forecaster?"
+            p_value_cols[col_name] = "p-val Supers > Forecaster?"
+        elif comparison == HUMAN_PUBLIC:
+            p_value_cols[col_name_simple] = "Forecaster > Public?"
+            p_value_cols[col_name] = "p-val Forecaster > Public?"
+        else:
+            raise ValueError("Comparison model not handled")
+
+    # For website communication purposes, change "freeze values" to "crowd forecast"
+    benchmark_mask = df["organization"] == constants.BENCHMARK_NAME
+    df.loc[benchmark_mask, "model"] = df.loc[benchmark_mask, "model"].str.replace(
+        "freeze values", "crowd forecast"
+    )
+
+    rescaled = primary_scoring_func.__name__
+    df = df[
+        [
+            "Rank",
+            "organization",
+            "model_organization",
+            "model",
+            f"{brier_index}_dataset",
+            "n_dataset",
+            f"{brier_index}_dataset_ci",
+            *p_value_cols.keys(),
+            "pct_times_best_performer",
+            "pct_times_top_5_percentile",
+            "peer_score_dataset",
+            "brier_skill_score_dataset",
+            f"{rescaled}_dataset",
+        ]
+    ].rename(
+        columns={
+            "organization": "Team",
+            "model_organization": "Model Organization",
+            "model": "Model",
+            f"{brier_index}_dataset": "Dataset",
+            "n_dataset": "N dataset",
+            f"{brier_index}_dataset_ci": "Dataset 95% CI",
+            **p_value_cols,
+            "pct_times_best_performer": "Pct times № 1",
+            "pct_times_top_5_percentile": "Pct times top 5%",
+            "peer_score_dataset": "Peer",
+            "brier_skill_score_dataset": "BSS",
+            f"{rescaled}_dataset": "Brier Dataset",
+        }
+    )
+
+    # Write HTML and CSV leaderboard for datasets repo
+    write_dataset_leaderboard_html_file(
+        df=df.drop(columns=["Brier Dataset"]),
+        sorting_column_number=5,
+    )
+
+    # Write JS leaderboard for website
+    df_js = df.drop(
+        columns=[
+            "Pct times № 1",
+            "Pct times top 5%",
+            "Peer",
+            "BSS",
+            "Brier Dataset",
+        ]
+    )
+    df_js["Team Name"] = df_js["Team"]
+    write_anonymous_logos(df_js["Team Name"].tolist())
+    df_js["Model Organization Logo"] = df_js["Model Organization"].apply(constants.get_org_logo)
+    df_js["Team"] = df_js["Team"].apply(constants.get_org_logo)
+
+    js_result = write_dataset_leaderboard_js_file_full(df=df_js)
+    data_utils.write_file_to_bucket(
+        bucket=env.PUBLIC_RELEASE_BUCKET,
+        basename=js_result["filename"],
+        destination_folder="leaderboards/js",
+        data=js_result["js"],
+    )
+
+
 def combine_forecasting_rounds(leaderboard: List[pd.DataFrame]) -> pd.DataFrame:
     """Combine all processed forecast DataFrames into a single DataFrame.
 
@@ -1546,6 +2160,28 @@ def remove_tournament_models(df: pd.DataFrame) -> pd.DataFrame:
     )
     mask = org_mask & vanilla_model_mask
     return df[mask].reset_index(drop=True)
+
+
+def remove_vanilla_llm_models(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove ForecastBench LLM models without tournament variant keywords.
+
+    Keeps: external teams, dummy baselines, human forecasts, and ForecastBench
+    LLM models that contain variant keywords (freeze values, news, web search).
+
+    Args:
+        df (pd.DataFrame): Leaderboard or forecast data.
+
+    Returns:
+        pd.DataFrame: Filtered dataframe.
+    """
+    df = df.copy()
+    is_benchmark_org = df["organization"] == constants.BENCHMARK_NAME
+    is_benchmark_model_org = df["model_organization"] == constants.BENCHMARK_NAME
+    has_variant = df["model"].str.contains(
+        "with freeze values|with news|with SECOND news|with web search"
+    )
+    is_vanilla_llm = is_benchmark_org & ~is_benchmark_model_org & ~has_variant
+    return df[~is_vanilla_llm].reset_index(drop=True)
 
 
 def two_way_fixed_effects(df: pd.DataFrame, question_type) -> pd.DataFrame:
@@ -2004,6 +2640,7 @@ def get_comparison_p_val(
     df_leaderboard: pd.DataFrame,
     df_simulated_scores: pd.DataFrame,
     comparison: dict,
+    question_type: str = "overall",
     is_centered: bool = False,
     bh_adjust_p_vals: bool = False,
 ) -> pd.DataFrame:
@@ -2016,6 +2653,7 @@ def get_comparison_p_val(
         df_leaderboard (pd.DataFrame): Leaderboard.
         df_simulated_scores (pd.DataFrame): Bootstrapped replicates of overall scores.
         comparison (dict): dict showing model to use for comparison.
+        question_type (str): Question type to compare on (e.g. "overall", "dataset", "market").
         is_centered (bool): Center p-value calculation on observed score differences.
         bh_adjust_p_vals (bool): Apply Benjamini-Hochberg adjustment if True.
 
@@ -2026,19 +2664,19 @@ def get_comparison_p_val(
         raise ValueError("Must provide comparison")
     logger.info(colored(f"Comparing to {comparison['model']}", "red"))
 
-    overall_score_col = f"{BRIER_INDEX_COL_PREFIX}_overall"
-    if overall_score_col not in df_leaderboard.columns:
-        raise ValueError(f"Metric {overall_score_col} not found in leaderboard DataFrame.")
+    score_col = f"{BRIER_INDEX_COL_PREFIX}_{question_type}"
+    if score_col not in df_leaderboard.columns:
+        raise ValueError(f"Metric {score_col} not found in leaderboard DataFrame.")
 
     out_col = get_comparison_p_val_col(comparison)
     comparison_idx = get_comparison_model_index(df=df_leaderboard, comparison=comparison)
     comparison_model_pk = df_leaderboard.loc[comparison_idx, "model_pk"]
-    comparison_mean_score = df_leaderboard.loc[comparison_idx, overall_score_col]
+    comparison_mean_score = df_leaderboard.loc[comparison_idx, score_col]
 
     sim_comparison_scores = df_simulated_scores.loc[comparison_model_pk]
 
     if is_centered:
-        observed_diffs = comparison_mean_score - df_leaderboard[overall_score_col]
+        observed_diffs = comparison_mean_score - df_leaderboard[score_col]
         observed_diff_dict = dict(zip(df_leaderboard["model_pk"], observed_diffs))
         p_value_one_sided = {
             model_pk: np.mean(
@@ -2454,17 +3092,23 @@ def get_sota_super_parity_expected_dates(
 
     # Compile LLM-Super parity dates
     sim_95pct_ci = {
-        question_type: {leaderboard_type.value: None for leaderboard_type in LeaderboardType}
+        question_type: {
+            leaderboard_type.value: None
+            for leaderboard_type in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]
+        }
         for question_type in question_types
     }
     leaderboard_intersection_date = {
-        question_type: {leaderboard_type.value: None for leaderboard_type in LeaderboardType}
+        question_type: {
+            leaderboard_type.value: None
+            for leaderboard_type in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]
+        }
         for question_type in question_types
     }
 
     for question_type in question_types:
         leaderboard_score_col = f"{BRIER_INDEX_COL_PREFIX}_{question_type}"
-        for leaderboard_type in LeaderboardType:
+        for leaderboard_type in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]:
             if question_type == "dataset" and leaderboard_type == LeaderboardType.TOURNAMENT:
                 # For dataset questions, the FB tournament models just repeat the forecasts from,
                 # the FB baseline models, so just copy those results over at the end.
@@ -2652,7 +3296,7 @@ def make_leaderboard(
         days_since_release=False,
         model_release_date=True,
     )
-    for leaderboard_type in LeaderboardType:
+    for leaderboard_type in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]:
         df_leaderboard_lt = (
             remove_tournament_models(df=df_leaderboard)
             if leaderboard_type == LeaderboardType.BASELINE
@@ -2665,11 +3309,95 @@ def make_leaderboard(
         )
 
 
-def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFrame]:
+def make_dataset_leaderboard(
+    leaderboard_entries: List[pd.DataFrame],
+) -> None:
+    """Create and write the dataset-only leaderboard from processed entries.
+
+    Args:
+        leaderboard_entries (List[pd.DataFrame]): Processed forecasts by model and date.
+
+    Returns:
+        None
+    """
+    logger.info(colored("Making dataset-only leaderboard", "red"))
+
+    df = combine_forecasting_rounds(leaderboard_entries)
+    df = get_model_release_date_info(
+        df=df,
+        days_since_release=True,
+        model_release_date=False,
+    )
+
+    primary_scoring_func = two_way_fixed_effects
+    scoring_funcs = [
+        primary_scoring_func,
+        peer_score,
+        brier_skill_score,
+    ]
+
+    # Score
+    df_leaderboard, question_fixed_effects = score_models(
+        df=df,
+        scoring_funcs=scoring_funcs,
+    )
+
+    # Get simulated scores (only dataset scores are used)
+    df_simulated_scores_dataset, _, _ = generate_simulated_leaderboards(
+        df=df,
+        primary_scoring_func=primary_scoring_func,
+        N=N_REPLICATES,
+    )
+
+    # Filter to dataset leaderboard models (exclude vanilla ForecastBench LLMs)
+    df_leaderboard = remove_vanilla_llm_models(df_leaderboard)
+    kept_model_pks = set(df_leaderboard["model_pk"])
+    df_simulated_scores_dataset = df_simulated_scores_dataset.loc[
+        df_simulated_scores_dataset.index.isin(kept_model_pks)
+    ]
+
+    # Dataset CI
+    df_leaderboard = get_confidence_interval(
+        df_leaderboard=df_leaderboard,
+        df_simulated_scores=df_simulated_scores_dataset,
+        question_type="dataset",
+        primary_scoring_func=primary_scoring_func,
+    )
+
+    # Compare to human models using dataset scores
+    for comparison in HUMAN_MODELS:
+        df_leaderboard = get_comparison_p_val(
+            df_leaderboard=df_leaderboard,
+            df_simulated_scores=df_simulated_scores_dataset,
+            comparison=comparison,
+            question_type="dataset",
+        )
+
+    # Simulation performance measures using dataset scores
+    df_leaderboard = get_simulation_performance_metrics(
+        df_leaderboard=df_leaderboard,
+        df_simulated_scores=df_simulated_scores_dataset,
+    )
+
+    # Write dataset leaderboard
+    write_dataset_leaderboard(
+        df=df_leaderboard,
+        primary_scoring_func=primary_scoring_func,
+    )
+
+
+def download_and_compile_processed_forecast_files(
+    bucket: str,
+    min_days: int,
+    min_num_market_questions: int,
+) -> List[pd.DataFrame]:
     """Download and compile processed forecast files into entries list.
 
     Args:
-        None
+        bucket (str): GCP bucket name.
+        min_days (int): Minimum number of days before today a question set must be to be included.
+        min_num_market_questions (int): Minimum number of resolved market questions required per
+            date. If 0, skip filtering by market question count.
 
     Returns:
         List[pd.DataFrame]: List of DataFrames for each processed forecast file,
@@ -2679,13 +3407,18 @@ def download_and_compile_processed_forecast_files(bucket: str) -> List[pd.DataFr
     forecast_files, valid_dates = filter_forecast_files_by_forecast_due_date(
         forecast_files=forecast_files,
         valid_dates=valid_dates,
+        min_days=min_days,
     )
     logger.info(f"Processing forecast due dates: {valid_dates}.")
     local_forecast_set_dir = data_utils.get_local_file_dir(bucket=bucket)
-    forecast_files, valid_dates = filter_forecast_files_by_min_num_market_questions(
+    forecast_files, valid_dates = filter_forecast_files_by_min_resolved_questions(
         forecast_files=forecast_files,
         valid_dates=valid_dates,
         local_forecast_set_dir=local_forecast_set_dir,
+        min_counts={
+            "market_resolved": min_num_market_questions,
+            "dataset": MIN_NUM_DATASET_QUESTIONS,
+        },
     )
     logger.info(f"Processing forecast due dates: {valid_dates}.")
     leaderboard_entries = []
@@ -2726,14 +3459,45 @@ def driver(_: Any) -> None:
     Returns:
         None: Exits the process on completion.
     """
+    min_days = 50
+    min_num_market_questions = 50
     logger.info(colored("Making leaderboards.", "red"))
     leaderboard_entries, valid_dates = download_and_compile_processed_forecast_files(
         bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
+        min_days=min_days,
+        min_num_market_questions=min_num_market_questions,
     )
     make_leaderboard(leaderboard_entries=leaderboard_entries)
     logger.info(f"Made leaderboard for forecast due dates: {sorted(valid_dates)}.")
     logger.info(colored("Done.", "red"))
 
 
+@decorator.log_runtime
+def driver_dataset(_: Any) -> None:
+    """Create the dataset-only leaderboard.
+
+    Args:
+        _ (Any): Unused placeholder argument for GCP Cloud Run Job.
+
+    Returns:
+        None: Exits the process on completion.
+    """
+    min_days = 0
+    min_num_market_questions = 0
+    logger.info(colored("Making dataset-only leaderboard.", "red"))
+    leaderboard_entries, valid_dates = download_and_compile_processed_forecast_files(
+        bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
+        min_days=min_days,
+        min_num_market_questions=min_num_market_questions,
+    )
+    make_dataset_leaderboard(leaderboard_entries=leaderboard_entries)
+    logger.info(f"Made dataset leaderboard for forecast due dates: {sorted(valid_dates)}.")
+    logger.info(colored("Done.", "red"))
+
+
 if __name__ == "__main__":
-    driver(None)
+    mode = os.environ.get("LEADERBOARD_MODE", "default")
+    if mode == "dataset":
+        driver_dataset(None)
+    else:
+        driver(None)

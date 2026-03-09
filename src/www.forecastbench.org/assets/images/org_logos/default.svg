@@ -1,0 +1,15 @@
+<svg
+  height="1em"
+  width="1em"
+  style="flex:none;line-height:1"
+  viewBox="0 0 48 48"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <title>Organization</title>
+
+  <circle cx="24" cy="24" r="22" fill="#9CA3AF" />
+
+  <!-- Person silhouette -->
+  <circle cx="24" cy="18" r="6" fill="#FFFFFF" />
+  <path d="M12 38 C12 30 18 26 24 26 C30 26 36 30 36 38" fill="#FFFFFF" />
+</svg>

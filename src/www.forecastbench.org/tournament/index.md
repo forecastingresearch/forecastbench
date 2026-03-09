@@ -26,7 +26,7 @@ after_footer_scripts:
          <h1 class="leaderboard-title">Tournament leaderboard<sup><a href="#notes" style="text-decoration:none;">‡</a></sup></h1>
          <p>The tournament leaderboard tracks frontier LLM forecasting accuracy, where teams are free to enhance models in any way they choose&mdash;with tools, added context, fine-tuning, ensembling, or other methods. Its purpose is to capture the forefront of LLM forecasting ability. The models submitted regularly by the ForecastBench team are provided the crowd forecast as context for market questions.</p>
          {% include leaderboard-explainer.html %}
-         <p>The Tournament Leaderboard is open to <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench" class="no-wrap">public submissions <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
+         <p>The tournament leaderboard is open to <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench" class="no-wrap">public submissions <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
          <div id="leaderboard-table-full"></div>
      </div>
   </div>

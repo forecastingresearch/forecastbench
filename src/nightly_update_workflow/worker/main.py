@@ -12,11 +12,18 @@ metadata = [
         ("func-metadata-validate-questions", False, cloud_run.timeout_1h, 1),
     ]
 ]
-resolve_and_leaderboard = [
+resolve_forecasts = [
     [
         ("func-resolve-forecasts", True, cloud_run.timeout_1h * 2, 50),
-        ("func-leaderboard", True, cloud_run.timeout_1h * 4, 1),
     ]
+]
+leaderboards = [
+    [
+        ("func-leaderboard", True, cloud_run.timeout_1h * 4, 1),
+    ],
+    [
+        ("func-leaderboard-dataset", True, cloud_run.timeout_1h * 4, 1),
+    ],
 ]
 
 website = [
@@ -130,14 +137,15 @@ def main():
 
     Env variables:
     CLOUD_RUN_TASK_INDEX: automatically set by Cloud Run Jobs
-    DICT_TO_USE: one of `fetch_and_update`, `metadata`, `resolve_and_leaderboard`.
+    DICT_TO_USE: one of `fetch_and_update`, `metadata`, `resolve_forecasts`, `leaderboards`.
     """
     dict_mapping = {
         "fetch_and_update": get_fetch_and_update(),
         "metadata": metadata,
         "create_question_set": get_create_question_set(),
         "publish_question_set_make_llm_baseline": get_publish_question_set_make_llm_baseline(),
-        "resolve_and_leaderboard": resolve_and_leaderboard,
+        "resolve_forecasts": resolve_forecasts,
+        "leaderboards": leaderboards,
         "naive_and_dummy_forecasters": get_naive_and_dummy_forecasters(),
         "website": website,
     }

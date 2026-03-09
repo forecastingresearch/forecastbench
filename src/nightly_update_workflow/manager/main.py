@@ -133,12 +133,13 @@ def main():
         exit_on_error=False,
     )
 
-    dict_to_use_resolve_and_leaderboard = "resolve_and_leaderboard"
-    timeout_resolve_and_leaderboard = cloud_run.timeout_1h * 6
-    operation_resolve_and_leaderboard = call_worker(
-        dict_to_use=dict_to_use_resolve_and_leaderboard,
+    # Launch resolve forecasts (non-blocking)
+    dict_to_use_resolve_forecasts = "resolve_forecasts"
+    timeout_resolve_forecasts = cloud_run.timeout_1h * 2
+    operation_resolve_forecasts = call_worker(
+        dict_to_use=dict_to_use_resolve_forecasts,
         task_count=1,
-        timeout=timeout_resolve_and_leaderboard,
+        timeout=timeout_resolve_forecasts,
     )
 
     dict_to_use_metadata = "metadata"
@@ -171,11 +172,28 @@ def main():
         dict_to_use=dict_to_use_naive_and_dummy_forecasters, task_count=1
     )
 
+    # Block on resolve forecasts before launching leaderboards
     cloud_run.block_and_check_job_result(
-        operation=operation_resolve_and_leaderboard,
-        name=dict_to_use_resolve_and_leaderboard,
+        operation=operation_resolve_forecasts,
+        name=dict_to_use_resolve_forecasts,
         exit_on_error=True,
-        timeout=timeout_resolve_and_leaderboard,
+        timeout=timeout_resolve_forecasts,
+    )
+
+    # Launch both leaderboards in parallel
+    dict_to_use_leaderboards = "leaderboards"
+    timeout_leaderboards = cloud_run.timeout_1h * 4
+    operation_leaderboards = call_worker(
+        dict_to_use=dict_to_use_leaderboards,
+        task_count=2,
+        timeout=timeout_leaderboards,
+    )
+
+    cloud_run.block_and_check_job_result(
+        operation=operation_leaderboards,
+        name=dict_to_use_leaderboards,
+        exit_on_error=True,
+        timeout=timeout_leaderboards,
     )
 
     operation_compress_processed_forecast_sets_bucket = compress_bucket(
