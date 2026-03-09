@@ -101,7 +101,7 @@ class DataSource(BaseSource):
                 df_combo.at[index, "resolved_to"] = np.nan
 
         df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
-        df_standard["resolved"] = True
-        df_combo["resolved"] = True
+        df_standard["resolved"] = ~df_standard["resolved_to"].isna()
+        df_combo["resolved"] = ~df_combo["resolved_to"].isna()
         df = pd.concat([df, df_standard, df_combo], ignore_index=True)
         return df
