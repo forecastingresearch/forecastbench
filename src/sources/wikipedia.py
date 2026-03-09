@@ -381,7 +381,7 @@ class WikipediaSource(DataSource):
         dfr = dfr.drop_duplicates(subset=["id", "date"])
         yesterday = dates.get_date_yesterday()
         yesterday = pd.Timestamp(yesterday)
-        result_df = pd.DataFrame()
+        chunks = []
         for unique_id in dfr["id"].unique():
             temp_df = (
                 dfr[dfr["id"] == unique_id].set_index("date").resample("D").ffill().reset_index()
@@ -395,8 +395,8 @@ class WikipediaSource(DataSource):
                     {"date": additional_days, "id": unique_id, "value": last_value}
                 )
                 temp_df = pd.concat([temp_df, additional_df])
-            result_df = pd.concat([result_df, temp_df])
-        dfr = result_df.sort_values(by=["id", "date"]).reset_index(drop=True)
+            chunks.append(temp_df)
+        dfr = pd.concat(chunks).sort_values(by=["id", "date"]).reset_index(drop=True)
         return dfr
 
     @staticmethod
