@@ -136,8 +136,12 @@ class MarketSource(BaseSource):
 
         for index, row in df_combo.iterrows():
             id0, id1 = row["id"]
-            id0_data = df_standard[df_standard["id"] == id0].iloc[0]
-            id1_data = df_standard[df_standard["id"] == id1].iloc[0]
+            try:
+                id0_data = df_standard[df_standard["id"] == id0].iloc[0]
+                id1_data = df_standard[df_standard["id"] == id1].iloc[0]
+            except IndexError:
+                df_combo.at[index, "resolved_to"] = np.nan
+                continue
             dir0, dir1 = row["direction"]
 
             for col in ["resolved_to", "market_value_on_due_date"]:
