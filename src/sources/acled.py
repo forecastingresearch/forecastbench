@@ -13,17 +13,17 @@ import pandas as pd
 from _schemas import AcledResolutionFrame
 from _types import SourceType
 
-from ._data import DataSource
+from ._dataset import DatasetSource
 
 logger = logging.getLogger(__name__)
 
 
-class AcledSource(DataSource):
+class AcledSource(DatasetSource):
     """Armed Conflict Location & Event Data source with custom resolution logic."""
 
     name: ClassVar[str] = "acled"
     display_name: ClassVar[str] = "ACLED"
-    source_type: ClassVar[SourceType] = SourceType.DATA
+    source_type: ClassVar[SourceType] = SourceType.DATASET
     resolution_schema: ClassVar[type] = AcledResolutionFrame
 
     def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:

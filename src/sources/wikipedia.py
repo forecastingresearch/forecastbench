@@ -14,7 +14,7 @@ import pandas as pd
 from _types import NullifiedQuestion, SourceType
 from helpers import constants, dates
 
-from ._data import DataSource
+from ._dataset import DatasetSource
 
 logger = logging.getLogger(__name__)
 
@@ -269,12 +269,12 @@ _PAGES = [
 ]
 
 
-class WikipediaSource(DataSource):
-    """Wikipedia data source with custom row-by-row resolution logic."""
+class WikipediaSource(DatasetSource):
+    """Wikipedia dataset source with custom row-by-row resolution logic."""
 
     name: ClassVar[str] = "wikipedia"
     display_name: ClassVar[str] = "Wikipedia"
-    source_type: ClassVar[SourceType] = SourceType.DATA
+    source_type: ClassVar[SourceType] = SourceType.DATASET
     nullified_questions: ClassVar[list[NullifiedQuestion]] = [
         NullifiedQuestion(id=entry["id"], nullification_start_date=entry["nullify_start_date"])
         for entry in _IDS_TO_NULLIFY

@@ -6,12 +6,12 @@ from typing import ClassVar
 
 from _types import SourceType
 
-from ._data import DataSource
+from ._dataset import DatasetSource
 
 
-class YfinanceSource(DataSource):
+class YfinanceSource(DatasetSource):
     """Yahoo Finance financial data source."""
 
     name: ClassVar[str] = "yfinance"
     display_name: ClassVar[str] = "Yahoo Finance"
-    source_type: ClassVar[SourceType] = SourceType.DATA
+    source_type: ClassVar[SourceType] = SourceType.DATASET

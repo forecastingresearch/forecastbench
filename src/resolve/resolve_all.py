@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from sources import DATA_SOURCE_NAMES
+from sources import DATASET_SOURCE_NAMES
 
 if TYPE_CHECKING:
     from _types import QuestionBank
@@ -81,7 +81,7 @@ def resolve_all(
 
     # Remove unresolved data-source rows
     n_pre_drop = len(df)
-    df = df[~(df["source"].isin(DATA_SOURCE_NAMES) & (~df["resolved"]))]
+    df = df[~(df["source"].isin(DATASET_SOURCE_NAMES) & (~df["resolved"]))]
     unresolved_drop = n_pre_drop - len(df)
     if unresolved_drop > 0:
         logger.info(f"Dropped {unresolved_drop:,} dataset questions that have not yet resolved.")

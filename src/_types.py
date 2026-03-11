@@ -10,10 +10,10 @@ import pandas as pd
 
 
 class SourceType(Enum):
-    """Whether a source is market-based or data-based."""
+    """Whether a source is market-based or dataset-based."""
 
     MARKET = auto()
-    DATA = auto()
+    DATASET = auto()
 
 
 @dataclass(frozen=True)

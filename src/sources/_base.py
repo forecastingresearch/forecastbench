@@ -35,8 +35,8 @@ class BaseSource(ABC):
     def __init_subclass__(cls, **kwargs):
         """Enforce required ClassVars on concrete (non-intermediate) subclasses."""
         super().__init_subclass__(**kwargs)
-        # Skip enforcement for DataSource / MarketSource (they're still abstract)
-        if cls.__name__ in ("DataSource", "MarketSource"):
+        # Skip enforcement for DatasetSource / MarketSource (they're still abstract)
+        if cls.__name__ in ("DatasetSource", "MarketSource"):
             return
         for attr in ("name", "display_name", "source_type"):
             if not hasattr(cls, attr) or getattr(cls, attr) is getattr(BaseSource, attr, None):

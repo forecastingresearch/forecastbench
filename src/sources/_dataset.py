@@ -1,4 +1,4 @@
-"""Base class for data-based question sources."""
+"""Base class for dataset-based question sources."""
 
 from __future__ import annotations
 
@@ -15,15 +15,15 @@ from ._base import BaseSource
 logger = logging.getLogger(__name__)
 
 
-class DataSource(BaseSource):
-    """Base class for data-based question sources (dbnomics, fred, yfinance, etc.)."""
+class DatasetSource(BaseSource):
+    """Base class for dataset-based question sources (dbnomics, fred, yfinance, etc.)."""
 
-    source_type: ClassVar[SourceType] = SourceType.DATA
+    source_type: ClassVar[SourceType] = SourceType.DATASET
 
     def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:
         """Resolve data-based questions via binary comparison of resolution vs due-date values."""
         logger.info(f"Resolving {self.name}.")
-        df_data, df = self._split_dataframe_on_source(df=df, source=self.name)
+        df_dataset, df = self._split_dataframe_on_source(df=df, source=self.name)
 
         # Check that we have data for all IDs
         unique_ids = dfr["id"].unique()
@@ -37,12 +37,12 @@ class DataSource(BaseSource):
                 logger.error(msg)
                 raise ValueError(msg)
 
-        df_data["id"].apply(lambda x: check_id(x))
+        df_dataset["id"].apply(lambda x: check_id(x))
 
         # Split into standard and combo questions
-        combo_mask = df_data["id"].apply(lambda x: self._is_combo(x))
-        df_standard = df_data[~combo_mask].copy()
-        df_combo = df_data[combo_mask].copy()
+        combo_mask = df_dataset["id"].apply(lambda x: self._is_combo(x))
+        df_standard = df_dataset[~combo_mask].copy()
+        df_combo = df_dataset[combo_mask].copy()
 
         # Get values at resolution_date
         df_standard = pd.merge(

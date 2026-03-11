@@ -38,13 +38,13 @@ SOURCES = {
     ]
 }
 
-DATA_SOURCES = {
-    name: src for name, src in sorted(SOURCES.items()) if src.source_type == SourceType.DATA
+DATASET_SOURCES = {
+    name: src for name, src in sorted(SOURCES.items()) if src.source_type == SourceType.DATASET
 }
 MARKET_SOURCES = {
     name: src for name, src in sorted(SOURCES.items()) if src.source_type == SourceType.MARKET
 }
 
 ALL_SOURCE_NAMES = sorted(SOURCES.keys())
-DATA_SOURCE_NAMES = sorted(DATA_SOURCES.keys())
+DATASET_SOURCE_NAMES = sorted(DATASET_SOURCES.keys())
 MARKET_SOURCE_NAMES = sorted(MARKET_SOURCES.keys())
