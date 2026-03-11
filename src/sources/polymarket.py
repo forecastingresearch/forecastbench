@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from _types import NullifiedQuestion, SourceType
-from helpers_new.constants import BENCHMARK_START_DATE_DATETIME_DATE
+from helpers.constants import BENCHMARK_START_DATE_DATETIME_DATE
 
 from ._market import MarketSource
 

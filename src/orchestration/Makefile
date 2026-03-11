@@ -21,7 +21,7 @@ NUM_CPUS = 2
 deploy : .gcloudignore requirements_resolve.txt Dockerfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers_new $(UPLOAD_DIR)/helpers_new
+	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/helpers
 	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/sources
 	cp -r $(ROOT_DIR)src/resolve $(UPLOAD_DIR)/resolve
 	mkdir -p $(UPLOAD_DIR)/orchestration
