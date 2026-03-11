@@ -7,7 +7,7 @@ import logging
 
 import pandas as pd
 
-from helpers_new import dates
+from helpers import dates
 from sources import MARKET_SOURCE_NAMES
 
 logger = logging.getLogger(__name__)
