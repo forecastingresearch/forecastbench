@@ -99,7 +99,9 @@ class MarketSource(BaseSource):
             resolution_date = self._get_market_resolution_date(dfq[dfq["id"] == mid])
             df_standard.loc[df_standard["id"] == mid, "resolved"] = True
             df_standard.loc[df_standard["id"] == mid, "resolved_to"] = resolved_value
-            df_standard.loc[df_standard["id"] == mid, "resolution_date"] = resolution_date
+            df_standard.loc[df_standard["id"] == mid, "resolution_date"] = pd.Timestamp(
+                resolution_date
+            )
 
             if resolved_value != 0 and resolved_value != 1:
                 url = dfq[dfq["id"] == mid]["url"].iloc[0]
@@ -123,9 +125,6 @@ class MarketSource(BaseSource):
                     f"{fd}. Nullifying!\n     {url}"
                 )
 
-        df_standard["resolution_date"] = pd.to_datetime(
-            df_standard["resolution_date"], errors="coerce"
-        )
         df_standard.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
 
         # Combo resolutions
