@@ -20,7 +20,7 @@ class QuestionFrame(pa.DataFrameModel):
     url: Series[str]
     resolved: Series[bool]
     forecast_horizons: Series[object]
-    freeze_datetime_value: Series[str]
+    freeze_datetime_value: Series[str] = pa.Field(nullable=True)
     freeze_datetime_value_explanation: Series[str]
     market_info_resolution_criteria: Series[str]
     market_info_open_datetime: Series[str]
