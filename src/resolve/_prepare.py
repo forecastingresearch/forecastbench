@@ -9,7 +9,7 @@ import pandas as pd
 from pandas._libs.tslibs.np_datetime import OutOfBoundsDatetime
 
 from helpers import constants, dates
-from sources import DATA_SOURCE_NAMES, MARKET_SOURCE_NAMES
+from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ _VALID_FORECAST_KEYS = [
     "reasoning",
 ]
 
-_ALL_SOURCE_NAMES = MARKET_SOURCE_NAMES + DATA_SOURCE_NAMES
+_ALL_SOURCE_NAMES = MARKET_SOURCE_NAMES + DATASET_SOURCE_NAMES
 
 
 def convert_and_bound_dates(date_str):
@@ -84,7 +84,7 @@ def check_and_prepare_forecast_file(
     df = df[
         df["source"].isin(MARKET_SOURCE_NAMES)
         | (
-            (df["source"].isin(DATA_SOURCE_NAMES))
+            (df["source"].isin(DATASET_SOURCE_NAMES))
             & (df["resolution_date"].isin(valid_resolution_dates))
         )
     ]
@@ -102,13 +102,13 @@ def check_and_prepare_forecast_file(
     df = BaseSource._make_columns_hashable(df)
 
     # Ensure no duplicate forecasts for dataset questions
-    df_data = df[df["source"].isin(DATA_SOURCE_NAMES)]
-    df_tmp = df_data.drop_duplicates(
+    df_dataset = df[df["source"].isin(DATASET_SOURCE_NAMES)]
+    df_tmp = df_dataset.drop_duplicates(
         subset=["id", "source", "resolution_date", "direction"], keep="first", ignore_index=True
     )
-    if len(df_tmp) != len(df_data):
+    if len(df_tmp) != len(df_dataset):
         dropped_rows = (
-            df_data.merge(
+            df_dataset.merge(
                 df_tmp,
                 on=["id", "source", "resolution_date", "direction"],
                 how="left",
@@ -138,7 +138,7 @@ def set_resolution_dates(df: pd.DataFrame, df_question_resolutions: pd.DataFrame
     logger.info("Setting resolution dates.")
 
     df_market_sources = df[df["source"].isin(MARKET_SOURCE_NAMES)].copy()
-    df_data_sources = df[df["source"].isin(DATA_SOURCE_NAMES)].copy()
+    df_datasetset_sources = df[df["source"].isin(DATASET_SOURCE_NAMES)].copy()
 
     # Market questions: drop resolution_date, join on existing resolution dates
     df_market_sources = df_market_sources.drop(
@@ -152,12 +152,12 @@ def set_resolution_dates(df: pd.DataFrame, df_question_resolutions: pd.DataFrame
     )
 
     # Data questions: match on resolution_date too
-    df_data_sources = pd.merge(
-        df_question_resolutions[df_question_resolutions["source"].isin(DATA_SOURCE_NAMES)],
-        df_data_sources,
+    df_datasetset_sources = pd.merge(
+        df_question_resolutions[df_question_resolutions["source"].isin(DATASET_SOURCE_NAMES)],
+        df_datasetset_sources,
         how="left",
         on=["id", "source", "direction", "forecast_due_date", "resolution_date"],
     )
 
-    df = pd.concat([df_market_sources, df_data_sources], ignore_index=True)
+    df = pd.concat([df_market_sources, df_datasetset_sources], ignore_index=True)
     return df

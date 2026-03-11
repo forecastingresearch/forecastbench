@@ -17,7 +17,7 @@ from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
 from resolve.explode_question_set import explode_question_set
 from resolve.resolve_all import resolve_all
-from sources import DATA_SOURCE_NAMES, MARKET_SOURCE_NAMES, SOURCES
+from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES, SOURCES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -113,8 +113,8 @@ def _print_question_set_breakdown(human_or_llm, forecast_due_date, df, df_orig_q
         df_tmp = df_tmp[df_tmp["source"].isin(sources)]
         return len(df_tmp) if single else int(len(df_tmp) / 4)
 
-    for source_type in ["data", "market"]:
-        sources = DATA_SOURCE_NAMES if source_type == "data" else MARKET_SOURCE_NAMES
+    for source_type in ["dataset", "market"]:
+        sources = DATASET_SOURCE_NAMES if source_type == "dataset" else MARKET_SOURCE_NAMES
         for source in sources:
             if source in df["source"].unique():
                 n_single = get_df_len(df=df, single=True, sources=[source])
@@ -135,12 +135,12 @@ def _print_question_set_breakdown(human_or_llm, forecast_due_date, df, df_orig_q
     n_single = get_df_len(
         df=df,
         single=True,
-        sources=MARKET_SOURCE_NAMES + DATA_SOURCE_NAMES,
+        sources=MARKET_SOURCE_NAMES + DATASET_SOURCE_NAMES,
     )
     n_combo = get_df_len(
         df=df,
         single=False,
-        sources=MARKET_SOURCE_NAMES + DATA_SOURCE_NAMES,
+        sources=MARKET_SOURCE_NAMES + DATASET_SOURCE_NAMES,
     )
     logger.info(f"TOTAL questions: {n_single + n_combo:,}")
 

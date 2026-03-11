@@ -6,12 +6,12 @@ from typing import ClassVar
 
 from _types import SourceType
 
-from ._data import DataSource
+from ._dataset import DatasetSource
 
 
-class DbnomicsSource(DataSource):
+class DbnomicsSource(DatasetSource):
     """DBnomics economic data source."""
 
     name: ClassVar[str] = "dbnomics"
     display_name: ClassVar[str] = "DBnomics"
-    source_type: ClassVar[SourceType] = SourceType.DATA
+    source_type: ClassVar[SourceType] = SourceType.DATASET
