@@ -8,10 +8,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
-import tempfile
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import pandera.pandas as pa
@@ -19,77 +15,18 @@ from termcolor import colored
 
 from _schemas import AcledResolutionFrame, QuestionFrame, ResolutionFrame
 from _types import QuestionBank, SourceQuestionBank
-from helpers import constants, dates, env, git, keys
+from helpers import data_utils, dates, env, git, keys
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource
-from utils import archiving, gcp
+from utils import gcp
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Filename generation
-# ---------------------------------------------------------------------------
-
-
-def _generate_filenames(source: str) -> dict[str, str]:
-    """Generate filenames for a source."""
-    return {
-        "jsonl_fetch": f"{source}_fetch.jsonl",
-        "local_fetch": f"/tmp/{source}_fetch.jsonl",
-        "jsonl_question": f"{source}_questions.jsonl",
-        "local_question": f"/tmp/{source}_questions.jsonl",
-        "jsonl_resolution": f"{source}_resolutions.jsonl",
-        "local_resolution": f"/tmp/{source}_resolutions.jsonl",
-    }
-
-
-# ---------------------------------------------------------------------------
-# Local directory / GCS-FUSE mount
-# ---------------------------------------------------------------------------
-
-
-def _get_local_file_dir(bucket: str) -> str:
-    """Return the local directory containing files from `bucket`."""
-    mount_dir = f"{env.BUCKET_MOUNT_POINT}/{bucket}"
-    if os.path.exists(mount_dir):
-        logger.info(f"Mount dir found: {mount_dir}.")
-        return mount_dir
-
-    logger.info("Mount dir not found. Downloading tarball.")
-    local_dir = "/tmp"
-    if env.RUNNING_LOCALLY:
-        return f"{local_dir}/{bucket}"
-
-    filename = f"{bucket}.tar.gz"
-    local_filename = f"{local_dir}/{filename}"
-    gcp.storage.download(
-        bucket_name=bucket,
-        filename=filename,
-        local_filename=local_filename,
-    )
-    dir_to_rm_before_extract = f"{local_dir}/{bucket}"
-    archiving.tar_gz.extract(
-        archive_name=local_filename,
-        rm_dir_before_extract=dir_to_rm_before_extract,
-        extract_dir=local_dir,
-    )
-    return f"{local_dir}/{bucket}"
-
-
-# ---------------------------------------------------------------------------
 # Question bank loading
 # ---------------------------------------------------------------------------
-
-
-def _get_last_modified_time_of_dfq(source: str):
-    """Return the last modified datetime of the dfq file for a source."""
-    filenames = _generate_filenames(source)
-    return gcp.storage.get_last_modified_time(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        filename=filenames["jsonl_question"],
-    )
 
 
 def _read_acled_dfr(local_question_bank_dir: str) -> pd.DataFrame:
@@ -105,7 +42,7 @@ def _read_acled_dfr(local_question_bank_dir: str) -> pd.DataFrame:
         "fatalities": int,
         "timestamp": str,
     }
-    filenames = _generate_filenames("acled")
+    filenames = data_utils.generate_filenames("acled")
     source_fetch_file = filenames.get("jsonl_fetch")
     local_filename = f"{local_question_bank_dir}/{source_fetch_file}"
 
@@ -159,7 +96,7 @@ def load_question_bank(sources_to_get: list[str] | None = None) -> QuestionBank:
     # Check market dfq files are up-to-date
     any_out_of_date_dfq = False
     for source in MARKET_SOURCE_NAMES:
-        last_updated_dfq = _get_last_modified_time_of_dfq(source)
+        last_updated_dfq = data_utils.get_last_modified_time_of_dfq_from_cloud_storage(source)
         any_out_of_date_dfq |= last_updated_dfq is None or last_updated_dfq.date() < today
         if last_updated_dfq is None or last_updated_dfq.date() < today:
             last_updated = last_updated_dfq.date() if last_updated_dfq else "(does not exist)"
@@ -196,12 +133,12 @@ def load_question_bank(sources_to_get: list[str] | None = None) -> QuestionBank:
 
 def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
     """Read question and resolution DataFrames from disk."""
-    local_question_bank_dir = _get_local_file_dir(bucket=env.QUESTION_BANK_BUCKET)
+    local_question_bank_dir = data_utils.get_local_file_dir(bucket=env.QUESTION_BANK_BUCKET)
     question_bank: QuestionBank = {}
 
     # Load question DataFrames
     for source in sources_to_get:
-        filenames = _generate_filenames(source)
+        filenames = data_utils.generate_filenames(source)
         source_question_file = filenames.get("jsonl_question")
         local_filename = f"{local_question_bank_dir}/{source_question_file}"
         dfq = pd.read_json(local_filename, lines=True, convert_dates=False)
@@ -260,117 +197,6 @@ def load_hash_mapping(source: BaseSource, source_name: str) -> None:
         with open(local_filename, "r") as f:
             raw_json = f.read()
     source._load_hash_mapping(raw_json)
-
-
-# ---------------------------------------------------------------------------
-# Question set file download
-# ---------------------------------------------------------------------------
-
-
-def download_question_set_file(filename: str) -> pd.DataFrame:
-    """Download and read a question set file from GCS."""
-    with tempfile.NamedTemporaryFile(dir="/tmp/", delete=False) as tmp:
-        local_filename = tmp.name
-    gcp.storage.download(
-        bucket_name=env.QUESTION_SETS_BUCKET,
-        filename=filename,
-        local_filename=local_filename,
-    )
-
-    with open(local_filename, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        questions = data.get("questions")
-
-    os.remove(local_filename)
-
-    if questions is None:
-        raise ValueError(
-            f"In `download_question_set_file()`: Could not download/load "
-            f"question set {filename}"
-        )
-
-    df = pd.DataFrame(questions)
-    df = BaseSource._make_columns_hashable(df)
-    return df
-
-
-# ---------------------------------------------------------------------------
-# Forecast file IO
-# ---------------------------------------------------------------------------
-
-
-def get_valid_forecast_files_and_dates(
-    bucket: str,
-    only_keep_date: str = "",
-) -> Tuple[List[str], List[str]]:
-    """Return valid forecast filenames and date folders from GCS."""
-    files = gcp.storage.list(bucket_name=bucket, mnt=env.BUCKET_MOUNT_POINT)
-    files = [
-        f
-        for f in files
-        if f.endswith(".json") and not f.startswith(constants.TEST_FORECAST_FILE_PREFIX)
-    ]
-    if only_keep_date:
-        filtered = [f for f in files if f.startswith(only_keep_date)]
-        return filtered, [only_keep_date]
-
-    date_folders = set()
-    for f in files:
-        if "/" not in f:
-            continue
-        try:
-            folder = f.split("/", 1)[0]
-            datetime.strptime(folder, "%Y-%m-%d")
-            date_folders.add(folder)
-        except ValueError:
-            raise ValueError(f"Problem with file organizaiton on {bucket}")
-
-    files = [f for f in files if f.split("/")[0] in date_folders]
-    return files, sorted(date_folders)
-
-
-def read_forecast_file(filename: str) -> Optional[Dict[str, Any]]:
-    """Read a forecast JSON file and validate its content."""
-    logger.info(f"Reading forecast file {filename}")
-
-    with open(filename, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    if not data or not isinstance(data, dict):
-        logger.warning(colored(f"Problem processing {filename}. Can't load JSON.", "yellow"))
-        return None
-
-    organization = data.get("organization")
-    model = data.get("model")
-    model_organization = data.get("model_organization")
-    question_set = data.get("question_set")
-    date_match = re.search(r"\d{4}-\d{2}-\d{2}", question_set) if question_set else None
-    forecast_due_date = date_match.group(0) if date_match else None
-    forecasts = data.get("forecasts")
-    if not organization or not model or not model_organization or not question_set or not forecasts:
-        logger.error(colored(f"Problem processing {filename}. Missing required fields.", "yellow"))
-        return None
-
-    if not forecast_due_date:
-        logger.error(
-            colored(
-                f"Problem processing {filename}. Issue with question set filename: {question_set}",
-                "yellow",
-            )
-        )
-        return None
-
-    df = pd.DataFrame(forecasts)
-    if df.empty:
-        logger.error(
-            colored(f"Problem processing {filename}. Couldn't load forecasts as df.", "yellow")
-        )
-        return None
-
-    df = df.drop(labels="reasoning", axis=1, errors="ignore")
-    data["df"] = df
-
-    return data
 
 
 # ---------------------------------------------------------------------------
