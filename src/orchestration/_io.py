@@ -227,7 +227,10 @@ def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
                 try:
                     validated.append(ResolutionFrame.validate(raw))
                 except pa.errors.SchemaError as e:
-                    logger.warning(f"Skipped {source} resolution file as it does not match the ResoltionFrame schema: {os.path.basename(f)}: {e}")
+                    logger.warning(
+                        f"Skipped {source} resolution file as it does not match the "
+                        f"ResolutionFrame schema: {os.path.basename(f)}: {e}"
+                    )
                     continue
             assert len(validated) > 0, f"Could not find a resolution file for {source}."
             dfr = pd.concat(validated, ignore_index=True)
