@@ -1090,7 +1090,7 @@ def write_leaderboard_js_file_full(
     """
     template = Template(
         """
-        $(function()
+        window.initLeaderboard_{{ leaderboard_type }} = function()
         {
             const data = {{ data }};
             const isTournament = {{ is_tournament | lower }};
@@ -1312,22 +1312,20 @@ def write_leaderboard_js_file_full(
             table.on('draw.dt', function () {
               initializeTooltips();
             });
-           // Initialize tooltips after table is created
+           window.tooltipContent = {
+             'Team': `{{ col_desc["Organization"] }}`,
+             'Org': `{{ col_desc["Model Organization"] }}`,
+             'Model': `{{ col_desc["Model"] }}`,
+             'Dataset (N)': `{{ col_desc["Dataset"] }}`,
+             'Dataset 95% CI': `{{ col_desc["Dataset 95% CI"] }}`,
+             'Market (N)': `{{ col_desc["Market"] }}`,
+             'Market 95% CI': `{{ col_desc["Market 95% CI"] }}`,
+             'Overall (N)': `{{ col_desc["Overall"] }}`,
+             'Overall 95% CI': `{{ col_desc["Overall 95% CI"] }}`,
+             'Supers > Forecaster?': `{{ col_desc["Supers > Forecaster?"] }}`,
+             'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`
+           };
            initializeTooltips();
-        });
-        // Tooltip content object (defined globally for access)
-        const tooltipContent = {
-          'Team': `{{ col_desc["Organization"] }}`,
-          'Org': `{{ col_desc["Model Organization"] }}`,
-          'Model': `{{ col_desc["Model"] }}`,
-          'Dataset (N)': `{{ col_desc["Dataset"] }}`,
-          'Dataset 95% CI': `{{ col_desc["Dataset 95% CI"] }}`,
-          'Market (N)': `{{ col_desc["Market"] }}`,
-          'Market 95% CI': `{{ col_desc["Market 95% CI"] }}`,
-          'Overall (N)': `{{ col_desc["Overall"] }}`,
-          'Overall 95% CI': `{{ col_desc["Overall 95% CI"] }}`,
-          'Supers > Forecaster?': `{{ col_desc["Supers > Forecaster?"] }}`,
-          'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`
         };"""
     )
 
@@ -1337,6 +1335,7 @@ def write_leaderboard_js_file_full(
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
         is_tournament=leaderboard_type == LeaderboardType.TOURNAMENT,
+        leaderboard_type=leaderboard_type.value,
     )
 
     return {
@@ -1358,7 +1357,7 @@ def write_dataset_leaderboard_js_file_full(
     """
     template = Template(
         """
-        $(function()
+        window.initLeaderboard_dataset = function()
         {
             const data = {{ data }};
             const isTournament = {{ is_tournament | lower }};
@@ -1547,18 +1546,16 @@ def write_dataset_leaderboard_js_file_full(
             table.on('draw.dt', function () {
               initializeTooltips();
             });
-           // Initialize tooltips after table is created
+           window.tooltipContent = {
+             'Team': `{{ col_desc["Organization"] }}`,
+             'Org': `{{ col_desc["Model Organization"] }}`,
+             'Model': `{{ col_desc["Model"] }}`,
+             'Dataset (N)': `{{ col_desc["Dataset"] }}`,
+             'Dataset 95% CI': `{{ col_desc["Dataset 95% CI"] }}`,
+             'Supers > Forecaster?': `{{ col_desc["Supers > Forecaster?"] }}`,
+             'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`
+           };
            initializeTooltips();
-        });
-        // Tooltip content object (defined globally for access)
-        const tooltipContent = {
-          'Team': `{{ col_desc["Organization"] }}`,
-          'Org': `{{ col_desc["Model Organization"] }}`,
-          'Model': `{{ col_desc["Model"] }}`,
-          'Dataset (N)': `{{ col_desc["Dataset"] }}`,
-          'Dataset 95% CI': `{{ col_desc["Dataset 95% CI"] }}`,
-          'Supers > Forecaster?': `{{ col_desc["Supers > Forecaster?"] }}`,
-          'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`
         };"""
     )
 

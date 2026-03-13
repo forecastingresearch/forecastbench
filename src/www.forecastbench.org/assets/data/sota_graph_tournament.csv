@@ -1,277 +1,272 @@
 Team,Model Organization,Model,Dataset,N dataset,Dataset 95% CI,Market,N market,Market 95% CI,Overall,N,Overall 95% CI,Model release date
-ForecastBench,ForecastBench,Superforecaster median forecast,63.8,521,"[62.8, 64.1]",79.9,56,"[78.5, 84.4]",70.7,577,"[69.7, 72.0]",
-Cassi-AI,Cassi-AI,ensemble_2_crowdadj,62.0,1343,"[61.5, 62.3]",75.5,183,"[73.8, 76.3]",68.0,1526,"[67.5, 68.1]",2025-10-26
-xAI,xAI,Grok 4.20 (Preview),62.3,679,"[61.8, 62.6]",75.0,92,"[71.1, 76.5]",68.0,771,"[66.5, 68.3]",2025-10-26
-ForecastBench,OpenAI,GPT-5-2025-08-07 (zero shot with crowd forecast),61.8,2203,"[61.5, 61.9]",74.9,261,"[72.5, 75.8]",67.7,2464,"[66.7, 67.9]",2025-08-07
-ForecastBench,Google,Gemini-3-Pro-Preview (zero shot with crowd forecast),61.1,1831,"[60.7, 61.4]",75.4,260,"[73.2, 77.6]",67.5,2091,"[66.6, 68.2]",2025-11-18
-Lightning Rod Labs,Lightning Rod Labs,Foresight-32B,61.6,664,"[60.6, 61.4]",74.6,91,"[72.0, 78.1]",67.4,755,"[66.3, 68.3]",2025-11-09
-ForecastBench,OpenAI,O3-2025-04-16 (zero shot with crowd forecast),60.9,4360,"[60.6, 61.0]",75.2,528,"[72.9, 77.1]",67.3,4888,"[66.4, 67.9]",2025-04-16
-ForecastBench,Anthropic,Claude-Sonnet-4-5-20250929 (zero shot with crowd forecast),60.7,3174,"[60.5, 60.9]",75.7,443,"[73.8, 77.3]",67.3,3617,"[66.6, 67.8]",2025-09-29
-ForecastBench,Anthropic,Claude-Opus-4-1-20250805 (zero shot with crowd forecast),60.5,4034,"[60.2, 60.8]",75.6,521,"[73.9, 77.2]",67.2,4555,"[66.5, 67.7]",2025-08-05
-ForecastBench,xAI,Grok-4-0709 (zero shot with crowd forecast),60.4,3174,"[60.2, 60.7]",75.7,443,"[73.8, 77.4]",67.2,3617,"[66.6, 67.7]",2025-07-09
-ForecastBench,xAI,Grok-4-Fast-Reasoning (zero shot with crowd forecast),60.6,3174,"[60.3, 60.7]",75.7,443,"[73.8, 77.6]",67.2,3617,"[66.6, 67.8]",2025-09-19
-ForecastBench,OpenAI,GPT-4.5-Preview-2025-02-27 (zero shot with crowd forecast),60.4,2355,"[60.1, 60.5]",76.0,185,"[75.1, 78.5]",67.2,2540,"[67.0, 68.2]",2025-02-27
-ForecastBench,Anthropic,Claude-Opus-4-5-20251101 (zero shot with crowd forecast),60.6,1349,"[60.4, 61.0]",75.5,172,"[74.8, 77.1]",67.2,1521,"[67.0, 67.7]",2025-11-24
-ForecastBench,Anthropic,Claude-3-7-Sonnet-20250219 (scratchpad with crowd forecast),60.4,8212,"[60.2, 60.5]",75.3,622,"[73.7, 77.3]",67.0,8834,"[66.3, 67.8]",2025-02-24
-ForecastBench,OpenAI,GPT-4.5-Preview-2025-02-27 (scratchpad with crowd forecast),61.0,2355,"[60.7, 61.3]",74.2,185,"[73.7, 76.6]",67.0,2540,"[66.6, 68.0]",2025-02-27
-ForecastBench,xAI,Grok-4-1-Fast-Reasoning (zero shot with crowd forecast),60.5,1831,"[60.1, 60.6]",75.3,260,"[73.5, 77.5]",67.0,2091,"[66.4, 67.9]",2025-11-17
-ForecastBench,Google,Gemini-2.5-Pro (zero shot with crowd forecast),60.7,4034,"[60.4, 60.7]",74.6,521,"[72.9, 76.0]",66.9,4555,"[66.1, 67.4]",2025-06-17
-ForecastBench,OpenAI,GPT-5-Mini-2025-08-07 (zero shot with crowd forecast),60.9,4034,"[60.6, 61.0]",73.7,521,"[72.4, 74.8]",66.7,4555,"[66.2, 66.9]",2025-08-07
-Cassi-AI,Cassi-AI,ensemble_2,62.0,1343,"[61.5, 62.3]",72.3,183,"[70.4, 74.9]",66.7,1526,"[65.7, 67.6]",2025-10-26
-ForecastBench,OpenAI,O4-Mini-2025-04-16 (zero shot with crowd forecast),60.8,4534,"[60.4, 61.2]",73.6,357,"[72.5, 76.5]",66.6,4891,"[66.4, 67.5]",2025-04-16
-ForecastBench,Google,Gemini-2.5-Pro-Preview-03-25 (zero shot with crowd forecast),61.1,1186,"[60.5, 61.1]",73.2,85,"[71.9, 76.2]",66.6,1271,"[65.9, 67.7]",2025-04-04
-ForecastBench,Qwen,Qwen3-235B-A22B-Fp8-Tput (zero shot with crowd forecast),60.3,4034,"[60.1, 60.5]",74.2,521,"[72.9, 75.7]",66.5,4555,"[66.0, 67.1]",2025-04-29
-ForecastBench,Anthropic,Claude-Haiku-4-5-20251001 (zero shot with crowd forecast),59.3,3174,"[58.8, 59.3]",75.6,443,"[73.2, 77.3]",66.5,3617,"[65.5, 66.8]",2025-10-01
-ForecastBench,OpenAI,O3-2025-04-16 (scratchpad with crowd forecast),60.5,1186,"[60.0, 60.8]",73.3,85,"[71.6, 75.8]",66.3,1271,"[65.4, 67.4]",2025-04-16
-ForecastBench,Anthropic,Claude-Opus-4-20250514 (scratchpad with crowd forecast),60.8,1103,"[60.6, 61.2]",72.5,89,"[71.0, 76.7]",66.2,1192,"[65.5, 67.7]",2025-05-22
-ForecastBench,Anthropic,Claude-3-7-Sonnet-20250219 (zero shot with crowd forecast),59.5,11386,"[59.4, 59.5]",74.3,1065,"[72.8, 76.2]",66.1,12451,"[65.5, 66.8]",2025-02-24
-ForecastBench,OpenAI,GPT-4.1-2025-04-14 (scratchpad with crowd forecast),60.2,5720,"[59.8, 60.5]",73.2,442,"[70.8, 76.5]",66.1,6162,"[65.2, 67.1]",2025-04-14
-ForecastBench,OpenAI,O4-Mini-2025-04-16 (scratchpad with crowd forecast),60.7,4534,"[60.4, 61.0]",72.6,357,"[72.1, 74.8]",66.1,4891,"[65.9, 67.0]",2025-04-16
-ForecastBench,Anthropic,Claude-Sonnet-4-20250514 (zero shot with crowd forecast),59.1,2685,"[58.7, 59.3]",75.0,349,"[72.9, 76.5]",66.1,3034,"[65.3, 66.6]",2025-05-22
-ForecastBench,OpenAI,O3-Mini-2025-01-31 (zero shot with crowd forecast),59.0,4702,"[58.9, 59.1]",74.9,350,"[73.5, 77.3]",66.0,5052,"[65.4, 66.9]",2025-01-31
-ForecastBench,OpenAI,GPT-5.1-2025-11-13 (zero shot with crowd forecast),60.0,1347,"[59.8, 60.2]",73.0,180,"[70.3, 74.7]",65.9,1527,"[64.8, 66.6]",2025-11-13
-ForecastBench,Google,Gemini-2.5-Flash-Preview-04-17 (scratchpad with crowd forecast),60.7,1186,"[59.9, 60.8]",72.0,85,"[71.5, 74.2]",65.9,1271,"[65.6, 66.8]",2025-04-17
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20241022 (scratchpad with crowd forecast),58.5,8212,"[58.5, 58.8]",75.2,622,"[73.9, 77.3]",65.8,8834,"[65.4, 66.7]",2024-10-22
-ForecastBench,DeepSeek,DeepSeek-R1 (scratchpad with crowd forecast),59.4,5876,"[59.2, 59.4]",73.8,446,"[72.7, 75.9]",65.8,6322,"[65.3, 66.5]",2025-01-20
-ForecastBench,Moonshot,Kimi-K2-Instruct-0905 (zero shot with crowd forecast),59.9,3174,"[59.4, 60.3]",72.9,443,"[71.0, 74.0]",65.8,3617,"[65.2, 66.0]",2025-09-05
-ForecastBench,xAI,Grok-beta (zero shot with crowd forecast),58.3,2335,"[58.0, 58.5]",75.3,176,"[73.6, 78.3]",65.7,2511,"[65.0, 66.8]",2024-11-04
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20241022 (zero shot with crowd forecast),58.6,8212,"[58.5, 58.6]",73.8,622,"[72.3, 76.2]",65.4,8834,"[64.7, 66.2]",2024-10-22
-Anonymous 1,Anonymous 1,capella,60.7,679,"[59.9, 61.1]",70.9,92,"[68.6, 72.7]",65.4,771,"[64.0, 66.1]",2025-10-26
-ForecastBench,OpenAI,GPT-4.1-2025-04-14 (zero shot with crowd forecast),59.3,9754,"[58.8, 59.4]",72.6,963,"[70.5, 74.7]",65.3,10717,"[64.5, 66.1]",2025-04-14
-ForecastBench,Google,Gemini-2.5-Flash-Preview-04-17 (zero shot with crowd forecast),60.6,1186,"[59.6, 60.8]",70.8,85,"[70.6, 74.0]",65.3,1271,"[65.0, 66.1]",2025-04-17
-ForecastBench,OpenAI,O3-2025-04-16 (scratchpad),60.5,1186,"[60.0, 60.8]",71.0,85,"[69.7, 76.8]",65.3,1271,"[64.5, 67.8]",2025-04-16
-ForecastBench,Anthropic,Claude-Opus-4-1-20250805 (scratchpad with crowd forecast),59.8,860,"[59.6, 60.3]",71.8,78,"[68.9, 74.5]",65.3,938,"[64.2, 66.6]",2025-08-05
-ForecastBench,Qwen,Qwen3-235B-A22B-Fp8-Tput (scratchpad with crowd forecast),58.6,6596,"[58.4, 58.8]",73.5,532,"[72.5, 73.6]",65.2,7128,"[64.8, 65.4]",2025-04-29
-ForecastBench,Google,Gemini-2.5-Flash (zero shot with crowd forecast),59.0,4034,"[58.9, 59.5]",72.7,521,"[70.2, 74.1]",65.2,4555,"[64.4, 65.8]",2025-06-17
-ForecastBench,ForecastBench,Public median forecast,59.3,521,"[57.7, 58.9]",72.1,56,"[70.9, 73.6]",65.1,577,"[64.2, 65.3]",
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (zero shot with crowd forecast),58.5,14959,"[58.3, 58.5]",73.0,1190,"[71.8, 75.3]",65.0,16149,"[64.5, 65.8]",2024-06-20
-ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (zero shot with crowd forecast),58.0,6025,"[57.8, 58.1]",73.8,485,"[72.4, 75.3]",65.0,6510,"[64.4, 65.5]",2024-04-09
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad with crowd forecast),58.7,13864,"[58.5, 58.9]",72.5,1098,"[71.1, 74.6]",64.9,14962,"[64.3, 65.8]",2024-06-20
-ForecastBench,Anthropic,Claude-3-7-Sonnet-20250219 (scratchpad),60.4,8212,"[60.2, 60.5]",70.0,622,"[69.4, 72.1]",64.9,8834,"[64.5, 65.8]",2025-02-24
-ForecastBench,Qwen,Qwen3-235B-A22B-Thinking-2507 (zero shot with crowd forecast),58.4,3174,"[57.6, 58.6]",73.0,443,"[71.8, 75.1]",64.9,3617,"[64.3, 65.6]",2025-07-25
-ForecastBench,DeepSeek,DeepSeek-V3 (scratchpad with crowd forecast),59.2,5876,"[58.9, 59.5]",71.6,446,"[70.8, 73.3]",64.8,6322,"[64.6, 65.7]",2024-12-25
-ForecastBench,DeepSeek,DeepSeek-V3 (zero shot with crowd forecast),57.8,5876,"[57.4, 57.9]",73.5,446,"[72.2, 75.5]",64.8,6322,"[64.1, 65.6]",2024-12-25
-ForecastBench,xAI,Grok-4-1-Fast-Non-Reasoning (zero shot with crowd forecast),60.5,435,"[60.2, 61.1]",69.7,80,"[66.2, 69.8]",64.8,515,"[63.1, 65.2]",2025-11-17
-LightningRodLabs,LightningRodLabs,foresight-32b-V2,59.8,430,"[58.7, 60.6]",70.6,12,"[68.4, 74.8]",64.8,442,"[63.9, 66.9]",2026-01-04
-ForecastBench,Anthropic,Claude-Sonnet-4-20250514 (scratchpad with crowd forecast),57.8,1963,"[57.2, 58.1]",73.2,167,"[72.2, 75.8]",64.7,2130,"[64.4, 65.6]",2025-05-22
-Anonymous 1,Anonymous 1,rigel,58.6,664,"[57.5, 59.6]",72.1,91,"[69.1, 77.3]",64.7,755,"[64.0, 65.9]",2025-11-09
-ForecastBench,xAI,Grok-4-Fast-Non-Reasoning (zero shot),57.9,430,"[57.7, 58.4]",73.1,12,"[69.7, 74.9]",64.7,442,"[63.5, 65.3]",2025-09-19
-ForecastBench,Anthropic,Claude-Sonnet-4-5-20250929 (zero shot),60.7,3174,"[60.5, 60.9]",69.0,443,"[67.0, 69.2]",64.6,3617,"[63.7, 64.6]",2025-09-29
-ForecastBench,OpenAI,GPT-4.5-Preview-2025-02-27 (zero shot),60.4,2355,"[60.1, 60.5]",69.3,185,"[66.7, 71.7]",64.6,2540,"[63.3, 65.6]",2025-02-27
-ForecastBench,DeepSeek,DeepSeek-V3.1 (zero shot with crowd forecast),58.7,3174,"[58.5, 58.8]",71.4,443,"[69.3, 73.8]",64.5,3617,"[63.5, 65.4]",2025-08-21
-ForecastBench,Meta,Meta-Llama-3.1-405B-Instruct-Turbo (zero shot with crowd forecast),58.0,2336,"[57.7, 58.3]",72.4,176,"[70.7, 74.2]",64.5,2512,"[63.7, 65.1]",2024-07-23
-ForecastBench,Google,Gemini-2.5-Pro-Preview-03-25 (zero shot),61.1,1186,"[60.5, 61.1]",68.3,85,"[66.9, 71.0]",64.5,1271,"[63.6, 65.7]",2025-04-04
-ForecastBench,Moonshot,Kimi-K2-Instruct (zero shot with crowd forecast),58.1,4401,"[58.0, 58.1]",71.9,442,"[70.1, 74.1]",64.3,4843,"[63.5, 65.1]",2025-07-12
-Anonymous 1,Anonymous 1,arcturus,60.1,1343,"[59.2, 60.5]",69.1,183,"[67.2, 70.7]",64.3,1526,"[63.0, 64.6]",2025-10-26
-ForecastBench,OpenAI,O3-Mini-2025-01-31 (scratchpad with crowd forecast),58.9,4702,"[58.6, 59.0]",70.6,350,"[69.2, 72.7]",64.2,5052,"[63.7, 65.0]",2025-01-31
-ForecastBench,OpenAI,O4-Mini-2025-04-16 (scratchpad),60.7,4534,"[60.4, 61.0]",68.0,357,"[68.0, 70.2]",64.2,4891,"[64.2, 65.1]",2025-04-16
-ForecastBench,Anthropic,Claude-3-Opus-20240229 (zero shot with crowd forecast),58.2,6025,"[58.0, 58.4]",71.2,485,"[70.1, 72.8]",64.1,6510,"[63.7, 64.6]",2024-02-29
-ForecastBench,OpenAI,O4-Mini-2025-04-16 (zero shot),60.8,4534,"[60.4, 61.2]",67.7,357,"[66.7, 71.2]",64.1,4891,"[63.9, 65.4]",2025-04-16
-ForecastBench,Qwen,QwQ-32B-Preview (scratchpad with crowd forecast),56.6,3521,"[56.4, 56.9]",73.6,261,"[71.7, 75.2]",64.1,3782,"[63.5, 64.7]",2024-11-28
-ForecastBench,xAI,Grok-beta (zero shot),58.3,2335,"[58.0, 58.5]",71.0,176,"[68.0, 74.0]",64.1,2511,"[62.8, 65.3]",2024-11-04
-ForecastBench,Meta,Llama-4-Maverick-17B-128E-Instruct-FP8 (scratchpad with crowd forecast),57.2,4685,"[57.0, 57.3]",72.4,351,"[71.7, 73.9]",64.0,5036,"[63.7, 64.6]",2025-04-05
-Anonymous 1,Anonymous 1,Ensemble,61.1,2013,"[60.5, 61.2]",67.1,263,"[65.4, 69.7]",64.0,2276,"[63.2, 64.9]",2025-11-09
-ForecastBench,Google,Gemini-2.5-Flash-Preview-04-17 (zero shot),60.6,1186,"[59.6, 60.8]",67.9,85,"[65.4, 72.4]",64.0,1271,"[62.7, 66.1]",2025-04-17
-Anonymous 1,Anonymous 1,polaris,58.5,664,"[57.7, 58.5]",70.3,91,"[67.6, 72.7]",63.9,755,"[62.5, 64.8]",2025-11-09
-ForecastBench,Meta,Llama-3.3-70B-Instruct-Turbo (scratchpad with crowd forecast),57.0,8212,"[56.9, 57.1]",72.1,622,"[71.2, 74.4]",63.8,8834,"[63.5, 64.6]",2024-12-06
-ForecastBench,OpenAI,GPT-4.1-2025-04-14 (scratchpad),60.2,5720,"[59.8, 60.5]",67.8,442,"[66.8, 69.9]",63.8,6162,"[63.5, 64.7]",2025-04-14
-ForecastBench,OpenAI,GPT-4.5-Preview-2025-02-27 (scratchpad),61.0,2355,"[60.7, 61.3]",66.7,185,"[64.2, 68.9]",63.8,2540,"[62.5, 64.8]",2025-02-27
-ForecastBench,Mistral,Mistral-Large-2407 (zero shot with crowd forecast),56.3,8162,"[56.1, 56.4]",73.0,623,"[71.7, 74.2]",63.7,8785,"[63.0, 64.2]",2024-07-24
-ForecastBench,OpenAI,GPT-4o-2024-05-13 (zero shot with crowd forecast),56.1,8162,"[56.0, 56.2]",73.3,623,"[71.5, 75.0]",63.7,8785,"[62.9, 64.4]",2024-05-13
-ForecastBench,Meta,Meta-Llama-3.1-405B-Instruct-Turbo (scratchpad with crowd forecast),57.4,2336,"[57.1, 57.5]",71.4,176,"[70.5, 72.6]",63.7,2512,"[63.3, 64.2]",2024-07-23
-ForecastBench,xAI,Grok-4-1-Fast-Reasoning (zero shot),60.5,1831,"[60.1, 60.6]",67.2,260,"[65.8, 69.3]",63.7,2091,"[63.0, 64.4]",2025-11-17
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20241022 (scratchpad),58.5,8212,"[58.5, 58.8]",69.5,622,"[68.2, 71.8]",63.6,8834,"[63.1, 64.7]",2024-10-22
-ForecastBench,Z.ai,GLM-4.5-Air-FP8 (zero shot with crowd forecast),56.7,2203,"[56.3, 56.6]",72.4,261,"[70.6, 74.1]",63.6,2464,"[62.8, 64.2]",2025-07-28
-ForecastBench,OpenAI,O3-2025-04-16 (zero shot),60.9,4360,"[60.6, 61.0]",66.2,528,"[63.8, 67.4]",63.5,4888,"[62.3, 64.0]",2025-04-16
-ForecastBench,Anthropic,Claude-Opus-4-1-20250805 (zero shot),60.5,4034,"[60.2, 60.8]",66.8,521,"[65.0, 68.1]",63.5,4555,"[62.7, 64.1]",2025-08-05
-ForecastBench,Google,Gemini-3-Pro-Preview (zero shot),61.1,1831,"[60.7, 61.4]",65.9,260,"[64.0, 66.2]",63.5,2091,"[62.5, 63.6]",2025-11-18
-ForecastBench,xAI,Grok-4-Fast-Non-Reasoning (zero shot with crowd forecast),57.9,430,"[57.7, 58.4]",70.2,12,"[67.6, 75.0]",63.5,442,"[62.4, 65.3]",2025-09-19
-ForecastBench,Qwen,Qwen2.5-72B-Instruct-Turbo (zero shot with crowd forecast),56.3,2336,"[55.7, 56.4]",72.3,176,"[71.3, 73.4]",63.4,2512,"[62.9, 63.9]",2024-09-19
-ForecastBench,Meta,Llama-3.3-70B-Instruct-Turbo (zero shot with crowd forecast),55.8,8212,"[55.8, 56.1]",72.8,622,"[71.3, 74.8]",63.3,8834,"[62.8, 64.2]",2024-12-06
-ForecastBench,DeepSeek,DeepSeek-R1 (scratchpad),59.4,4702,"[59.1, 59.3]",67.6,350,"[66.2, 69.2]",63.3,5052,"[62.5, 63.9]",2025-01-20
-Anonymous 1,Anonymous 1,canopus,60.0,1343,"[59.3, 60.2]",66.9,183,"[65.3, 67.6]",63.3,1526,"[62.3, 63.7]",2025-10-26
-Anonymous 1,Anonymous 1,orion,60.7,914,"[60.0, 61.2]",66.1,92,"[61.9, 72.1]",63.3,1006,"[61.6, 65.8]",2025-12-07
-ForecastBench,Z.ai,GLM-4.5-Air-FP8 (scratchpad with crowd forecast),57.6,860,"[57.2, 57.7]",70.1,78,"[68.6, 72.3]",63.3,938,"[62.6, 64.2]",2025-07-28
-Anonymous 1,Anonymous 1,bigdipper,59.2,679,"[58.2, 60.0]",67.8,92,"[65.9, 69.6]",63.3,771,"[61.8, 63.8]",2025-10-26
-ForecastBench,OpenAI,GPT-5-Mini-2025-08-07 (zero shot),60.9,4034,"[60.6, 61.0]",65.6,521,"[63.9, 66.5]",63.2,4555,"[62.3, 63.4]",2025-08-07
-ForecastBench,Mistral,Mistral-Large-2411 (zero shot with crowd forecast),56.0,3058,"[55.6, 56.5]",72.2,259,"[71.2, 74.9]",63.2,3317,"[62.9, 64.2]",2024-11-18
-ForecastBench,OpenAI,GPT-4-0613 (zero shot with crowd forecast),56.4,1384,"[55.5, 56.5]",71.7,123,"[69.3, 73.8]",63.2,1507,"[62.2, 63.6]",2023-06-13
-ForecastBench,Anthropic,Claude-Haiku-4-5-20251001 (zero shot),59.3,3174,"[58.8, 59.3]",67.2,443,"[65.4, 68.5]",63.1,3617,"[62.1, 63.4]",2025-10-01
-ForecastBench,Google,Gemini-2.5-Flash-Preview-04-17 (scratchpad),60.7,1186,"[59.9, 60.8]",65.7,85,"[63.2, 69.1]",63.1,1271,"[61.6, 64.6]",2025-04-17
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad with news with crowd forecast),58.4,1384,"[57.9, 58.9]",67.7,123,"[66.1, 70.1]",62.8,1507,"[62.1, 63.7]",2024-06-20
-Anonymous 1,Anonymous 1,orcas,60.5,865,"[59.6, 61.6]",65.3,92,"[65.8, 69.9]",62.8,957,"[62.9, 64.5]",2025-12-21
-ForecastBench,Anthropic,Claude-Opus-4-1-20250805 (scratchpad),59.8,860,"[59.6, 60.3]",66.1,78,"[61.8, 71.0]",62.8,938,"[61.0, 65.1]",2025-08-05
-ForecastBench,Moonshot,Kimi-K2-Instruct (scratchpad with crowd forecast),58.4,860,"[57.8, 59.1]",67.8,78,"[63.6, 70.7]",62.8,938,"[60.7, 64.4]",2025-07-12
-Mantic,Mantic,mantic-light-2025-10-testing,53.5,2495,"[52.1, 53.9]",75.0,351,"[73.8, 76.5]",62.7,2846,"[61.8, 63.4]",2025-11-09
-ForecastBench,Meta,Meta-Llama-3.1-405B-Instruct-Turbo (zero shot),58.0,2336,"[57.7, 58.3]",68.0,176,"[65.7, 70.6]",62.7,2512,"[61.5, 63.9]",2024-07-23
-ForecastBench,OpenAI,GPT-5-2025-08-07 (zero shot),61.8,2203,"[61.5, 61.9]",63.6,261,"[61.3, 63.5]",62.7,2464,"[61.6, 62.6]",2025-08-07
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20241022 (zero shot),58.6,8212,"[58.5, 58.6]",67.0,622,"[65.3, 68.8]",62.6,8834,"[61.8, 63.3]",2024-10-22
-ForecastBench,OpenAI,O3-Mini-2025-01-31 (zero shot),59.0,4702,"[58.9, 59.1]",66.6,350,"[64.6, 68.6]",62.6,5052,"[61.7, 63.5]",2025-01-31
-ForecastBench,OpenAI,GPT-4.1-2025-04-14 (zero shot),59.3,9754,"[58.8, 59.4]",65.9,963,"[64.8, 67.3]",62.5,10717,"[62.0, 63.1]",2025-04-14
-ForecastBench,xAI,Grok-4-0709 (zero shot),60.4,3174,"[60.2, 60.7]",64.8,443,"[63.1, 65.9]",62.5,3617,"[61.7, 63.0]",2025-07-09
-ForecastBench,Google,Gemini-2.0-Flash-Lite-001 (scratchpad with crowd forecast),56.6,2335,"[56.1, 56.9]",69.5,176,"[68.3, 72.4]",62.5,2511,"[62.1, 63.6]",2025-02-05
-Anonymous 1,Anonymous 1,bootis,59.3,664,"[58.3, 59.7]",66.0,91,"[63.8, 68.9]",62.5,755,"[61.7, 63.8]",2025-11-09
-ForecastBench,Google,Gemini-2.5-Pro (zero shot),60.7,4034,"[60.4, 60.7]",64.3,521,"[62.9, 65.0]",62.4,4555,"[61.7, 62.7]",2025-06-17
-ForecastBench,xAI,Grok-4-Fast-Reasoning (zero shot),60.6,3174,"[60.3, 60.7]",64.2,443,"[62.9, 64.8]",62.4,3617,"[61.7, 62.7]",2025-09-19
-ForecastBench,OpenAI,GPT-4o-2024-11-20 (scratchpad with crowd forecast with web search),58.2,1174,"[57.5, 58.3]",66.9,96,"[65.2, 72.9]",62.3,1270,"[61.5, 64.8]",2024-11-20
-ForecastBench,OpenAI,GPT-4o-2024-11-20 (zero shot with crowd forecast with web search),58.4,1174,"[57.7, 58.6]",66.7,96,"[67.2, 71.8]",62.3,1270,"[62.6, 64.5]",2024-11-20
-ForecastBench,OpenAI,GPT-4o (scratchpad with crowd forecast),56.7,1384,"[56.5, 57.3]",68.6,123,"[67.3, 70.2]",62.2,1507,"[61.6, 62.8]",2024-05-13
-ForecastBench,Anthropic,Claude-Opus-4-20250514 (scratchpad),60.8,1103,"[60.6, 61.2]",63.6,89,"[65.0, 67.4]",62.2,1192,"[62.9, 64.0]",2025-05-22
-Anonymous 1,Anonymous 1,centauri,58.5,664,"[57.0, 58.3]",66.5,91,"[61.6, 68.6]",62.2,755,"[59.2, 63.0]",2025-11-09
-ForecastBench,DeepSeek,DeepSeek-V3 (scratchpad),59.2,5876,"[58.9, 59.5]",65.3,446,"[63.9, 66.2]",62.1,6322,"[61.4, 62.7]",2024-12-25
-ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (scratchpad with crowd forecast),56.6,6025,"[56.5, 56.8]",68.3,485,"[65.2, 70.5]",62.0,6510,"[60.6, 63.0]",2024-04-09
-ForecastBench,Moonshot,Kimi-K2-Instruct-0905 (zero shot),59.9,3174,"[59.4, 60.3]",64.1,443,"[62.0, 65.7]",62.0,3617,"[61.2, 62.4]",2025-09-05
-ForecastBench,Mistral,Magistral-Medium-2506 (scratchpad with crowd forecast),56.8,1963,"[56.6, 57.2]",68.1,167,"[66.5, 70.1]",62.0,2130,"[61.5, 62.8]",2025-05-28
-ForecastBench,OpenAI,GPT-4o-2024-05-13 (scratchpad with crowd forecast),54.9,8162,"[54.8, 55.0]",70.4,623,"[69.3, 72.2]",61.9,8785,"[61.4, 62.6]",2024-05-13
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (superforecaster with news 1),58.6,1384,"[58.0, 59.3]",65.5,123,"[63.0, 66.8]",61.9,1507,"[60.4, 62.3]",2024-06-20
-ForecastBench,OpenAI,GPT-5-Nano-2025-08-07 (zero shot with crowd forecast),57.9,4034,"[57.4, 58.2]",66.1,521,"[65.1, 66.4]",61.8,4555,"[61.3, 61.9]",2025-08-07
-ForecastBench,Anthropic,Claude-Sonnet-4-20250514 (zero shot),59.1,2685,"[58.7, 59.3]",64.8,349,"[63.0, 65.3]",61.8,3034,"[61.0, 62.1]",2025-05-22
-ForecastBench,Anthropic,Claude-Opus-4-5-20251101 (zero shot),60.6,1349,"[60.4, 61.0]",63.0,172,"[62.2, 66.2]",61.8,1521,"[61.6, 63.2]",2025-11-24
-ForecastBench,OpenAI,GPT-4o-2024-11-20 (scratchpad with web search),58.2,1174,"[57.5, 58.3]",65.7,96,"[63.2, 70.3]",61.7,1270,"[60.2, 63.8]",2024-11-20
-ForecastBench,Meta,Llama-3.3-70B-Instruct-Turbo (zero shot),55.8,8212,"[55.8, 56.1]",68.2,622,"[67.3, 70.2]",61.5,8834,"[61.1, 62.5]",2024-12-06
-ForecastBench,Qwen,Qwen3-235B-A22B-Fp8-Tput (zero shot),60.2,2925,"[59.9, 60.5]",62.9,417,"[61.6, 64.1]",61.5,3342,"[61.1, 62.0]",2025-04-29
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad),58.7,13864,"[58.5, 58.9]",64.3,1098,"[63.7, 64.8]",61.4,14962,"[61.1, 61.7]",2024-06-20
-ForecastBench,Meta,Llama-4-Scout-17B-16E-Instruct (zero shot with crowd forecast),54.3,5788,"[54.2, 54.3]",70.2,440,"[68.3, 72.3]",61.4,6228,"[60.7, 62.2]",2025-04-05
-ForecastBench,Meta,Llama-3-70b-Chat-Hf (zero shot with crowd forecast),54.8,3689,"[54.5, 54.9]",69.4,309,"[67.1, 71.9]",61.4,3998,"[60.4, 62.3]",2024-04-18
-ForecastBench,Qwen,Qwen3-235B-A22B-Fp8-Tput (scratchpad),58.6,6596,"[58.4, 58.8]",64.2,532,"[62.9, 63.7]",61.3,7128,"[60.8, 61.1]",2025-04-29
-ForecastBench,DeepSeek,DeepSeek-V3 (zero shot),57.8,5876,"[57.4, 57.9]",65.3,446,"[64.9, 67.3]",61.3,6322,"[61.1, 62.3]",2024-12-25
-ForecastBench,OpenAI,GPT-4o (scratchpad with news with crowd forecast),56.1,1384,"[55.7, 56.5]",67.3,123,"[64.4, 67.9]",61.3,1507,"[60.0, 61.5]",2024-05-13
-ForecastBench,OpenAI,GPT-4o (zero shot with crowd forecast),53.9,1384,"[53.7, 54.0]",70.6,123,"[69.6, 74.4]",61.3,1507,"[61.0, 62.8]",2024-05-13
-ForecastBench,OpenAI,GPT-4o-2024-11-20 (zero shot with web search),58.4,1174,"[57.7, 58.6]",64.5,96,"[64.0, 70.5]",61.3,1270,"[61.1, 64.0]",2024-11-20
-ForecastBench,Qwen,QwQ-32B-Preview (scratchpad),56.6,3521,"[56.4, 56.9]",66.4,261,"[64.8, 68.1]",61.2,3782,"[60.6, 61.9]",2024-11-28
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (zero shot),58.5,14959,"[58.3, 58.5]",64.0,1190,"[63.0, 64.3]",61.1,16149,"[60.7, 61.3]",2024-06-20
-ForecastBench,Anthropic,Claude-3-7-Sonnet-20250219 (zero shot),59.5,11386,"[59.4, 59.5]",62.8,1065,"[62.1, 64.5]",61.1,12451,"[60.8, 61.9]",2025-02-24
-ForecastBench,OpenAI,O3-Mini-2025-01-31 (scratchpad),58.9,4702,"[58.6, 59.0]",63.5,350,"[61.9, 65.5]",61.1,5052,"[60.3, 61.9]",2025-01-31
-ForecastBench,Meta,Llama-3-8b-Chat-Hf (zero shot with crowd forecast),54.9,2533,"[54.2, 55.2]",68.4,214,"[66.2, 70.7]",61.1,2747,"[60.1, 62.0]",2024-04-18
-ForecastBench,Google,Gemini-1.5-Pro (scratchpad with crowd forecast),57.6,1384,"[57.2, 58.1]",64.9,123,"[61.1, 67.9]",61.1,1507,"[59.2, 62.3]",2024-05-01
-ForecastBench,Qwen,Qwen1.5-110B-Chat (zero shot with crowd forecast),55.3,1384,"[54.3, 55.3]",67.9,123,"[66.1, 70.8]",61.1,1507,"[60.4, 61.7]",2024-04-25
-ForecastBench,Moonshot,Kimi-K2-Instruct (scratchpad),58.4,860,"[57.8, 59.1]",64.0,78,"[60.3, 65.4]",61.1,938,"[59.2, 61.8]",2025-07-12
-Anonymous 1,Anonymous 1,sirius,58.7,664,"[57.1, 58.6]",63.7,91,"[61.9, 66.1]",61.1,755,"[60.0, 61.3]",2025-11-09
-ForecastBench,Mistral,Mistral-Large-2407 (scratchpad with crowd forecast),55.1,5826,"[54.7, 55.3]",67.7,440,"[66.3, 68.9]",60.9,6266,"[60.3, 61.5]",2024-07-24
-ForecastBench,Meta,Llama-4-Scout-17B-16E-Instruct (scratchpad with crowd forecast),53.2,3505,"[52.8, 53.3]",70.5,263,"[69.9, 73.9]",60.9,3768,"[60.7, 62.1]",2025-04-05
-ForecastBench,ForecastBench,Imputed Forecaster,50.0,18133,"[50.0, 50.0]",76.0,1633,"[74.2, 77.7]",60.8,19766,"[60.2, 61.3]",
-ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (zero shot),58.0,6025,"[57.8, 58.1]",63.9,485,"[61.7, 64.6]",60.8,6510,"[59.8, 61.2]",2024-04-09
-ForecastBench,Anthropic,Claude-3-Opus-20240229 (scratchpad with crowd forecast),57.3,6025,"[57.2, 57.4]",64.4,485,"[63.2, 66.2]",60.7,6510,"[60.2, 61.5]",2024-02-29
-ForecastBench,OpenAI,GPT-5-Nano-2025-08-07 (zero shot),57.9,4034,"[57.4, 58.2]",63.6,521,"[62.6, 63.9]",60.6,4555,"[60.1, 60.8]",2025-08-07
-ForecastBench,Google,Gemini-2.5-Flash (zero shot),59.0,4034,"[58.9, 59.5]",62.0,521,"[59.6, 63.4]",60.5,4555,"[59.3, 61.3]",2025-06-17
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad with news),58.4,1384,"[57.9, 58.9]",62.7,123,"[60.1, 63.5]",60.5,1507,"[59.3, 61.1]",2024-06-20
-ForecastBench,Meta,Llama-4-Maverick-17B-128E-Instruct-FP8 (scratchpad),57.2,4685,"[57.0, 57.3]",63.9,351,"[62.9, 65.4]",60.4,5036,"[60.0, 61.0]",2025-04-05
-ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (zero shot with crowd forecast),54.1,1384,"[53.7, 54.2]",67.8,123,"[65.4, 71.4]",60.4,1507,"[59.4, 61.6]",2024-04-17
-ForecastBench,OpenAI,GPT-4-0613 (scratchpad with crowd forecast),55.9,1384,"[55.4, 56.4]",65.5,123,"[63.8, 68.0]",60.4,1507,"[59.6, 61.3]",2023-06-13
-ForecastBench,Meta,Llama-4-Scout-17B-16E-Instruct (zero shot),54.3,5788,"[54.2, 54.3]",67.5,440,"[66.4, 69.9]",60.3,6228,"[59.9, 61.2]",2025-04-05
-ForecastBench,Anthropic,Claude-2.1 (zero shot with crowd forecast),52.8,1384,"[52.2, 53.0]",69.6,123,"[66.4, 71.7]",60.3,1507,"[59.1, 60.9]",2023-11-21
-ForecastBench,Google,Gemini-1.5-Pro (zero shot with crowd forecast),55.2,1384,"[54.7, 55.9]",66.2,123,"[64.4, 69.1]",60.3,1507,"[59.7, 61.2]",2024-05-01
-ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (scratchpad with news with crowd forecast),55.5,1384,"[55.1, 56.0]",65.7,123,"[63.4, 66.9]",60.3,1507,"[59.5, 60.7]",2024-04-09
-ForecastBench,Meta,Llama-3.3-70B-Instruct-Turbo (scratchpad),57.0,8212,"[56.9, 57.1]",63.6,622,"[62.7, 65.2]",60.2,8834,"[59.7, 60.9]",2024-12-06
-ForecastBench,Google,Gemini-2.0-Flash-Lite-001 (scratchpad),56.6,2335,"[56.1, 56.9]",64.2,176,"[62.5, 65.1]",60.2,2511,"[59.6, 60.7]",2025-02-05
-ForecastBench,Anthropic,Claude-Sonnet-4-20250514 (scratchpad),57.8,1963,"[57.2, 58.1]",62.8,167,"[61.2, 66.0]",60.2,2130,"[59.3, 61.4]",2025-05-22
-ForecastBench,Google,Gemini-1.5-Pro (scratchpad),57.6,1384,"[57.2, 58.1]",62.9,123,"[59.6, 65.4]",60.2,1507,"[58.5, 61.5]",2024-05-01
-ForecastBench,Mistral AI,Mistral-Large-Latest (zero shot with crowd forecast),54.5,1384,"[54.0, 55.0]",66.9,123,"[64.6, 71.1]",60.2,1507,"[59.5, 61.8]",2024-02-26
-ForecastBench,Z.ai,GLM-4.5-Air-FP8 (scratchpad),57.6,860,"[57.2, 57.7]",62.9,78,"[58.6, 65.3]",60.2,938,"[58.0, 61.3]",2025-07-28
-ForecastBench,Google,Gemini-1.5-Flash (zero shot with crowd forecast),53.7,1384,"[53.2, 54.5]",67.8,123,"[62.0, 73.4]",60.1,1507,"[58.0, 62.1]",2024-05-01
-ForecastBench,OpenAI,GPT-4o-2024-05-13 (zero shot),56.1,8162,"[56.0, 56.2]",64.2,623,"[62.8, 65.2]",60.0,8785,"[59.2, 60.4]",2024-05-13
-ForecastBench,Mistral AI,Mistral-Large-Latest (scratchpad with crowd forecast),56.0,1384,"[55.4, 56.7]",64.1,123,"[61.8, 68.8]",59.9,1507,"[59.1, 61.5]",2024-02-26
-ForecastBench,Meta,Meta-Llama-3.1-405B-Instruct-Turbo (scratchpad),57.4,2336,"[57.1, 57.5]",62.3,176,"[60.4, 64.8]",59.8,2512,"[58.8, 61.0]",2024-07-23
-ForecastBench,Mistral AI,Mixtral-8x7B-Instruct-V0.1 (zero shot with crowd forecast),53.5,1384,"[53.0, 53.9]",67.2,123,"[66.1, 69.6]",59.8,1507,"[59.5, 60.6]",2023-12-11
-ForecastBench,Anthropic,Claude-3-Opus-20240229 (zero shot),58.2,6025,"[58.0, 58.4]",61.1,485,"[58.9, 61.9]",59.7,6510,"[58.5, 60.0]",2024-02-29
-ForecastBench,Moonshot,Kimi-K2-Instruct (zero shot),58.1,4401,"[58.0, 58.1]",61.4,442,"[59.1, 63.1]",59.7,4843,"[58.5, 60.4]",2025-07-12
-Anonymous 1,Anonymous 1,vega,59.2,1583,"[58.6, 59.4]",60.3,251,"[58.3, 61.9]",59.7,1834,"[58.4, 60.3]",2025-11-09
-ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (scratchpad with crowd forecast),55.1,1384,"[54.6, 55.5]",64.9,123,"[61.5, 72.0]",59.7,1507,"[57.9, 62.5]",2024-04-17
-ForecastBench,ForecastBench,Naive Forecaster,48.2,18133,"[48.2, 48.4]",75.9,1633,"[74.2, 77.7]",59.6,19766,"[59.2, 60.1]",
-ForecastBench,Qwen,Qwen2.5-72B-Instruct-Turbo (zero shot),56.3,2336,"[55.7, 56.4]",63.3,176,"[61.4, 65.3]",59.6,2512,"[58.7, 60.5]",2024-09-19
-ForecastBench,Google,Gemini-1.5-Pro (scratchpad with news with crowd forecast),56.9,1384,"[56.1, 57.4]",62.4,123,"[60.1, 63.8]",59.6,1507,"[58.3, 60.2]",2024-05-01
-ForecastBench,DeepSeek,DeepSeek-V3.1 (zero shot),58.7,3174,"[58.5, 58.8]",60.0,443,"[58.2, 61.6]",59.4,3617,"[58.4, 60.1]",2025-08-21
-ForecastBench,OpenAI,GPT-4o (scratchpad with news),56.1,1384,"[55.7, 56.5]",63.1,123,"[60.5, 64.0]",59.4,1507,"[58.3, 59.7]",2024-05-13
-ForecastBench,OpenAI,GPT-4o (scratchpad),56.7,1384,"[56.5, 57.3]",62.3,123,"[59.8, 64.5]",59.4,1507,"[58.5, 60.3]",2024-05-13
-ForecastBench,OpenAI,GPT-5.1-2025-11-13 (zero shot),58.9,1831,"[58.5, 59.1]",59.8,260,"[57.1, 61.3]",59.3,2091,"[58.0, 60.2]",2025-11-13
-ForecastBench,Meta,Llama-3-70b-Chat-Hf (scratchpad with crowd forecast),54.1,1384,"[53.6, 54.6]",65.3,123,"[64.3, 70.0]",59.3,1507,"[58.8, 60.9]",2024-04-18
-ForecastBench,Mistral,Mistral-Large-2407 (zero shot),56.3,8162,"[56.1, 56.4]",62.2,623,"[60.9, 63.2]",59.1,8785,"[58.5, 59.6]",2024-07-24
-ForecastBench,OpenAI,GPT-4o-2024-05-13 (scratchpad),54.9,8162,"[54.8, 55.0]",63.7,623,"[62.7, 64.8]",59.1,8785,"[58.6, 59.6]",2024-05-13
-FractalAIResearch,FractalAIResearch,Fathom-Search-4B (prompt 1),56.3,679,"[54.7, 56.4]",62.1,92,"[59.4, 65.0]",59.1,771,"[57.4, 60.4]",2025-10-26
-ForecastBench,Meta,Llama-3-8b-Chat-Hf (zero shot),54.9,2533,"[54.2, 55.2]",63.7,214,"[60.7, 64.0]",59.0,2747,"[57.7, 59.2]",2024-04-18
-ForecastBench,Anthropic,Claude-3-Opus-20240229 (superforecaster with news 1),56.8,1384,"[56.5, 57.1]",61.4,123,"[60.4, 62.2]",59.0,1507,"[58.5, 59.3]",2024-02-29
-ForecastBench,Qwen,Qwen1.5-110B-Chat (scratchpad with crowd forecast),56.7,1384,"[55.9, 57.0]",61.5,123,"[60.3, 63.5]",59.0,1507,"[58.4, 59.8]",2024-04-25
-ForecastBench,Mistral,Mistral-Large-2411 (scratchpad with crowd forecast),53.1,3058,"[53.1, 53.3]",65.6,259,"[64.4, 67.3]",58.9,3317,"[58.4, 59.7]",2024-11-18
-ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (scratchpad with news),55.5,1384,"[55.1, 56.0]",62.5,123,"[59.3, 63.8]",58.9,1507,"[57.2, 59.5]",2024-04-09
-ForecastBench,Google,Gemini-2.0-Flash-Lite-001 (zero shot with crowd forecast),52.7,2335,"[52.1, 53.1]",66.0,176,"[62.8, 68.8]",58.8,2511,"[57.7, 59.8]",2025-02-05
-ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (superforecaster with news 1),53.9,1384,"[53.2, 54.7]",64.4,123,"[60.2, 69.2]",58.8,1507,"[56.9, 60.6]",2024-04-17
-ForecastBench,Meta,Llama-4-Scout-17B-16E-Instruct (scratchpad),53.2,3505,"[52.8, 53.3]",65.0,263,"[63.5, 67.5]",58.7,3768,"[58.1, 59.7]",2025-04-05
-ForecastBench,Google,Gemini-1.5-Pro (scratchpad with news),56.9,1384,"[56.1, 57.4]",60.6,123,"[59.0, 63.1]",58.7,1507,"[57.7, 59.5]",2024-05-01
-ForecastBench,OpenAI,GPT-4-0613 (scratchpad),55.9,1384,"[55.4, 56.4]",61.7,123,"[58.7, 64.8]",58.7,1507,"[57.3, 59.9]",2023-06-13
-ForecastBench,Qwen,Qwen1.5-110B-Chat (scratchpad),56.7,1384,"[55.9, 57.0]",60.6,123,"[58.2, 62.5]",58.6,1507,"[57.3, 59.3]",2024-04-25
-ForecastBench,Qwen,Qwen1.5-110B-Chat (scratchpad with news with crowd forecast),56.1,1384,"[55.5, 55.9]",61.1,123,"[58.8, 62.7]",58.5,1507,"[57.1, 59.1]",2024-04-25
-FractalAIResearch,FractalAIResearch,Fathom-Search-4B (prompt 2),54.5,679,"[53.6, 55.7]",63.0,92,"[59.4, 66.7]",58.5,771,"[56.9, 60.1]",2025-10-26
-ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (scratchpad),56.6,6025,"[56.5, 56.8]",60.4,485,"[59.0, 61.7]",58.4,6510,"[57.7, 59.2]",2024-04-09
-ForecastBench,Mistral,Mistral-Large-2411 (zero shot),56.0,3058,"[55.6, 56.5]",61.0,259,"[59.7, 62.2]",58.4,3317,"[57.8, 59.2]",2024-11-18
-ForecastBench,Google,Gemini-2.0-Flash-Lite-001 (zero shot),52.7,2335,"[52.1, 53.1]",65.0,176,"[62.9, 68.2]",58.4,2511,"[57.4, 59.6]",2025-02-05
-ForecastBench,Google,Gemini-1.5-Flash (scratchpad with crowd forecast),53.5,1384,"[52.6, 54.0]",63.6,123,"[62.7, 64.1]",58.3,1507,"[57.9, 58.4]",2024-05-01
-ForecastBench,Z.ai,GLM-4.5-Air-FP8 (zero shot),56.7,2203,"[56.3, 56.6]",59.9,261,"[58.1, 61.0]",58.2,2464,"[57.4, 58.7]",2025-07-28
-ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (scratchpad with news with crowd forecast),53.9,1384,"[53.5, 54.4]",62.9,123,"[61.2, 66.4]",58.2,1507,"[57.5, 59.7]",2024-04-17
-ForecastBench,OpenAI,GPT-4o (zero shot),53.9,1384,"[53.7, 54.0]",62.9,123,"[59.3, 64.9]",58.2,1507,"[56.4, 59.0]",2024-05-13
-ForecastBench,Anthropic,Claude-3-Opus-20240229 (scratchpad),57.3,6025,"[57.2, 57.4]",58.9,485,"[57.8, 59.2]",58.1,6510,"[57.6, 58.2]",2024-02-29
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad with SECOND news),53.7,1384,"[53.2, 54.2]",63.1,123,"[61.7, 64.2]",58.1,1507,"[57.5, 58.8]",2024-06-20
-ForecastBench,xAI,Grok-4-1-Fast-Non-Reasoning (zero shot),60.5,435,"[60.2, 61.1]",55.7,80,"[52.4, 56.8]",58.0,515,"[56.4, 58.9]",2025-11-17
-ForecastBench,OpenAI,GPT-4o (superforecaster with news 1),53.7,1384,"[53.0, 54.4]",62.6,123,"[58.1, 64.8]",57.9,1507,"[56.1, 58.7]",2024-05-13
-ForecastBench,Mistral AI,Mistral-Large-Latest (scratchpad),56.0,1384,"[55.4, 56.7]",59.5,123,"[58.4, 63.8]",57.7,1507,"[57.4, 59.4]",2024-02-26
-ForecastBench,OpenAI,GPT-4-0613 (zero shot),56.4,1384,"[55.5, 56.5]",59.0,123,"[57.1, 61.6]",57.6,1507,"[56.7, 58.6]",2023-06-13
-ForecastBench,Meta,Llama-3-70b-Chat-Hf (zero shot),54.8,3689,"[54.5, 54.9]",60.4,309,"[57.8, 60.7]",57.5,3998,"[56.2, 57.6]",2024-04-18
-ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (scratchpad with news),53.9,1384,"[53.5, 54.4]",61.2,123,"[59.6, 64.4]",57.4,1507,"[56.5, 58.8]",2024-04-17
-ForecastBench,Qwen,Qwen1.5-110B-Chat (scratchpad with news),56.1,1384,"[55.5, 55.9]",58.7,123,"[56.8, 59.4]",57.4,1507,"[56.3, 57.6]",2024-04-25
-ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (scratchpad),55.1,1384,"[54.6, 55.5]",59.3,123,"[57.6, 63.8]",57.2,1507,"[56.1, 59.2]",2024-04-17
-ForecastBench,Mistral AI,Mixtral-8x7B-Instruct-V0.1 (zero shot),53.5,1384,"[53.0, 53.9]",61.3,123,"[58.2, 63.9]",57.2,1507,"[55.9, 58.2]",2023-12-11
-ForecastBench,Qwen,Qwen1.5-110B-Chat (zero shot),55.3,1384,"[54.3, 55.3]",59.2,123,"[55.5, 60.2]",57.2,1507,"[55.4, 57.6]",2024-04-25
-ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (superforecaster with news 2),54.4,1384,"[53.3, 55.4]",60.1,123,"[57.0, 64.1]",57.1,1507,"[55.5, 58.4]",2024-06-20
-ForecastBench,Meta,Llama-3-8b-Chat-Hf (scratchpad with crowd forecast),50.9,1384,"[50.4, 51.1]",64.3,123,"[61.6, 67.2]",57.1,1507,"[56.1, 58.0]",2024-04-18
-ForecastBench,Mistral AI,Mistral-Large-Latest (zero shot),54.5,1384,"[54.0, 55.0]",59.8,123,"[55.5, 62.9]",57.1,1507,"[55.1, 58.2]",2024-02-26
-Stochastic Radiant,Anthropic,claude-3-5-haiku-20241022,53.8,1103,"[53.3, 53.9]",60.8,89,"[59.2, 64.8]",57.1,1192,"[56.4, 59.0]",2025-08-03
-ForecastBench,Anthropic,Claude-3-Opus-20240229 (scratchpad with news with crowd forecast),54.7,1384,"[54.5, 55.2]",59.4,123,"[58.2, 60.6]",57.0,1507,"[56.7, 57.5]",2024-02-29
-ForecastBench,ForecastBench,"LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean with news",50.8,1384,"[50.3, 50.9]",64.2,123,"[61.4, 64.9]",57.0,1507,"[55.7, 56.9]",
-ForecastBench,Mistral,Mistral-Large-2407 (scratchpad),55.1,5826,"[54.7, 55.3]",58.7,440,"[57.2, 59.4]",56.9,6266,"[56.1, 57.3]",2024-07-24
-ForecastBench,Google,Gemini-1.5-Pro (zero shot),55.2,1384,"[54.7, 55.9]",58.7,123,"[55.3, 62.4]",56.9,1507,"[55.6, 58.4]",2024-05-01
-ForecastBench,ForecastBench,"LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean log odds with news",50.7,1384,"[50.2, 50.9]",63.8,123,"[61.3, 64.9]",56.8,1507,"[55.5, 56.9]",
-ForecastBench,ForecastBench,"LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) median with news",50.7,1384,"[50.3, 51.0]",63.7,123,"[61.3, 64.7]",56.8,1507,"[55.6, 56.9]",
-ForecastBench,Google,Gemini-1.5-Pro (superforecaster with news 3),54.9,1384,"[54.6, 55.4]",58.8,123,"[56.3, 61.2]",56.8,1507,"[55.8, 57.8]",2024-05-01
-ForecastBench,Qwen,Qwen1.5-110B-Chat (superforecaster with news 1),54.6,1384,"[54.3, 55.0]",59.0,123,"[56.7, 58.1]",56.7,1507,"[55.6, 56.3]",2024-04-25
-ForecastBench,Mistral AI,Mistral-Large-Latest (superforecaster with news 1),53.4,1384,"[53.0, 54.1]",60.1,123,"[58.1, 60.8]",56.6,1507,"[55.7, 56.8]",2024-02-26
-ForecastBench,Anthropic,Claude-3-Opus-20240229 (superforecaster with news 2),55.5,1384,"[55.1, 56.1]",57.6,123,"[54.2, 58.9]",56.5,1507,"[55.0, 57.2]",2024-02-29
-ForecastBench,Google,Gemini-1.5-Flash (scratchpad with news with crowd forecast),51.9,1384,"[51.4, 52.3]",61.7,123,"[60.9, 63.8]",56.5,1507,"[56.3, 57.4]",2024-05-01
-ForecastBench,Mistral AI,Mistral-Large-Latest (scratchpad with news with crowd forecast),54.0,1384,"[53.6, 54.6]",59.0,123,"[58.0, 61.2]",56.4,1507,"[56.0, 57.4]",2024-02-26
-ForecastBench,Google,Gemini-1.5-Pro (superforecaster with news 1),53.9,1384,"[53.6, 54.9]",58.9,123,"[55.3, 59.9]",56.3,1507,"[54.5, 56.7]",2024-05-01
-ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (zero shot),54.1,1384,"[53.7, 54.2]",58.6,123,"[57.0, 59.8]",56.3,1507,"[55.5, 56.6]",2024-04-17
-ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (superforecaster with news 1),54.4,1384,"[53.8, 54.9]",58.2,123,"[54.6, 59.1]",56.3,1507,"[54.5, 56.7]",2024-04-09
-ForecastBench,Anthropic,Claude-3-Haiku-20240307 (zero shot with crowd forecast),51.2,6025,"[51.0, 51.5]",61.9,485,"[61.1, 63.4]",56.2,6510,"[55.8, 56.9]",2024-03-13
-ForecastBench,Google,Gemini-1.5-Flash (scratchpad),53.5,1384,"[52.6, 54.0]",58.8,123,"[57.7, 61.5]",56.1,1507,"[55.7, 57.5]",2024-05-01
-ForecastBench,Anthropic,Claude-3-Opus-20240229 (scratchpad with news),54.7,1384,"[54.5, 55.2]",57.4,123,"[55.3, 58.3]",56.0,1507,"[55.3, 56.5]",2024-02-29
-ForecastBench,Mistral AI,Mistral-Large-Latest (scratchpad with news),54.0,1384,"[53.6, 54.6]",57.2,123,"[55.2, 60.2]",55.5,1507,"[54.6, 57.0]",2024-02-26
-ForecastBench,Meta,Llama-3-70b-Chat-Hf (scratchpad),54.1,1384,"[53.6, 54.6]",56.5,123,"[53.2, 59.4]",55.3,1507,"[53.8, 56.7]",2024-04-18
-ForecastBench,Mistral AI,Mistral-Large-Latest (superforecaster with news 2),54.1,1384,"[53.5, 54.6]",56.2,123,"[54.4, 59.7]",55.2,1507,"[54.1, 56.7]",2024-02-26
-ForecastBench,Anthropic,Claude-2.1 (zero shot),52.8,1384,"[52.2, 53.0]",57.4,123,"[53.2, 61.4]",55.0,1507,"[53.0, 56.6]",2023-11-21
-ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (superforecaster with news 2),51.8,1384,"[51.2, 52.6]",58.1,123,"[57.1, 63.1]",54.9,1507,"[54.3, 56.8]",2024-04-17
-ForecastBench,OpenAI,GPT-4o (superforecaster with news 2),50.4,1384,"[50.1, 51.0]",60.0,123,"[60.2, 61.6]",54.9,1507,"[54.9, 55.9]",2024-05-13
-ForecastBench,Google,Gemini-1.5-Flash (scratchpad with news),51.9,1384,"[51.4, 52.3]",57.8,123,"[57.0, 60.3]",54.8,1507,"[54.5, 55.9]",2024-05-01
-ForecastBench,Google,Gemini-1.5-Flash (zero shot),53.7,1384,"[53.2, 54.5]",55.7,123,"[54.0, 58.3]",54.7,1507,"[53.6, 55.8]",2024-05-01
-ForecastBench,Anthropic,Claude-3-Haiku-20240307 (zero shot),51.2,6025,"[51.0, 51.5]",57.6,485,"[56.4, 58.2]",54.3,6510,"[53.6, 54.7]",2024-03-13
-ForecastBench,Google,Gemini-1.5-Pro (superforecaster with news 2),52.5,1384,"[51.6, 53.3]",56.1,123,"[52.3, 59.9]",54.3,1507,"[52.5, 55.9]",2024-05-01
-ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (superforecaster with news 2),52.1,1384,"[51.2, 53.0]",55.8,123,"[53.4, 58.0]",53.9,1507,"[52.5, 54.6]",2024-04-09
-ForecastBench,Mistral,Mistral-Large-2411 (scratchpad),53.1,3058,"[53.1, 53.3]",54.4,259,"[53.7, 56.1]",53.7,3317,"[53.4, 54.7]",2024-11-18
-ForecastBench,Meta,Llama-3-8b-Chat-Hf (scratchpad),50.9,1384,"[50.4, 51.1]",56.7,123,"[54.3, 61.2]",53.7,1507,"[52.7, 55.5]",2024-04-18
-ForecastBench,Anthropic,Claude-3-Haiku-20240307 (scratchpad with crowd forecast),50.3,1384,"[50.1, 50.8]",55.0,123,"[52.4, 59.4]",52.6,1507,"[51.6, 54.7]",2024-03-13
-ForecastBench,Meta,Llama-2-70b-Chat-Hf (scratchpad with crowd forecast),50.2,1384,"[49.6, 50.4]",54.6,123,"[53.3, 60.7]",52.3,1507,"[51.4, 55.3]",2023-07-18
-ForecastBench,Google,Gemini-1.5-Flash (superforecaster with news 1),50.1,1384,"[49.4, 50.7]",54.3,123,"[51.8, 56.6]",52.2,1507,"[51.1, 52.9]",2024-05-01
-ForecastBench,Meta,Llama-2-70b-Chat-Hf (scratchpad),50.2,1384,"[49.6, 50.4]",54.4,123,"[53.5, 59.9]",52.2,1507,"[51.6, 54.9]",2023-07-18
-ForecastBench,Anthropic,Claude-3-Haiku-20240307 (superforecaster with news 2),50.3,1384,"[49.6, 51.3]",53.8,123,"[52.4, 57.3]",52.0,1507,"[51.7, 53.3]",2024-03-13
-ForecastBench,Anthropic,Claude-3-Haiku-20240307 (scratchpad),50.3,1384,"[50.1, 50.8]",53.3,123,"[50.7, 58.0]",51.8,1507,"[50.7, 54.0]",2024-03-13
-ForecastBench,Google,Gemini-1.5-Flash (superforecaster with news 2),50.0,1384,"[49.0, 51.1]",53.7,123,"[53.7, 57.1]",51.8,1507,"[51.8, 52.9]",2024-05-01
-ForecastBench,Meta,Llama-2-70b-Chat-Hf (zero shot with crowd forecast),49.7,1384,"[49.1, 50.0]",53.8,123,"[52.8, 57.4]",51.7,1507,"[51.4, 53.3]",2023-07-18
-ForecastBench,OpenAI,GPT-3.5-Turbo-0125 (scratchpad with crowd forecast),48.5,1384,"[47.9, 48.9]",53.8,123,"[52.3, 56.6]",51.1,1507,"[50.6, 52.1]",2024-01-25
-ForecastBench,OpenAI,GPT-3.5-Turbo-0125 (scratchpad),48.5,1384,"[47.9, 48.9]",54.0,123,"[53.3, 56.5]",51.1,1507,"[50.7, 52.0]",2024-01-25
-ForecastBench,Anthropic,Claude-3-Haiku-20240307 (scratchpad with news with crowd forecast),46.8,1384,"[46.3, 47.6]",55.1,123,"[53.3, 59.7]",50.8,1507,"[50.4, 52.5]",2024-03-13
-ForecastBench,ForecastBench,Always 0,39.7,18133,"[39.2, 39.9]",63.8,1633,"[63.3, 64.9]",50.3,19766,"[49.8, 50.8]",
-ForecastBench,Anthropic,Claude-3-Haiku-20240307 (scratchpad with news),46.8,1384,"[46.3, 47.6]",54.1,123,"[52.4, 56.2]",50.3,1507,"[50.0, 51.0]",2024-03-13
-ForecastBench,ForecastBench,Always 0.5,50.0,18133,"[50.0, 50.0]",50.0,1633,"[50.0, 50.0]",50.0,19766,"[50.0, 50.0]",
-ForecastBench,OpenAI,GPT-3.5-Turbo-0125 (zero shot with crowd forecast),35.0,1384,"[34.3, 36.2]",64.0,123,"[59.7, 66.4]",47.5,1507,"[46.0, 48.9]",2024-01-25
-ForecastBench,Meta,Llama-2-70b-Chat-Hf (zero shot),49.7,1384,"[49.1, 50.0]",44.8,123,"[44.1, 50.4]",47.2,1507,"[47.0, 50.0]",2023-07-18
-ForecastBench,Anthropic,Claude-3-Haiku-20240307 (superforecaster with news 1),44.7,1384,"[44.3, 45.3]",47.4,123,"[45.9, 51.7]",46.1,1507,"[45.5, 48.0]",2024-03-13
-ForecastBench,ForecastBench,Random Uniform,42.2,18133,"[42.1, 42.5]",42.2,1633,"[41.0, 42.3]",42.2,19766,"[41.7, 42.3]",
-ForecastBench,OpenAI,GPT-3.5-Turbo-0125 (zero shot),35.0,1384,"[34.3, 36.2]",50.5,123,"[49.8, 56.5]",42.2,1507,"[42.1, 44.7]",2024-01-25
-ForecastBench,ForecastBench,Always 1,20.2,18133,"[20.1, 20.6]",6.8,1633,"[6.3, 7.0]",13.2,19766,"[12.9, 13.5]",
+ForecastBench,ForecastBench,Superforecaster median forecast,63.6,521,"[62.7, 64.4]",79.9,56,"[77.7, 81.5]",70.6,577,"[69.3, 71.7]",
+Cassi-AI,Cassi-AI,ensemble_2_crowdadj,62.0,1345,"[61.4, 62.8]",75.5,192,"[73.0, 77.5]",68.0,1537,"[66.7, 69.0]",2025-10-26
+xAI,xAI,Grok 4.20 (Preview),62.2,679,"[61.6, 62.8]",74.9,98,"[70.2, 75.5]",67.9,777,"[66.2, 68.2]",2025-10-26
+ForecastBench,Google,Gemini-3-Pro-Preview (zero shot with crowd forecast),61.7,1740,"[61.4, 62.2]",75.4,256,"[75.5, 76.3]",67.8,1996,"[67.7, 68.4]",2025-11-18
+ForecastBench,OpenAI,GPT-5-2025-08-07 (zero shot with crowd forecast),61.8,2445,"[61.6, 62.4]",74.2,270,"[72.4, 75.5]",67.4,2715,"[66.7, 67.8]",2025-08-07
+Lightning Rod Labs,Lightning Rod Labs,Foresight-32B,61.5,666,"[60.5, 61.8]",74.7,94,"[69.0, 78.3]",67.4,760,"[64.9, 68.7]",2025-11-09
+ForecastBench,xAI,Grok-4-Fast-Reasoning (zero shot with crowd forecast),60.8,3085,"[60.6, 61.4]",75.3,448,"[75.1, 76.8]",67.3,3533,"[67.1, 67.7]",2025-09-19
+ForecastBench,Anthropic,Claude-Opus-4-5-20251101 (zero shot with crowd forecast),60.9,1064,"[60.6, 61.0]",75.4,166,"[74.7, 76.3]",67.3,1230,"[67.0, 67.6]",2025-11-24
+ForecastBench,Anthropic,Claude-Sonnet-4-5-20250929 (zero shot with crowd forecast),60.7,3085,"[60.6, 60.8]",75.0,448,"[74.6, 77.0]",67.1,3533,"[66.9, 67.8]",2025-09-29
+ForecastBench,xAI,Grok-4-0709 (zero shot with crowd forecast),60.3,3085,"[60.1, 60.8]",75.7,448,"[75.3, 77.1]",67.1,3533,"[66.8, 67.5]",2025-07-09
+ForecastBench,Anthropic,Claude-Opus-4-1-20250805 (zero shot with crowd forecast),60.6,4185,"[60.1, 60.7]",74.8,526,"[73.9, 76.0]",67.0,4711,"[66.3, 67.3]",2025-08-05
+ForecastBench,OpenAI,GPT-4.5-Preview-2025-02-27 (zero shot with crowd forecast),60.2,2602,"[59.8, 60.5]",75.6,187,"[75.0, 77.3]",67.0,2789,"[66.9, 67.7]",2025-02-27
+ForecastBench,xAI,Grok-4-1-Fast-Reasoning (zero shot with crowd forecast),60.4,1740,"[60.2, 60.9]",75.3,256,"[75.0, 76.8]",67.0,1996,"[67.1, 67.4]",2025-11-17
+ForecastBench,Anthropic,Claude-3-7-Sonnet-20250219 (scratchpad with crowd forecast),60.3,8459,"[60.1, 60.7]",74.9,628,"[74.6, 76.7]",66.8,9087,"[66.7, 67.4]",2025-02-24
+ForecastBench,OpenAI,O3-2025-04-16 (zero shot with crowd forecast),60.9,4271,"[60.9, 61.3]",73.9,534,"[73.2, 75.6]",66.8,4805,"[66.5, 67.6]",2025-04-16
+ForecastBench,Google,Gemini-2.5-Pro (zero shot with crowd forecast),60.7,4185,"[60.4, 61.1]",74.4,526,"[73.8, 76.2]",66.8,4711,"[66.5, 67.6]",2025-06-17
+ForecastBench,OpenAI,GPT-4.5-Preview-2025-02-27 (scratchpad with crowd forecast),61.0,2602,"[60.5, 61.3]",73.8,187,"[73.3, 76.3]",66.8,2789,"[66.3, 67.9]",2025-02-27
+Cassi-AI,Cassi-AI,ensemble_2,62.0,1345,"[61.4, 62.8]",72.3,192,"[69.4, 75.1]",66.7,1537,"[65.2, 68.3]",2025-10-26
+ForecastBench,OpenAI,GPT-5-Mini-2025-08-07 (zero shot with crowd forecast),60.9,4185,"[60.7, 61.1]",73.5,526,"[72.6, 74.7]",66.6,4711,"[66.2, 67.1]",2025-08-07
+ForecastBench,Anthropic,Claude-Haiku-4-5-20251001 (zero shot with crowd forecast),59.3,3085,"[58.8, 59.7]",75.3,448,"[74.2, 76.5]",66.3,3533,"[65.7, 66.8]",2025-10-01
+ForecastBench,OpenAI,O4-Mini-2025-04-16 (zero shot with crowd forecast),60.7,4534,"[60.5, 61.0]",72.8,362,"[70.6, 76.5]",66.2,4896,"[65.5, 67.7]",2025-04-16
+ForecastBench,Google,Gemini-2.5-Pro-Preview-03-25 (zero shot with crowd forecast),61.0,1186,"[60.5, 61.7]",72.4,86,"[70.0, 74.4]",66.2,1272,"[65.1, 67.1]",2025-04-04
+ForecastBench,Qwen,Qwen3-235B-A22B-Fp8-Tput (zero shot with crowd forecast),60.2,4185,"[59.9, 60.7]",73.4,526,"[73.0, 74.8]",66.1,4711,"[65.8, 66.7]",2025-04-29
+ForecastBench,Anthropic,Claude-Opus-4-20250514 (scratchpad with crowd forecast),60.7,1103,"[60.4, 61.2]",72.5,89,"[74.3, 74.8]",66.1,1192,"[66.7, 67.2]",2025-05-22
+ForecastBench,Anthropic,Claude-3-7-Sonnet-20250219 (zero shot with crowd forecast),59.4,11544,"[59.3, 59.6]",74.1,1076,"[73.9, 75.7]",65.9,12620,"[65.9, 66.5]",2025-02-24
+ForecastBench,Anthropic,Claude-Sonnet-4-20250514 (zero shot with crowd forecast),59.1,3121,"[58.6, 59.2]",74.6,360,"[73.3, 76.3]",65.9,3481,"[65.2, 66.5]",2025-05-22
+ForecastBench,OpenAI,O3-Mini-2025-01-31 (zero shot with crowd forecast),58.9,4949,"[58.6, 59.1]",74.5,353,"[73.8, 75.8]",65.8,5302,"[65.5, 66.3]",2025-01-31
+ForecastBench,OpenAI,O4-Mini-2025-04-16 (scratchpad with crowd forecast),60.6,4534,"[60.1, 61.0]",71.7,362,"[69.3, 74.1]",65.7,4896,"[64.8, 66.9]",2025-04-16
+ForecastBench,OpenAI,O3-2025-04-16 (scratchpad with crowd forecast),60.4,1186,"[60.2, 61.2]",72.0,86,"[68.4, 72.9]",65.7,1272,"[64.2, 66.1]",2025-04-16
+ForecastBench,DeepSeek,DeepSeek-R1 (scratchpad with crowd forecast),59.2,6123,"[59.0, 59.6]",73.4,450,"[73.0, 74.0]",65.6,6573,"[65.4, 66.0]",2025-01-20
+ForecastBench,OpenAI,GPT-4.1-2025-04-14 (scratchpad with crowd forecast),60.0,5720,"[59.6, 60.3]",72.3,448,"[71.0, 74.4]",65.6,6168,"[65.1, 66.5]",2025-04-14
+ForecastBench,xAI,Grok-beta (zero shot with crowd forecast),58.2,2335,"[57.9, 58.3]",75.2,177,"[75.1, 76.5]",65.6,2512,"[65.5, 65.9]",2024-11-04
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20241022 (scratchpad with crowd forecast),58.5,8459,"[58.3, 58.7]",74.3,628,"[73.7, 75.8]",65.5,9087,"[65.2, 66.1]",2024-10-22
+ForecastBench,Moonshot,Kimi-K2-Instruct-0905 (zero shot with crowd forecast),60.1,3085,"[60.1, 60.6]",71.7,448,"[71.4, 72.8]",65.4,3533,"[65.4, 65.9]",2025-09-05
+ForecastBench,Google,Gemini-2.5-Flash-Preview-04-17 (scratchpad with crowd forecast),60.6,1186,"[60.4, 61.6]",70.9,86,"[68.7, 72.2]",65.4,1272,"[64.5, 66.1]",2025-04-17
+Anonymous 1,Anonymous 1,capella,60.7,679,"[59.5, 61.3]",70.8,98,"[68.9, 72.0]",65.4,777,"[64.5, 65.5]",2025-10-26
+ForecastBench,Anthropic,Claude-Opus-4-1-20250805 (scratchpad with crowd forecast),59.9,1100,"[59.4, 60.4]",71.8,78,"[70.9, 74.6]",65.3,1178,"[64.7, 66.6]",2025-08-05
+ForecastBench,OpenAI,GPT-5.1-2025-11-13 (zero shot with crowd forecast),59.5,1111,"[59.4, 60.3]",72.1,172,"[69.6, 74.8]",65.2,1283,"[64.1, 66.7]",2025-11-13
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20241022 (zero shot with crowd forecast),58.5,8459,"[58.5, 58.6]",72.9,628,"[72.4, 74.1]",65.0,9087,"[64.8, 65.4]",2024-10-22
+ForecastBench,ForecastBench,Public median forecast,59.2,521,"[57.9, 60.1]",72.0,56,"[70.6, 73.6]",65.0,577,"[63.7, 66.2]",
+ForecastBench,OpenAI,GPT-4.1-2025-04-14 (zero shot with crowd forecast),59.3,9905,"[59.0, 59.6]",71.6,974,"[70.7, 73.7]",64.9,10879,"[64.7, 65.8]",2025-04-14
+ForecastBench,Qwen,Qwen3-235B-A22B-Fp8-Tput (scratchpad with crowd forecast),58.5,6836,"[58.0, 58.5]",72.9,538,"[72.2, 74.3]",64.9,7374,"[64.7, 65.3]",2025-04-29
+ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (zero shot with crowd forecast),57.9,6025,"[57.6, 58.1]",73.8,488,"[73.1, 74.7]",64.9,6513,"[64.7, 65.1]",2024-04-09
+ForecastBench,Google,Gemini-2.5-Flash (zero shot with crowd forecast),59.2,4185,"[58.9, 59.3]",71.6,526,"[70.4, 73.1]",64.8,4711,"[64.2, 65.5]",2025-06-17
+ForecastBench,OpenAI,O3-2025-04-16 (scratchpad),60.4,1186,"[60.2, 61.2]",70.0,86,"[68.0, 71.7]",64.8,1272,"[64.2, 65.5]",2025-04-16
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (zero shot with crowd forecast),58.3,15446,"[58.2, 58.5]",72.6,1200,"[71.9, 73.9]",64.7,16646,"[64.4, 65.2]",2024-06-20
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad with crowd forecast),58.6,14351,"[58.4, 58.8]",72.2,1105,"[71.7, 73.4]",64.7,15456,"[64.5, 65.1]",2024-06-20
+ForecastBench,Anthropic,Claude-Sonnet-4-20250514 (scratchpad with crowd forecast),57.8,2203,"[57.3, 58.2]",73.2,167,"[71.7, 75.3]",64.7,2370,"[63.9, 65.7]",2025-05-22
+ForecastBench,Google,Gemini-2.5-Flash-Preview-04-17 (zero shot with crowd forecast),60.5,1186,"[59.5, 61.4]",69.5,86,"[67.9, 71.8]",64.7,1272,"[63.7, 65.2]",2025-04-17
+Anonymous 1,Anonymous 1,rigel,58.6,666,"[58.1, 59.0]",72.2,94,"[70.3, 75.3]",64.7,760,"[63.8, 66.1]",2025-11-09
+ForecastBench,Anthropic,Claude-3-7-Sonnet-20250219 (scratchpad),60.3,8459,"[60.1, 60.7]",69.4,628,"[68.5, 70.2]",64.6,9087,"[64.1, 65.0]",2025-02-24
+ForecastBench,DeepSeek,DeepSeek-V3 (scratchpad with crowd forecast),59.0,6123,"[58.9, 59.1]",71.3,450,"[70.8, 71.7]",64.6,6573,"[64.4, 64.8]",2024-12-25
+ForecastBench,DeepSeek,DeepSeek-V3 (zero shot with crowd forecast),57.6,6123,"[57.5, 57.9]",73.4,450,"[72.5, 74.5]",64.6,6573,"[64.3, 65.0]",2024-12-25
+ForecastBench,Meta,Meta-Llama-3.1-405B-Instruct-Turbo (zero shot with crowd forecast),57.9,2336,"[57.6, 58.2]",72.5,178,"[71.4, 73.5]",64.5,2514,"[64.2, 64.8]",2024-07-23
+Anonymous 1,Anonymous 1,arcturus,60.1,1345,"[59.6, 60.7]",69.3,192,"[67.9, 71.7]",64.4,1537,"[63.8, 65.7]",2025-10-26
+ForecastBench,OpenAI,GPT-4.5-Preview-2025-02-27 (zero shot),60.2,2602,"[59.8, 60.5]",68.9,187,"[68.5, 71.3]",64.3,2789,"[64.1, 65.4]",2025-02-27
+ForecastBench,Anthropic,Claude-Sonnet-4-5-20250929 (zero shot),60.7,3085,"[60.6, 60.8]",68.1,448,"[67.9, 69.5]",64.2,3533,"[64.1, 64.8]",2025-09-29
+ForecastBench,Anthropic,Claude-3-Opus-20240229 (zero shot with crowd forecast),58.1,6025,"[57.8, 58.3]",71.2,488,"[70.0, 73.0]",64.1,6513,"[63.7, 64.6]",2024-02-29
+ForecastBench,Moonshot,Kimi-K2-Instruct (zero shot with crowd forecast),58.0,4643,"[57.9, 58.2]",71.4,454,"[70.6, 72.1]",64.1,5097,"[63.7, 64.4]",2025-07-12
+ForecastBench,Qwen,Qwen3-235B-A22B-Thinking-2507 (zero shot with crowd forecast),58.3,3085,"[58.0, 58.9]",71.2,448,"[71.0, 72.8]",64.1,3533,"[64.1, 64.8]",2025-07-25
+ForecastBench,OpenAI,O3-Mini-2025-01-31 (scratchpad with crowd forecast),58.7,4949,"[58.4, 59.1]",70.3,353,"[68.8, 70.6]",64.0,5302,"[63.2, 64.3]",2025-01-31
+ForecastBench,DeepSeek,DeepSeek-V3.1 (zero shot with crowd forecast),58.6,3085,"[58.5, 58.9]",70.4,448,"[68.9, 71.2]",64.0,3533,"[63.5, 64.4]",2025-08-21
+Anonymous 1,Anonymous 1,polaris,58.5,666,"[57.8, 58.5]",70.5,94,"[68.3, 72.3]",64.0,760,"[63.0, 64.5]",2025-11-09
+ForecastBench,xAI,Grok-4-1-Fast-Non-Reasoning (zero shot with crowd forecast),60.2,435,"[59.4, 60.7]",68.3,82,"[68.3, 71.2]",64.0,517,"[63.8, 64.8]",2025-11-17
+ForecastBench,Qwen,QwQ-32B-Preview (scratchpad with crowd forecast),56.5,3521,"[56.3, 57.3]",73.2,263,"[71.5, 74.2]",63.9,3784,"[63.7, 64.3]",2024-11-28
+ForecastBench,xAI,Grok-beta (zero shot),58.2,2335,"[57.9, 58.3]",70.8,177,"[69.0, 71.3]",63.9,2512,"[63.1, 64.2]",2024-11-04
+ForecastBench,OpenAI,O4-Mini-2025-04-16 (scratchpad),60.6,4534,"[60.1, 61.0]",67.3,362,"[65.0, 70.8]",63.8,4896,"[62.8, 65.5]",2025-04-16
+ForecastBench,Google,Gemini-2.5-Pro-Preview-03-25 (zero shot),61.0,1186,"[60.5, 61.7]",66.9,86,"[65.3, 70.8]",63.8,1272,"[63.3, 65.3]",2025-04-04
+ForecastBench,OpenAI,O4-Mini-2025-04-16 (zero shot),60.7,4534,"[60.5, 61.0]",67.1,362,"[64.7, 69.7]",63.7,4896,"[62.6, 65.0]",2025-04-16
+ForecastBench,Meta,Llama-3.3-70B-Instruct-Turbo (scratchpad with crowd forecast),57.0,8459,"[56.7, 57.2]",71.7,628,"[71.3, 72.9]",63.6,9087,"[63.5, 63.9]",2024-12-06
+ForecastBench,Meta,Llama-4-Maverick-17B-128E-Instruct-FP8 (scratchpad with crowd forecast),57.1,4685,"[56.9, 57.1]",71.7,354,"[70.9, 72.6]",63.6,5039,"[63.3, 63.9]",2025-04-05
+ForecastBench,OpenAI,GPT-4.5-Preview-2025-02-27 (scratchpad),61.0,2602,"[60.5, 61.3]",66.4,187,"[65.8, 68.6]",63.6,2789,"[63.2, 64.7]",2025-02-27
+Anonymous 1,Anonymous 1,Ensemble,60.8,1730,"[60.7, 61.0]",66.7,260,"[64.8, 68.8]",63.6,1990,"[62.8, 64.7]",2025-11-09
+ForecastBench,Mistral,Mistral-Large-2407 (zero shot with crowd forecast),56.2,8162,"[55.8, 56.5]",72.6,628,"[71.3, 73.9]",63.5,8790,"[63.0, 63.7]",2024-07-24
+ForecastBench,Z.ai,GLM-4.5-Air-FP8 (zero shot with crowd forecast),56.7,2445,"[56.4, 56.8]",72.0,270,"[70.9, 72.7]",63.5,2715,"[62.9, 63.9]",2025-07-28
+ForecastBench,Meta,Meta-Llama-3.1-405B-Instruct-Turbo (scratchpad with crowd forecast),57.3,2336,"[57.2, 57.5]",70.9,178,"[68.3, 73.6]",63.5,2514,"[62.4, 64.5]",2024-07-23
+ForecastBench,OpenAI,GPT-4o-2024-05-13 (zero shot with crowd forecast),56.0,8162,"[55.8, 56.3]",72.9,628,"[71.8, 73.6]",63.4,8790,"[63.2, 63.6]",2024-05-13
+Anonymous 1,Anonymous 1,canopus,60.0,1345,"[59.3, 60.8]",67.2,192,"[65.8, 68.5]",63.4,1537,"[62.7, 64.0]",2025-10-26
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20241022 (scratchpad),58.5,8459,"[58.3, 58.7]",68.7,628,"[67.2, 69.2]",63.3,9087,"[62.6, 63.4]",2024-10-22
+ForecastBench,OpenAI,GPT-4.1-2025-04-14 (scratchpad),60.0,5720,"[59.6, 60.3]",67.0,448,"[65.7, 69.4]",63.3,6168,"[62.8, 64.5]",2025-04-14
+ForecastBench,Anthropic,Claude-Opus-4-1-20250805 (zero shot),60.6,4185,"[60.1, 60.7]",66.2,526,"[65.1, 66.8]",63.3,4711,"[62.5, 63.6]",2025-08-05
+ForecastBench,Google,Gemini-3-Pro-Preview (zero shot),61.7,1740,"[61.4, 62.2]",65.0,256,"[63.1, 67.5]",63.3,1996,"[62.6, 64.4]",2025-11-18
+ForecastBench,xAI,Grok-4-1-Fast-Reasoning (zero shot),60.4,1740,"[60.2, 60.9]",66.4,256,"[64.8, 67.8]",63.3,1996,"[62.8, 63.8]",2025-11-17
+ForecastBench,Google,Gemini-2.5-Flash-Preview-04-17 (zero shot),60.5,1186,"[59.5, 61.4]",66.4,86,"[62.6, 67.0]",63.3,1272,"[61.5, 63.4]",2025-04-17
+ForecastBench,Z.ai,GLM-4.5-Air-FP8 (scratchpad with crowd forecast),57.5,1100,"[56.7, 58.1]",70.1,78,"[68.4, 72.4]",63.3,1178,"[62.2, 63.7]",2025-07-28
+ForecastBench,Meta,Llama-3.3-70B-Instruct-Turbo (zero shot with crowd forecast),55.7,8459,"[55.3, 55.9]",72.8,628,"[72.1, 74.1]",63.2,9087,"[62.9, 63.6]",2024-12-06
+ForecastBench,Qwen,Qwen2.5-72B-Instruct-Turbo (zero shot with crowd forecast),56.2,2336,"[56.1, 56.5]",71.8,178,"[70.4, 72.8]",63.2,2514,"[62.8, 63.7]",2024-09-19
+ForecastBench,OpenAI,O3-2025-04-16 (zero shot),60.9,4271,"[60.9, 61.3]",65.4,534,"[65.2, 67.0]",63.1,4805,"[62.9, 64.0]",2025-04-16
+ForecastBench,OpenAI,GPT-4-0613 (zero shot with crowd forecast),56.2,1384,"[55.6, 56.3]",71.7,123,"[70.3, 74.1]",63.1,1507,"[62.3, 63.9]",2023-06-13
+ForecastBench,DeepSeek,DeepSeek-R1 (scratchpad),59.2,4949,"[59.0, 59.5]",67.2,353,"[66.0, 67.7]",63.0,5302,"[62.3, 63.3]",2025-01-20
+ForecastBench,Mistral,Mistral-Large-2411 (zero shot with crowd forecast),55.9,3298,"[55.4, 55.9]",71.9,262,"[72.0, 73.9]",63.0,3560,"[63.0, 63.5]",2024-11-18
+Anonymous 1,Anonymous 1,orcas,61.3,435,"[60.4, 62.0]",64.8,82,"[61.1, 70.2]",63.0,517,"[61.3, 65.3]",2025-12-21
+ForecastBench,OpenAI,GPT-5-Mini-2025-08-07 (zero shot),60.9,4185,"[60.7, 61.1]",65.1,526,"[63.4, 65.3]",62.9,4711,"[62.2, 63.1]",2025-08-07
+ForecastBench,Anthropic,Claude-Opus-4-1-20250805 (scratchpad),59.9,1100,"[59.4, 60.4]",66.1,78,"[61.6, 66.1]",62.9,1178,"[60.5, 62.9]",2025-08-05
+Anonymous 1,Anonymous 1,bigdipper,59.2,679,"[58.0, 60.0]",66.9,98,"[64.5, 66.8]",62.9,777,"[61.7, 62.7]",2025-10-26
+ForecastBench,Anthropic,Claude-Haiku-4-5-20251001 (zero shot),59.3,3085,"[58.8, 59.7]",66.4,448,"[65.4, 67.7]",62.7,3533,"[62.3, 63.1]",2025-10-01
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad with news with crowd forecast),58.3,1384,"[57.6, 58.8]",67.7,123,"[67.0, 69.9]",62.7,1507,"[62.3, 63.3]",2024-06-20
+ForecastBench,OpenAI,GPT-5-2025-08-07 (zero shot),61.8,2445,"[61.6, 62.4]",63.4,270,"[59.9, 64.5]",62.6,2715,"[60.9, 63.4]",2025-08-07
+Anonymous 1,Anonymous 1,bootis,59.2,666,"[58.8, 59.4]",66.3,94,"[62.2, 68.4]",62.6,760,"[60.7, 63.3]",2025-11-09
+ForecastBench,Meta,Meta-Llama-3.1-405B-Instruct-Turbo (zero shot),57.9,2336,"[57.6, 58.2]",67.6,178,"[64.0, 68.4]",62.5,2514,"[61.0, 62.7]",2024-07-23
+ForecastBench,Google,Gemini-2.5-Flash-Preview-04-17 (scratchpad),60.6,1186,"[60.4, 61.6]",64.6,86,"[61.7, 68.7]",62.5,1272,"[61.6, 64.3]",2025-04-17
+ForecastBench,OpenAI,O3-Mini-2025-01-31 (zero shot),58.9,4949,"[58.6, 59.1]",66.2,353,"[64.7, 66.2]",62.4,5302,"[61.7, 62.4]",2025-01-31
+Mantic,Mantic,mantic-light-2025-10-testing,53.0,2406,"[52.2, 53.8]",74.9,350,"[73.8, 76.4]",62.4,2756,"[62.1, 62.7]",2025-11-09
+ForecastBench,OpenAI,GPT-4o-2024-11-20 (zero shot with crowd forecast with web search),58.2,1174,"[57.0, 58.4]",67.1,97,"[64.4, 72.3]",62.4,1271,"[60.5, 64.6]",2024-11-20
+ForecastBench,Google,Gemini-2.0-Flash-Lite-001 (scratchpad with crowd forecast),56.5,2335,"[56.4, 57.0]",69.2,177,"[66.5, 70.0]",62.3,2512,"[61.4, 62.6]",2025-02-05
+Anonymous 1,Anonymous 1,centauri,58.4,666,"[57.5, 59.6]",66.7,94,"[64.9, 68.8]",62.3,760,"[61.4, 63.9]",2025-11-09
+Anonymous 1,Anonymous 1,orion,60.2,629,"[59.5, 61.1]",64.4,84,"[60.9, 68.8]",62.3,713,"[60.7, 64.3]",2025-12-07
+ForecastBench,OpenAI,GPT-4.1-2025-04-14 (zero shot),59.3,9905,"[59.0, 59.6]",65.3,974,"[64.0, 67.4]",62.2,10879,"[61.6, 63.2]",2025-04-14
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20241022 (zero shot),58.5,8459,"[58.5, 58.6]",66.3,628,"[65.1, 66.7]",62.2,9087,"[61.7, 62.4]",2024-10-22
+ForecastBench,xAI,Grok-4-Fast-Reasoning (zero shot),60.8,3085,"[60.6, 61.4]",63.5,448,"[62.3, 64.2]",62.2,3533,"[61.5, 62.5]",2025-09-19
+ForecastBench,OpenAI,GPT-4o-2024-11-20 (scratchpad with crowd forecast with web search),58.0,1174,"[57.1, 58.9]",66.8,97,"[66.5, 70.7]",62.2,1271,"[61.6, 63.4]",2024-11-20
+ForecastBench,Google,Gemini-2.5-Pro (zero shot),60.7,4185,"[60.4, 61.1]",63.6,526,"[62.5, 63.9]",62.1,4711,"[61.4, 62.4]",2025-06-17
+ForecastBench,xAI,Grok-4-0709 (zero shot),60.3,3085,"[60.1, 60.8]",64.0,448,"[63.2, 65.0]",62.1,3533,"[61.7, 62.5]",2025-07-09
+ForecastBench,OpenAI,GPT-4o (scratchpad with crowd forecast),56.6,1384,"[55.7, 56.7]",68.5,123,"[68.7, 70.7]",62.1,1507,"[62.0, 63.0]",2024-05-13
+ForecastBench,Anthropic,Claude-Opus-4-20250514 (scratchpad),60.7,1103,"[60.4, 61.2]",63.6,89,"[62.6, 68.6]",62.1,1192,"[61.6, 64.7]",2025-05-22
+ForecastBench,DeepSeek,DeepSeek-V3 (scratchpad),59.0,6123,"[58.9, 59.1]",65.0,450,"[64.8, 65.3]",61.9,6573,"[61.8, 62.0]",2024-12-25
+ForecastBench,Mistral,Magistral-Medium-2506 (scratchpad with crowd forecast),56.6,2203,"[56.4, 57.2]",68.1,167,"[67.8, 70.6]",61.9,2370,"[61.8, 63.1]",2025-05-28
+ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (scratchpad with crowd forecast),56.5,6025,"[56.2, 56.7]",67.9,488,"[66.9, 69.7]",61.8,6513,"[61.4, 62.4]",2024-04-09
+ForecastBench,Moonshot,Kimi-K2-Instruct-0905 (zero shot),60.1,3085,"[60.1, 60.6]",63.5,448,"[62.0, 64.6]",61.8,3533,"[61.1, 62.3]",2025-09-05
+ForecastBench,Anthropic,Claude-Sonnet-4-20250514 (zero shot),59.1,3121,"[58.6, 59.2]",64.7,360,"[62.9, 64.7]",61.8,3481,"[60.7, 61.8]",2025-05-22
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (superforecaster with news 1),58.4,1384,"[57.7, 58.9]",65.5,123,"[62.5, 67.1]",61.8,1507,"[60.1, 62.5]",2024-06-20
+ForecastBench,OpenAI,GPT-4o-2024-11-20 (scratchpad with web search),58.0,1174,"[57.1, 58.9]",65.8,97,"[66.1, 69.8]",61.7,1271,"[61.7, 63.7]",2024-11-20
+ForecastBench,OpenAI,GPT-4o-2024-05-13 (scratchpad with crowd forecast),54.8,8162,"[54.5, 55.0]",69.9,628,"[69.2, 70.4]",61.6,8790,"[61.4, 61.7]",2024-05-13
+ForecastBench,Meta,Llama-3.3-70B-Instruct-Turbo (zero shot),55.7,8459,"[55.3, 55.9]",68.1,628,"[66.7, 67.8]",61.4,9087,"[60.6, 61.3]",2024-12-06
+ForecastBench,Qwen,Qwen3-235B-A22B-Fp8-Tput (zero shot),60.2,3506,"[59.8, 60.6]",62.7,428,"[61.5, 63.3]",61.4,3934,"[61.1, 61.8]",2025-04-29
+ForecastBench,OpenAI,GPT-4o-2024-11-20 (zero shot with web search),58.2,1174,"[57.0, 58.4]",64.7,97,"[63.1, 71.3]",61.4,1271,"[60.5, 64.2]",2024-11-20
+ForecastBench,Meta,Llama-4-Scout-17B-16E-Instruct (zero shot with crowd forecast),54.2,5788,"[54.1, 54.3]",70.0,443,"[69.6, 71.7]",61.3,6231,"[61.2, 61.9]",2025-04-05
+ForecastBench,OpenAI,GPT-5-Nano-2025-08-07 (zero shot with crowd forecast),57.6,4185,"[57.4, 57.9]",65.4,526,"[64.0, 65.8]",61.3,4711,"[60.7, 61.4]",2025-08-07
+ForecastBench,Meta,Llama-3-70b-Chat-Hf (zero shot with crowd forecast),54.6,3689,"[54.2, 55.0]",69.5,310,"[67.6, 71.0]",61.3,3999,"[60.8, 61.7]",2024-04-18
+ForecastBench,OpenAI,GPT-4o (zero shot with crowd forecast),53.8,1384,"[53.1, 54.3]",70.5,123,"[69.4, 72.9]",61.3,1507,"[60.4, 62.1]",2024-05-13
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad),58.6,14351,"[58.4, 58.8]",63.9,1105,"[63.1, 64.7]",61.2,15456,"[60.7, 61.4]",2024-06-20
+ForecastBench,DeepSeek,DeepSeek-V3 (zero shot),57.6,6123,"[57.5, 57.9]",65.1,450,"[64.6, 65.8]",61.2,6573,"[61.0, 61.4]",2024-12-25
+ForecastBench,OpenAI,GPT-4o (scratchpad with news with crowd forecast),55.9,1384,"[55.3, 56.4]",67.3,123,"[66.7, 68.7]",61.2,1507,"[60.9, 61.7]",2024-05-13
+ForecastBench,Anthropic,Claude-Opus-4-5-20251101 (zero shot),60.9,1064,"[60.6, 61.0]",61.6,166,"[59.1, 63.9]",61.2,1230,"[60.0, 62.3]",2025-11-24
+Anonymous 1,Anonymous 1,sirius,58.6,666,"[57.5, 59.3]",64.0,94,"[63.0, 65.0]",61.2,760,"[60.9, 61.5]",2025-11-09
+ForecastBench,Qwen,Qwen3-235B-A22B-Fp8-Tput (scratchpad),58.5,6836,"[58.0, 58.5]",63.8,538,"[62.7, 64.9]",61.0,7374,"[60.5, 61.4]",2025-04-29
+ForecastBench,OpenAI,O3-Mini-2025-01-31 (scratchpad),58.7,4949,"[58.4, 59.1]",63.3,353,"[62.4, 63.9]",61.0,5302,"[60.4, 61.1]",2025-01-31
+ForecastBench,Meta,Llama-3-8b-Chat-Hf (zero shot with crowd forecast),54.8,2533,"[54.5, 55.1]",68.4,215,"[67.2, 70.1]",61.0,2748,"[60.5, 61.7]",2024-04-18
+ForecastBench,Google,Gemini-1.5-Pro (scratchpad with crowd forecast),57.5,1384,"[57.2, 57.9]",64.9,123,"[62.4, 66.0]",61.0,1507,"[60.0, 61.7]",2024-05-01
+ForecastBench,Qwen,Qwen1.5-110B-Chat (zero shot with crowd forecast),55.1,1384,"[54.6, 55.4]",67.9,123,"[67.3, 70.5]",61.0,1507,"[60.5, 62.0]",2024-04-25
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (zero shot),58.3,15446,"[58.2, 58.5]",63.6,1200,"[62.5, 64.3]",60.9,16646,"[60.4, 61.1]",2024-06-20
+ForecastBench,Qwen,QwQ-32B-Preview (scratchpad),56.5,3521,"[56.3, 57.3]",65.8,263,"[63.8, 65.7]",60.9,3784,"[60.2, 60.9]",2024-11-28
+ForecastBench,ForecastBench,Imputed Forecaster,50.0,18531,"[50.0, 50.0]",76.0,1648,"[75.5, 77.5]",60.8,20179,"[60.6, 61.2]",
+ForecastBench,Anthropic,Claude-3-7-Sonnet-20250219 (zero shot),59.4,11544,"[59.3, 59.6]",62.3,1076,"[61.3, 62.4]",60.8,12620,"[60.4, 60.9]",2025-02-24
+ForecastBench,Mistral,Mistral-Large-2407 (scratchpad with crowd forecast),55.0,5826,"[54.9, 55.1]",67.4,444,"[65.9, 68.5]",60.7,6270,"[60.1, 61.1]",2024-07-24
+ForecastBench,Anthropic,Claude-3-Opus-20240229 (scratchpad with crowd forecast),57.2,6025,"[56.8, 57.3]",64.3,488,"[63.3, 64.7]",60.6,6513,"[60.2, 60.6]",2024-02-29
+ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (zero shot),57.9,6025,"[57.6, 58.1]",63.6,488,"[61.5, 65.0]",60.6,6513,"[59.7, 61.1]",2024-04-09
+ForecastBench,Meta,Llama-4-Scout-17B-16E-Instruct (scratchpad with crowd forecast),53.1,3505,"[53.0, 53.4]",70.0,265,"[68.1, 71.7]",60.6,3770,"[60.1, 61.2]",2025-04-05
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad with news),58.3,1384,"[57.6, 58.8]",62.7,123,"[60.5, 65.5]",60.4,1507,"[59.3, 61.4]",2024-06-20
+ForecastBench,Google,Gemini-2.5-Flash (zero shot),59.2,4185,"[58.9, 59.3]",61.5,526,"[60.3, 61.6]",60.3,4711,"[59.6, 60.3]",2025-06-17
+ForecastBench,OpenAI,GPT-5-Nano-2025-08-07 (zero shot),57.6,4185,"[57.4, 57.9]",63.4,526,"[62.8, 64.6]",60.3,4711,"[60.2, 60.9]",2025-08-07
+ForecastBench,Google,Gemini-1.5-Pro (zero shot with crowd forecast),55.1,1384,"[54.3, 55.3]",66.2,123,"[65.6, 68.9]",60.3,1507,"[59.7, 61.1]",2024-05-01
+ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (zero shot with crowd forecast),54.0,1384,"[53.5, 54.2]",67.8,123,"[68.4, 70.1]",60.3,1507,"[60.5, 61.2]",2024-04-17
+ForecastBench,OpenAI,GPT-4-0613 (scratchpad with crowd forecast),55.8,1384,"[55.2, 56.3]",65.5,123,"[62.3, 69.2]",60.3,1507,"[58.6, 61.8]",2023-06-13
+ForecastBench,Anthropic,Claude-Sonnet-4-20250514 (scratchpad),57.8,2203,"[57.3, 58.2]",62.8,167,"[62.1, 66.5]",60.2,2370,"[59.7, 62.1]",2025-05-22
+ForecastBench,Anthropic,Claude-2.1 (zero shot with crowd forecast),52.6,1384,"[52.2, 52.8]",69.5,123,"[68.9, 71.0]",60.2,1507,"[59.8, 60.8]",2023-11-21
+ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (scratchpad with news with crowd forecast),55.4,1384,"[54.5, 56.4]",65.7,123,"[61.7, 67.5]",60.2,1507,"[57.9, 61.2]",2024-04-09
+ForecastBench,Meta,Llama-4-Scout-17B-16E-Instruct (zero shot),54.2,5788,"[54.1, 54.3]",67.2,443,"[66.1, 68.5]",60.1,6231,"[59.7, 60.6]",2025-04-05
+ForecastBench,Meta,Llama-4-Maverick-17B-128E-Instruct-FP8 (scratchpad),57.1,4685,"[56.9, 57.1]",63.4,354,"[62.1, 64.2]",60.1,5039,"[59.5, 60.5]",2025-04-05
+ForecastBench,Google,Gemini-1.5-Pro (scratchpad),57.5,1384,"[57.2, 57.9]",62.9,123,"[60.5, 62.3]",60.1,1507,"[59.0, 59.7]",2024-05-01
+ForecastBench,Mistral AI,Mistral-Large-Latest (zero shot with crowd forecast),54.4,1384,"[53.8, 54.8]",66.9,123,"[65.7, 68.6]",60.1,1507,"[59.6, 60.7]",2024-02-26
+ForecastBench,Z.ai,GLM-4.5-Air-FP8 (scratchpad),57.5,1100,"[56.7, 58.1]",62.9,78,"[60.6, 63.5]",60.1,1178,"[58.7, 60.2]",2025-07-28
+ForecastBench,Meta,Llama-3.3-70B-Instruct-Turbo (scratchpad),57.0,8459,"[56.7, 57.2]",63.3,628,"[62.8, 64.2]",60.0,9087,"[59.6, 60.4]",2024-12-06
+ForecastBench,Google,Gemini-2.0-Flash-Lite-001 (scratchpad),56.5,2335,"[56.4, 57.0]",63.8,177,"[61.2, 65.1]",60.0,2512,"[58.9, 60.7]",2025-02-05
+ForecastBench,Google,Gemini-1.5-Flash (zero shot with crowd forecast),53.6,1384,"[53.1, 53.5]",67.8,123,"[66.2, 70.3]",60.0,1507,"[59.2, 60.8]",2024-05-01
+ForecastBench,Mistral AI,Mistral-Large-Latest (scratchpad with crowd forecast),55.9,1384,"[55.4, 56.4]",64.1,123,"[60.1, 66.4]",59.8,1507,"[57.8, 60.9]",2024-02-26
+ForecastBench,OpenAI,GPT-4o-2024-05-13 (zero shot),56.0,8162,"[55.8, 56.3]",63.9,628,"[61.6, 65.1]",59.7,8790,"[58.8, 60.2]",2024-05-13
+ForecastBench,Mistral AI,Mixtral-8x7B-Instruct-V0.1 (zero shot with crowd forecast),53.4,1384,"[52.7, 53.5]",67.2,123,"[65.4, 70.6]",59.7,1507,"[58.9, 60.8]",2023-12-11
+ForecastBench,Moonshot,Kimi-K2-Instruct (zero shot),58.0,4643,"[57.9, 58.2]",61.2,454,"[59.3, 62.8]",59.6,5097,"[58.7, 60.4]",2025-07-12
+ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (scratchpad with crowd forecast),55.0,1384,"[54.7, 55.4]",64.9,123,"[63.2, 66.3]",59.6,1507,"[58.9, 60.5]",2024-04-17
+ForecastBench,ForecastBench,Naive Forecaster,48.0,18531,"[47.8, 48.3]",75.9,1648,"[75.4, 77.5]",59.5,20179,"[59.3, 59.9]",
+ForecastBench,Anthropic,Claude-3-Opus-20240229 (zero shot),58.1,6025,"[57.8, 58.3]",61.0,488,"[58.6, 62.1]",59.5,6513,"[58.4, 59.9]",2024-02-29
+ForecastBench,Meta,Meta-Llama-3.1-405B-Instruct-Turbo (scratchpad),57.3,2336,"[57.2, 57.5]",61.9,178,"[58.5, 64.4]",59.5,2514,"[57.9, 60.7]",2024-07-23
+ForecastBench,Qwen,Qwen2.5-72B-Instruct-Turbo (zero shot),56.2,2336,"[56.1, 56.5]",63.0,178,"[59.9, 65.2]",59.5,2514,"[58.2, 60.5]",2024-09-19
+ForecastBench,Google,Gemini-1.5-Pro (scratchpad with news with crowd forecast),56.8,1384,"[55.7, 57.2]",62.4,123,"[60.4, 63.6]",59.5,1507,"[58.0, 59.8]",2024-05-01
+Anonymous 1,Anonymous 1,vega,59.1,1730,"[58.9, 59.4]",59.8,260,"[58.2, 61.1]",59.4,1990,"[58.6, 60.3]",2025-11-09
+ForecastBench,OpenAI,GPT-4o (scratchpad with news),55.9,1384,"[55.3, 56.4]",63.1,123,"[61.3, 65.8]",59.3,1507,"[58.2, 60.5]",2024-05-13
+ForecastBench,OpenAI,GPT-4o (scratchpad),56.6,1384,"[55.7, 56.7]",62.3,123,"[59.7, 64.0]",59.3,1507,"[58.1, 59.7]",2024-05-13
+ForecastBench,Meta,Llama-3-70b-Chat-Hf (scratchpad with crowd forecast),54.0,1384,"[53.4, 54.1]",65.3,123,"[64.2, 68.1]",59.2,1507,"[58.5, 60.2]",2024-04-18
+ForecastBench,DeepSeek,DeepSeek-V3.1 (zero shot),58.6,3085,"[58.5, 58.9]",59.6,448,"[57.5, 60.2]",59.1,3533,"[58.0, 59.5]",2025-08-21
+FractalAIResearch,FractalAIResearch,Fathom-Search-4B (prompt 1),56.3,679,"[54.8, 56.2]",62.1,98,"[61.5, 66.2]",59.1,777,"[58.2, 60.8]",2025-10-26
+ForecastBench,Mistral,Mistral-Large-2407 (zero shot),56.2,8162,"[55.8, 56.5]",62.0,628,"[60.5, 63.4]",59.0,8790,"[58.3, 59.5]",2024-07-24
+ForecastBench,Meta,Llama-3-8b-Chat-Hf (zero shot),54.8,2533,"[54.5, 55.1]",63.7,215,"[61.5, 63.9]",59.0,2748,"[58.1, 59.0]",2024-04-18
+ForecastBench,Qwen,Qwen1.5-110B-Chat (scratchpad with crowd forecast),56.6,1384,"[56.1, 57.1]",61.5,123,"[59.6, 61.8]",59.0,1507,"[57.8, 59.4]",2024-04-25
+ForecastBench,OpenAI,GPT-4o-2024-05-13 (scratchpad),54.8,8162,"[54.5, 55.0]",63.4,628,"[62.0, 63.8]",58.9,8790,"[58.3, 59.0]",2024-05-13
+ForecastBench,Anthropic,Claude-3-Opus-20240229 (superforecaster with news 1),56.6,1384,"[56.3, 57.1]",61.4,123,"[58.5, 62.4]",58.9,1507,"[57.7, 59.5]",2024-02-29
+ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (scratchpad with news),55.4,1384,"[54.5, 56.4]",62.5,123,"[59.0, 65.4]",58.8,1507,"[56.7, 59.9]",2024-04-09
+ForecastBench,Google,Gemini-2.0-Flash-Lite-001 (zero shot with crowd forecast),52.6,2335,"[52.3, 53.3]",65.8,177,"[62.8, 68.4]",58.7,2512,"[57.7, 60.1]",2025-02-05
+ForecastBench,Mistral,Mistral-Large-2411 (scratchpad with crowd forecast),52.7,2198,"[52.5, 52.7]",65.6,184,"[65.9, 68.6]",58.7,2382,"[58.7, 59.7]",2024-11-18
+ForecastBench,Google,Gemini-1.5-Pro (scratchpad with news),56.8,1384,"[55.7, 57.2]",60.6,123,"[56.9, 61.2]",58.7,1507,"[56.3, 59.1]",2024-05-01
+ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (superforecaster with news 1),53.8,1384,"[52.7, 54.6]",64.4,123,"[60.5, 66.5]",58.7,1507,"[56.5, 59.6]",2024-04-17
+ForecastBench,OpenAI,GPT-5.1-2025-11-13 (zero shot),58.5,1740,"[58.4, 58.9]",58.8,256,"[56.1, 60.0]",58.6,1996,"[57.3, 59.4]",2025-11-13
+ForecastBench,OpenAI,GPT-4-0613 (scratchpad),55.8,1384,"[55.2, 56.3]",61.7,123,"[58.6, 62.4]",58.6,1507,"[56.9, 58.9]",2023-06-13
+ForecastBench,Meta,Llama-4-Scout-17B-16E-Instruct (scratchpad),53.1,3505,"[53.0, 53.4]",64.6,265,"[63.4, 65.1]",58.5,3770,"[58.1, 58.6]",2025-04-05
+ForecastBench,Qwen,Qwen1.5-110B-Chat (scratchpad with news with crowd forecast),56.0,1384,"[55.5, 56.5]",61.1,123,"[59.7, 63.6]",58.5,1507,"[57.6, 59.6]",2024-04-25
+ForecastBench,Qwen,Qwen1.5-110B-Chat (scratchpad),56.6,1384,"[56.1, 57.1]",60.6,123,"[57.6, 62.7]",58.5,1507,"[56.9, 59.8]",2024-04-25
+FractalAIResearch,FractalAIResearch,Fathom-Search-4B (prompt 2),54.4,679,"[53.3, 56.7]",63.0,98,"[60.4, 64.8]",58.5,777,"[57.7, 59.4]",2025-10-26
+ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (scratchpad),56.5,6025,"[56.2, 56.7]",60.1,488,"[58.2, 59.8]",58.3,6513,"[57.4, 58.0]",2024-04-09
+ForecastBench,Mistral,Mistral-Large-2411 (zero shot),55.9,3298,"[55.4, 55.9]",60.9,262,"[60.2, 63.6]",58.3,3560,"[58.0, 59.3]",2024-11-18
+ForecastBench,Z.ai,GLM-4.5-Air-FP8 (zero shot),56.7,2445,"[56.4, 56.8]",59.8,270,"[58.0, 60.9]",58.2,2715,"[57.2, 58.8]",2025-07-28
+ForecastBench,Google,Gemini-2.0-Flash-Lite-001 (zero shot),52.6,2335,"[52.3, 53.3]",64.6,177,"[63.8, 66.3]",58.2,2512,"[58.1, 58.8]",2025-02-05
+ForecastBench,Google,Gemini-1.5-Flash (scratchpad with crowd forecast),53.4,1384,"[52.4, 53.3]",63.6,123,"[61.2, 67.7]",58.2,1507,"[56.9, 59.5]",2024-05-01
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (scratchpad with SECOND news),53.5,1384,"[53.2, 54.0]",63.1,123,"[60.6, 65.8]",58.1,1507,"[56.8, 59.0]",2024-06-20
+ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (scratchpad with news with crowd forecast),53.8,1384,"[52.8, 54.8]",62.8,123,"[59.6, 64.9]",58.1,1507,"[56.6, 58.8]",2024-04-17
+ForecastBench,OpenAI,GPT-4o (zero shot),53.8,1384,"[53.1, 54.3]",62.9,123,"[62.1, 63.8]",58.1,1507,"[57.4, 58.2]",2024-05-13
+ForecastBench,xAI,Grok-4-1-Fast-Non-Reasoning (zero shot),60.2,435,"[59.4, 60.7]",56.0,82,"[57.5, 61.6]",58.0,517,"[58.9, 60.7]",2025-11-17
+ForecastBench,Anthropic,Claude-3-Opus-20240229 (scratchpad),57.2,6025,"[56.8, 57.3]",58.7,488,"[57.5, 59.3]",57.9,6513,"[57.3, 58.1]",2024-02-29
+ForecastBench,OpenAI,GPT-4o (superforecaster with news 1),53.6,1384,"[53.2, 53.6]",62.6,123,"[60.1, 64.3]",57.9,1507,"[56.6, 58.6]",2024-05-13
+ForecastBench,Mistral AI,Mistral-Large-Latest (scratchpad),55.9,1384,"[55.4, 56.4]",59.5,123,"[54.4, 61.5]",57.7,1507,"[55.0, 58.6]",2024-02-26
+ForecastBench,OpenAI,GPT-4-0613 (zero shot),56.2,1384,"[55.6, 56.3]",58.9,123,"[55.9, 60.5]",57.6,1507,"[55.8, 58.0]",2023-06-13
+ForecastBench,Meta,Llama-3-70b-Chat-Hf (zero shot),54.6,3689,"[54.2, 55.0]",60.4,310,"[57.6, 60.9]",57.4,3999,"[56.3, 57.4]",2024-04-18
+ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (scratchpad with news),53.8,1384,"[52.8, 54.8]",61.2,123,"[57.9, 63.0]",57.3,1507,"[55.8, 57.9]",2024-04-17
+ForecastBench,Qwen,Qwen1.5-110B-Chat (scratchpad with news),56.0,1384,"[55.5, 56.5]",58.7,123,"[57.2, 59.5]",57.3,1507,"[56.3, 57.7]",2024-04-25
+ForecastBench,Anthropic,Claude-3-5-Sonnet-20240620 (superforecaster with news 2),54.2,1384,"[53.2, 54.3]",60.1,123,"[57.9, 61.4]",57.1,1507,"[55.5, 57.2]",2024-06-20
+ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (scratchpad),55.0,1384,"[54.7, 55.4]",59.2,123,"[56.4, 59.7]",57.1,1507,"[55.7, 57.5]",2024-04-17
+ForecastBench,Mistral AI,Mixtral-8x7B-Instruct-V0.1 (zero shot),53.4,1384,"[52.7, 53.5]",61.3,123,"[57.3, 62.6]",57.1,1507,"[55.4, 57.6]",2023-12-11
+ForecastBench,Qwen,Qwen1.5-110B-Chat (zero shot),55.1,1384,"[54.6, 55.4]",59.2,123,"[57.1, 59.9]",57.1,1507,"[55.9, 57.5]",2024-04-25
+Stochastic Radiant,Anthropic,claude-3-5-haiku-20241022,53.7,1103,"[53.1, 53.9]",60.8,89,"[61.5, 66.2]",57.1,1192,"[57.3, 59.3]",2025-08-03
+ForecastBench,Meta,Llama-3-8b-Chat-Hf (scratchpad with crowd forecast),50.8,1384,"[50.2, 51.1]",64.3,123,"[62.0, 64.8]",57.0,1507,"[55.9, 57.1]",2024-04-18
+ForecastBench,Mistral AI,Mistral-Large-Latest (zero shot),54.4,1384,"[53.8, 54.8]",59.8,123,"[57.8, 61.4]",57.0,1507,"[56.3, 57.4]",2024-02-26
+ForecastBench,Anthropic,Claude-3-Opus-20240229 (scratchpad with news with crowd forecast),54.6,1384,"[53.7, 55.5]",59.4,123,"[56.6, 60.9]",56.9,1507,"[55.2, 57.4]",2024-02-29
+ForecastBench,ForecastBench,"LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean with news",50.6,1384,"[50.1, 51.1]",64.2,123,"[62.4, 65.2]",56.9,1507,"[55.8, 57.5]",
+ForecastBench,Google,Gemini-1.5-Pro (superforecaster with news 3),54.8,1384,"[54.0, 55.7]",58.8,123,"[58.2, 59.6]",56.8,1507,"[56.1, 57.6]",2024-05-01
+ForecastBench,Google,Gemini-1.5-Pro (zero shot),55.1,1384,"[54.3, 55.3]",58.7,123,"[57.6, 60.6]",56.8,1507,"[55.9, 57.5]",2024-05-01
+ForecastBench,Mistral,Mistral-Large-2407 (scratchpad),55.0,5826,"[54.9, 55.1]",58.4,444,"[56.6, 58.8]",56.7,6270,"[55.8, 56.8]",2024-07-24
+ForecastBench,ForecastBench,"LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean log odds with news",50.6,1384,"[50.1, 51.0]",63.8,123,"[62.0, 65.0]",56.7,1507,"[55.6, 57.4]",
+ForecastBench,ForecastBench,"LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) median with news",50.6,1384,"[50.1, 51.1]",63.7,123,"[62.0, 64.9]",56.7,1507,"[55.7, 57.4]",
+ForecastBench,Qwen,Qwen1.5-110B-Chat (superforecaster with news 1),54.5,1384,"[53.9, 54.9]",58.9,123,"[57.6, 60.2]",56.7,1507,"[56.0, 57.2]",2024-04-25
+ForecastBench,Mistral AI,Mistral-Large-Latest (superforecaster with news 1),53.3,1384,"[52.7, 53.6]",60.1,123,"[58.3, 62.6]",56.6,1507,"[55.5, 57.4]",2024-02-26
+ForecastBench,Anthropic,Claude-3-Opus-20240229 (superforecaster with news 2),55.3,1384,"[54.8, 56.1]",57.6,123,"[53.9, 58.4]",56.4,1507,"[54.5, 57.1]",2024-02-29
+ForecastBench,Google,Gemini-1.5-Flash (scratchpad with news with crowd forecast),51.8,1384,"[50.6, 52.4]",61.6,123,"[58.0, 66.8]",56.4,1507,"[54.2, 58.4]",2024-05-01
+ForecastBench,Mistral AI,Mistral-Large-Latest (scratchpad with news with crowd forecast),53.8,1384,"[53.2, 54.6]",59.0,123,"[57.3, 64.5]",56.3,1507,"[55.3, 58.7]",2024-02-26
+ForecastBench,Google,Gemini-1.5-Pro (superforecaster with news 1),53.7,1384,"[53.0, 54.3]",58.9,123,"[55.9, 62.4]",56.2,1507,"[54.4, 57.8]",2024-05-01
+ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (zero shot),54.0,1384,"[53.5, 54.2]",58.6,123,"[56.0, 60.5]",56.2,1507,"[55.0, 57.1]",2024-04-17
+ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (superforecaster with news 1),54.3,1384,"[53.6, 54.8]",58.2,123,"[57.2, 60.0]",56.2,1507,"[55.4, 57.3]",2024-04-09
+ForecastBench,Anthropic,Claude-3-Haiku-20240307 (zero shot with crowd forecast),51.1,6025,"[50.8, 51.8]",61.9,488,"[61.2, 62.4]",56.1,6513,"[55.8, 56.3]",2024-03-13
+ForecastBench,Anthropic,Claude-3-Opus-20240229 (scratchpad with news),54.6,1384,"[53.7, 55.5]",57.4,123,"[55.0, 59.7]",56.0,1507,"[54.3, 56.8]",2024-02-29
+ForecastBench,Google,Gemini-1.5-Flash (scratchpad),53.4,1384,"[52.4, 53.3]",58.8,123,"[55.4, 60.2]",56.0,1507,"[54.1, 56.3]",2024-05-01
+ForecastBench,Mistral AI,Mistral-Large-Latest (scratchpad with news),53.8,1384,"[53.2, 54.6]",57.2,123,"[54.5, 60.0]",55.5,1507,"[54.0, 56.8]",2024-02-26
+ForecastBench,Meta,Llama-3-70b-Chat-Hf (scratchpad),54.0,1384,"[53.4, 54.1]",56.5,123,"[53.5, 57.7]",55.2,1507,"[53.5, 55.6]",2024-04-18
+ForecastBench,Mistral AI,Mistral-Large-Latest (superforecaster with news 2),54.0,1384,"[52.8, 54.4]",56.2,123,"[54.2, 59.2]",55.1,1507,"[53.5, 56.2]",2024-02-26
+ForecastBench,Anthropic,Claude-2.1 (zero shot),52.6,1384,"[52.2, 52.8]",57.4,123,"[55.3, 57.7]",55.0,1507,"[53.8, 55.1]",2023-11-21
+ForecastBench,Mistral AI,Mixtral-8x22B-Instruct-V0.1 (superforecaster with news 2),51.7,1384,"[50.5, 52.1]",58.1,123,"[56.0, 60.2]",54.8,1507,"[53.2, 55.4]",2024-04-17
+ForecastBench,OpenAI,GPT-4o (superforecaster with news 2),50.2,1384,"[49.4, 51.0]",60.0,123,"[57.7, 62.8]",54.8,1507,"[53.4, 55.8]",2024-05-13
+ForecastBench,Google,Gemini-1.5-Flash (scratchpad with news),51.8,1384,"[50.6, 52.4]",57.8,123,"[53.3, 60.6]",54.7,1507,"[51.9, 55.8]",2024-05-01
+ForecastBench,Google,Gemini-1.5-Flash (zero shot),53.6,1384,"[53.1, 53.5]",55.7,123,"[54.8, 56.8]",54.6,1507,"[54.0, 55.0]",2024-05-01
+ForecastBench,Anthropic,Claude-3-Haiku-20240307 (zero shot),51.1,6025,"[50.8, 51.8]",57.6,488,"[56.8, 58.2]",54.2,6513,"[54.0, 54.4]",2024-03-13
+ForecastBench,Google,Gemini-1.5-Pro (superforecaster with news 2),52.4,1384,"[51.2, 52.3]",56.1,123,"[54.1, 57.1]",54.2,1507,"[53.1, 54.5]",2024-05-01
+ForecastBench,OpenAI,GPT-4-Turbo-2024-04-09 (superforecaster with news 2),51.9,1384,"[51.3, 52.5]",55.8,123,"[54.2, 58.6]",53.8,1507,"[52.7, 55.0]",2024-04-09
+ForecastBench,Mistral,Mistral-Large-2411 (scratchpad),52.7,2198,"[52.5, 52.7]",54.5,184,"[54.8, 56.5]",53.6,2382,"[53.6, 54.5]",2024-11-18
+ForecastBench,Meta,Llama-3-8b-Chat-Hf (scratchpad),50.8,1384,"[50.2, 51.1]",56.7,123,"[53.9, 57.9]",53.6,1507,"[52.2, 54.1]",2024-04-18
+ForecastBench,Anthropic,Claude-3-Haiku-20240307 (scratchpad with crowd forecast),50.2,1384,"[49.5, 50.2]",55.0,123,"[52.7, 57.0]",52.5,1507,"[51.1, 53.4]",2024-03-13
+ForecastBench,Meta,Llama-2-70b-Chat-Hf (scratchpad with crowd forecast),50.0,1384,"[49.8, 50.5]",54.6,123,"[50.9, 54.5]",52.3,1507,"[50.3, 52.3]",2023-07-18
+ForecastBench,Meta,Llama-2-70b-Chat-Hf (scratchpad),50.0,1384,"[49.8, 50.5]",54.4,123,"[50.3, 55.9]",52.2,1507,"[50.0, 53.1]",2023-07-18
+ForecastBench,Google,Gemini-1.5-Flash (superforecaster with news 1),50.0,1384,"[49.1, 50.6]",54.3,123,"[51.4, 56.8]",52.1,1507,"[50.8, 53.0]",2024-05-01
+ForecastBench,Anthropic,Claude-3-Haiku-20240307 (superforecaster with news 2),50.2,1384,"[49.8, 50.3]",53.8,123,"[51.1, 54.1]",51.9,1507,"[50.6, 52.0]",2024-03-13
+ForecastBench,Google,Gemini-1.5-Flash (superforecaster with news 2),49.9,1384,"[48.6, 49.8]",53.7,123,"[51.1, 56.4]",51.8,1507,"[49.9, 52.9]",2024-05-01
+ForecastBench,Anthropic,Claude-3-Haiku-20240307 (scratchpad),50.2,1384,"[49.5, 50.2]",53.3,123,"[49.7, 55.1]",51.7,1507,"[49.6, 52.6]",2024-03-13
+ForecastBench,Meta,Llama-2-70b-Chat-Hf (zero shot with crowd forecast),49.6,1384,"[49.6, 50.0]",53.8,123,"[52.5, 54.9]",51.7,1507,"[51.2, 52.3]",2023-07-18
+ForecastBench,OpenAI,GPT-3.5-Turbo-0125 (scratchpad),48.3,1384,"[47.3, 48.5]",54.0,123,"[50.5, 56.4]",51.1,1507,"[49.4, 52.1]",2024-01-25
+ForecastBench,OpenAI,GPT-3.5-Turbo-0125 (scratchpad with crowd forecast),48.3,1384,"[47.3, 48.5]",53.8,123,"[51.9, 54.4]",51.0,1507,"[50.1, 51.3]",2024-01-25
+ForecastBench,Anthropic,Claude-3-Haiku-20240307 (scratchpad with news with crowd forecast),46.7,1384,"[45.8, 47.1]",55.1,123,"[51.4, 56.5]",50.7,1507,"[48.9, 51.4]",2024-03-13
+ForecastBench,ForecastBench,Always 0,39.9,18531,"[39.4, 40.3]",63.1,1648,"[61.2, 64.8]",50.2,20179,"[49.5, 51.0]",
+ForecastBench,Anthropic,Claude-3-Haiku-20240307 (scratchpad with news),46.7,1384,"[45.8, 47.1]",54.1,123,"[51.8, 54.7]",50.2,1507,"[48.7, 50.4]",2024-03-13
+ForecastBench,ForecastBench,Always 0.5,50.0,18531,"[50.0, 50.0]",50.0,1648,"[50.0, 50.0]",50.0,20179,"[50.0, 50.0]",
+ForecastBench,OpenAI,GPT-3.5-Turbo-0125 (zero shot with crowd forecast),34.9,1384,"[34.3, 35.6]",64.0,123,"[61.4, 67.6]",47.4,1507,"[46.2, 49.0]",2024-01-25
+ForecastBench,Meta,Llama-2-70b-Chat-Hf (zero shot),49.6,1384,"[49.6, 50.0]",44.8,123,"[44.2, 44.9]",47.2,1507,"[46.9, 47.3]",2023-07-18
+ForecastBench,Anthropic,Claude-3-Haiku-20240307 (superforecaster with news 1),44.6,1384,"[43.9, 45.1]",47.4,123,"[44.5, 49.1]",46.0,1507,"[44.3, 46.7]",2024-03-13
+ForecastBench,ForecastBench,Random Uniform,42.2,18531,"[41.9, 42.5]",42.3,1648,"[41.8, 43.5]",42.3,20179,"[41.9, 43.0]",
+ForecastBench,OpenAI,GPT-3.5-Turbo-0125 (zero shot),34.9,1384,"[34.3, 35.6]",50.5,123,"[47.7, 50.9]",42.2,1507,"[40.7, 42.6]",2024-01-25
+ForecastBench,ForecastBench,Always 1,20.1,18531,"[19.8, 20.4]",7.0,1648,"[6.4, 7.8]",13.3,20179,"[12.8, 13.7]",

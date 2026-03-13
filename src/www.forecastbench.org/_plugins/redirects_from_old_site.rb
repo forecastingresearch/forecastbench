@@ -5,9 +5,9 @@ Jekyll::Hooks.register :site, :post_write do |site|
     <head>
       <meta charset="utf-8">
       <title>Redirecting...</title>
-      <meta http-equiv="refresh" content="0; url=/tournament/">
-      <link rel="canonical" href="/tournament/">
-      <script>window.location.replace("/tournament/");</script>
+      <meta http-equiv="refresh" content="0; url=/leaderboards/">
+      <link rel="canonical" href="/leaderboards/">
+      <script>window.location.replace("/leaderboards/");</script>
     </head>
     <body style="display:none;">
     </body>
@@ -88,6 +88,36 @@ Jekyll::Hooks.register :site, :post_write do |site|
   File.write(paper_file, paper_redirect)
   total_count += 1
   puts "Generated redirect for paper.html"
+
+  # Create redirects for old leaderboard pages -> /leaderboards/#{hash}
+  redirect_with_hash = lambda do |target|
+    <<~HTML
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Redirecting...</title>
+        <meta http-equiv="refresh" content="0; url=#{target}">
+        <link rel="canonical" href="#{target}">
+        <script>window.location.replace("#{target}");</script>
+      </head>
+      <body style="display:none;">
+      </body>
+      </html>
+    HTML
+  end
+
+  {
+    'baseline' => '/leaderboards/#baseline',
+    'tournament' => '/leaderboards/#tournament',
+    'preliminary' => '/leaderboards/#preliminary'
+  }.each do |page, target|
+    page_dir = File.join(site.dest, page)
+    FileUtils.mkdir_p(page_dir)
+    File.write(File.join(page_dir, 'index.html'), redirect_with_hash.call(target))
+  end
+  total_count += 3
+  puts "Generated redirects for /baseline/, /tournament/, /preliminary/ -> /leaderboards/#..."
 
   puts "Total redirects generated: #{total_count}"
 end

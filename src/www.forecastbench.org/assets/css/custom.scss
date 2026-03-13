@@ -369,8 +369,55 @@ a.site-title:focus {
 }
 
 /*
- * Full leaderboard
+ * Leaderboard tabs
  */
+#leaderboard-tabs {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
+.lb-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-right: auto;
+  padding-bottom: 0.4rem;
+}
+
+.lb-tab-group {
+  display: flex;
+  gap: 0;
+}
+
+.lb-tab {
+  padding: 0.4rem 1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: color 0.2s ease, border-color 0.2s ease;
+
+  &:focus, &:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  &:hover {
+    color: rgba(226, 62, 22, 0.8);
+  }
+
+  &.active {
+    color: rgba(226, 62, 22, 1);
+    border-bottom-color: rgba(226, 62, 22, 1);
+  }
+}
+
 /*
  * Full leaderboard
  */

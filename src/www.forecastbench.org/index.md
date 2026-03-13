@@ -18,8 +18,8 @@ after_footer_scripts:
   - https://cdn.datatables.net/1.13.7/js/dataTables.semanticui.min.js
   - https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js
   - https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.6.3/dist/floating-ui.dom.min.js
-  - /assets/js/leaderboard_baseline_compact.js
   - /assets/js/leaderboard_tournament_compact.js
+  - /assets/js/leaderboard_baseline_compact.js
   - /assets/js/tooltip-init.js
   - https://cdn.jsdelivr.net/npm/d3@7
   - /assets/js/explore_sota_graph.js
@@ -31,19 +31,19 @@ featured_link: "https://forecastingresearch.substack.com/p/introducing-the-brier
 featured_date: "Mar 4, 2026"
 ---
 
-<!-- Baseline leaderboard Section with Background -->
-<div class="baseline-section" style="background-color: #d0d8e6; margin: 0 -50vw; padding: 3rem 50vw; margin-top: -2rem; margin-bottom: 0;">
+<!-- Tournament leaderboard Section with Background -->
+<div class="tournament-section" style="background-color: #d0d8e6; margin: 0 -50vw; padding: 3rem 50vw; margin-top: -2rem; margin-bottom: 0;">
   <div style="display:flex;">
     <div style="flex:2; padding-right:1rem; display:flex; justify-content:flex-end;">
       <div style="width:450px; margin-right:2rem;">
-        <h1>Baseline leaderboard</h1>
-        <p>Tracks base model LLM forecasting performance <i>without additional tools</i>, comparing against human baselines and showing consistent progress in capabilities since models were first tested.</p>
-        <p><a href="/baseline/" class="btn btn--primary btn--large">Baseline leaderboard</a></p>
+        <h1>Tournament leaderboard</h1>
+        <p>Tracks frontier accuracy by allowing tool use to improve LLM performance. Models can be scaffolded, fine-tuned, ensembled, and so on. Open to <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench" class="no-wrap">public submissions <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
+        <p><a href="/leaderboards/" class="btn btn--primary btn--large">Tournament leaderboard</a></p>
       </div>
     </div>
      <div style="flex:2;">
        <div class="leaderboard-wrapper-home">
-          <div id="leaderboard-baseline-compact"></div>
+          <div id="leaderboard-tournament-compact"></div>
        </div>
      </div>
   </div>
@@ -75,19 +75,19 @@ featured_date: "Mar 4, 2026"
   );"></div>
 </div>
 
-<!-- Tournament leaderboard Section with Background -->
-<div class="tournament-section" style="background-color: #e0e4ee; margin: 0 -50vw; padding: 3rem 50vw 0 50vw; margin-top: 0; margin-bottom: 0; position: relative; z-index: 3;">
+<!-- Baseline leaderboard Section with Background -->
+<div class="baseline-section" style="background-color: #e0e4ee; margin: 0 -50vw; padding: 3rem 50vw 0 50vw; margin-top: 0; margin-bottom: 0; position: relative; z-index: 3;">
   <div style="display:flex;">
      <div style="flex:2; margin-left:-1rem;">
        <div class="leaderboard-wrapper-home">
-          <div id="leaderboard-tournament-compact"></div>
+          <div id="leaderboard-baseline-compact"></div>
        </div>
      </div>
     <div style="flex:2; padding-left:1rem; display:flex; justify-content:center;">
       <div style="width:450px;">
-        <h1>Tournament leaderboard</h1>
-        <p>Tracks frontier accuracy by allowing tool use to improve LLM performance. Models can be scaffolded, fine-tuned, ensembled, and so on. Open to <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench" class="no-wrap">public submissions <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
-        <p><a href="/tournament/" class="btn btn--primary btn--large">Tournament leaderboard</a></p>
+        <h1>Baseline leaderboard</h1>
+        <p>Tracks base model LLM forecasting performance <i>without additional tools</i>, comparing against human baselines and showing consistent progress in capabilities since models were first tested.</p>
+        <p><a href="/leaderboards/#baseline" class="btn btn--primary btn--large">Baseline leaderboard</a></p>
       </div>
     </div>
   </div>
