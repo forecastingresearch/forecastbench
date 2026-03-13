@@ -11,7 +11,7 @@ from typing import Any
 import pandas as pd
 from termcolor import colored
 
-from helpers import dates, decorator, env, slack
+from helpers import data_utils, dates, decorator, env, resolution, slack
 from orchestration import _io
 from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
@@ -45,7 +45,7 @@ def _get_resolutions_for_llm_question_set(forecast_due_date, question_bank):
     filename = f"{forecast_due_date}-llm.json"
     logger.info(f"Getting resolutions for {filename}.")
 
-    df_orig_question_set = _io.download_question_set_file(filename)
+    df_orig_question_set = resolution.download_and_read_question_set_file(filename)
     df = explode_question_set(
         question_set_df=df_orig_question_set,
         forecast_due_date=forecast_due_date,
@@ -77,7 +77,7 @@ def _get_resolutions_for_llm_question_set(forecast_due_date, question_bank):
 def _get_resolutions_for_human_question_set(forecast_due_date, df_llm_resolutions):
     """Extract resolutions for human questions from LLM resolutions."""
     filename = f"{forecast_due_date}-human.json"
-    df_orig_question_set = _io.download_question_set_file(filename)
+    df_orig_question_set = resolution.download_and_read_question_set_file(filename)
     df = pd.merge(df_llm_resolutions, df_orig_question_set, on=["id", "source"]).reset_index(
         drop=True
     )
@@ -169,7 +169,7 @@ def driver(_: Any) -> None:
         logger.error(e)
         return f"Error: {str(e)}", 400
 
-    forecast_files, valid_dates = _io.get_valid_forecast_files_and_dates(
+    forecast_files, valid_dates = resolution.get_valid_forecast_files_and_dates(
         bucket=env.FORECAST_SETS_BUCKET,
     )
 
@@ -192,12 +192,12 @@ def driver(_: Any) -> None:
     _io.load_hash_mapping(SOURCES["acled"], "acled")
     _io.load_hash_mapping(SOURCES["wikipedia"], "wikipedia")
 
-    local_forecast_set_dir = _io._get_local_file_dir(bucket=env.FORECAST_SETS_BUCKET)
+    local_forecast_set_dir = data_utils.get_local_file_dir(bucket=env.FORECAST_SETS_BUCKET)
     resolved_cache: dict[str, dict] = {}
 
     for f in forecast_files:
         logger.info(f"Resolving {f}")
-        file_data = _io.read_forecast_file(filename=f"{local_forecast_set_dir}/{f}")
+        file_data = resolution.read_forecast_file(filename=f"{local_forecast_set_dir}/{f}")
         if file_data is None:
             continue
 
