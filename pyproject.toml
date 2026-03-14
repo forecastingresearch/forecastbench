@@ -1,3 +1,7 @@
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+pythonpath = ["src"]
+
 [tool.black]
 line-length = 100
 force-exclude = '''
