@@ -79,6 +79,9 @@ ENV/
 ehthumbs.db
 Thumbs.db
 
+# Worktrees
+.worktrees/
+
 # Compressed files
 *.7z
 *.dmg
