@@ -6,7 +6,8 @@ all :
 
 .PHONY : all clean deploy deploy-dataset
 
-UPLOAD_DIR = upload
+LEADERBOARD_UPLOAD_DIR = upload-leaderboard
+DATASET_UPLOAD_DIR = upload-dataset-leaderboard
 
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
@@ -21,10 +22,10 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 NUM_CPUS = 8
 
 deploy : main.py requirements.txt Dockerfile model_release_dates.csv
-	mkdir -p $(UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
-	cp $^ $(UPLOAD_DIR)/
+	mkdir -p $(LEADERBOARD_UPLOAD_DIR)
+	cp -r $(ROOT_DIR)utils $(LEADERBOARD_UPLOAD_DIR)/
+	cp -r $(ROOT_DIR)src/helpers $(LEADERBOARD_UPLOAD_DIR)/
+	cp $^ $(LEADERBOARD_UPLOAD_DIR)/
 	gcloud run jobs deploy \
 		func-leaderboard \
 		--project $(CLOUD_PROJECT) \
@@ -43,13 +44,20 @@ deploy : main.py requirements.txt Dockerfile model_release_dates.csv
 		--add-volume-mount volume=$(PUBLIC_RELEASE_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(PUBLIC_RELEASE_BUCKET) \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS) \
-		--source $(UPLOAD_DIR)
+		--source $(LEADERBOARD_UPLOAD_DIR)
 
-deploy-dataset : main.py requirements.txt Dockerfile model_release_dates.csv
-	mkdir -p $(UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
-	cp $^ $(UPLOAD_DIR)/
+deploy-dataset : main.py requirements.txt model_release_dates.csv
+	rm -rf $(DATASET_UPLOAD_DIR)
+	mkdir -p $(DATASET_UPLOAD_DIR)
+	cp -r $(ROOT_DIR)utils $(DATASET_UPLOAD_DIR)/
+	cp -r $(ROOT_DIR)src/helpers $(DATASET_UPLOAD_DIR)/
+	cp main.py requirements.txt model_release_dates.csv $(DATASET_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/helpers/.gcloudignore $(DATASET_UPLOAD_DIR)/.gcloudignore
+	sed \
+		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
+		-e 's/STACK/google-22-full/g' \
+		-e 's/PYTHON_VERSION/python312/g' \
+		$(ROOT_DIR)src/helpers/Dockerfile.template > $(DATASET_UPLOAD_DIR)/Dockerfile
 	gcloud run jobs deploy \
 		func-leaderboard-dataset \
 		--project $(CLOUD_PROJECT) \
@@ -68,7 +76,7 @@ deploy-dataset : main.py requirements.txt Dockerfile model_release_dates.csv
 		--add-volume-mount volume=$(PUBLIC_RELEASE_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(PUBLIC_RELEASE_BUCKET) \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_MODE=dataset \
-		--source $(UPLOAD_DIR)
+		--source $(DATASET_UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile
+	rm -rf $(LEADERBOARD_UPLOAD_DIR) $(DATASET_UPLOAD_DIR) .gcloudignore Dockerfile

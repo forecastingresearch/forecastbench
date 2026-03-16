@@ -96,7 +96,7 @@ check-failures:
 all: deploy
 	@$(MAKE) check-failures
 
-deploy: orchestration questions metadata resolve leaderboard leaderboard-dataset curate-questions website baselines
+deploy: orchestration questions metadata resolve leaderboards curate-questions website baselines
 
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
@@ -105,6 +105,8 @@ orchestration: nightly-worker-job nightly-manager-job compress_buckets
 metadata: tag-questions validate-questions
 
 resolve: resolve-forecasts
+
+leaderboards: leaderboard leaderboard-dataset
 
 curate-questions: create-question-set publish-question-set
 
@@ -204,7 +206,7 @@ naive-and-dummy-forecasters:
 	$(MAKE) -C src/base_eval/naive_and_dummy_forecasters || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 leaderboard:
-	$(MAKE) -C src/leaderboard || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/leaderboard deploy || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 leaderboard-dataset:
 	$(MAKE) -C src/leaderboard deploy-dataset || echo "* $@" >> $(MAKE_FAILURE_LOG)
