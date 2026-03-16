@@ -148,6 +148,7 @@ EXTERNAL_TOURNAMENT_MODELS_TO_LOGO = {
     "Mantic": "mantic.jpg",
     "Stochastic Radiant": "stochastic-radiant.svg",
     "Google DeepMind": "deepmind.svg",
+    "limeforecast": "limeforecast.png",
 }
 
 ORG_TO_LOGO = {
