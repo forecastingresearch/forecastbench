@@ -316,28 +316,28 @@ MODELS_TO_RUN = {
         "token_limit": 200000,
     },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
-    "grok-4-fast-reasoning": {
-        "source": XAI_SOURCE,
-        "org": XAI_ORG,
-        "full_name": "grok-4-fast-reasoning",
-        "token_limit": 2000000,
-    },
     "grok-4-1-fast-reasoning": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
         "full_name": "grok-4-1-fast-reasoning",
         "token_limit": 2000000,
     },
-    "grok-4-fast-non-reasoning": {
-        "source": XAI_SOURCE,
-        "org": XAI_ORG,
-        "full_name": "grok-4-fast-non-reasoning",
-        "token_limit": 2000000,
-    },
     "grok-4-1-fast-non-reasoning": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
         "full_name": "grok-4-1-fast-non-reasoning",
+        "token_limit": 2000000,
+    },
+    "grok-4.20-beta-0309-reasoning": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-4.20-beta-0309-reasoning",
+        "token_limit": 2000000,
+    },
+    "grok-4.20-beta-0309-non-reasoning": {
+        "source": XAI_SOURCE,
+        "org": XAI_ORG,
+        "full_name": "grok-4.20-beta-0309-non-reasoning",
         "token_limit": 2000000,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models
