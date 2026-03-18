@@ -209,6 +209,24 @@ MODELS_TO_RUN = {
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": True,
     },
+    "gpt-5.4-mini-2026-03-17": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-5.4-mini-2026-03-17",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+    },
+    "gpt-5.4-nano-2026-03-17": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-5.4-nano-2026-03-17",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+    },
     "gpt-5.2-2025-12-11": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
