@@ -130,6 +130,37 @@ class TestFfillDfr:
         assert len(q1) == 5  # Jan 5-9
         assert len(q2) == 3  # Jan 7-9
 
+    def test_explicit_nan_not_forward_filled(self, freeze_today):
+        """Explicit NaN (off-the-charts) must be preserved, not filled over."""
+        freeze_today(date(2025, 1, 10))
+
+        dfr = make_resolution_df(
+            [
+                {"id": "q1", "date": "2025-01-01", "value": 10},
+                {"id": "q1", "date": "2025-01-05", "value": float("nan")},
+            ]
+        )
+
+        result = WikipediaSource._ffill_dfr(dfr)
+        q1 = result[result["id"] == "q1"].sort_values("date")
+
+        # Should have daily values from Jan 1 to Jan 9 (yesterday)
+        assert len(q1) == 9
+
+        # Jan 2-4 should be forward-filled with 10 (gap filling)
+        for day in [2, 3, 4]:
+            val = q1[q1["date"] == pd.Timestamp(f"2025-01-0{day}")]["value"].iloc[0]
+            assert val == 10, f"Jan {day} should be 10"
+
+        # Jan 5 was explicit NaN -- must NOT be filled
+        jan5_val = q1[q1["date"] == pd.Timestamp("2025-01-05")]["value"].iloc[0]
+        assert pd.isna(jan5_val), "Jan 5 explicit NaN should be preserved"
+
+        # Jan 6-9 (extended to yesterday) should also be NaN
+        for day in [6, 7, 8, 9]:
+            val = q1[q1["date"] == pd.Timestamp(f"2025-01-0{day}")]["value"].iloc[0]
+            assert pd.isna(val), f"Jan {day} should be NaN (off the charts)"
+
 
 # ---------------------------------------------------------------------------
 # Hash mapping
