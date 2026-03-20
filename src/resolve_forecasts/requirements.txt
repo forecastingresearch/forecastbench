@@ -1,9 +1,0 @@
-google-cloud-storage
-google-cloud-secret-manager
-pandas>=2.2.2,<3.0
-tqdm
-gcsfs==2025.7.0
-GitPython
-scipy
-termcolor
-slack_sdk
