@@ -1300,9 +1300,32 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   font-family: var(--chart-font);
 }
 
+.leaderboard-wrapper .explore-caveat {
+  width: calc(100% - 64px);
+  max-width: none;
+  margin: 10px 0 0 64px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.62rem;
+  line-height: 1.45;
+  color: #64748b;
+  text-align: left;
+  font-family: var(--chart-font);
+}
+
+.leaderboard-wrapper .explore-caveat strong {
+  color: #475569;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .instruction {
     display: none;
+  }
+
+  .leaderboard-wrapper .explore-caveat {
+    padding-top: 8px;
+    font-size: 0.56rem;
   }
 }
 /*

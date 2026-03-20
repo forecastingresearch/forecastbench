@@ -97,6 +97,12 @@ after_footer_scripts:
     </div>
     <div id="chart"></div>
     <div class="instruction">Hold Shift and drag to zoom into a region. Press Escape to reset zoom.</div>
+    <p class="explore-caveat">
+      <strong>Note.</strong> Human comparison groups shown as benchmark reference lines were
+      last surveyed in July 2024 and therefore answered a different set of questions than
+      models evaluated after that date. To enable fair ranking across forecasters despite
+      non-overlapping question sets, we use a two-way fixed-effects model that adjusts for
+      question difficulty (see the <a href="/docs/#technical-report">Addendum to the paper</a> for details).</p>
   </div>
 </div>
 
