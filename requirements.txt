@@ -3,5 +3,5 @@ black[jupyter]==25.1.0
 flake8==7.1.2
 flake8-bugbear==24.12.12
 pydocstyle==6.3.0
-pytest==8.3.4
-pytest-mock==3.14.0
+pytest==9.0.2
+pytest-mock==3.15.1
