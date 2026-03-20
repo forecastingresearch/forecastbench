@@ -18,9 +18,12 @@ jobs:
         python-version: '3.12'
 
     - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      run: make setup-python-env
 
     - name: Run lint
-      run: make lint MAKE_LINT_ERROR_OUT=1
+      run: |
+        . .venv/bin/activate
+        make lint MAKE_LINT_ERROR_OUT=1
+
+    - name: Run tests
+      run: make test
