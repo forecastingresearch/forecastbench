@@ -203,7 +203,7 @@ validate-questions:
 	$(MAKE) -C src/metadata/validate_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 resolve-forecasts:
-	$(MAKE) -C src/orchestration || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_resolve || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 naive-and-dummy-forecasters:
 	$(MAKE) -C src/base_eval/naive_and_dummy_forecasters || echo "* $@" >> $(MAKE_FAILURE_LOG)
