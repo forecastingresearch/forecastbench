@@ -37,7 +37,7 @@ def get_resolution_values() -> dict[str, dict[str, pd.DataFrame]]:
     """
     from orchestration._io import load_question_bank
 
-    question_bank = load_question_bank(sources_to_get=ALL_SOURCES)
+    question_bank = load_question_bank()
     return {source: {"dfq": sqb.dfq, "dfr": sqb.dfr} for source, sqb in question_bank.items()}
 
 
