@@ -9,6 +9,10 @@ from helpers.constants import BENCHMARK_START_DATE_DATETIME_DATE
 
 from ._dataset import DatasetSource
 
+NULLIFIED_IDS = [
+    "AMERIBOR",
+]
+
 
 class FredSource(DatasetSource):
     """Federal Reserve Economic Data source."""
@@ -17,7 +21,6 @@ class FredSource(DatasetSource):
     display_name: ClassVar[str] = "FRED"
     source_type: ClassVar[SourceType] = SourceType.DATASET
     nullified_questions: ClassVar[list[NullifiedQuestion]] = [
-        NullifiedQuestion(
-            id="AMERIBOR", nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE
-        ),
+        NullifiedQuestion(id=nid, nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE)
+        for nid in NULLIFIED_IDS
     ]
