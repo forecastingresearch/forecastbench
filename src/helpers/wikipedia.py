@@ -40,8 +40,6 @@ fetch_directory = f"{source}/fetch"
 
 hash_mapping = {}
 
-hash_filename = "hash_mapping.json"
-local_hash_filename = f"/tmp/{hash_filename}"
 
 SOURCE_INTRO = (
     "Wikipedia is an online encyclopedia created and edited by volunteers. You're going to predict "
@@ -387,31 +385,21 @@ def transform_id(wid):
 def populate_hash_mapping():
     """Download the hash_mapping from storage and load into global."""
     global hash_mapping
-    remote_filename = f"{source}/{hash_filename}"
-    gcp.storage.download_no_error_message_on_404(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        filename=remote_filename,
-        local_filename=local_hash_filename,
-    )
-    if os.path.getsize(local_hash_filename) > 0:
-        with open(local_hash_filename, "r") as file:
-            hash_mapping = json.load(file)
+    from orchestration._io import load_hash_mapping
+
+    raw_json = load_hash_mapping(source)
+    hash_mapping = json.loads(raw_json) if raw_json else {}
 
 
 def upload_hash_mapping():
     """Write and upload the hash_mapping to storage from global."""
+    from orchestration._io import upload_hash_mapping as _upload
+
     # Remove any old keys that were in the hash_mapping, following #123.
     for k in transform_id_mapping:
         hash_mapping.pop(k, None)
 
-    with open(local_hash_filename, "w") as file:
-        json.dump(hash_mapping, file, indent=4)
-
-    gcp.storage.upload(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        local_filename=local_hash_filename,
-        destination_folder=source,
-    )
+    _upload(json.dumps(hash_mapping, indent=4), source)
 
 
 def ffill_dfr(dfr):

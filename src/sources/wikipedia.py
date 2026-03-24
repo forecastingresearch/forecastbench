@@ -412,11 +412,11 @@ class WikipediaSource(DatasetSource):
     # Hash mapping
     # ------------------------------------------------------------------
 
-    def _load_hash_mapping(self, raw_json: str) -> None:
+    def populate_hash_mapping(self, raw_json: str) -> None:
         """Parse hash mapping from raw JSON string."""
         self.hash_mapping = json.loads(raw_json) if raw_json else {}
 
-    def _dump_hash_mapping(self) -> str | None:
+    def dump_hash_mapping(self) -> str | None:
         """Serialize hash mapping to JSON, removing deprecated keys first."""
         for k in _TRANSFORM_ID_MAPPING:
             self.hash_mapping.pop(k, None)

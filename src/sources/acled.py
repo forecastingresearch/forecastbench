@@ -150,11 +150,11 @@ class AcledSource(DatasetSource):
     # Hash mapping
     # ------------------------------------------------------------------
 
-    def _load_hash_mapping(self, raw_json: str) -> None:
+    def populate_hash_mapping(self, raw_json: str) -> None:
         """Parse hash mapping from raw JSON string."""
         self.hash_mapping = json.loads(raw_json) if raw_json else {}
 
-    def _dump_hash_mapping(self) -> str | None:
+    def dump_hash_mapping(self) -> str | None:
         """Serialize hash mapping to JSON string."""
         return json.dumps(self.hash_mapping, indent=4)
 

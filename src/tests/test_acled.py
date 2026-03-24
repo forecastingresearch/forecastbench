@@ -238,9 +238,9 @@ class TestAcledResolve:
 class TestAcledHashMapping:
     """Test hash mapping load, dump, and unhash."""
 
-    def test_load_hash_mapping(self):
+    def test_populate_hash_mapping(self):
         source = AcledSource()
-        source._load_hash_mapping(
+        source.populate_hash_mapping(
             '{"hash1": {"key": "last30Days.gt.30DayAvgOverPast360Days", '
             '"country": "Somalia", "event_type": "Battles"}}'
         )
@@ -249,13 +249,13 @@ class TestAcledHashMapping:
 
     def test_load_empty_string(self):
         source = AcledSource()
-        source._load_hash_mapping("")
+        source.populate_hash_mapping("")
         assert source.hash_mapping == {}
 
     def test_dump_hash_mapping(self):
         source = AcledSource()
         source.hash_mapping = {"h1": {"key": "test"}}
-        result = source._dump_hash_mapping()
+        result = source.dump_hash_mapping()
         assert '"h1"' in result
         assert '"test"' in result
 

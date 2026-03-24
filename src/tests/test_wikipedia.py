@@ -170,14 +170,14 @@ class TestFfillDfr:
 class TestWikipediaHashMapping:
     """Test hash mapping load, dump, and unhash."""
 
-    def test_load_hash_mapping(self):
+    def test_populate_hash_mapping(self):
         source = WikipediaSource()
-        source._load_hash_mapping('{"abc": {"id_root": "page1"}}')
+        source.populate_hash_mapping('{"abc": {"id_root": "page1"}}')
         assert source.hash_mapping == {"abc": {"id_root": "page1"}}
 
     def test_load_empty_string(self):
         source = WikipediaSource()
-        source._load_hash_mapping("")
+        source.populate_hash_mapping("")
         assert source.hash_mapping == {}
 
     def test_dump_removes_deprecated_keys(self):
@@ -187,7 +187,7 @@ class TestWikipediaHashMapping:
             deprecated_key: {"id_root": "old"},
             "keep_me": {"id_root": "new"},
         }
-        result = source._dump_hash_mapping()
+        result = source.dump_hash_mapping()
         import json
 
         parsed = json.loads(result)

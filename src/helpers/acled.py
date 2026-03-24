@@ -17,8 +17,6 @@ from utils import gcp  # noqa: E402
 
 source = "acled"
 hash_mapping = {}
-hash_filename = "hash_mapping.json"
-local_hash_filename = f"/tmp/{hash_filename}"
 
 
 def id_hash(d: dict) -> str:
@@ -38,27 +36,17 @@ def id_unhash(hash_key: str) -> tuple:
 def populate_hash_mapping():
     """Download the hash_mapping from storage and load into global."""
     global hash_mapping
-    remote_filename = f"{source}/{hash_filename}"
-    gcp.storage.download_no_error_message_on_404(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        filename=remote_filename,
-        local_filename=local_hash_filename,
-    )
-    if os.path.getsize(local_hash_filename) > 0:
-        with open(local_hash_filename, "r") as file:
-            hash_mapping = json.load(file)
+    from orchestration._io import load_hash_mapping
+
+    raw_json = load_hash_mapping(source)
+    hash_mapping = json.loads(raw_json) if raw_json else {}
 
 
 def upload_hash_mapping():
     """Write and upload the hash_mapping to storage from global."""
-    with open(local_hash_filename, "w") as file:
-        json.dump(hash_mapping, file, indent=4)
+    from orchestration._io import upload_hash_mapping as _upload
 
-    gcp.storage.upload(
-        bucket_name=env.QUESTION_BANK_BUCKET,
-        local_filename=local_hash_filename,
-        destination_folder=source,
-    )
+    _upload(json.dumps(hash_mapping, indent=4), source)
 
 
 FETCH_COLUMN_DTYPE = {
