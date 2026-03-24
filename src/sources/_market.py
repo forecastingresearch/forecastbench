@@ -35,6 +35,8 @@ class MarketSource(BaseSource):
     ) -> DataFrame[ResolveReadyFrame]:
         """Resolve market-based questions using market prices and resolution status."""
         logger.info(f"Resolving Market `{self.name}`.")
+        if len(df["forecast_due_date"].unique()) != 1:
+            raise ValueError(f"No or multiple forecast due dates found for {self.name}: {df['forecast_due_date'].unique()}")
         forecast_due_date = df["forecast_due_date"].unique()[0]
         self._validate_ids(df, dfr)
 
