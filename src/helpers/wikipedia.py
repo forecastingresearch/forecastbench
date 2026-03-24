@@ -1,19 +1,23 @@
 # -*- coding: utf-8 -*-
 """Wikipedia constants."""
 import logging
+import os
+import sys
 from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from sources.wikipedia import _IDS_TO_NULLIFY as IDS_TO_NULLIFY  # noqa: F401
-from sources.wikipedia import (  # noqa: F401
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+from sources.wikipedia import _IDS_TO_NULLIFY as IDS_TO_NULLIFY  # noqa: F401, E402
+from sources.wikipedia import (  # noqa: F401, E402
     _TRANSFORM_ID_MAPPING as transform_id_mapping,
 )
-from sources.wikipedia import QuestionType  # noqa: F401
+from sources.wikipedia import QuestionType  # noqa: F401, E402
 
-from . import constants
+from . import constants  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
