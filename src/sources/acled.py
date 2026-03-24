@@ -62,7 +62,7 @@ class AcledSource(DatasetSource):
                 ) * self._combo_change_sign(value2, row["direction"][1])
             df.at[index, "resolved_to"] = value
         df.loc[mask, "resolved"] = True
-        return df
+        return df, []
 
     def _resolve_single_question(self, mid, forecast_due_date, resolution_date, dfq, dfr):
         """Resolve an individual ACLED question by unhashing the ID and comparing aggregates."""

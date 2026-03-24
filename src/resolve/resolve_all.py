@@ -26,7 +26,7 @@ def resolve_all(
     question_bank: QuestionBank,
     sources: dict[str, "BaseSource"],
     forecast_due_date: date | None = None,
-) -> DataFrame[ResolveReadyFrame]:
+) -> tuple[DataFrame[ResolveReadyFrame], list[str]]:
     """Resolve all questions in the exploded question set.
 
     Args:
@@ -36,7 +36,7 @@ def resolve_all(
         forecast_due_date: Date for nullification gating.
 
     Returns:
-        Resolved DataFrame with resolved_to, resolved, market_value_on_due_date columns.
+        (resolved_df, warnings_for_slack)
     """
     ExplodedQuestionSetFrame.validate(df)
     df = df.assign(
@@ -45,6 +45,7 @@ def resolve_all(
         market_value_on_due_date=np.nan,
     )
 
+    warnings_for_slack = []
     parts = []
     for source_name in df["source"].unique():
         logger.info(f"Resolving {source_name}.")
@@ -71,8 +72,9 @@ def resolve_all(
             raise ValueError(msg)
 
         df_source = df[df["source"] == source_name].copy()
-        df_source = source.resolve(df_source, dfq, dfr, as_of=forecast_due_date)
+        df_source, source_warnings = source.resolve(df_source, dfq, dfr, as_of=forecast_due_date)
         parts.append(df_source)
+        warnings_for_slack.extend(source_warnings)
 
         # Log stats
         n_na = len(df_source[df_source["resolved_to"].isna()])
@@ -86,13 +88,6 @@ def resolve_all(
         )
 
     df = pd.concat(parts, ignore_index=True)
-
-    # Propagate _resolve_warnings from parts
-    warnings = []
-    for part in parts:
-        warnings.extend(part.attrs.get("_resolve_warnings", []))
-    if warnings:
-        df.attrs["_resolve_warnings"] = warnings
 
     # Remove unresolved data-source rows
     n_pre_drop = len(df)
@@ -108,4 +103,4 @@ def resolve_all(
     if na_drop > 0:
         logger.warning(f"! WARNING ! Dropped {na_drop:,} questions that have resolved to NaN.")
 
-    return df.reset_index(drop=True)
+    return df.reset_index(drop=True), warnings_for_slack

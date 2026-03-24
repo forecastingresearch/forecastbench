@@ -52,7 +52,7 @@ def _get_resolutions_for_llm_question_set(forecast_due_date, question_bank):
     )
 
     forecast_due_date_date = dates.convert_iso_str_to_date(forecast_due_date)
-    df = resolve_all(
+    df, warnings_for_slack = resolve_all(
         df=df,
         question_bank=question_bank,
         sources=SOURCES,
@@ -60,10 +60,8 @@ def _get_resolutions_for_llm_question_set(forecast_due_date, question_bank):
     )
 
     # Send any Slack warnings from market resolution
-    warnings = df.attrs.get("_resolve_warnings", [])
-    if warnings:
-        for message in warnings:
-            slack.send_message(message=message)
+    for message in warnings_for_slack:
+        slack.send_message(message=message)
 
     _print_question_set_breakdown(
         human_or_llm="LLM",

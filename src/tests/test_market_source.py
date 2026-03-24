@@ -346,7 +346,7 @@ class TestMarketResolve:
             ]
         )
 
-        result = market_source._resolve(df, dfq, dfr)
+        result, warnings = market_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "metaculus"]
         assert len(result_source) == 1
         assert result_source.iloc[0]["resolved_to"] == 0.7
@@ -383,7 +383,7 @@ class TestMarketResolve:
             ]
         )
 
-        result = market_source._resolve(df, dfq, dfr)
+        result, warnings = market_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "metaculus"]
         assert result_source.iloc[0]["resolved_to"] == 1
 
@@ -419,10 +419,10 @@ class TestMarketResolve:
             ]
         )
 
-        result = market_source._resolve(df, dfq, dfr)
+        result, warnings = market_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "metaculus"]
         assert pd.isna(result_source.iloc[0]["resolved_to"])
-        assert len(result.attrs.get("_resolve_warnings", [])) > 0
+        assert len(warnings) > 0
 
     def test_resolved_before_forecast_due_date_nullifies(self, market_source, freeze_today):
         """Market resolved before forecast_due_date → resolved_to = NaN."""
@@ -456,7 +456,7 @@ class TestMarketResolve:
             ]
         )
 
-        result = market_source._resolve(df, dfq, dfr)
+        result, warnings = market_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "metaculus"]
         assert pd.isna(result_source.iloc[0]["resolved_to"])
 
@@ -497,7 +497,7 @@ class TestMarketResolve:
             ]
         )
 
-        result = market_source._resolve(df, dfq, dfr)
+        result, warnings = market_source._resolve(df, dfq, dfr)
         combo_row = result[result["id"].apply(lambda x: isinstance(x, tuple))]
         assert len(combo_row) == 1
         # Both dir=1, so resolved_to = 0.8 * 0.6 = 0.48

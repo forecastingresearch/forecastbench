@@ -58,12 +58,15 @@ class BaseSource(ABC):
         dfr: pd.DataFrame,
         *,
         as_of: date | None = None,
-    ) -> DataFrame[ResolveReadyFrame]:
+    ) -> tuple[DataFrame[ResolveReadyFrame], list[str]]:
         """Resolve questions for this source.
 
         df must contain only rows for this source.
         Nullified rows are removed before _resolve() so source-specific logic never sees them,
         then added back with resolved_to=NaN afterward.
+
+        Returns:
+            (resolved_df, warnings_for_slack)
         """
         if not df.empty:
             foreign = df[df["source"] != self.name]["source"].unique()
@@ -85,17 +88,17 @@ class BaseSource(ABC):
             if df_nullified is not None and not df_nullified.empty:
                 df_nullified["resolved_to"] = np.nan
                 df_nullified["resolved"] = True
-                return df_nullified
-            return df
+                return df_nullified, []
+            return df, []
 
-        df = self._resolve(df, dfq, dfr)
+        df, warnings_for_slack = self._resolve(df, dfq, dfr)
 
         if df_nullified is not None and not df_nullified.empty:
             df_nullified["resolved_to"] = np.nan
             df_nullified["resolved"] = True
             df = pd.concat([df, df_nullified], ignore_index=True)
 
-        return df
+        return df, warnings_for_slack
 
     def get_nullified_ids(self, as_of: date | None = None) -> set[str]:
         """Return IDs that are nullified as of the given date."""
@@ -122,8 +125,12 @@ class BaseSource(ABC):
         df: DataFrame[ResolveReadyFrame],
         dfq: DataFrame[QuestionFrame],
         dfr: pd.DataFrame,
-    ) -> DataFrame[ResolveReadyFrame]:
-        """Source-specific resolution logic. df contains only this source's non-nullified rows."""
+    ) -> tuple[DataFrame[ResolveReadyFrame], list[str]]:
+        """Source-specific resolution logic. df contains only this source's non-nullified rows.
+
+        Returns:
+            (resolved_df, warnings_for_slack)
+        """
 
     # ------------------------------------------------------------------
     # Shared helpers

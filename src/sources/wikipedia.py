@@ -74,7 +74,7 @@ class WikipediaSource(DatasetSource):
                 ) * self._combo_change_sign(value2, row["direction"][1])
             df.at[index, "resolved_to"] = float(value)
         df.loc[mask, "resolved"] = True
-        return df
+        return df, []
 
     def _resolve_single_question(self, mid, dfr, forecast_due_date, resolution_date):
         """Resolve an individual Wikipedia question by comparing values at two dates.

@@ -25,7 +25,7 @@ class _StubSource(BaseSource):
     def _resolve(self, df, dfq, dfr):
         df["resolved_to"] = 1.0
         df["resolved"] = True
-        return df
+        return df, []
 
 
 class _StubSourceWithNullified(BaseSource):
@@ -42,7 +42,7 @@ class _StubSourceWithNullified(BaseSource):
     def _resolve(self, df, dfq, dfr):
         df["resolved_to"] = 1.0
         df["resolved"] = True
-        return df
+        return df, []
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +250,7 @@ class TestResolveOrchestration:
         dfq = make_question_df([{"id": "q1"}, {"id": "q2"}])
         dfr = pd.DataFrame()
 
-        result = source.resolve(df, dfq, dfr)
+        result, _ = source.resolve(df, dfq, dfr)
         assert (result["resolved_to"] == 1.0).all()
         assert (result["resolved"]).all()
 
@@ -265,7 +265,7 @@ class TestResolveOrchestration:
         dfq = make_question_df([{"id": "null_q1"}, {"id": "normal_q"}])
         dfr = pd.DataFrame()
 
-        result = source.resolve(df, dfq, dfr)
+        result, _ = source.resolve(df, dfq, dfr)
         null_row = result[result["id"] == "null_q1"].iloc[0]
         normal_row = result[result["id"] == "normal_q"].iloc[0]
 
@@ -288,7 +288,7 @@ class TestResolveOrchestration:
         dfq = make_question_df([{"id": "null_q1"}, {"id": "normal_q"}])
         dfr = pd.DataFrame()
 
-        result = source.resolve(df, dfq, dfr)
+        result, _ = source.resolve(df, dfq, dfr)
         assert pd.isna(result.iloc[0]["resolved_to"])
         assert bool(result.iloc[0]["resolved"]) is True
 
@@ -303,7 +303,7 @@ class TestResolveOrchestration:
         dfq = make_question_df([{"id": "null_q1"}])
         dfr = pd.DataFrame()
 
-        result = source.resolve(df, dfq, dfr)
+        result, _ = source.resolve(df, dfq, dfr)
         assert len(result) == 1
         assert pd.isna(result.iloc[0]["resolved_to"])
 
