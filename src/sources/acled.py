@@ -30,7 +30,7 @@ class AcledSource(DatasetSource):
         """Resolve ACLED questions row by row."""
         logger.info("Resolving ACLED questions.")
         max_date = dfr["event_date"].max()
-        mask = (df["source"] == "acled") & (df["resolution_date"] <= max_date)
+        mask = df["resolution_date"] <= max_date
         for index, row in df[mask].iterrows():
             forecast_due_date = row["forecast_due_date"].date()
             resolution_date = row["resolution_date"].date()

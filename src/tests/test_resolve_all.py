@@ -17,9 +17,8 @@ class _MockSource:
         self._resolved_value = resolved_value
 
     def resolve(self, df, dfq, dfr, *, as_of=None):
-        mask = df["source"] == self.name
-        df.loc[mask, "resolved_to"] = self._resolved_value
-        df.loc[mask, "resolved"] = True
+        df["resolved_to"] = self._resolved_value
+        df["resolved"] = True
         return df
 
 

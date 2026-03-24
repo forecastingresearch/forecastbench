@@ -9,9 +9,12 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from _schemas import ExplodedQuestionSetFrame, ResolveReadyFrame
 from sources import DATASET_SOURCE_NAMES
 
 if TYPE_CHECKING:
+    from pandera.typing import DataFrame
+
     from _types import QuestionBank
     from sources._base import BaseSource
 
@@ -19,11 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 def resolve_all(
-    df: pd.DataFrame,
-    question_bank: "QuestionBank",
+    df: DataFrame[ExplodedQuestionSetFrame],
+    question_bank: QuestionBank,
     sources: dict[str, "BaseSource"],
     forecast_due_date: date | None = None,
-) -> pd.DataFrame:
+) -> DataFrame[ResolveReadyFrame]:
     """Resolve all questions in the exploded question set.
 
     Args:
@@ -35,12 +38,14 @@ def resolve_all(
     Returns:
         Resolved DataFrame with resolved_to, resolved, market_value_on_due_date columns.
     """
+    ExplodedQuestionSetFrame.validate(df)
     df = df.assign(
         resolved=False,
         resolved_to=np.nan,
         market_value_on_due_date=np.nan,
     )
 
+    parts = []
     for source_name in df["source"].unique():
         logger.info(f"Resolving {source_name}.")
         if source_name not in sources:
@@ -65,19 +70,29 @@ def resolve_all(
             logger.error(msg)
             raise ValueError(msg)
 
-        df = source.resolve(df.copy(), dfq, dfr, as_of=forecast_due_date)
+        df_source = df[df["source"] == source_name].copy()
+        df_source = source.resolve(df_source, dfq, dfr, as_of=forecast_due_date)
+        parts.append(df_source)
 
         # Log stats
-        df_tmp = df[df["source"] == source_name]
-        n_na = len(df_tmp[df_tmp["resolved_to"].isna()])
-        n_dates = len(df_tmp["resolution_date"].unique())
-        combo_mask = df_tmp["id"].apply(lambda x: isinstance(x, tuple))
-        n_combo = int(len(df_tmp[combo_mask]) / n_dates) if n_dates > 0 else 0
-        n_single = int(len(df_tmp[~combo_mask]) / n_dates) if n_dates > 0 else 0
+        n_na = len(df_source[df_source["resolved_to"].isna()])
+        n_dates = len(df_source["resolution_date"].unique())
+        combo_mask = df_source["id"].apply(lambda x: isinstance(x, tuple))
+        n_combo = int(len(df_source[combo_mask]) / n_dates) if n_dates > 0 else 0
+        n_single = int(len(df_source[~combo_mask]) / n_dates) if n_dates > 0 else 0
         logger.info(
-            f"* Resolving {source_name}: #NaN {n_na}/{len(df_tmp)} Total for "
+            f"* Resolving {source_name}: #NaN {n_na}/{len(df_source)} Total for "
             f"{n_dates} dates, {n_single} single & {n_combo} combo questions."
         )
+
+    df = pd.concat(parts, ignore_index=True)
+
+    # Propagate _resolve_warnings from parts
+    warnings = []
+    for part in parts:
+        warnings.extend(part.attrs.get("_resolve_warnings", []))
+    if warnings:
+        df.attrs["_resolve_warnings"] = warnings
 
     # Remove unresolved data-source rows
     n_pre_drop = len(df)

@@ -52,6 +52,38 @@ class ResolutionFrame(pa.DataFrameModel):
         coerce = True
 
 
+class ExplodedQuestionSetFrame(pa.DataFrameModel):
+    """Output of explode_question_set(), input to resolve_all().
+
+    One row per (question x resolution_date x direction).
+    `id` is str for standard questions, tuple for combos.
+    `direction` is tuple for combos, empty tuple for standard.
+    """
+
+    id: Series[object]
+    source: Series[str]
+    direction: Series[object]
+    forecast_due_date: Series[object]  # datetime64
+    resolution_date: Series[object]  # datetime64
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = True
+
+
+class ResolveReadyFrame(ExplodedQuestionSetFrame):
+    """ExplodedQuestionSetFrame after resolve_all() adds resolution columns.
+
+    This is the shape passed to source.resolve() and source._resolve().
+    """
+
+    resolved: Series[bool]
+    resolved_to: Series[float] = pa.Field(nullable=True)
+    market_value_on_due_date: Series[float] = pa.Field(nullable=True)
+
+
 class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 

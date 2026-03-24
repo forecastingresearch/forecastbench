@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,11 @@ import pandas as pd
 from _types import SourceType
 
 from ._base import BaseSource
+
+if TYPE_CHECKING:
+    from pandera.typing import DataFrame
+
+    from _schemas import QuestionFrame, ResolutionFrame, ResolveReadyFrame
 
 logger = logging.getLogger(__name__)
 
@@ -20,29 +25,20 @@ class DatasetSource(BaseSource):
 
     source_type: ClassVar[SourceType] = SourceType.DATASET
 
-    def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:
+    def _resolve(
+        self,
+        df: DataFrame[ResolveReadyFrame],
+        dfq: DataFrame[QuestionFrame],
+        dfr: DataFrame[ResolutionFrame],
+    ) -> DataFrame[ResolveReadyFrame]:
         """Resolve data-based questions via binary comparison of resolution vs due-date values."""
         logger.info(f"Resolving {self.name}.")
-        df_dataset, df = self._split_dataframe_on_source(df=df, source=self.name)
-
-        # Check that we have data for all IDs
-        unique_ids = dfr["id"].unique()
-
-        def check_id(mid):
-            if self._is_combo(mid):
-                for midi in mid:
-                    check_id(midi)
-            elif mid not in unique_ids:
-                msg = f"Missing resolution values in dfr for {self.name} id: {mid})!!!"
-                logger.error(msg)
-                raise ValueError(msg)
-
-        df_dataset["id"].apply(lambda x: check_id(x))
+        self._validate_ids(df, dfr)
 
         # Split into standard and combo questions
-        combo_mask = df_dataset["id"].apply(lambda x: self._is_combo(x))
-        df_standard = df_dataset[~combo_mask].copy()
-        df_combo = df_dataset[combo_mask].copy()
+        combo_mask = df["id"].apply(lambda x: self._is_combo(x))
+        df_standard = df[~combo_mask].copy()
+        df_combo = df[combo_mask].copy()
 
         # Get values at resolution_date
         df_standard = pd.merge(
@@ -103,5 +99,4 @@ class DatasetSource(BaseSource):
         df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
         df_standard["resolved"] = ~df_standard["resolved_to"].isna()
         df_combo["resolved"] = ~df_combo["resolved_to"].isna()
-        df = pd.concat([df, df_standard, df_combo], ignore_index=True)
-        return df
+        return pd.concat([df_standard, df_combo], ignore_index=True)
