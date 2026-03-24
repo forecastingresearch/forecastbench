@@ -187,8 +187,8 @@ def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
 # ---------------------------------------------------------------------------
 
 
-def load_hash_mapping(source: BaseSource, source_name: str) -> None:
-    """Download and load hash mapping for a source."""
+def load_hash_mapping(source_name: str) -> str:
+    """Download hash mapping JSON for a source. Returns raw JSON string."""
     remote_filename = f"{source_name}/hash_mapping.json"
     local_filename = f"/tmp/hash_mapping_{source_name}.json"
     gcp.storage.download_no_error_message_on_404(
@@ -196,11 +196,22 @@ def load_hash_mapping(source: BaseSource, source_name: str) -> None:
         filename=remote_filename,
         local_filename=local_filename,
     )
-    raw_json = ""
     if os.path.exists(local_filename) and os.path.getsize(local_filename) > 0:
         with open(local_filename, "r") as f:
-            raw_json = f.read()
-    source._load_hash_mapping(raw_json)
+            return f.read()
+    return ""
+
+
+def upload_hash_mapping(raw_json: str, source_name: str) -> None:
+    """Upload hash mapping JSON for a source."""
+    local_filename = f"/tmp/hash_mapping_{source_name}.json"
+    with open(local_filename, "w") as f:
+        f.write(raw_json)
+    gcp.storage.upload(
+        bucket_name=env.QUESTION_BANK_BUCKET,
+        local_filename=local_filename,
+        destination_folder=source_name,
+    )
 
 
 # ---------------------------------------------------------------------------

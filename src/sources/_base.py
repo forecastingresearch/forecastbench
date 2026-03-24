@@ -178,9 +178,9 @@ class BaseSource(ABC):
     # Hash mapping IO boundary
     # ------------------------------------------------------------------
 
-    def _load_hash_mapping(self, raw_json: str) -> None:  # noqa: B027
+    def populate_hash_mapping(self, raw_json: str) -> None:  # noqa: B027
         """Parse hash mapping from raw JSON string. No-op by default."""
 
-    def _dump_hash_mapping(self) -> str | None:
+    def dump_hash_mapping(self) -> str | None:
         """Serialize hash mapping to JSON string. Returns None by default."""
         return None
