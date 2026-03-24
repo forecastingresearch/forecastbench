@@ -12,14 +12,15 @@ from tests.conftest import make_forecast_df, make_question_df, make_resolution_d
 class _MockSource:
     """Minimal mock source that resolves all its rows to a fixed value."""
 
-    def __init__(self, name, resolved_value=1.0):
+    def __init__(self, name, resolved_value=1.0, warnings=None):
         self.name = name
         self._resolved_value = resolved_value
+        self._warnings = warnings or []
 
     def resolve(self, df, dfq, dfr, *, as_of=None):
         df["resolved_to"] = self._resolved_value
         df["resolved"] = True
-        return df, []
+        return df, self._warnings
 
 
 class TestResolveAll:
@@ -132,3 +133,57 @@ class TestResolveAll:
 
         result, _ = resolve_all(df, question_bank=qb, sources=sources)
         assert len(result) == 0
+
+    def test_no_warnings_returns_empty_list(self):
+        """Sources with no warnings → empty warnings list."""
+        df = make_forecast_df([{"id": "q1", "source": "test", "forecast_due_date": "2025-01-01"}])
+        sources = {"test": _MockSource("test")}
+        qb = {
+            "test": SourceQuestionBank(
+                dfq=make_question_df([{"id": "q1"}]),
+                dfr=make_resolution_df([{"id": "q1", "date": "2025-01-01", "value": 1}]),
+            )
+        }
+        _, warnings = resolve_all(df, question_bank=qb, sources=sources)
+        assert warnings == []
+
+    def test_warnings_from_single_source_propagated(self):
+        """Warnings from a source are returned by resolve_all."""
+        df = make_forecast_df([{"id": "q1", "source": "test", "forecast_due_date": "2025-01-01"}])
+        sources = {"test": _MockSource("test", warnings=["something went wrong"])}
+        qb = {
+            "test": SourceQuestionBank(
+                dfq=make_question_df([{"id": "q1"}]),
+                dfr=make_resolution_df([{"id": "q1", "date": "2025-01-01", "value": 1}]),
+            )
+        }
+        _, warnings = resolve_all(df, question_bank=qb, sources=sources)
+        assert warnings == ["something went wrong"]
+
+    def test_warnings_from_multiple_sources_collected(self):
+        """Warnings from multiple sources are combined."""
+        df = make_forecast_df(
+            [
+                {"id": "q1", "source": "src_a", "forecast_due_date": "2025-01-01"},
+                {"id": "q2", "source": "src_b", "forecast_due_date": "2025-01-01"},
+            ]
+        )
+        sources = {
+            "src_a": _MockSource("src_a", warnings=["warn A"]),
+            "src_b": _MockSource("src_b", warnings=["warn B1", "warn B2"]),
+        }
+        qb = {
+            "src_a": SourceQuestionBank(
+                dfq=make_question_df([{"id": "q1"}]),
+                dfr=make_resolution_df([{"id": "q1", "date": "2025-01-01", "value": 1}]),
+            ),
+            "src_b": SourceQuestionBank(
+                dfq=make_question_df([{"id": "q2"}]),
+                dfr=make_resolution_df([{"id": "q2", "date": "2025-01-01", "value": 1}]),
+            ),
+        }
+        _, warnings = resolve_all(df, question_bank=qb, sources=sources)
+        assert len(warnings) == 3
+        assert "warn A" in warnings
+        assert "warn B1" in warnings
+        assert "warn B2" in warnings
