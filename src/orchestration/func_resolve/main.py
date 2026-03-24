@@ -189,8 +189,8 @@ def driver(_: Any) -> None:
     question_bank = _io.load_question_bank()
 
     # Load hash mappings for sources that need them
-    SOURCES["acled"].populate_hash_mapping(_io.load_hash_mapping("acled"))
-    SOURCES["wikipedia"].populate_hash_mapping(_io.load_hash_mapping("wikipedia"))
+    for name, source in SOURCES.items():
+        source.populate_hash_mapping(_io.load_hash_mapping(name))
 
     local_forecast_set_dir = data_utils.get_local_file_dir(bucket=env.FORECAST_SETS_BUCKET)
     resolved_cache: dict[str, dict] = {}
