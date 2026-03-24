@@ -306,3 +306,26 @@ class TestResolveOrchestration:
         result = source.resolve(df, dfq, dfr)
         assert len(result) == 1
         assert pd.isna(result.iloc[0]["resolved_to"])
+
+    def test_resolve_rejects_foreign_source_rows(self):
+        """Passing rows from a different source should raise ValueError."""
+        source = _StubSource()
+        df = make_forecast_df(
+            [
+                {"id": "q1", "source": "other", "forecast_due_date": "2025-01-01"},
+            ]
+        )
+        with pytest.raises(ValueError, match="received rows for other sources"):
+            source.resolve(df, make_question_df([{"id": "q1"}]), pd.DataFrame())
+
+    def test_resolve_rejects_mixed_source_rows(self):
+        """Passing a mix of own and foreign source rows should raise ValueError."""
+        source = _StubSource()
+        df = make_forecast_df(
+            [
+                {"id": "q1", "source": "stub", "forecast_due_date": "2025-01-01"},
+                {"id": "q2", "source": "other", "forecast_due_date": "2025-01-01"},
+            ]
+        )
+        with pytest.raises(ValueError, match="received rows for other sources"):
+            source.resolve(df, make_question_df([{"id": "q1"}, {"id": "q2"}]), pd.DataFrame())
