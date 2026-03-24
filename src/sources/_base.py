@@ -61,9 +61,18 @@ class BaseSource(ABC):
     ) -> DataFrame[ResolveReadyFrame]:
         """Resolve questions for this source.
 
+        df must contain only rows for this source.
         Nullified rows are removed before _resolve() so source-specific logic never sees them,
         then added back with resolved_to=NaN afterward.
         """
+        if not df.empty:
+            foreign = df[df["source"] != self.name]["source"].unique()
+            if len(foreign) > 0:
+                raise ValueError(
+                    f"{self.name}.resolve() received rows for other sources: {list(foreign)}. "
+                    f"Only rows for '{self.name}' are allowed."
+                )
+
         nullified_ids = self.get_nullified_ids(as_of=as_of)
         if nullified_ids:
             null_mask = df["id"].apply(self._id_is_nullified, nullified_ids=nullified_ids)
