@@ -2,18 +2,13 @@
 
 import hashlib
 import json
-import os
-import sys
 from datetime import timedelta
 from enum import Enum
 
 import numpy as np
 import pandas as pd
 
-from . import data_utils, env
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
-from utils import gcp  # noqa: E402
+from . import data_utils
 
 source = "acled"
 hash_mapping = {}
@@ -237,31 +232,6 @@ def get_base_comparison_value(key, dfr, country, col, ref_date):
             dfr=dfr, country=country, col=col, ref_date=ref_date
         )
     raise ValueError("Invalid key.")
-
-
-def resolve(
-    key,
-    dfr,
-    country,
-    event_type,
-    forecast_due_date,
-    resolution_date,
-):
-    """Resolve given the QuestionType."""
-    lhs = sum_over_past_30_days(
-        dfr=dfr,
-        country=country,
-        col=event_type,
-        ref_date=resolution_date,
-    )
-    rhs = get_base_comparison_value(
-        key=key,
-        dfr=dfr,
-        country=country,
-        col=event_type,
-        ref_date=forecast_due_date,
-    )
-    return int(lhs > rhs)
 
 
 def get_freeze_value(key, dfr, country, event_type, today):

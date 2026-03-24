@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import timedelta
 from typing import ClassVar
 
 import numpy as np
@@ -101,50 +100,30 @@ class AcledSource(DatasetSource):
     @staticmethod
     def _sum_over_past_30_days(dfr, country, col, ref_date):
         """Sum of col for country over the 30 days before ref_date."""
-        dfc = dfr[dfr["country"] == country].copy()
-        if dfc.empty:
-            return 0
-        start_date = ref_date - timedelta(days=30)
-        dfc = dfc[
-            (dfc["event_date"].dt.date >= start_date) & (dfc["event_date"].dt.date < ref_date)
-        ]
-        return dfc[col].sum() if not dfc.empty else 0
+        from helpers.acled import sum_over_past_30_days
+
+        return sum_over_past_30_days(dfr, country, col, ref_date)
 
     @staticmethod
     def _thirty_day_avg_over_past_360_days(dfr, country, col, ref_date):
         """30-day average (total/12) over the 360 days before ref_date."""
-        dfc = dfr[dfr["country"] == country].copy()
-        if dfc.empty:
-            return 0
-        start_date = ref_date - timedelta(days=360)
-        dfc = dfc[
-            (dfc["event_date"].dt.date >= start_date) & (dfc["event_date"].dt.date < ref_date)
-        ]
-        return dfc[col].sum() / 12 if not dfc.empty else 0
+        from helpers.acled import thirty_day_avg_over_past_360_days
+
+        return thirty_day_avg_over_past_360_days(dfr, country, col, ref_date)
 
     @staticmethod
     def _thirty_day_avg_over_past_360_days_plus_1(dfr, country, col, ref_date):
         """1 + 30-day average over the 360 days before ref_date."""
-        return 1 + AcledSource._thirty_day_avg_over_past_360_days(dfr, country, col, ref_date)
+        from helpers.acled import thirty_day_avg_over_past_360_days_plus_1
+
+        return thirty_day_avg_over_past_360_days_plus_1(dfr, country, col, ref_date)
 
     @staticmethod
     def _get_base_comparison_value(key, dfr, country, col, ref_date):
         """Return the baseline value for comparison given the question key string."""
-        if key == "last30Days.gt.30DayAvgOverPast360Days":
-            return AcledSource._thirty_day_avg_over_past_360_days(
-                dfr=dfr,
-                country=country,
-                col=col,
-                ref_date=ref_date,
-            )
-        elif key == "last30DaysTimes10.gt.30DayAvgOverPast360DaysPlus1":
-            return 10 * AcledSource._thirty_day_avg_over_past_360_days_plus_1(
-                dfr=dfr,
-                country=country,
-                col=col,
-                ref_date=ref_date,
-            )
-        raise ValueError("Invalid key.")
+        from helpers.acled import get_base_comparison_value
+
+        return get_base_comparison_value(key, dfr, country, col, ref_date)
 
     # ------------------------------------------------------------------
     # Hash mapping
