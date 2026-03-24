@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from typing import ClassVar
@@ -136,6 +137,13 @@ class AcledSource(DatasetSource):
     def dump_hash_mapping(self) -> str | None:
         """Serialize hash mapping to JSON string."""
         return json.dumps(self.hash_mapping, indent=4)
+
+    def _id_hash(self, d: dict) -> str:
+        """Encode ACLED Ids and store in hash_mapping."""
+        dictionary_json = json.dumps(d, sort_keys=True)
+        hash_key = hashlib.sha256(dictionary_json.encode()).hexdigest()
+        self.hash_mapping[hash_key] = d
+        return hash_key
 
     def _id_unhash(self, hash_key: str):
         """Look up the original question dict from a hash key."""

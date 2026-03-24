@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """Wikipedia constants."""
-
-import hashlib
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -33,7 +31,17 @@ source = "wikipedia"
 
 fetch_directory = f"{source}/fetch"
 
-hash_mapping = {}
+# Lazy import to avoid circular imports at module level
+_source = None
+
+
+def _get_source():
+    global _source
+    if _source is None:
+        from sources import SOURCES
+
+        _source = SOURCES[source]
+    return _source
 
 
 SOURCE_INTRO = (
@@ -378,23 +386,19 @@ def transform_id(wid):
 
 
 def populate_hash_mapping():
-    """Download the hash_mapping from storage and load into global."""
-    global hash_mapping
+    """Download and load hash mapping into source singleton."""
     from orchestration._io import load_hash_mapping
 
-    raw_json = load_hash_mapping(source)
-    hash_mapping = json.loads(raw_json) if raw_json else {}
+    _get_source().populate_hash_mapping(load_hash_mapping(source))
 
 
 def upload_hash_mapping():
-    """Write and upload the hash_mapping to storage from global."""
+    """Dump and upload hash mapping from source singleton."""
     from orchestration._io import upload_hash_mapping as _upload
 
-    # Remove any old keys that were in the hash_mapping, following #123.
-    for k in transform_id_mapping:
-        hash_mapping.pop(k, None)
-
-    _upload(json.dumps(hash_mapping, indent=4), source)
+    raw_json = _get_source().dump_hash_mapping()
+    if raw_json:
+        _upload(raw_json, source)
 
 
 def ffill_dfr(dfr):
@@ -432,27 +436,13 @@ def get_fetch_filename(question_id_root: str) -> str:
 
 
 def id_hash(id_root: str, id_field_value: str) -> str:
-    """Encode wikipedia Ids.
-
-    id_root is the same as in the PAGES dict
-    id_field_value is actually a string reprentation of the values from the `key` field in the
-                   PAGES dict. There are potentially joint keys (see e.g. swimming).
-    """
-    global hash_mapping
-    d = {
-        "id_root": id_root,
-        "id_field_value": id_field_value,
-    }
-    dictionary_json = json.dumps(d, sort_keys=True)
-    hash_key = hashlib.sha256(dictionary_json.encode()).hexdigest()
-    hash_mapping[hash_key] = d
-    return hash_key
+    """Encode wikipedia Ids."""
+    return _get_source()._id_hash(id_root=id_root, id_field_value=id_field_value)
 
 
 def id_unhash(hash_key: str) -> tuple:
     """Decode wikipedia Ids."""
-    hash_key = transform_id(hash_key)
-    return hash_mapping[hash_key] if hash_key in hash_mapping else None
+    return _get_source()._id_unhash(hash_key)
 
 
 class QuestionType(Enum):
