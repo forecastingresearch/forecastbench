@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from datetime import datetime, timedelta
@@ -421,6 +422,14 @@ class WikipediaSource(DatasetSource):
         for k in _TRANSFORM_ID_MAPPING:
             self.hash_mapping.pop(k, None)
         return json.dumps(self.hash_mapping, indent=4)
+
+    def _id_hash(self, id_root: str, id_field_value: str) -> str:
+        """Encode wikipedia Ids and store in hash_mapping."""
+        d = {"id_root": id_root, "id_field_value": id_field_value}
+        dictionary_json = json.dumps(d, sort_keys=True)
+        hash_key = hashlib.sha256(dictionary_json.encode()).hexdigest()
+        self.hash_mapping[hash_key] = d
+        return hash_key
 
     def _id_unhash(self, hash_key: str):
         """Look up the original question dict, applying ID transform first."""

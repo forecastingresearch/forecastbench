@@ -1,7 +1,5 @@
 """ACLED-specific variables."""
 
-import hashlib
-import json
 from datetime import timedelta
 from enum import Enum
 
@@ -11,37 +9,44 @@ import pandas as pd
 from . import data_utils
 
 source = "acled"
-hash_mapping = {}
+
+# Lazy import to avoid circular imports at module level
+_source = None
+
+
+def _get_source():
+    global _source
+    if _source is None:
+        from sources import SOURCES
+
+        _source = SOURCES[source]
+    return _source
 
 
 def id_hash(d: dict) -> str:
     """Encode ACLED Ids."""
-    global hash_mapping
-    dictionary_json = json.dumps(d, sort_keys=True)
-    hash_key = hashlib.sha256(dictionary_json.encode()).hexdigest()
-    hash_mapping[hash_key] = d
-    return hash_key
+    return _get_source()._id_hash(d)
 
 
 def id_unhash(hash_key: str) -> tuple:
     """Decode ACLED Ids."""
-    return hash_mapping[hash_key] if hash_key in hash_mapping else None
+    return _get_source()._id_unhash(hash_key)
 
 
 def populate_hash_mapping():
-    """Download the hash_mapping from storage and load into global."""
-    global hash_mapping
+    """Download and load hash mapping into source singleton."""
     from orchestration._io import load_hash_mapping
 
-    raw_json = load_hash_mapping(source)
-    hash_mapping = json.loads(raw_json) if raw_json else {}
+    _get_source().populate_hash_mapping(load_hash_mapping(source))
 
 
 def upload_hash_mapping():
-    """Write and upload the hash_mapping to storage from global."""
+    """Dump and upload hash mapping from source singleton."""
     from orchestration._io import upload_hash_mapping as _upload
 
-    _upload(json.dumps(hash_mapping, indent=4), source)
+    raw_json = _get_source().dump_hash_mapping()
+    if raw_json:
+        _upload(raw_json, source)
 
 
 FETCH_COLUMN_DTYPE = {
