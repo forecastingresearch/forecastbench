@@ -8,9 +8,7 @@ SOURCE_INTRO = (
 
 RESOLUTION_CRITERIA = "Resolves to the value found at {url} once the data is published."
 
-NULLIFIED_IDS = [
-    "AMERIBOR",
-]
+from sources.fred import NULLIFIED_IDS  # noqa: F401, E402
 
 # flake8: noqa: B950
 
