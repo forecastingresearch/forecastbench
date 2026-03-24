@@ -67,7 +67,7 @@ class TestMarketEndToEnd:
         }
 
         # Resolve
-        result = resolve_all(
+        result, _ = resolve_all(
             exploded,
             question_bank=question_bank,
             sources={"metaculus": SOURCES["metaculus"]},
@@ -128,7 +128,7 @@ class TestDatasetEndToEnd:
         }
 
         # Resolve
-        result = resolve_all(
+        result, _ = resolve_all(
             exploded,
             question_bank=question_bank,
             sources={"fred": SOURCES["fred"]},
@@ -200,7 +200,7 @@ class TestFullMixedPipeline:
         }
 
         # 3. Resolve
-        resolved = resolve_all(
+        resolved, _ = resolve_all(
             exploded,
             question_bank=question_bank,
             sources={"fred": SOURCES["fred"], "metaculus": SOURCES["metaculus"]},

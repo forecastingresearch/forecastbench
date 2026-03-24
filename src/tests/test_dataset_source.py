@@ -33,7 +33,7 @@ class TestDatasetResolve:
             ]
         )
 
-        result = dataset_source._resolve(df, dfq, dfr)
+        result, _ = dataset_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "fred"]
         assert result_source.iloc[0]["resolved_to"] == 1.0
         assert bool(result_source.iloc[0]["resolved"]) is True
@@ -58,7 +58,7 @@ class TestDatasetResolve:
             ]
         )
 
-        result = dataset_source._resolve(df, dfq, dfr)
+        result, _ = dataset_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "fred"]
         assert result_source.iloc[0]["resolved_to"] == 0.0
 
@@ -82,7 +82,7 @@ class TestDatasetResolve:
             ]
         )
 
-        result = dataset_source._resolve(df, dfq, dfr)
+        result, _ = dataset_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "fred"]
         assert result_source.iloc[0]["resolved_to"] == 0.0
 
@@ -106,7 +106,7 @@ class TestDatasetResolve:
             ]
         )
 
-        result = dataset_source._resolve(df, dfq, dfr)
+        result, _ = dataset_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "fred"]
         assert pd.isna(result_source.iloc[0]["resolved_to"])
 
@@ -130,7 +130,7 @@ class TestDatasetResolve:
             ]
         )
 
-        result = dataset_source._resolve(df, dfq, dfr)
+        result, _ = dataset_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "fred"]
         assert pd.isna(result_source.iloc[0]["resolved_to"])
 
@@ -169,7 +169,7 @@ class TestDatasetResolve:
             ]
         )
 
-        result = dataset_source._resolve(df, dfq, dfr)
+        result, _ = dataset_source._resolve(df, dfq, dfr)
         combo_row = result[result["id"].apply(lambda x: isinstance(x, tuple))]
         assert len(combo_row) == 1
         # q1 dir=1 → 1.0, q2 dir=-1 → 1-1.0=0.0. Product = 0.0
@@ -204,7 +204,7 @@ class TestDatasetResolve:
             ]
         )
 
-        result = dataset_source._resolve(df, dfq, dfr)
+        result, _ = dataset_source._resolve(df, dfq, dfr)
         combo_row = result[result["id"].apply(lambda x: isinstance(x, tuple))]
         # q_missing has no resolution value → combo can't compute → NaN
         assert pd.isna(combo_row.iloc[0]["resolved_to"])

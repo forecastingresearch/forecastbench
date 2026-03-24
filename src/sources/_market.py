@@ -32,7 +32,7 @@ class MarketSource(BaseSource):
         df: DataFrame[ResolveReadyFrame],
         dfq: DataFrame[QuestionFrame],
         dfr: DataFrame[ResolutionFrame],
-    ) -> DataFrame[ResolveReadyFrame]:
+    ) -> tuple[DataFrame[ResolveReadyFrame], list[str]]:
         """Resolve market-based questions using market prices and resolution status."""
         logger.info(f"Resolving Market `{self.name}`.")
         if len(df["forecast_due_date"].unique()) != 1:
@@ -168,14 +168,9 @@ class MarketSource(BaseSource):
                 df_combo.at[index, "resolution_date"] = resolution_date
 
         df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
-        df = pd.concat([df_standard, df_combo]).drop_duplicates()
+        result = pd.concat([df_standard, df_combo]).drop_duplicates()
 
-        # Attach warnings for orchestration to send via Slack
-        if warnings:
-            existing = df.attrs.get("_resolve_warnings", [])
-            df.attrs["_resolve_warnings"] = existing + warnings
-
-        return df
+        return result, warnings
 
     # ------------------------------------------------------------------
     # Market-specific static methods

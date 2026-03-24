@@ -30,7 +30,7 @@ class DatasetSource(BaseSource):
         df: DataFrame[ResolveReadyFrame],
         dfq: DataFrame[QuestionFrame],
         dfr: DataFrame[ResolutionFrame],
-    ) -> DataFrame[ResolveReadyFrame]:
+    ) -> tuple[DataFrame[ResolveReadyFrame], list[str]]:
         """Resolve data-based questions via binary comparison of resolution vs due-date values."""
         logger.info(f"Resolving {self.name}.")
         self._validate_ids(df, dfr)
@@ -99,4 +99,4 @@ class DatasetSource(BaseSource):
         df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
         df_standard["resolved"] = ~df_standard["resolved_to"].isna()
         df_combo["resolved"] = ~df_combo["resolved_to"].isna()
-        return pd.concat([df_standard, df_combo], ignore_index=True)
+        return pd.concat([df_standard, df_combo], ignore_index=True), []

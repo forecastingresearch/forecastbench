@@ -19,7 +19,7 @@ class _MockSource:
     def resolve(self, df, dfq, dfr, *, as_of=None):
         df["resolved_to"] = self._resolved_value
         df["resolved"] = True
-        return df
+        return df, []
 
 
 class TestResolveAll:
@@ -76,7 +76,7 @@ class TestResolveAll:
             )
         }
 
-        result = resolve_all(df, question_bank=qb, sources=sources)
+        result, _ = resolve_all(df, question_bank=qb, sources=sources)
         assert len(result) == 1
         assert result.iloc[0]["resolved_to"] == 0.8
 
@@ -99,7 +99,7 @@ class TestResolveAll:
             )
         }
 
-        result = resolve_all(df, question_bank=qb, sources=sources)
+        result, _ = resolve_all(df, question_bank=qb, sources=sources)
         assert len(result) == 0  # NaN resolved_to rows are dropped
 
     def test_drops_unresolved_dataset_rows(self):
@@ -110,7 +110,7 @@ class TestResolveAll:
 
             def resolve(self, df, dfq, dfr, *, as_of=None):
                 # Leave rows unresolved (resolved=False)
-                return df
+                return df, []
 
         df = make_forecast_df(
             [
@@ -130,5 +130,5 @@ class TestResolveAll:
             )
         }
 
-        result = resolve_all(df, question_bank=qb, sources=sources)
+        result, _ = resolve_all(df, question_bank=qb, sources=sources)
         assert len(result) == 0
