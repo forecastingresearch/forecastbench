@@ -8,6 +8,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+import tempfile
+from datetime import datetime
+from typing import TextIO
 
 import pandas as pd
 import pandera.pandas as pa
@@ -15,7 +19,7 @@ from termcolor import colored
 
 from _schemas import AcledResolutionFrame, QuestionFrame, ResolutionFrame
 from _types import QuestionBank, SourceQuestionBank
-from helpers import data_utils, dates, env, git, keys
+from helpers import constants, data_utils, dates, env, git, keys
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource
 from utils import gcp
@@ -249,3 +253,132 @@ def upload_processed_forecast_file(data: dict, forecast_due_date: str, filename:
         local_filename=local_filename,
         filename=filename,
     )
+
+
+# ---------------------------------------------------------------------------
+# Question set download
+# ---------------------------------------------------------------------------
+
+
+def download_and_read_question_set_file(filename: str, run_locally: bool = False) -> pd.DataFrame:
+    """Download question set JSON from GCS and return questions as DataFrame.
+
+    Args:
+        filename: GCS path or local path to the question set JSON.
+        run_locally: If True, read from local path instead of downloading.
+    """
+    local_filename = filename
+    if not run_locally:
+        with tempfile.NamedTemporaryFile(dir="/tmp/", delete=False) as tmp:
+            local_filename = tmp.name
+        gcp.storage.download(
+            bucket_name=env.QUESTION_SETS_BUCKET,
+            filename=filename,
+            local_filename=local_filename,
+        )
+
+    with open(local_filename, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        questions = data.get("questions")
+
+    if not run_locally:
+        os.remove(local_filename)
+
+    if questions is None:
+        raise ValueError(f"Could not download/load question set {filename}")
+
+    df = pd.DataFrame(questions)
+    df = BaseSource._make_columns_hashable(df)
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Forecast file IO
+# ---------------------------------------------------------------------------
+
+
+def get_valid_forecast_files_and_dates(
+    bucket: str,
+    only_keep_date: str = "",
+) -> tuple[list[str], list[str]]:
+    """Return valid processed forecast filenames from bucket.
+
+    Args:
+        bucket: The GCP bucket to pull forecast files from.
+        only_keep_date: If provided, only include files starting with this date.
+    """
+    files = gcp.storage.list(bucket_name=bucket, mnt=env.BUCKET_MOUNT_POINT)
+    files = [
+        f
+        for f in files
+        if f.endswith(".json") and not f.startswith(constants.TEST_FORECAST_FILE_PREFIX)
+    ]
+    if only_keep_date:
+        return [f for f in files if f.startswith(only_keep_date)]
+
+    # Get unique, valid, date-named folders
+    date_folders = set()
+    for f in files:
+        if "/" not in f:
+            continue
+        try:
+            folder = f.split("/", 1)[0]
+            datetime.strptime(folder, "%Y-%m-%d")
+            date_folders.add(folder)
+        except ValueError:
+            raise ValueError(f"Problem with file organization on {bucket}")
+
+    files = [f for f in files if f.split("/")[0] in date_folders]
+    return files, sorted(date_folders)
+
+
+def read_forecast_file(filename: str, f: TextIO | None = None) -> dict | None:
+    """Read a forecast JSON file and validate its content.
+
+    Args:
+        filename: Path to the forecast JSON file.
+        f: Open file handle. If None, filename will be opened.
+    """
+    logger.info(f"Reading forecast file {filename}")
+
+    if f:
+        data = json.load(f)
+    else:
+        with open(filename, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+    if not data or not isinstance(data, dict):
+        logger.warning(colored(f"Problem processing {filename}. Can't load JSON.", "yellow"))
+        return None
+
+    organization = data.get("organization")
+    model = data.get("model")
+    model_organization = data.get("model_organization")
+    question_set = data.get("question_set")
+    date_match = re.search(r"\d{4}-\d{2}-\d{2}", question_set)
+    forecast_due_date = date_match.group(0) if date_match else None
+    forecasts = data.get("forecasts")
+    if not organization or not model or not model_organization or not question_set or not forecasts:
+        logger.error(colored(f"Problem processing {filename}. Missing required fields.", "yellow"))
+        return None
+
+    if not forecast_due_date:
+        logger.error(
+            colored(
+                f"Problem processing {filename}. Issue with question set filename: {question_set}",
+                "yellow",
+            )
+        )
+        return None
+
+    df = pd.DataFrame(forecasts)
+    if df.empty:
+        logger.error(
+            colored(f"Problem processing {filename}. Couldn't load forecasts as df.", "yellow")
+        )
+        return None
+
+    df = df.drop(labels="reasoning", axis=1, errors="ignore")
+    data["df"] = df
+
+    return data
