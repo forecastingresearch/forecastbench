@@ -175,7 +175,7 @@ def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
                     continue
             assert len(validated) > 0, f"Could not find a resolution file for {source}."
             dfr = pd.concat(validated, ignore_index=True)
-            dfr["date"] = pd.to_datetime(dfr["date"])
+            dfr["date"] = pd.to_datetime(dfr["date"], format="mixed")
             question_bank[source].dfr = dfr
 
     logger.info("Done!")
