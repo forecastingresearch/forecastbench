@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,11 @@ from helpers import dates
 
 from ._base import BaseSource
 
+if TYPE_CHECKING:
+    from pandera.typing import DataFrame
+
+    from _schemas import QuestionFrame, ResolutionFrame, ResolveReadyFrame
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,30 +27,21 @@ class MarketSource(BaseSource):
 
     source_type: ClassVar[SourceType] = SourceType.MARKET
 
-    def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:
+    def _resolve(
+        self,
+        df: DataFrame[ResolveReadyFrame],
+        dfq: DataFrame[QuestionFrame],
+        dfr: DataFrame[ResolutionFrame],
+    ) -> DataFrame[ResolveReadyFrame]:
         """Resolve market-based questions using market prices and resolution status."""
         logger.info(f"Resolving Market `{self.name}`.")
         forecast_due_date = df["forecast_due_date"].unique()[0]
-        df_market, df = self._split_dataframe_on_source(df=df, source=self.name)
-
-        # Check that we have market info for all markets
-        unique_ids = dfr["id"].unique()
-
-        def check_id(mid):
-            if self._is_combo(mid):
-                for midi in mid:
-                    check_id(midi)
-            elif mid not in unique_ids:
-                msg = f"Missing resolution values in dfr for (source: {self.name}, id: {mid})!!!"
-                logger.error(msg)
-                raise ValueError(msg)
-
-        df_market["id"].apply(lambda x: check_id(x))
+        self._validate_ids(df, dfr)
 
         # Split into standard and combo questions
-        combo_mask = df_market["id"].apply(lambda x: self._is_combo(x))
-        df_standard = df_market[~combo_mask].copy()
-        df_combo = df_market[combo_mask].copy()
+        combo_mask = df["id"].apply(lambda x: self._is_combo(x))
+        df_standard = df[~combo_mask].copy()
+        df_combo = df[combo_mask].copy()
 
         # Resolve to yesterday's market value
         yesterday = dates.get_date_today() - timedelta(days=1)
@@ -168,8 +164,7 @@ class MarketSource(BaseSource):
                 df_combo.at[index, "resolution_date"] = resolution_date
 
         df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
-        df_source = pd.concat([df_standard, df_combo]).drop_duplicates()
-        df = pd.concat([df, df_source], ignore_index=True)
+        df = pd.concat([df_standard, df_combo]).drop_duplicates()
 
         # Attach warnings for orchestration to send via Slack
         if warnings:

@@ -287,7 +287,7 @@ class WikipediaSource(DatasetSource):
         dfr = self._ffill_dfr(dfr)
 
         yesterday = pd.Timestamp(dates.get_date_yesterday())
-        mask = (df["source"] == "wikipedia") & (df["resolution_date"] <= yesterday)
+        mask = df["resolution_date"] <= yesterday
         for index, row in df[mask].iterrows():
             forecast_due_date = row["forecast_due_date"].date()
             resolution_date = row["resolution_date"].date()

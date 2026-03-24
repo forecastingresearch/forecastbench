@@ -5,13 +5,18 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import ClassVar, Union
+from typing import TYPE_CHECKING, ClassVar, Union
 
 import numpy as np
 import pandas as pd
 
 from _schemas import ResolutionFrame
 from _types import NullifiedQuestion, SourceType
+
+if TYPE_CHECKING:
+    from pandera.typing import DataFrame
+
+    from _schemas import QuestionFrame, ResolveReadyFrame
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +53,12 @@ class BaseSource(ABC):
 
     def resolve(
         self,
-        df: pd.DataFrame,
-        dfq: pd.DataFrame,
+        df: DataFrame[ResolveReadyFrame],
+        dfq: DataFrame[QuestionFrame],
         dfr: pd.DataFrame,
         *,
         as_of: date | None = None,
-    ) -> pd.DataFrame:
+    ) -> DataFrame[ResolveReadyFrame]:
         """Resolve questions for this source.
 
         Nullified rows are removed before _resolve() so source-specific logic never sees them,
@@ -61,17 +66,17 @@ class BaseSource(ABC):
         """
         nullified_ids = self.get_nullified_ids(as_of=as_of)
         if nullified_ids:
-            null_mask = self._nullification_mask(df, nullified_ids)
+            null_mask = df["id"].apply(self._id_is_nullified, nullified_ids=nullified_ids)
             df_nullified = df[null_mask].copy()
-            df = df[~null_mask]
+            df = df[~null_mask].copy()
         else:
             df_nullified = None
 
-        if df[df["source"] == self.name].empty:
+        if df.empty:
             if df_nullified is not None and not df_nullified.empty:
                 df_nullified["resolved_to"] = np.nan
                 df_nullified["resolved"] = True
-                df = pd.concat([df, df_nullified], ignore_index=True)
+                return df_nullified
             return df
 
         df = self._resolve(df, dfq, dfr)
@@ -98,19 +103,41 @@ class BaseSource(ABC):
             return any(sub_id in nullified_ids for sub_id in id_val)
         return id_val in nullified_ids
 
-    def _nullification_mask(self, df: pd.DataFrame, nullified_ids: set[str]) -> pd.Series:
-        """Build a boolean mask for rows belonging to this source that should be nullified."""
-        return df["id"].apply(self._id_is_nullified, nullified_ids=nullified_ids) & (
-            df["source"] == self.name
-        )
-
     # ------------------------------------------------------------------
     # Abstract
     # ------------------------------------------------------------------
 
     @abstractmethod
-    def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:
-        """Source-specific resolution logic."""
+    def _resolve(
+        self,
+        df: DataFrame[ResolveReadyFrame],
+        dfq: DataFrame[QuestionFrame],
+        dfr: pd.DataFrame,
+    ) -> DataFrame[ResolveReadyFrame]:
+        """Source-specific resolution logic. df contains only this source's non-nullified rows."""
+
+    # ------------------------------------------------------------------
+    # Shared helpers
+    # ------------------------------------------------------------------
+
+    def _validate_ids(self, df: pd.DataFrame, dfr: pd.DataFrame) -> None:
+        """Verify all question IDs in df exist in dfr.
+
+        Called by DatasetSource._resolve() and MarketSource._resolve().
+        Sources with custom dfr schemas (e.g. ACLED) simply don't call this.
+        """
+        unique_ids = set(dfr["id"].unique())
+
+        def check_id(mid):
+            if self._is_combo(mid):
+                for sub_id in mid:
+                    check_id(sub_id)
+            elif mid not in unique_ids:
+                msg = f"Missing resolution values in dfr for (source: {self.name}, id: {mid})"
+                logger.error(msg)
+                raise ValueError(msg)
+
+        df["id"].apply(check_id)
 
     # ------------------------------------------------------------------
     # Static utility methods
@@ -131,12 +158,6 @@ class BaseSource(ABC):
         if sign not in (1, -1):
             raise ValueError(f"Wrong value for sign: {sign}")
         return value if sign == 1 else 1 - value
-
-    @staticmethod
-    def _split_dataframe_on_source(df: pd.DataFrame, source: str):
-        """Return (rows for this source, remaining rows)."""
-        mask = df["source"] == source
-        return df[mask].copy(), df[~mask].copy()
 
     @staticmethod
     def _get_question(dfq: pd.DataFrame, mid: str):

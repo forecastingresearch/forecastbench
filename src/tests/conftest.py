@@ -84,7 +84,10 @@ def make_forecast_df(rows):
         df["direction"] = [() for _ in range(len(df))]
     if "forecast_due_date" in df.columns:
         df["forecast_due_date"] = pd.to_datetime(df["forecast_due_date"])
-    if "resolution_date" in df.columns:
+    # Default needed so error-path tests pass ExplodedQuestionSetFrame validation in resolve_all()
+    if "resolution_date" not in df.columns:
+        df["resolution_date"] = pd.to_datetime("2025-12-31")
+    else:
         df["resolution_date"] = pd.to_datetime(df["resolution_date"])
     # resolve_all() sets these before calling _resolve()
     if "resolved" not in df.columns:

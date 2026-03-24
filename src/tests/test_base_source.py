@@ -23,9 +23,8 @@ class _StubSource(BaseSource):
     source_type = SourceType.DATASET
 
     def _resolve(self, df, dfq, dfr):
-        mask = df["source"] == self.name
-        df.loc[mask, "resolved_to"] = 1.0
-        df.loc[mask, "resolved"] = True
+        df["resolved_to"] = 1.0
+        df["resolved"] = True
         return df
 
 
@@ -41,9 +40,8 @@ class _StubSourceWithNullified(BaseSource):
     ]
 
     def _resolve(self, df, dfq, dfr):
-        mask = df["source"] == self.name
-        df.loc[mask, "resolved_to"] = 1.0
-        df.loc[mask, "resolved"] = True
+        df["resolved_to"] = 1.0
+        df["resolved"] = True
         return df
 
 
@@ -134,29 +132,6 @@ class TestComboChangeSign:
     def test_invalid_sign_raises(self):
         with pytest.raises(ValueError, match="Wrong value for sign"):
             BaseSource._combo_change_sign(1, 2)
-
-
-# ---------------------------------------------------------------------------
-# _split_dataframe_on_source
-# ---------------------------------------------------------------------------
-
-
-class TestSplitDataframeOnSource:
-    """Test DataFrame partitioning by source."""
-
-    def test_splits_correctly(self):
-        df = pd.DataFrame({"source": ["a", "b", "a", "c"], "val": [1, 2, 3, 4]})
-        df_a, df_rest = BaseSource._split_dataframe_on_source(df, "a")
-        assert len(df_a) == 2
-        assert len(df_rest) == 2
-        assert set(df_a["source"]) == {"a"}
-        assert "a" not in set(df_rest["source"])
-
-    def test_empty_match(self):
-        df = pd.DataFrame({"source": ["a", "b"], "val": [1, 2]})
-        df_x, df_rest = BaseSource._split_dataframe_on_source(df, "x")
-        assert len(df_x) == 0
-        assert len(df_rest) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -331,20 +306,3 @@ class TestResolveOrchestration:
         result = source.resolve(df, dfq, dfr)
         assert len(result) == 1
         assert pd.isna(result.iloc[0]["resolved_to"])
-
-    def test_other_source_rows_unaffected(self):
-        source = _StubSource()
-        df = make_forecast_df(
-            [
-                {"id": "q1", "source": "stub", "forecast_due_date": "2025-01-01"},
-                {"id": "q2", "source": "other", "forecast_due_date": "2025-01-01"},
-            ]
-        )
-        dfq = make_question_df([{"id": "q1"}, {"id": "q2"}])
-        dfr = pd.DataFrame()
-
-        result = source.resolve(df, dfq, dfr)
-        stub_row = result[result["source"] == "stub"].iloc[0]
-        other_row = result[result["source"] == "other"].iloc[0]
-        assert stub_row["resolved_to"] == 1.0
-        assert pd.isna(other_row["resolved_to"])
