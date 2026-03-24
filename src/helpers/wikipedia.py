@@ -4,8 +4,6 @@
 import hashlib
 import json
 import logging
-import os
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from enum import Enum
@@ -15,10 +13,7 @@ import pandas as pd
 from scipy.stats import norm
 from tqdm import tqdm
 
-from . import constants, dates, env
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from utils import gcp  # noqa: E402
+from . import constants, dates
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -475,22 +470,6 @@ class QuestionType(Enum):
     SAME_OR_LESS = 4
 
 
-def compare_values(question_type, resolution_date_value, forecast_due_date_value):
-    """Compare values given the QuestionType."""
-    if question_type == QuestionType.SAME:
-        return resolution_date_value == forecast_due_date_value
-    elif question_type == QuestionType.SAME_OR_MORE:
-        return resolution_date_value >= forecast_due_date_value
-    elif question_type == QuestionType.SAME_OR_LESS:
-        return resolution_date_value <= forecast_due_date_value
-    elif question_type == QuestionType.MORE:
-        return resolution_date_value > forecast_due_date_value
-    elif question_type == QuestionType.ONE_PERCENT_MORE:
-        return resolution_date_value >= forecast_due_date_value * 1.01
-    else:
-        raise ValueError("Invalid QuestionType")
-
-
 def clean_FIDE_rankings(df):
     """Clean fetched data for `FIDE_rankings`.
 
@@ -672,48 +651,6 @@ def backfill_for_forecast(mid, dfr):
         dfr = pd.concat([fill_df, dfr]).sort_values("date")
 
     return dfr
-
-
-def resolve(mid, dfr, forecast_due_date, resolution_date):
-    """Resolve Wikipedia forecast questions."""
-    mid = transform_id(mid)
-    for entry in IDS_TO_NULLIFY:
-        if mid == entry["id"] and forecast_due_date >= entry["nullify_start_date"]:
-            logger.info(f"Forcing nullification of {mid}.")
-            return np.nan
-
-    d = id_unhash(mid)
-    if d is None:
-        logger.error(f"Wikipedia: could NOT unhash {mid}")
-        return np.nan
-
-    def get_value(dfr, mid, date):
-        value = dfr[(dfr["id"] == mid) & (dfr["date"].dt.date == date)]["value"]
-        return value.iloc[0] if not value.empty else None
-
-    forecast_due_date_value = get_value(dfr, mid, forecast_due_date)
-    resolution_date_value = get_value(dfr, mid, resolution_date)
-
-    if pd.isna(forecast_due_date_value):
-        logger.info(
-            f"Nullifying Wikipedia market {mid}. "
-            "The forecast question resolved between the freeze date and the forecast due date.\n"
-        )
-        return np.nan
-
-    question_type = [q["question_type"] for q in PAGES if q["id_root"] == d["id_root"]]
-    if len(question_type) != 1:
-        logger.error(
-            f"Nullifying Wikipedia market {mid}. Couldn't find comparison type "
-            "(should not arrive here)."
-        )
-        return np.nan
-
-    return compare_values(
-        question_type=question_type[0],
-        resolution_date_value=resolution_date_value,
-        forecast_due_date_value=forecast_due_date_value,
-    )
 
 
 FIDE_BACKGROUND = (
