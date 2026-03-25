@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 import pandas as pd
 
-from _types import SourceType
+from _fb_types import SourceType
 
 from ._base import BaseSource
 

@@ -223,7 +223,7 @@ class TestWikipediaNullifiedQuestions:
         assert len(WikipediaSource.nullified_questions) > 0
 
     def test_nullified_questions_are_nullified_question_instances(self):
-        from _types import NullifiedQuestion
+        from _fb_types import NullifiedQuestion
 
         for nq in WikipediaSource.nullified_questions:
             assert isinstance(nq, NullifiedQuestion)

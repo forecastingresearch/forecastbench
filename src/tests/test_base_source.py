@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from _types import NullifiedQuestion, SourceType
+from _fb_types import NullifiedQuestion, SourceType
 from sources._base import BaseSource
 from tests.conftest import make_forecast_df, make_question_df
 

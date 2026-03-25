@@ -5,7 +5,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from _types import SourceQuestionBank
+from _fb_types import SourceQuestionBank
 from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
 from resolve.explode_question_set import explode_question_set

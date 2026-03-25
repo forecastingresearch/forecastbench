@@ -27,7 +27,7 @@ deploy : .gcloudignore requirements.txt Dockerfile
 	mkdir -p $(UPLOAD_DIR)/orchestration
 	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
 	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/_types.py $(UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
 	cp $(ROOT_DIR)src/_schemas.py $(UPLOAD_DIR)/
 	cp main.py $(UPLOAD_DIR)/main.py
 	cp requirements.txt $(UPLOAD_DIR)/requirements.txt
