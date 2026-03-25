@@ -25,6 +25,12 @@ deploy : main.py requirements.txt Dockerfile model_release_dates.csv
 	mkdir -p $(LEADERBOARD_UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(LEADERBOARD_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(LEADERBOARD_UPLOAD_DIR)/
+	cp -r $(ROOT_DIR)src/sources $(LEADERBOARD_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_types.py $(LEADERBOARD_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_schemas.py $(LEADERBOARD_UPLOAD_DIR)/
+	mkdir -p $(LEADERBOARD_UPLOAD_DIR)/orchestration
+	cp $(ROOT_DIR)src/orchestration/__init__.py $(LEADERBOARD_UPLOAD_DIR)/orchestration/
+	cp $(ROOT_DIR)src/orchestration/_io.py $(LEADERBOARD_UPLOAD_DIR)/orchestration/
 	cp $^ $(LEADERBOARD_UPLOAD_DIR)/
 	gcloud run jobs deploy \
 		func-leaderboard \

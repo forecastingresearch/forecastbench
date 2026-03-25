@@ -6,3 +6,5 @@ pandas>=2.2.2,<3.0
 py_clob_client
 backoff
 tqdm
+pandera
+termcolor

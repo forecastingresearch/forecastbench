@@ -6,3 +6,5 @@ backoff
 certifi
 tqdm
 scipy
+pandera
+termcolor
