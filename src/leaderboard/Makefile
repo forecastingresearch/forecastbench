@@ -26,7 +26,7 @@ deploy : main.py requirements.txt Dockerfile model_release_dates.csv
 	cp -r $(ROOT_DIR)utils $(LEADERBOARD_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(LEADERBOARD_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/sources $(LEADERBOARD_UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_types.py $(LEADERBOARD_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_fb_types.py $(LEADERBOARD_UPLOAD_DIR)/
 	cp $(ROOT_DIR)src/_schemas.py $(LEADERBOARD_UPLOAD_DIR)/
 	mkdir -p $(LEADERBOARD_UPLOAD_DIR)/orchestration
 	cp $(ROOT_DIR)src/orchestration/__init__.py $(LEADERBOARD_UPLOAD_DIR)/orchestration/

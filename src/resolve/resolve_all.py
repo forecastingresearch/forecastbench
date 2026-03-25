@@ -15,7 +15,7 @@ from sources import DATASET_SOURCE_NAMES
 if TYPE_CHECKING:
     from pandera.typing import DataFrame
 
-    from _types import QuestionBank
+    from _fb_types import QuestionBank
     from sources._base import BaseSource
 
 logger = logging.getLogger(__name__)

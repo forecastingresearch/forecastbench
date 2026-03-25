@@ -17,8 +17,8 @@ import pandas as pd
 import pandera.pandas as pa
 from termcolor import colored
 
+from _fb_types import QuestionBank, SourceQuestionBank
 from _schemas import AcledResolutionFrame, QuestionFrame, ResolutionFrame
-from _types import QuestionBank, SourceQuestionBank
 from helpers import constants, data_utils, dates, env, git, keys
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource

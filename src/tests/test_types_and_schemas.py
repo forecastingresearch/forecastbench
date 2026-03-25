@@ -1,15 +1,15 @@
-"""Tests for _types.py and _schemas.py: types, schemas, and source ClassVars."""
+"""Tests for _fb_types.py and _schemas.py: types, schemas, and source ClassVars."""
 
 from datetime import date
 
 import pandas as pd
 import pytest
 
-from _types import NullifiedQuestion, SourceQuestionBank, SourceType
+from _fb_types import NullifiedQuestion, SourceQuestionBank, SourceType
 from sources import SOURCES
 
 # ---------------------------------------------------------------------------
-# _types.py
+# _fb_types.py
 # ---------------------------------------------------------------------------
 
 

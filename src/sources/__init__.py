@@ -1,6 +1,6 @@
 """Source registry — one instance per question source."""
 
-from _types import SourceType
+from _fb_types import SourceType
 
 from .acled import AcledSource
 from .dbnomics import DbnomicsSource

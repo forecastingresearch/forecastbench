@@ -21,7 +21,7 @@ deploy : main.py .gcloudignore requirements.txt Dockerfile
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_types.py $(UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
 	cp $(ROOT_DIR)src/_schemas.py $(UPLOAD_DIR)/
 	mkdir -p $(UPLOAD_DIR)/orchestration
 	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/

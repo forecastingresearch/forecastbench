@@ -12,7 +12,7 @@ from typing import ClassVar
 import numpy as np
 import pandas as pd
 
-from _types import NullifiedQuestion, SourceType
+from _fb_types import NullifiedQuestion, SourceType
 from helpers import constants, dates
 
 from ._dataset import DatasetSource

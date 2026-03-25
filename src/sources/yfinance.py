@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from _types import SourceType
+from _fb_types import SourceType
 
 from ._dataset import DatasetSource
 

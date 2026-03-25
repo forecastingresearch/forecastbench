@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from _types import SourceQuestionBank
+from _fb_types import SourceQuestionBank
 from resolve.resolve_all import resolve_all
 from tests.conftest import make_forecast_df, make_question_df, make_resolution_df
 

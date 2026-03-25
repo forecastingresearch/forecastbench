@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, ClassVar, Union
 import numpy as np
 import pandas as pd
 
+from _fb_types import NullifiedQuestion, SourceType
 from _schemas import ResolutionFrame
-from _types import NullifiedQuestion, SourceType
 
 if TYPE_CHECKING:
     from pandera.typing import DataFrame

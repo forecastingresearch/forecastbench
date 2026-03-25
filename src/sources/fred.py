@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from _types import NullifiedQuestion, SourceType
+from _fb_types import NullifiedQuestion, SourceType
 from helpers.constants import BENCHMARK_START_DATE_DATETIME_DATE
 
 from ._dataset import DatasetSource
