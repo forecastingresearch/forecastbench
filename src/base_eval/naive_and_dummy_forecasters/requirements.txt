@@ -9,3 +9,4 @@ prophet==1.1.6
 cmdstanpy==1.2.5
 scipy
 termcolor
+pandera

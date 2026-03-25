@@ -4,3 +4,5 @@ backoff
 certifi
 pandas>=2.2.2,<3.0
 requests
+pandera
+termcolor
