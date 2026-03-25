@@ -164,13 +164,13 @@ def _build_question_bank(sources_to_get: list[str]) -> QuestionBank:
             ]
             validated = []
             for f in files:
-                raw = pd.read_json(f, lines=True, convert_dates=False)
                 try:
+                    raw = pd.read_json(f, lines=True, convert_dates=False)
                     validated.append(ResolutionFrame.validate(raw))
-                except pa.errors.SchemaError as e:
+                except (ValueError, pa.errors.SchemaError) as e:
                     logger.warning(
-                        f"Skipped {source} resolution file as it does not match the "
-                        f"ResolutionFrame schema: {os.path.basename(f)}: {e}"
+                        f"Skipped {source} resolution file as it could not be read or does not "
+                        f"match the ResolutionFrame schema: {os.path.basename(f)}: {e}"
                     )
                     continue
             assert len(validated) > 0, f"Could not find a resolution file for {source}."
