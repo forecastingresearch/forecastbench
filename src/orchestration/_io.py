@@ -19,7 +19,7 @@ from termcolor import colored
 
 from _fb_types import QuestionBank, SourceQuestionBank
 from _schemas import AcledResolutionFrame, QuestionFrame, ResolutionFrame
-from helpers import constants, data_utils, dates, env, git, keys
+from helpers import constants, data_utils, dates, env, keys
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource
 from utils import gcp
@@ -221,6 +221,8 @@ def upload_hash_mapping(raw_json: str, source_name: str) -> None:
 
 def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set_filename: str):
     """Upload resolution set to GCS and push to git."""
+    from helpers import git  # noqa: E402
+
     basename = f"{forecast_due_date}_resolution_set.json"
     local_filename = f"/tmp/{basename}"
     df = df[["id", "source", "direction", "resolution_date", "resolved_to", "resolved"]]
