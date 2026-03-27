@@ -4,6 +4,7 @@ upload*
 plotly_charts
 *.html
 *.js
+!src/www.forecastbench.org/assets/js/section-links.js
 *.json
 *.jsonl
 *.csv

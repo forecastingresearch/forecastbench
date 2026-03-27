@@ -815,6 +815,95 @@ a.site-title:focus {
   color: #059669;
 }
 
+.site-feature-row__title[data-section-link] {
+  position: relative;
+}
+
+.section-link-copy {
+  position: absolute;
+  top: 50%;
+  left: -1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transform: translateY(-50%);
+  appearance: none;
+  box-shadow: none;
+  transition: color 0.15s ease;
+}
+
+.section-link-copy i {
+  transition: opacity 0.2s ease;
+}
+
+.section-link-copy::after {
+  content: "✓";
+  position: absolute;
+  font-style: normal;
+  font-weight: 700;
+  color: #059669;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.site-feature-row__title[data-section-link]:hover .section-link-copy,
+.site-feature-row__title[data-section-link]:focus-within .section-link-copy,
+.section-link-copy:focus-visible {
+  opacity: 1;
+}
+
+.section-link-copy:hover,
+.section-link-copy:focus-visible {
+  color: #4b5563;
+}
+
+.section-link-copy:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.section-link-copy:focus-visible {
+  outline: 2px solid #4b5563;
+  outline-offset: 2px;
+}
+
+.section-link-copy.copied {
+  color: #059669;
+  opacity: 1;
+}
+
+.section-link-copy.copied i {
+  opacity: 0;
+}
+
+.section-link-copy.copied::after {
+  opacity: 1;
+}
+
+.section-link-copy.copied-fade {
+  opacity: 1;
+}
+
+.section-link-copy.copied-fade i {
+  opacity: 0;
+}
+
+.section-link-copy.copied-fade::after {
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
 
 
 

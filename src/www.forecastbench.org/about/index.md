@@ -4,12 +4,13 @@ title: "About"
 permalink: /about/
 footer_scripts:
   - /assets/js/smooth-scroll.js
+  - /assets/js/section-links.js
 ---
 
 <section id="how-does-forecastbench-work" class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <h1 class="site-feature-row__title">How does ForecastBench work?</h1>
+      <h1 id="how-does-forecastbench-work-title" class="site-feature-row__title" data-section-link>How does ForecastBench work?</h1>
       <p>ForecastBench is a dynamic, continuously-updated benchmark designed to measure the accuracy of ML systems on a constantly changing set of forecasting questions.</p>
       <p>We evaluate LLMs by regularly asking them to make probabilistic forecasts about future events, thereby creating a contamination-free benchmark.</p>
       <p>We use two types of binary prediction questions:
@@ -25,10 +26,10 @@ footer_scripts:
   </div>
 </section>
 
-<section class="site-feature-card">
+<section id="blog" class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <h1 class="site-feature-row__title">Blog</h1>
+      <h1 id="blog-title" class="site-feature-row__title" data-section-link>Blog</h1>
       <div class="blog-entry">
         <a href="https://forecastingresearch.substack.com/p/introducing-the-brier-index" class="blog-entry__title">Making Forecasting Scores Easier to Interpret: Introducing the Brier Index <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
         <p class="blog-entry__meta"><span class="blog-date">2026-03-04</span> · A simple transformation that makes the Brier score intuitive.</p>
@@ -49,8 +50,8 @@ footer_scripts:
   </div>
 </section>
 
-<section class="site-feature-card team-section">
-  <h1 class="site-feature-row__title">Team</h1>
+<section id="team" class="site-feature-card team-section">
+  <h1 id="team-title" class="site-feature-row__title" data-section-link>Team</h1>
   <p class="team-intro">ForecastBench is developed and maintained by the <a href="https://forecastingresearch.org/" class="no-wrap">Forecasting Research Institute <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, a nonprofit research organization dedicated to advancing the science, practice, and use of forecasting. The ForecastBench team is committed to open science and we publicly provide our <a href="/docs/#codebase">code</a>, <a href="/datasets/">datasets</a> (where licensing permits), and <a href="/docs/">methodology</a> to support reproducible research. For correspondence, please contact <a href="mailto:forecastbench@forecastingresearch.org">forecastbench@forecastingresearch.org</a>.</p>
 
   <div class="team-grid">
@@ -116,10 +117,10 @@ footer_scripts:
   </div>
 </section>
 
-<section class="site-feature-card">
+<section id="funding" class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <h1 class="site-feature-row__title">Funding</h1>
+      <h1 id="funding-title" class="site-feature-row__title" data-section-link>Funding</h1>
       <p>ForecastBench is supported by a grant from <a href="https://coefficientgiving.org/funds/forecasting/">Coefficient Giving <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
       <p>The Forecasting Research Institute's funders exercise no editorial control or influence over our research methodology, findings, or conclusions.</p>
     </div>

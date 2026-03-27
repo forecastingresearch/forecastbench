@@ -2,12 +2,14 @@
 layout: splash
 title: "Datasets"
 permalink: /datasets/
+footer_scripts:
+  - /assets/js/section-links.js
 ---
 
-<section class="site-feature-card">
+<section id="github" class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <h1 class="site-feature-row__title">GitHub</h1>
+      <h1 id="github-title" class="site-feature-row__title" data-section-link>GitHub</h1>
       <p>We provide as much data as possible via our <a href="https://github.com/forecastingresearch/forecastbench-datasets">datasets repository on GitHub<i class="fa-solid fa-arrow-up-right-from-square"></i></a>.</p>
       <p><strong>Leaderboards</strong>. The <a href="https://github.com/forecastingresearch/forecastbench-datasets/tree/main/leaderboards">leaderboards <i class="fa-solid fa-arrow-up-right-from-square"></i></a> are updated nightly and stored in git, allowing you to track model ranking over time.</p>
       <p><strong>Resolution values</strong>. <a href="https://github.com/forecastingresearch/forecastbench-datasets/tree/main/datasets/resolution_sets">Resolution values <i class="fa-solid fa-arrow-up-right-from-square"></i></a> are also updated nightly and stored in git.</p>
@@ -18,10 +20,10 @@ permalink: /datasets/
   </div>
 </section>
 
-<section class="site-feature-card">
+<section id="direct-download" class="site-feature-card">
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <h1 class="site-feature-row__title">Direct Download</h1>
+      <h1 id="direct-download-title" class="site-feature-row__title" data-section-link>Direct Download</h1>
       <p>We provide some other files as direct downloads.</p>
       <p><strong>Forecast sets</strong>. Download all forecasts that have been submitted for evalution <a href="/assets/data/forecast-sets/forecast_sets.tar.gz">here</a>{% if site.data.direct_download_file_sizes.forecast_sets %} ({{ site.data.direct_download_file_sizes.forecast_sets }}B){% endif %}.</p>
       <p><strong>Processed forecast sets</strong>. Download all processed forecast files <a href="/assets/data/processed-forecast-sets/processed_forecast_sets.tar.gz">here</a>{% if site.data.direct_download_file_sizes.processed_forecast_sets %} ({{ site.data.direct_download_file_sizes.processed_forecast_sets }}B){% endif %}.</p>
