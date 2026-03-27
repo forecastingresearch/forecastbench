@@ -85,8 +85,7 @@ dataset_total_n, dataset_total_pairs = get_source_values(df_dataset, "Total")
 total_n, total_pairs = get_source_values(df, "Total")
 
 
-print(
-    rf"""
+print(rf"""
   \begin{{tabular}}{{llrr}}
     \toprule
     Source & URL & $N$ & $\binom{{N}}{{2}}$ \\
@@ -111,5 +110,4 @@ print(
     \multicolumn{{2}}{{l}}{{\textbf{{Question Bank Total}}}} & {total_n} & {total_pairs} \\
     \bottomrule
   \end{{tabular}}
-"""  # noqa: B950
-)
+""")  # noqa: B950

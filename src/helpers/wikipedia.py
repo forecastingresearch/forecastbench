@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Wikipedia constants."""
+
 import hashlib
 import json
 import logging
