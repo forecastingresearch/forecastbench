@@ -440,8 +440,10 @@ def driver(_):
         last_date_for_data=last_date_for_data,
     )
 
-    logger.info("Downloading latest resolution data...")
-    resolution_values = resolution.get_resolution_values()
+    logger.info("Downloading resolution data for data sources...")
+    resolution_values = resolution.get_and_unpack_question_bank(
+        sources_to_get=resolution.DATA_SOURCES,
+    )
     logger.info("Done downloading resolution data.")
 
     # truncate resolution values to last date of data to consider for the forecast
