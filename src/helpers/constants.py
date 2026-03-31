@@ -400,31 +400,3 @@ MODEL_NAME_TO_SOURCE["gpt-4o-mini"] = OAI_SOURCE
 MODEL_TOKEN_LIMITS["gpt-5-mini"] = 128000
 MODEL_NAME_TO_ORG["gpt-5-mini"] = OAI_ORG
 MODEL_NAME_TO_SOURCE["gpt-5-mini"] = OAI_SOURCE
-
-# remove models with less than ~17000 token limits
-SUPERFORECASTER_WITH_NEWS_MODELS = SCRATCHPAD_WITH_NEWS_MODELS = {
-    "gpt_4_turbo_0409": {"source": OAI_SOURCE, "full_name": "gpt-4-turbo-2024-04-09"},
-    "gpt_4o": {"source": OAI_SOURCE, "full_name": "gpt-4o"},
-    "mistral_8x7b_instruct": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-    },
-    "mistral_8x22b_instruct": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "mistralai/Mixtral-8x22B-Instruct-v0.1",
-    },
-    "mistral_large": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "mistral-large-latest",
-    },
-    "qwen_1p5_110b": {
-        "source": TOGETHER_AI_SOURCE,
-        "full_name": "Qwen/Qwen1.5-110B-Chat",
-    },
-    "claude_2p1": {"source": ANTHROPIC_SOURCE, "full_name": "claude-2.1"},
-    "claude_3_opus": {"source": ANTHROPIC_SOURCE, "full_name": "claude-3-opus-20240229"},
-    "claude_3_haiku": {"source": ANTHROPIC_SOURCE, "full_name": "claude-3-haiku-20240307"},
-    "claude_3p5_sonnet": {"source": ANTHROPIC_SOURCE, "full_name": "claude-3-5-sonnet-20240620"},
-    "gemini_1p5_flash": {"source": GOOGLE_SOURCE, "full_name": "gemini-1.5-flash"},
-    "gemini_1p5_pro": {"source": GOOGLE_SOURCE, "full_name": "gemini-1.5-pro"},
-}
