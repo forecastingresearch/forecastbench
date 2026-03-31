@@ -22,7 +22,7 @@ from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES, SOURCES
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DELAY_IN_DAYS_BEFORE_FIRST_RESOLUTION = 14
+DELAY_IN_DAYS_BEFORE_FIRST_RESOLUTION = 10
 
 QUESTION_SET_FIELDS = [
     "id",
