@@ -291,12 +291,6 @@ MODELS_TO_RUN = {
         "full_name": "moonshotai/Kimi-K2.5",
         "token_limit": 262144,
     },
-    "GLM-4.7": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": ZAI_ORG,
-        "full_name": "zai-org/GLM-4.7",
-        "token_limit": 202752,
-    },
     "GLM-5": {
         "source": TOGETHER_AI_SOURCE,
         "org": ZAI_ORG,
