@@ -91,8 +91,10 @@ print(
     \toprule
     Source & URL & $N$ & $\binom{{N}}{{2}}$ \\
     \midrule
-    RFI & \href{{https://www.randforecastinginitiative.org/}}{{randforecastinginitiative.org}} & {rfi_n} & {rfi_pairs} \\
-    Manifold Markets & \href{{https://manifold.markets}}{{manifold.markets}} & {manifold_n} & {manifold_pairs} \\
+    RFI & \href{{https://www.randforecastinginitiative.org/}}{{randforecastinginitiative.org}} &
+    {rfi_n} & {rfi_pairs} \\
+    Manifold Markets & \href{{https://manifold.markets}}{{manifold.markets}} &
+    {manifold_n} & {manifold_pairs} \\
     Metaculus & \href{{https://www.metaculus.com}}{{metaculus.com}} & {metaculus_n} & {metaculus_pairs} \\
     Polymarket & \href{{https://polymarket.com}}{{polymarket.com}} & {poly_n} & {poly_pairs} \\
     \cmidrule{{3-4}}
