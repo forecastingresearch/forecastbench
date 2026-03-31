@@ -95,7 +95,7 @@ class WikipediaSource(DatasetSource):
         forecast_due_date_value = get_value(dfr, mid, forecast_due_date)
         resolution_date_value = get_value(dfr, mid, resolution_date)
 
-        if forecast_due_date_value is None:
+        if pd.isna(forecast_due_date_value):
             logger.info(
                 f"Nullifying Wikipedia market {mid}. "
                 "The forecast question resolved between the freeze date and the forecast due date."
