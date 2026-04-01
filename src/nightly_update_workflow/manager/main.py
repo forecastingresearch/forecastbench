@@ -132,6 +132,11 @@ def main():
         name=env.QUESTION_BANK_BUCKET,
         exit_on_error=False,
     )
+    cloud_run.block_and_check_job_result(
+        operation=operation_compress_forecast_sets_bucket,
+        name=env.FORECAST_SETS_BUCKET,
+        exit_on_error=False,
+    )
 
     # Launch resolve forecasts (non-blocking)
     dict_to_use_resolve_forecasts = "resolve_forecasts"
@@ -234,11 +239,6 @@ def main():
     cloud_run.block_and_check_job_result(
         operation=operation_compress_question_sets_bucket,
         name=env.QUESTION_SETS_BUCKET,
-        exit_on_error=False,
-    )
-    cloud_run.block_and_check_job_result(
-        operation=operation_compress_forecast_sets_bucket,
-        name=env.FORECAST_SETS_BUCKET,
         exit_on_error=False,
     )
     cloud_run.block_and_check_job_result(
