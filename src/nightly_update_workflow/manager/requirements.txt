@@ -7,3 +7,5 @@ tqdm
 tabulate
 gcsfs==2024.3.1
 scipy
+pandera
+termcolor

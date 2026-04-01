@@ -610,7 +610,8 @@ def write_leaderboard_html_file(
     Returns:
         None.
     """
-    template = Template("""<!DOCTYPE html>
+    template = Template(
+        """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -792,7 +793,8 @@ def write_leaderboard_html_file(
       });
   </script>
   </body>
-</html>""")
+</html>"""
+    )
 
     # The HTML template has a hardcoded <thead> expecting exactly these columns.
     # Any extra columns (e.g. Rescaled Brier) are CSV-only.
@@ -867,7 +869,8 @@ def write_dataset_leaderboard_html_file(
     Returns:
         None.
     """
-    template = Template("""<!DOCTYPE html>
+    template = Template(
+        """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1015,7 +1018,8 @@ def write_dataset_leaderboard_html_file(
       });
   </script>
   </body>
-</html>""")
+</html>"""
+    )
 
     html_cols = [
         "Rank",
@@ -1084,7 +1088,8 @@ def write_leaderboard_js_file_full(
     Returns:
         None.
     """
-    template = Template("""
+    template = Template(
+        """
         window.initLeaderboard_{{ leaderboard_type }} = function()
         {
             const data = {{ data }};
@@ -1321,7 +1326,8 @@ def write_leaderboard_js_file_full(
              'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`
            };
            initializeTooltips();
-        };""")
+        };"""
+    )
 
     js = template.render(
         data=df.to_dict(orient="records"),
@@ -1349,7 +1355,8 @@ def write_dataset_leaderboard_js_file_full(
     Returns:
         Dict[str, str]: Dictionary with 'filename' and 'js' keys.
     """
-    template = Template("""
+    template = Template(
+        """
         window.initLeaderboard_dataset = function()
         {
             const data = {{ data }};
@@ -1549,7 +1556,8 @@ def write_dataset_leaderboard_js_file_full(
              'Forecaster > Public?': `{{ col_desc["Forecaster > Public?"] }}`
            };
            initializeTooltips();
-        };""")
+        };"""
+    )
 
     js = template.render(
         data=df.to_dict(orient="records"),
@@ -1579,7 +1587,8 @@ def write_leaderboard_js_file_compact(
     Returns:
         None.
     """
-    template = Template("""
+    template = Template(
+        """
         ;(function(){ if(!document.getElementById('leaderboard-{{ leaderboard_type }}-compact')) return;
         $(function()
         {
@@ -1666,7 +1675,8 @@ def write_leaderboard_js_file_compact(
           'Model': `{{ col_desc["Model"] }}`,
           'Overall': `{{ col_desc["Overall"] }}`
         });
-        })();""")
+        })();"""
+    )
 
     # Remove anonymous submissions from compact leaderboards
     df = df.copy()

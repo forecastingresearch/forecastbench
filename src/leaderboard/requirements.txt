@@ -12,3 +12,4 @@ statsmodels>=0.14.5
 joblib
 pyarrow
 slack_sdk
+pandera
