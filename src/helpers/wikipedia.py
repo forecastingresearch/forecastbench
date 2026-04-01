@@ -357,6 +357,11 @@ IDS_TO_NULLIFY = [
         "id": "c4db6cf85ef3ef4165705b863f1491f2903df3a2534e2d4e25f57edcbdfaac4b",
         "nullify_start_date": datetime(2025, 6, 10).date(),
     },
+    # Vaccine was created in 2023 but Wikipedia table had not been updated
+    {
+        "id": "242926fea271734ef8d4920e532414b38dbfdf301516fd9f0c988abd0ce777dd",
+        "nullify_start_date": constants.BENCHMARK_START_DATE_DATETIME_DATE,
+    },
     # Ryan Lochte, lost swimming WR
     {
         "id": "12486c21df689124f8fdad70760247dffe2b7696599748bcb5c7a738735285d5",
