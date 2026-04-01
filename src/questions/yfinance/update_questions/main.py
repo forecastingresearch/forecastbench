@@ -68,7 +68,7 @@ def fetch_one_stock(ticker, period):
     """
     try:
         ticker = yf.Ticker(ticker)
-        hist = ticker.history(period=period)
+        hist = ticker.history(period=period, auto_adjust=False)
         return hist[["Close"]].reset_index().rename(columns={"Date": "date", "Close": "value"})
     except Exception as e:
         logger.error(f"Failed to fetch data for {ticker}: {e}")
@@ -117,7 +117,7 @@ def get_historical_prices(current_df, ticker, period):
     return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
 
-def create_resolution_file(question, period):
+def create_resolution_file(question, period, force=False):
     """
     Create or update a resolution file based on the question ID provided. Download the existing file, if any.
 
@@ -126,6 +126,7 @@ def create_resolution_file(question, period):
     Parameters:
     - question (dict): A dictionary containing at least the 'id' of the question.
     - period (str): One of: '1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'
+    - force (bool): If True, re-fetch data even if the resolution file is already up-to-date.
 
     Returns:
     - DataFrame: Return the current state of the resolution file as a DataFrame if no update is needed.
@@ -164,7 +165,7 @@ def create_resolution_file(question, period):
         )
 
     yesterday = dates.get_date_today() - timedelta(days=1)
-    if not df.empty and pd.to_datetime(df["date"].iloc[-1]).date() >= yesterday:
+    if not force and not df.empty and pd.to_datetime(df["date"].iloc[-1]).date() >= yesterday:
         logger.info(f"{question['id']} is skipped because it's already up-to-date!")
         # Check last date to see if we've already gotten the resolution value for today
         # If we have it already, return to avoid unnecessary API calls
@@ -182,13 +183,14 @@ def create_resolution_file(question, period):
         )
 
 
-def update_questions(dfq, dff):
+def update_questions(dfq, dff, overwrite_price_history=False):
     """
     Update the dataframes with new or modified question data and new community predictions.
 
     Parameters:
     - dfq (pd.DataFrame): DataFrame containing all existing questions.
     - dff (pd.DataFrame): DataFrame containing all newly fetched questions.
+    - overwrite_price_history (bool): If True, re-fetch all resolution data even if up-to-date.
 
     The function updates dfq by either replacing existing questions with new data or adding new questions.
     It also appends new community predictions to dfr for each question in all_questions_to_add.
@@ -198,7 +200,7 @@ def update_questions(dfq, dff):
     period = select_time_range(day_diff)
 
     for question in dff_list:
-        create_resolution_file(question, period)
+        create_resolution_file(question, period, force=overwrite_price_history)
 
         del question["fetch_datetime"]
         del question["probability"]
@@ -221,13 +223,17 @@ def update_questions(dfq, dff):
 @decorator.log_runtime
 def driver(_):
     """Execute the main workflow of fetching, processing, and uploading questions."""
+    overwrite_price_history = os.environ.get("OVERWRITE_PRICE_HISTORY", "").lower() in ("1", "true")
+    if overwrite_price_history:
+        logger.info("OVERWRITE_PRICE_HISTORY is set. Re-fetching all resolution data.")
+
     # Download existing questions from cloud storage
     dfq, dff = data_utils.get_data_from_cloud_storage(
         SOURCE, return_question_data=True, return_fetch_data=True
     )
 
     # Update the existing questions
-    dfq = update_questions(dfq, dff)
+    dfq = update_questions(dfq, dff, overwrite_price_history=overwrite_price_history)
 
     logger.info("Uploading to GCP...")
     # Save and upload
