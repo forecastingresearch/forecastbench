@@ -21,7 +21,7 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 
 NUM_CPUS = 8
 
-deploy : main.py requirements.txt Dockerfile model_release_dates.csv
+deploy : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
 	mkdir -p $(LEADERBOARD_UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(LEADERBOARD_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(LEADERBOARD_UPLOAD_DIR)/
@@ -46,18 +46,12 @@ deploy : main.py requirements.txt Dockerfile model_release_dates.csv
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS) \
 		--source $(LEADERBOARD_UPLOAD_DIR)
 
-deploy-dataset : main.py requirements.txt model_release_dates.csv
+deploy-dataset : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
 	rm -rf $(DATASET_UPLOAD_DIR)
 	mkdir -p $(DATASET_UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(DATASET_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(DATASET_UPLOAD_DIR)/
-	cp main.py requirements.txt model_release_dates.csv $(DATASET_UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/helpers/.gcloudignore $(DATASET_UPLOAD_DIR)/.gcloudignore
-	sed \
-		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
-		-e 's/STACK/google-22-full/g' \
-		-e 's/PYTHON_VERSION/python312/g' \
-		$(ROOT_DIR)src/helpers/Dockerfile.template > $(DATASET_UPLOAD_DIR)/Dockerfile
+	cp $^ $(DATASET_UPLOAD_DIR)/
 	gcloud run jobs deploy \
 		func-leaderboard-dataset \
 		--project $(CLOUD_PROJECT) \
