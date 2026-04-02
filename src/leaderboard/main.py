@@ -3007,6 +3007,15 @@ def get_sota_super_parity_expected_dates(
             be empty when an intersection cannot be estimated for a bootstrap.
     """
     logger.info("Get SOTA LLM Super parity dates.")
+
+    # Add dates to simulated output
+    if "model_release_date" not in df_leaderboard.columns:
+        df_leaderboard = get_model_release_date_info(
+            df=df_leaderboard.copy(),
+            days_since_release=False,
+            model_release_date=True,
+        )
+
     df_leaderboard = df_leaderboard[
         df_leaderboard["organization"] == constants.BENCHMARK_NAME
     ].reset_index(drop=True)
@@ -3030,14 +3039,6 @@ def get_sota_super_parity_expected_dates(
             pd.Timestamp.toordinal
         )
         return df
-
-    # Join dates to simulated output
-    if "model_release_date" not in df_leaderboard.columns:
-        df_leaderboard = get_model_release_date_info(
-            df=df_leaderboard,
-            days_since_release=False,
-            model_release_date=True,
-        )
 
     df_leaderboard = create_ordinal_model_release_date(df_leaderboard)
 
