@@ -58,11 +58,11 @@ deploy-dataset : main.py requirements.txt model_release_dates.csv
 	cp -r $(ROOT_DIR)utils $(DATASET_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(DATASET_UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/sources $(DATASET_UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_fb_types.py $({DATASET_UPLOAD_DIR})/
-	cp $(ROOT_DIR)src/_schemas.py $({DATASET_UPLOAD_DIR})/
-	mkdir -p $({DATASET_UPLOAD_DIR})/orchestration
-	cp $(ROOT_DIR)src/orchestration/__init__.py $({DATASET_UPLOAD_DIR})/orchestration/
-	cp $(ROOT_DIR)src/orchestration/_io.py $({DATASET_UPLOAD_DIR})/orchestration/
+	cp $(ROOT_DIR)src/_fb_types.py $(DATASET_UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_schemas.py $(DATASET_UPLOAD_DIR)/
+	mkdir -p $(DATASET_UPLOAD_DIR)/orchestration
+	cp $(ROOT_DIR)src/orchestration/__init__.py $(DATASET_UPLOAD_DIR)/orchestration/
+	cp $(ROOT_DIR)src/orchestration/_io.py $(DATASET_UPLOAD_DIR)/orchestration/
 	cp main.py requirements.txt model_release_dates.csv $(DATASET_UPLOAD_DIR)/
 	cp $(ROOT_DIR)src/helpers/.gcloudignore $(DATASET_UPLOAD_DIR)/.gcloudignore
 	sed \
