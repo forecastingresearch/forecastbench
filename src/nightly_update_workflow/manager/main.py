@@ -79,7 +79,7 @@ def summarize_question_bank():
     slack.send_message(message=f"```{df_str}```")
 
 
-def compress_bucket(bucket):
+def compress_bucket(bucket, timeout=cloud_run.timeout_1h):
     """Compress the given bucket."""
     return cloud_run.call_worker(
         job_name="nightly-bucket-compression",
@@ -87,7 +87,7 @@ def compress_bucket(bucket):
             "BUCKET_TO_COMPRESS": bucket,
         },
         task_count=1,
-        timeout=cloud_run.timeout_1h,
+        timeout=timeout,
     )
 
 
@@ -136,11 +136,16 @@ def main():
 
     summarize_question_bank()
 
-    operation_compress_question_bank_bucket = compress_bucket(bucket=env.QUESTION_BANK_BUCKET)
+    timeout_compress_question_bank = cloud_run.timeout_1h * 2
+    operation_compress_question_bank_bucket = compress_bucket(
+        bucket=env.QUESTION_BANK_BUCKET,
+        timeout=timeout_compress_question_bank,
+    )
     cloud_run.block_and_check_job_result(
         operation=operation_compress_question_bank_bucket,
         name=env.QUESTION_BANK_BUCKET,
         exit_on_error=False,
+        timeout=timeout_compress_question_bank,
     )
     cloud_run.block_and_check_job_result(
         operation=operation_compress_forecast_sets_bucket,
