@@ -126,6 +126,16 @@ def main():
         ),
     )
 
+    dict_to_use_metadata = "metadata"
+    operation_metadata = call_worker(dict_to_use=dict_to_use_metadata, task_count=1)
+    cloud_run.block_and_check_job_result(
+        operation=operation_metadata,
+        name=dict_to_use_metadata,
+        exit_on_error=False,
+    )
+
+    summarize_question_bank()
+
     operation_compress_question_bank_bucket = compress_bucket(bucket=env.QUESTION_BANK_BUCKET)
     cloud_run.block_and_check_job_result(
         operation=operation_compress_question_bank_bucket,
@@ -146,16 +156,6 @@ def main():
         task_count=1,
         timeout=timeout_resolve_forecasts,
     )
-
-    dict_to_use_metadata = "metadata"
-    operation_metadata = call_worker(dict_to_use=dict_to_use_metadata, task_count=1)
-    cloud_run.block_and_check_job_result(
-        operation=operation_metadata,
-        name=dict_to_use_metadata,
-        exit_on_error=False,
-    )
-
-    summarize_question_bank()
 
     dict_to_use_create_question_set = "create_question_set"
     operation_create_question_set = call_worker(
