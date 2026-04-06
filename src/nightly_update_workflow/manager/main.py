@@ -31,7 +31,7 @@ def summarize_question_bank():
     dfmeta = pd.read_json(
         f"gs://{env.QUESTION_BANK_BUCKET}/{constants.META_DATA_FILENAME}",
         lines=True,
-    )
+    )[["id", "source", "valid_question"]]
     df = pd.DataFrame()
     for source in sorted(question_curation.ALL_SOURCES):
         logger.info(f"downloading {source} question file.")
@@ -39,7 +39,7 @@ def summarize_question_bank():
             f"gs://{env.QUESTION_BANK_BUCKET}/{source}_questions.jsonl",
             lines=True,
             convert_dates=False,
-        )
+        )[["id", "resolved"]]
         dfq = dfq[~dfq["resolved"]].reset_index(drop=True)
         dfq["source"] = source
         dfq["id"] = dfq["id"].astype(str)
