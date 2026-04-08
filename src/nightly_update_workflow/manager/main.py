@@ -101,7 +101,6 @@ def main():
         timeout=timeout_publish_question_set,
     )
 
-    operation_compress_question_sets_bucket = compress_bucket(bucket=env.QUESTION_SETS_BUCKET)
     operation_compress_forecast_sets_bucket = compress_bucket(bucket=env.FORECAST_SETS_BUCKET)
 
     dict_to_use = "fetch_and_update"
@@ -241,11 +240,6 @@ def main():
         ),
     )
 
-    cloud_run.block_and_check_job_result(
-        operation=operation_compress_question_sets_bucket,
-        name=env.QUESTION_SETS_BUCKET,
-        exit_on_error=False,
-    )
     cloud_run.block_and_check_job_result(
         operation=operation_compress_processed_forecast_sets_bucket,
         name=env.QUESTION_BANK_BUCKET,

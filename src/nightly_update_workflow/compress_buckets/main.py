@@ -73,7 +73,6 @@ def driver(_: Any) -> None:
         raise ValueError("You must set the `BUCKET_TO_COMPRESS` environment variable.")
 
     if BUCKET_TO_COMPRESS not in [
-        env.QUESTION_SETS_BUCKET,
         env.QUESTION_BANK_BUCKET,
         env.FORECAST_SETS_BUCKET,
         env.PROCESSED_FORECAST_SETS_BUCKET,
