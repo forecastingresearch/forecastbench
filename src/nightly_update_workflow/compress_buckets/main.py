@@ -4,10 +4,8 @@ import logging
 import os
 import subprocess
 import sys
-import tarfile
 from typing import Any
 
-import gcsfs
 from termcolor import colored
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
@@ -21,40 +19,48 @@ logger = logging.getLogger(__name__)
 def compress_bucket_and_upload_tarball(bucket: str, compression: str = "gz") -> None:
     """Compress files in bucket and upload to same bucket as `<bucket>.tar.gz`.
 
+    Copy bucket contents to local disk with parallel transfers, create a tarball, and upload it.
+
     Args:
         bucket (str): Name of the GCP Storage bucket to process.
+        compression (str): Compression type, either "gz" or "xz".
 
     Returns:
         None
     """
     assert compression in ["gz", "xz"]
     ext = f".tar.{compression}"
-    fs = gcsfs.GCSFileSystem(project=env.PROJECT_ID)
-    # Recursively list all files
-    objects = []
-    for prefix, _, files in fs.walk(bucket):
-        for filename in files:
-            if filename and not filename.endswith(ext):
-                objects.append(f"{prefix}/{filename}")
+    local_dir = f"/tmp/{bucket}"
+    local_tarball = f"/tmp/{bucket}{ext}"
 
-    # Spawn gsutil to upload from stdin
-    filename = f"{bucket}{ext}"
-    upload = subprocess.Popen(
-        ["gsutil", "cp", "-", f"gs://{bucket}/{filename}"],
-        stdin=subprocess.PIPE,
+    logger.info(f"Copying gs://{bucket}/ to {local_dir}/ with parallel transfers.")
+    os.makedirs(local_dir, exist_ok=True)
+    subprocess.run(
+        ["gsutil", "-m", "rsync", "-r", "-x", r".*\.tar\.(gz|xz)$", f"gs://{bucket}/", local_dir],
+        check=True,
     )
 
-    # Open a streaming tarfile with gzip compression
-    with tarfile.open(fileobj=upload.stdin, mode=f"w:{compression}") as tarball:
-        for blob in objects:
-            info = tarfile.TarInfo(name=blob)
-            info.size = fs.info(blob)["size"]
-            with fs.open(blob, "rb") as f:
-                tarball.addfile(info, fileobj=f)
+    logger.info(f"Creating tarball {local_tarball}.")
+    subprocess.run(
+        [
+            "tar",
+            f"c{'z' if compression == 'gz' else 'J'}f",
+            local_tarball,
+            "-C",
+            "/tmp",
+            bucket,
+        ],
+        check=True,
+    )
 
-    upload.stdin.close()
-    upload.wait()
-    logger.info(f"Created {filename}.")
+    remote_path = f"gs://{bucket}/{bucket}{ext}"
+    content_type = "application/gzip" if compression == "gz" else "application/x-xz"
+    logger.info(f"Uploading {local_tarball} to {remote_path}.")
+    subprocess.run(
+        ["gsutil", "-h", f"Content-Type:{content_type}", "cp", local_tarball, remote_path],
+        check=True,
+    )
+    logger.info(f"Created {bucket}{ext}.")
 
 
 @decorator.log_runtime
