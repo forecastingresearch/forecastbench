@@ -205,10 +205,13 @@ resolve-forecasts:
 naive-and-dummy-forecasters:
 	$(MAKE) -C src/base_eval/naive_and_dummy_forecasters || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
-leaderboard:
+leaderboard-prereqs:
+	$(MAKE) -C src/leaderboard Dockerfile .gcloudignore
+
+leaderboard: leaderboard-prereqs
 	$(MAKE) -C src/leaderboard deploy || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
-leaderboard-dataset:
+leaderboard-dataset: leaderboard-prereqs
 	$(MAKE) -C src/leaderboard deploy-dataset || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 nightly-worker-job:
