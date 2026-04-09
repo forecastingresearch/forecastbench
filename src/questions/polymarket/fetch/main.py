@@ -138,17 +138,20 @@ def fetch_all_questions(dfq):
 
     def get_market(condition_id):
         """Return a market given the condition id."""
-        params_market = {
-            "condition_ids": condition_id,
-        }
-        response = requests.get(endpoint, params=params_market)
-        response.raise_for_status()
-        markets = response.json()
-        if len(markets) != 1:
-            message = f"Problem getting market for condition id {condition_id}."
-            logger.error(message)
-            raise ValueError(message)
-        return markets[0]
+        # Try without closed filter first (open markets), then with closed=True.
+        # The gamma API defaults to open markets only.
+        for params_market in [
+            {"condition_ids": condition_id, "closed": False},
+            {"condition_ids": condition_id, "closed": True},
+        ]:
+            response = requests.get(endpoint, params=params_market)
+            response.raise_for_status()
+            markets = response.json()
+            if len(markets) == 1:
+                return markets[0]
+        message = f"Problem getting market for condition id {condition_id}."
+        logger.error(message)
+        raise ValueError(message)
 
     def get_yes_index(market):
         """Return the index associated with a "Yes" bid."""
