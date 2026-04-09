@@ -57,7 +57,7 @@ def fetch_price_history(market_id):
     list: A list of dictionaries containing the price history data, or an empty list
           if the data retrieval fails.
     """
-    time.sleep(0.1)
+    time.sleep(0.02)
     logger.info(f"Getting price history for {market_id}...")
 
     endpoint = "https://clob.polymarket.com/prices-history"
@@ -246,7 +246,7 @@ def fetch_all_questions(dfq):
     all_existing_unresolved_questions = []
     invalid_question_ids = set(polymarket.NULLIFIED_QUESTION_IDS)
     for id_ in unresolved_ids:
-        time.sleep(0.1)
+        time.sleep(0.05)
         if id_ in invalid_question_ids:
             continue
         q = get_market(condition_id=id_)
