@@ -233,6 +233,9 @@ def _update_questions_and_resolved_values(dfq, dff):
         df = pd.merge(df_dates, df[["date", "value"]], on="date", how="left")
         df["value"] = df["value"].bfill()
 
+        # The API can return forecast periods with end_times in the future. Drop future dates.
+        df = df[df["date"] <= dates.get_date_yesterday()]
+
         # If the market has resolved, add the market value and resolution datetime
         if dfq.at[index, "resolved"]:
             resolved_date = pd.Timestamp(dfq.at[index, "market_info_resolution_datetime"]).date()
