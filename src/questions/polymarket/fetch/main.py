@@ -34,6 +34,9 @@ SOURCE = "polymarket"
 
 MIN_MARKET_LIQUIDITY = 25000
 
+# Set CHECK_AND_FIX_RESOLVED_DATA=1 to verify resolved question data is complete (contiguous dates).
+# This downloads every resolved question's file, so it's costly and off by default.
+
 
 @backoff.on_exception(
     backoff.expo,
@@ -210,27 +213,26 @@ def fetch_all_questions(dfq):
         time.sleep(1)
         offset += limit
 
-    resolved_ids = set(dfq.loc[dfq["resolved"], "id"]) if not dfq.empty else set()
     unresolved_ids = set(dfq.loc[~dfq["resolved"], "id"]) if not dfq.empty else set()
 
-    # Check all data is complete for resolved questions
-    # * Download resolution file
-    # * Check that data exists for every day between first date and the resolution date
-    # * If it doesn't exist, add to unresloved_ids to fetch market info again
-    dfr_tmp = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
-    for mid in resolved_ids:
-        dfr = data_utils.download_and_read(
-            filename=f"{SOURCE}/{mid}.jsonl",
-            local_filename="/tmp/tmp.jsonl",
-            df_tmp=dfr_tmp,
-            dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
-        )
-        dfr["date"] = pd.to_datetime(dfr["date"])
-        dfr = dfr.sort_values(by="date")
-        date_diff = dfr["date"].diff().dt.days
-        contiguous_dates = date_diff.iloc[1:].eq(1).all()
-        if dfr.empty or not contiguous_dates:
-            unresolved_ids.add(mid)
+    # Check all data is complete for resolved questions. Costly, so only enable via env var.
+    # Downloads each resolution file and checks that dates are contiguous. If not, re-fetches.
+    if os.environ.get("CHECK_AND_FIX_RESOLVED_DATA"):
+        resolved_ids = set(dfq.loc[dfq["resolved"], "id"]) if not dfq.empty else set()
+        dfr_tmp = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
+        for mid in resolved_ids:
+            dfr = data_utils.download_and_read(
+                filename=f"{SOURCE}/{mid}.jsonl",
+                local_filename="/tmp/tmp.jsonl",
+                df_tmp=dfr_tmp,
+                dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
+            )
+            dfr["date"] = pd.to_datetime(dfr["date"])
+            dfr = dfr.sort_values(by="date")
+            date_diff = dfr["date"].diff().dt.days
+            contiguous_dates = date_diff.iloc[1:].eq(1).all()
+            if dfr.empty or not contiguous_dates:
+                unresolved_ids.add(mid)
 
     logger.info(f"Number of unresolved questions in dfq: {len(unresolved_ids)}")
 
