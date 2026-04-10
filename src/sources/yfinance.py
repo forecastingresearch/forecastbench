@@ -42,4 +42,11 @@ class YfinanceSource(DatasetSource):
     name: ClassVar[str] = "yfinance"
     display_name: ClassVar[str] = "Yahoo Finance"
     source_type: ClassVar[SourceType] = SourceType.DATASET
-    nullified_questions: ClassVar[list[NullifiedQuestion]] = DELISTED_STOCKS
+
+    def fetch(self, **kwargs):
+        """Fetch Yahoo Finance data from external API."""
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        """Process fetched Yahoo Finance data into questions and resolution files."""
+        raise NotImplementedError

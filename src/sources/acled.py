@@ -148,3 +148,15 @@ class AcledSource(DatasetSource):
     def _id_unhash(self, hash_key: str):
         """Look up the original question dict from a hash key."""
         return self.hash_mapping.get(hash_key)
+
+    # ------------------------------------------------------------------
+    # Fetch / update (not yet implemented)
+    # ------------------------------------------------------------------
+
+    def fetch(self, **kwargs):
+        """Fetch ACLED data from external API."""
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        """Process fetched ACLED data into questions and resolution files."""
+        raise NotImplementedError

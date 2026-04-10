@@ -197,6 +197,18 @@ class WikipediaSource(DatasetSource):
         hash_key = self._transform_id(hash_key)
         return self.hash_mapping.get(hash_key)
 
+    # ------------------------------------------------------------------
+    # Fetch / update (not yet implemented)
+    # ------------------------------------------------------------------
+
+    def fetch(self, **kwargs):
+        """Fetch Wikipedia data."""
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        """Process fetched Wikipedia data into questions and resolution files."""
+        raise NotImplementedError
+
 
 # flake8: noqa: B950
 _TRANSFORM_ID_MAPPING = {
