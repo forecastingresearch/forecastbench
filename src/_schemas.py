@@ -84,6 +84,14 @@ class ResolveReadyFrame(ExplodedQuestionSetFrame):
     market_value_on_due_date: Series[float] = pa.Field(nullable=True)
 
 
+class InferFetchFrame(QuestionFrame):
+    """Output of InferSource.fetch(). QuestionFrame plus transient fields for update()."""
+
+    fetch_datetime: Series[str]
+    probability: Series[object] = pa.Field(nullable=True)
+    nullify_question: Series[bool]
+
+
 class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 

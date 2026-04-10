@@ -9,13 +9,14 @@ from typing import TYPE_CHECKING, Any, ClassVar, Union
 
 import numpy as np
 import pandas as pd
-from pandera.typing import DataFrame
 
 from _fb_types import NullifiedQuestion, SourceType, UpdateResult
-from _schemas import QuestionFrame, ResolutionFrame
+from _schemas import ResolutionFrame
 
 if TYPE_CHECKING:
-    from _schemas import ResolveReadyFrame
+    from pandera.typing import DataFrame
+
+    from _schemas import QuestionFrame, ResolveReadyFrame
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,6 @@
-"""Infer-specific variables."""
+"""Infer-specific variables. Delegates to sources.infer.InferSource."""
 
-SOURCE_INTRO = (
-    "We would like you to predict the outcome of a prediction market. A prediction market, in this "
-    "context, is the aggregate of predictions submitted by users on the website INFER Public. "
-    "You're going to predict the probability that the market will resolve as 'Yes'."
-)
+from sources.infer import InferSource
 
-RESOLUTION_CRITERIA = "Resolves to the outcome of the question found at {url}."
+SOURCE_INTRO = InferSource.source_intro
+RESOLUTION_CRITERIA = InferSource.resolution_criteria
