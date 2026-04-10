@@ -28,3 +28,11 @@ class FredSource(DatasetSource):
         NullifiedQuestion(id=nid, nullification_start_date=start_date)
         for nid, start_date in NULLIFIED_QUESTIONS.items()
     ]
+
+    def fetch(self, **kwargs):
+        """Fetch FRED data from external API."""
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        """Process fetched FRED data into questions and resolution files."""
+        raise NotImplementedError

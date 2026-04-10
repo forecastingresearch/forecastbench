@@ -15,3 +15,11 @@ class MetaculusSource(MarketSource):
     name: ClassVar[str] = "metaculus"
     display_name: ClassVar[str] = "Metaculus"
     source_type: ClassVar[SourceType] = SourceType.MARKET
+
+    def fetch(self, **kwargs):
+        """Fetch Metaculus data from external API."""
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        """Process fetched Metaculus data into questions and resolution files."""
+        raise NotImplementedError

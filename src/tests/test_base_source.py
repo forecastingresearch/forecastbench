@@ -27,6 +27,12 @@ class _StubSource(BaseSource):
         df["resolved"] = True
         return df, []
 
+    def fetch(self, **kwargs):
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        raise NotImplementedError
+
 
 class _StubSourceWithNullified(BaseSource):
     """Concrete subclass with nullified questions."""
@@ -43,6 +49,12 @@ class _StubSourceWithNullified(BaseSource):
         df["resolved_to"] = 1.0
         df["resolved"] = True
         return df, []
+
+    def fetch(self, **kwargs):
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        raise NotImplementedError
 
 
 # ---------------------------------------------------------------------------

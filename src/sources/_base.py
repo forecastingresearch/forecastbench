@@ -5,18 +5,17 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import TYPE_CHECKING, ClassVar, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Union
 
 import numpy as np
 import pandas as pd
+from pandera.typing import DataFrame
 
-from _fb_types import NullifiedQuestion, SourceType
-from _schemas import ResolutionFrame
+from _fb_types import NullifiedQuestion, SourceType, UpdateResult
+from _schemas import QuestionFrame, ResolutionFrame
 
 if TYPE_CHECKING:
-    from pandera.typing import DataFrame
-
-    from _schemas import QuestionFrame, ResolveReadyFrame
+    from _schemas import ResolveReadyFrame
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +35,16 @@ class BaseSource(ABC):
     def __init__(self) -> None:
         """Initialize with empty hash mapping."""
         self.hash_mapping: dict[str, dict] = {}
+        self.api_key: str | None = None
+
+    def _require_api_key(self) -> str:
+        """Return api_key or raise if not set."""
+        if not self.api_key:
+            raise RuntimeError(
+                f"{self.__class__.__name__}.api_key must be set before calling "
+                "fetch() or update(). Set it in the orchestration layer."
+            )
+        return self.api_key
 
     def __init_subclass__(cls, **kwargs):
         """Enforce required ClassVars on concrete (non-intermediate) subclasses."""
@@ -154,6 +163,26 @@ class BaseSource(ABC):
                 raise ValueError(msg)
 
         df["id"].apply(check_id)
+
+    @abstractmethod
+    def fetch(self, **kwargs: Any) -> pd.DataFrame:
+        """Fetch raw data from external API. Return shape is source-specific."""
+        ...
+
+    @abstractmethod
+    def update(
+        self,
+        dfq: DataFrame[QuestionFrame],
+        dff: pd.DataFrame,
+        **kwargs: Any,
+    ) -> UpdateResult:
+        """Process fetched data into questions and resolution files.
+
+        Args:
+            dfq (DataFrame[QuestionFrame]): Existing questions.
+            dff (pd.DataFrame): Freshly fetched data (source-specific schema).
+        """
+        ...
 
     # ------------------------------------------------------------------
     # Static utility methods

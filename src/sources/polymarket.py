@@ -34,3 +34,11 @@ class PolymarketSource(MarketSource):
         NullifiedQuestion(id=nid, nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE)
         for nid in sorted(NULLIFIED_QUESTION_IDS)
     ]
+
+    def fetch(self, **kwargs):
+        """Fetch Polymarket data from external API."""
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        """Process fetched Polymarket data into questions and resolution files."""
+        raise NotImplementedError
