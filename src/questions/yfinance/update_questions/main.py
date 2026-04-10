@@ -12,13 +12,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E4
 from helpers import constants, data_utils, dates, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
-from sources.yfinance import TICKER_RENAMES  # noqa: E402
+from sources._metadata import SOURCE_METADATA  # noqa: E402
 from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SOURCE = "yfinance"
+TICKER_RENAMES = SOURCE_METADATA["yfinance"]["ticker_renames"]
 
 
 def select_time_range(days_difference):

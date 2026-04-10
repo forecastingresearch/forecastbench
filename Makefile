@@ -143,10 +143,10 @@ metaculus-update-questions:
 infer: infer-fetch infer-update-questions
 
 infer-fetch:
-	$(MAKE) -C src/questions/infer/fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_infer_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 infer-update-questions:
-	$(MAKE) -C src/questions/infer/update_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_infer_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 acled: acled-fetch acled-update-questions
 

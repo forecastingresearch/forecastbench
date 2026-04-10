@@ -1,1 +1,1 @@
-"""Orchestration layer for resolve pipeline."""
+"""Orchestration layer."""

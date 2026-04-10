@@ -9,13 +9,16 @@ from typing import TYPE_CHECKING, Any, ClassVar, Union
 
 import numpy as np
 import pandas as pd
-from pandera.typing import DataFrame
 
 from _fb_types import NullifiedQuestion, SourceType, UpdateResult
-from _schemas import QuestionFrame, ResolutionFrame
+from _schemas import ResolutionFrame
+
+from ._metadata import SOURCE_METADATA
 
 if TYPE_CHECKING:
-    from _schemas import ResolveReadyFrame
+    from pandera.typing import DataFrame
+
+    from _schemas import QuestionFrame, ResolveReadyFrame
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +30,9 @@ class BaseSource(ABC):
     """
 
     name: ClassVar[str]
-    display_name: ClassVar[str]
     source_type: ClassVar[SourceType]
+    source_intro: ClassVar[str]
+    resolution_criteria: ClassVar[str]
     nullified_questions: ClassVar[list[NullifiedQuestion]] = []
     resolution_schema: ClassVar[type] = ResolutionFrame
 
@@ -47,14 +51,33 @@ class BaseSource(ABC):
         return self.api_key
 
     def __init_subclass__(cls, **kwargs):
-        """Enforce required ClassVars on concrete (non-intermediate) subclasses."""
+        """Enforce required ClassVars and auto-populate from _metadata.
+
+        Concrete subclasses must define ``name`` and ``source_type``. After
+        enforcement, any keys present in ``SOURCE_METADATA[cls.name]`` are set
+        as class attributes automatically (source_intro, resolution_criteria,
+        nullified_questions, etc.) so source files only need ``name``.
+        """
         super().__init_subclass__(**kwargs)
         # Skip enforcement for DatasetSource / MarketSource (they're still abstract)
         if cls.__name__ in ("DatasetSource", "MarketSource"):
             return
-        for attr in ("name", "display_name", "source_type"):
+        for attr in ("name", "source_type"):
             if not hasattr(cls, attr) or getattr(cls, attr) is getattr(BaseSource, attr, None):
                 raise TypeError(f"Concrete source {cls.__name__} must define ClassVar '{attr}'")
+
+        # Auto-populate from metadata
+        _REQUIRED_METADATA_KEYS = {"source_type", "source_intro", "resolution_criteria"}
+        name = getattr(cls, "name", None)
+        if name and name in SOURCE_METADATA:
+            meta = SOURCE_METADATA[name]
+            missing = _REQUIRED_METADATA_KEYS - meta.keys()
+            if missing:
+                raise TypeError(
+                    f"SOURCE_METADATA['{name}'] missing required keys: {sorted(missing)}"
+                )
+            for key, value in meta.items():
+                setattr(cls, key, value)
 
     # ------------------------------------------------------------------
     # Public resolve interface
