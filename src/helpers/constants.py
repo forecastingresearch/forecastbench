@@ -297,6 +297,18 @@ MODELS_TO_RUN = {
         "full_name": "zai-org/GLM-5",
         "token_limit": 202752,
     },
+    "GLM-5.1": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": ZAI_ORG,
+        "full_name": "zai-org/GLM-5.1",
+        "token_limit": 202752,
+    },
+    "Gemma-4-31B": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "google/gemma-4-31B-it",
+        "token_limit": 262144,
+    },
     # anthropic context window from: https://platform.claude.com/docs/en/about-claude/models/overview
     "claude-sonnet-4-5-20250929": {
         "source": ANTHROPIC_SOURCE,

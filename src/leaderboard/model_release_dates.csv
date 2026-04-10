@@ -95,6 +95,8 @@ GLM-4.7 (zero shot with freeze values),2025-12-22
 GLM-4.7 (zero shot),2025-12-22
 GLM-5 (zero shot with freeze values),2026-02-12
 GLM-5 (zero shot),2026-02-12
+GLM-5.1 (zero shot with freeze values),2026-04-07
+GLM-5.1 (zero shot),2026-04-07
 GPT-3.5-Turbo-0125 (scratchpad with freeze values),2024-01-25
 GPT-3.5-Turbo-0125 (scratchpad),2024-01-25
 GPT-3.5-Turbo-0125 (zero shot with freeze values),2024-01-25
@@ -210,6 +212,8 @@ Gemini-3-Pro-Preview (zero shot with freeze values),2025-11-18
 Gemini-3-Pro-Preview (zero shot),2025-11-18
 Gemini-3.1-Pro-Preview (zero shot with freeze values),2026-02-19
 Gemini-3.1-Pro-Preview (zero shot),2026-02-19
+Gemma-4-31B (zero shot with freeze values),2026-04-02
+Gemma-4-31B (zero shot),2026-04-02
 Grok-beta (scratchpad with freeze values),2024-11-04
 Grok-beta (scratchpad),2024-11-04
 Grok-beta (zero shot with freeze values),2024-11-04
