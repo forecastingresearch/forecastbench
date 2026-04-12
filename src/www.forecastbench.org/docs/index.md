@@ -70,7 +70,7 @@ footer_scripts:
   <h1 id="iclr-2025-title" class="site-feature-row__title" data-section-link>ICLR 2025</h1>
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
-      <p>The benchmark was accepted to ICLR 2025 as a poster. On that page, you can view the <a href="https://iclr.cc/media/PosterPDFs/ICLR%202025/28507.png?t=1741725847.5784986" class="no-wrap">poster <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://iclr.cc/media/iclr-2025/Slides/28507.pdf" class="no-wrap">slides <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, and <a href="https://openreview.net/pdf?id=lfPkGWXLLf" class="no-wrap">ICLR version of the paper <i class="fa-solid fa-arrow-up-right-from-square"></i></a>. <i>Last updated: 22 Jan 2025.</i></p>
+      <p>The benchmark was accepted to ICLR 2025 as a poster. On that page, you can view the <a href="https://iclr.cc/media/PosterPDFs/ICLR%202025/28507.png?t=1741725847.5784986" class="no-wrap">poster <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, <a href="https://iclr.cc/media/iclr-2025/Slides/28507.pdf" class="no-wrap">slides <i class="fa-solid fa-arrow-up-right-from-square"></i></a>, and <a href="https://openreview.net/forum?id=lfPkGWXLLf" class="no-wrap">ICLR version of the paper <i class="fa-solid fa-arrow-up-right-from-square"></i></a>. <i>Last updated: 22 Jan 2025.</i></p>
       <a href="https://iclr.cc/virtual/2025/poster/28507" class="btn btn--primary no-wrap">ICLR Page</a>
     </div>
     <div class="site-feature-row__right-3">
