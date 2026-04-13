@@ -8,6 +8,7 @@ from enum import Enum
 BENCHMARK_NAME = "ForecastBench"
 BENCHMARK_EMAIL = "forecastbench@forecastingresearch.org"
 BENCHMARK_URL = "https://www.forecastbench.org"
+BENCHMARK_USER_AGENT = f"{BENCHMARK_NAME}Bot/0.0 ({BENCHMARK_URL}; {BENCHMARK_EMAIL})"
 
 BENCHMARK_START_YEAR = 2024
 BENCHMARK_START_MONTH = 5

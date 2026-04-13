@@ -38,14 +38,15 @@ def get_sp500_tickers():
     """
     try:
         url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-        response = requests.get(url)
-        response.raise_for_status()  # Raises an HTTPError for bad responses
+        headers = {"User-Agent": constants.BENCHMARK_USER_AGENT}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
         table = soup.find("table", {"id": "constituents"})
         tickers = [
             row.find_all("td")[0].text.strip() for row in table.find_all("tr")[1:]
         ]  # Skip header row
-        logger.info(f"Retrieved S&P 500 stock tickers: {tickers}")
+        logger.info(f"Retrieved S&P 500 stock tickers: {len(tickers)} tickers")
         return tickers
     except Exception as e:
         logger.error(f"Failed to retrieve stock tickers due to: {e}")
