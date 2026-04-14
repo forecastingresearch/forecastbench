@@ -37,9 +37,7 @@ class InferSource(MarketSource):
         "this context, is the aggregate of predictions submitted by users on the website INFER "
         "Public. You're going to predict the probability that the market will resolve as 'Yes'."
     )
-    resolution_criteria: ClassVar[str] = (
-        "Resolves to the outcome of the question found at {url}."
-    )
+    resolution_criteria: ClassVar[str] = "Resolves to the outcome of the question found at {url}."
 
     # ------------------------------------------------------------------
     # Public: fetch
