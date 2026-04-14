@@ -24,7 +24,9 @@ def driver(_: Any) -> None:
     dfq, dff = data_utils.get_data_from_cloud_storage(
         SOURCE, return_question_data=True, return_fetch_data=True
     )
-    existing_resolution_files = _source_io.load_existing_resolution_files(SOURCE)
+    existing_resolution_files = _source_io.load_existing_resolution_files(
+        SOURCE, ids=dff["id"].astype(str).tolist()
+    )
 
     result = source.update(dfq, dff, existing_resolution_files=existing_resolution_files)
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from typing import Iterable
 
 import pandas as pd
 
@@ -33,22 +34,37 @@ def write_fetch_output(source: str, dff: pd.DataFrame) -> None:
     )
 
 
-def load_existing_resolution_files(source: str) -> dict[str, pd.DataFrame]:
-    """Download all <source>/<id>.jsonl resolution files.
+def load_existing_resolution_files(
+    source: str,
+    ids: Iterable[str] | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Download <source>/<id>.jsonl resolution files.
+
+    If ids is given, download only those. If ids is None, list the bucket and
+    download every .jsonl under <source>/ — use sparingly, scales with backlog.
 
     Args:
         source (str): Source name (e.g. "infer").
+        ids (Iterable[str] | None): Specific question IDs to load. If None,
+            load every resolution file present in the bucket for this source.
 
     Returns:
         dict mapping question_id to its resolution DataFrame.
     """
-    files = gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=f"{source}/")
+    if ids is None:
+        paths = gcp.storage.list_with_prefix(
+            bucket_name=env.QUESTION_BANK_BUCKET, prefix=f"{source}/"
+        )
+        question_ids = [
+            os.path.basename(p).removesuffix(".jsonl") for p in paths if p.endswith(".jsonl")
+        ]
+    else:
+        question_ids = [str(qid) for qid in ids]
+
     result: dict[str, pd.DataFrame] = {}
-    for remote_path in files:
-        if not remote_path.endswith(".jsonl"):
-            continue
-        basename = os.path.basename(remote_path)
-        question_id = basename.replace(".jsonl", "")
+    for question_id in question_ids:
+        basename = f"{question_id}.jsonl"
+        remote_path = f"{source}/{basename}"
         local_filename = f"/tmp/{source}_{basename}"
 
         gcp.storage.download_no_error_message_on_404(
