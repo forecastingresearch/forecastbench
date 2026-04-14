@@ -28,7 +28,6 @@ class BaseSource(ABC):
     """
 
     name: ClassVar[str]
-    display_name: ClassVar[str]
     source_type: ClassVar[SourceType]
     source_intro: ClassVar[str]
     resolution_criteria: ClassVar[str]
@@ -55,7 +54,7 @@ class BaseSource(ABC):
         # Skip enforcement for DatasetSource / MarketSource (they're still abstract)
         if cls.__name__ in ("DatasetSource", "MarketSource"):
             return
-        for attr in ("name", "display_name", "source_type"):
+        for attr in ("name", "source_type"):
             if not hasattr(cls, attr) or getattr(cls, attr) is getattr(BaseSource, attr, None):
                 raise TypeError(f"Concrete source {cls.__name__} must define ClassVar '{attr}'")
 

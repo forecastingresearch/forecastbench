@@ -61,15 +61,15 @@ class TestSourceQuestionBank:
 
 
 _EXPECTED_SOURCES = {
-    "acled": ("ACLED", SourceType.DATASET),
-    "dbnomics": ("DBnomics", SourceType.DATASET),
-    "fred": ("FRED", SourceType.DATASET),
-    "infer": ("INFER", SourceType.MARKET),
-    "manifold": ("Manifold", SourceType.MARKET),
-    "metaculus": ("Metaculus", SourceType.MARKET),
-    "polymarket": ("Polymarket", SourceType.MARKET),
-    "wikipedia": ("Wikipedia", SourceType.DATASET),
-    "yfinance": ("Yahoo Finance", SourceType.DATASET),
+    "acled": SourceType.DATASET,
+    "dbnomics": SourceType.DATASET,
+    "fred": SourceType.DATASET,
+    "infer": SourceType.MARKET,
+    "manifold": SourceType.MARKET,
+    "metaculus": SourceType.MARKET,
+    "polymarket": SourceType.MARKET,
+    "wikipedia": SourceType.DATASET,
+    "yfinance": SourceType.DATASET,
 }
 
 
@@ -79,10 +79,8 @@ class TestConcreteSourceClassVars:
     @pytest.mark.parametrize("name", sorted(_EXPECTED_SOURCES.keys()))
     def test_source_name_and_type(self, name):
         source = SOURCES[name]
-        expected_display, expected_type = _EXPECTED_SOURCES[name]
         assert source.name == name
-        assert source.display_name == expected_display
-        assert source.source_type == expected_type
+        assert source.source_type == _EXPECTED_SOURCES[name]
 
     def test_all_sources_registered(self):
         assert set(SOURCES.keys()) == set(_EXPECTED_SOURCES.keys())

@@ -28,7 +28,6 @@ class PolymarketSource(MarketSource):
     """Polymarket prediction market source."""
 
     name: ClassVar[str] = "polymarket"
-    display_name: ClassVar[str] = "Polymarket"
     nullified_questions: ClassVar[list[NullifiedQuestion]] = [
         NullifiedQuestion(id=nid, nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE)
         for nid in sorted(NULLIFIED_QUESTION_IDS)

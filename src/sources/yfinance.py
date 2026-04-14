@@ -38,7 +38,6 @@ class YfinanceSource(DatasetSource):
     """Yahoo Finance financial data source."""
 
     name: ClassVar[str] = "yfinance"
-    display_name: ClassVar[str] = "Yahoo Finance"
 
     def fetch(self, **kwargs):
         """Fetch Yahoo Finance data from external API."""

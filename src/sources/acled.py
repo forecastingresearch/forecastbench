@@ -21,7 +21,6 @@ class AcledSource(DatasetSource):
     """Armed Conflict Location & Event Data source with custom resolution logic."""
 
     name: ClassVar[str] = "acled"
-    display_name: ClassVar[str] = "ACLED"
     resolution_schema: ClassVar[type] = AcledResolutionFrame
 
     def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:

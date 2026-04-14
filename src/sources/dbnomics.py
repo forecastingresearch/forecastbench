@@ -11,7 +11,6 @@ class DbnomicsSource(DatasetSource):
     """DBnomics economic data source."""
 
     name: ClassVar[str] = "dbnomics"
-    display_name: ClassVar[str] = "DBnomics"
 
     def fetch(self, **kwargs):
         """Fetch DBnomics data from external API."""

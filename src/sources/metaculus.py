@@ -11,7 +11,6 @@ class MetaculusSource(MarketSource):
     """Metaculus prediction market source."""
 
     name: ClassVar[str] = "metaculus"
-    display_name: ClassVar[str] = "Metaculus"
 
     def fetch(self, **kwargs):
         """Fetch Metaculus data from external API."""

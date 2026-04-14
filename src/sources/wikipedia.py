@@ -34,7 +34,6 @@ class WikipediaSource(DatasetSource):
     """Wikipedia dataset source with custom row-by-row resolution logic."""
 
     name: ClassVar[str] = "wikipedia"
-    display_name: ClassVar[str] = "Wikipedia"
     nullified_questions: ClassVar[list[NullifiedQuestion]] = []  # populated after _IDS_TO_NULLIFY
 
     def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:

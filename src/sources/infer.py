@@ -30,7 +30,6 @@ class InferSource(MarketSource):
     """INFER Public prediction market source."""
 
     name: ClassVar[str] = "infer"
-    display_name: ClassVar[str] = "INFER"
     source_intro: ClassVar[str] = (
         "We would like you to predict the outcome of a prediction market. A prediction market, in "
         "this context, is the aggregate of predictions submitted by users on the website INFER "

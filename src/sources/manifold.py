@@ -11,7 +11,6 @@ class ManifoldSource(MarketSource):
     """Manifold prediction market source."""
 
     name: ClassVar[str] = "manifold"
-    display_name: ClassVar[str] = "Manifold"
 
     def fetch(self, **kwargs):
         """Fetch Manifold data from external API."""

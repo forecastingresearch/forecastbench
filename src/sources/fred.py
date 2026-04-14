@@ -18,7 +18,6 @@ class FredSource(DatasetSource):
     """Federal Reserve Economic Data source."""
 
     name: ClassVar[str] = "fred"
-    display_name: ClassVar[str] = "FRED"
     nullified_questions: ClassVar[list[NullifiedQuestion]] = [
         NullifiedQuestion(id=nid, nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE)
         for nid in NULLIFIED_IDS
