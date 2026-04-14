@@ -30,6 +30,8 @@ class BaseSource(ABC):
     name: ClassVar[str]
     display_name: ClassVar[str]
     source_type: ClassVar[SourceType]
+    source_intro: ClassVar[str]
+    resolution_criteria: ClassVar[str]
     nullified_questions: ClassVar[list[NullifiedQuestion]] = []
     resolution_schema: ClassVar[type] = ResolutionFrame
 
