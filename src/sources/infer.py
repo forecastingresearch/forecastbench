@@ -15,7 +15,7 @@ import pandera.pandas as pa
 import requests
 from pandera.typing import DataFrame
 
-from _fb_types import SourceType, UpdateResult
+from _fb_types import UpdateResult
 from _schemas import InferFetchFrame, QuestionFrame, ResolutionFrame
 from helpers import constants, data_utils, dates
 
@@ -31,7 +31,6 @@ class InferSource(MarketSource):
 
     name: ClassVar[str] = "infer"
     display_name: ClassVar[str] = "INFER"
-    source_type: ClassVar[SourceType] = SourceType.MARKET
     source_intro: ClassVar[str] = (
         "We would like you to predict the outcome of a prediction market. A prediction market, in "
         "this context, is the aggregate of predictions submitted by users on the website INFER "

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from _fb_types import SourceType
-
 from ._market import MarketSource
 
 
@@ -14,7 +12,6 @@ class ManifoldSource(MarketSource):
 
     name: ClassVar[str] = "manifold"
     display_name: ClassVar[str] = "Manifold"
-    source_type: ClassVar[SourceType] = SourceType.MARKET
 
     def fetch(self, **kwargs):
         """Fetch Manifold data from external API."""

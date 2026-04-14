@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from _fb_types import NullifiedQuestion, SourceType
+from _fb_types import NullifiedQuestion
 from helpers.constants import BENCHMARK_START_DATE_DATETIME_DATE
 
 from ._market import MarketSource
@@ -29,7 +29,6 @@ class PolymarketSource(MarketSource):
 
     name: ClassVar[str] = "polymarket"
     display_name: ClassVar[str] = "Polymarket"
-    source_type: ClassVar[SourceType] = SourceType.MARKET
     nullified_questions: ClassVar[list[NullifiedQuestion]] = [
         NullifiedQuestion(id=nid, nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE)
         for nid in sorted(NULLIFIED_QUESTION_IDS)

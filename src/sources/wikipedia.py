@@ -12,7 +12,7 @@ from typing import ClassVar
 import numpy as np
 import pandas as pd
 
-from _fb_types import NullifiedQuestion, SourceType
+from _fb_types import NullifiedQuestion
 from helpers import constants, dates
 
 from ._dataset import DatasetSource
@@ -35,7 +35,6 @@ class WikipediaSource(DatasetSource):
 
     name: ClassVar[str] = "wikipedia"
     display_name: ClassVar[str] = "Wikipedia"
-    source_type: ClassVar[SourceType] = SourceType.DATASET
     nullified_questions: ClassVar[list[NullifiedQuestion]] = []  # populated after _IDS_TO_NULLIFY
 
     def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:

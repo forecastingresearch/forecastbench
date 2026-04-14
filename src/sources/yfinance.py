@@ -5,8 +5,6 @@ from __future__ import annotations
 from datetime import date
 from typing import ClassVar
 
-from _fb_types import NullifiedQuestion, SourceType
-
 from ._dataset import DatasetSource
 
 # Stocks that were delisted (via acquisition, merger, or going private) while still in the question
@@ -41,7 +39,6 @@ class YfinanceSource(DatasetSource):
 
     name: ClassVar[str] = "yfinance"
     display_name: ClassVar[str] = "Yahoo Finance"
-    source_type: ClassVar[SourceType] = SourceType.DATASET
 
     def fetch(self, **kwargs):
         """Fetch Yahoo Finance data from external API."""

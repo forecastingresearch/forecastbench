@@ -10,7 +10,6 @@ from typing import ClassVar
 import numpy as np
 import pandas as pd
 
-from _fb_types import SourceType
 from _schemas import AcledResolutionFrame
 
 from ._dataset import DatasetSource
@@ -23,7 +22,6 @@ class AcledSource(DatasetSource):
 
     name: ClassVar[str] = "acled"
     display_name: ClassVar[str] = "ACLED"
-    source_type: ClassVar[SourceType] = SourceType.DATASET
     resolution_schema: ClassVar[type] = AcledResolutionFrame
 
     def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:
