@@ -9,8 +9,6 @@ from datetime import date
 from _fb_types import NullifiedQuestion, SourceType
 from helpers.constants import BENCHMARK_START_DATE_DATETIME_DATE
 
-_B = BENCHMARK_START_DATE_DATETIME_DATE  # shorthand for nullification entries
-
 SOURCE_METADATA = {
     "acled": {
         "source_type": SourceType.DATASET,
@@ -119,30 +117,30 @@ SOURCE_METADATA = {
             # Name changed: "R. Vaishali" --> "Vaishali Rameshbabu"
             NullifiedQuestion(
                 id="149b5a465d9640ee10afcd1c6dde90627a4b58918111c14455d369f304aae454",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="98e72a2d4c6daa0b0d8aee1d02a8628bbacf713f0e44b02f80a12b1dae1c618f",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             # Name changed: "Erigaisi Arjun" --> "Arjun Erigaisi"
             NullifiedQuestion(
                 id="b70970a0440d1b7dedde9220fb60ffe3f2ed8b00ef12b45341772046caa12092",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             # Rameshbabu Praggnanandhaa — too many repeated name changes
             # NB: _not_ nullifying ff153a13... (first asked 2025-05-25) or a987eef3... (2025-03-30)
             NullifiedQuestion(
                 id="7687186d5e0807f8925a694beafb3d6e057978a9a01f0d1a3e0eaf1a49959e78",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="479a40c45087510f72ee43a77aaccf78d563361728151ed3aab9b2b186db0b72",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="4b9175c88f855ee0d0fc54640158fc7da10b7b2dcc4fe1053bd180ac1a72bf39",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             # Virus common name changed from "Monkeypox" to "Mpox"
             NullifiedQuestion(
@@ -156,35 +154,35 @@ SOURCE_METADATA = {
             # Leinier Domínguez Pérez — too many repeated name changes
             NullifiedQuestion(
                 id="c8cc0816ce50a7fc018eccb7e6ed19628dc1f56e1cda26aca4b8f09c4edc7beb",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="21f7534aaa7292ba1e71ed0d1ce0fc350febe64414083b4b60d35765781eab35",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="9ab6734c6bf88f28a8c71b9d73995541b351f2663a7d8331a2c56dd5116d78a3",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="a9783d8184c3f43668cc21417788be00fd4ff70eec91064c5539ed5ebb0019e8",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="fa118e263e1218af8bb24cf7f6dd1c68e179d430584adf5b9b37d1b8488932d8",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="60d86f26a5b1e6576d218076ae7a66bf0fadc0bfe042ff1adf875918cc8d2781",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="6f8a3d10d39d69ecbdb10db2fabb66d852af39b95ce1af9f48ce5d9fd0175d87",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             NullifiedQuestion(
                 id="dfa2dc6d7511437365132459a03e4d7bc10632ffd78c145fb98496699647f968",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             # Resolved keys from _TRANSFORM_ID_MAPPING — old erroneous IDs superseded
             # Tatjana Schoenmaker, lost swimming WR
@@ -307,7 +305,7 @@ SOURCE_METADATA = {
             # Vaccine was created in 2023 but Wikipedia table had not been updated
             NullifiedQuestion(
                 id="242926fea271734ef8d4920e532414b38dbfdf301516fd9f0c988abd0ce777dd",
-                nullification_start_date=_B,
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),  # noqa: B950
             # Ryan Lochte, lost swimming WR
             NullifiedQuestion(
