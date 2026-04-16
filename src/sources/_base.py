@@ -13,6 +13,8 @@ import pandas as pd
 from _fb_types import NullifiedQuestion, SourceType, UpdateResult
 from _schemas import ResolutionFrame
 
+from ._metadata import SOURCE_METADATA
+
 if TYPE_CHECKING:
     from pandera.typing import DataFrame
 
@@ -49,7 +51,13 @@ class BaseSource(ABC):
         return self.api_key
 
     def __init_subclass__(cls, **kwargs):
-        """Enforce required ClassVars on concrete (non-intermediate) subclasses."""
+        """Enforce required ClassVars and auto-populate from _metadata.
+
+        Concrete subclasses must define ``name`` and ``source_type``. After
+        enforcement, any keys present in ``SOURCE_METADATA[cls.name]`` are set
+        as class attributes automatically (source_intro, resolution_criteria,
+        nullified_questions, etc.) so source files only need ``name``.
+        """
         super().__init_subclass__(**kwargs)
         # Skip enforcement for DatasetSource / MarketSource (they're still abstract)
         if cls.__name__ in ("DatasetSource", "MarketSource"):
@@ -57,6 +65,19 @@ class BaseSource(ABC):
         for attr in ("name", "source_type"):
             if not hasattr(cls, attr) or getattr(cls, attr) is getattr(BaseSource, attr, None):
                 raise TypeError(f"Concrete source {cls.__name__} must define ClassVar '{attr}'")
+
+        # Auto-populate from metadata
+        _REQUIRED_METADATA_KEYS = {"source_type", "source_intro", "resolution_criteria"}
+        name = getattr(cls, "name", None)
+        if name and name in SOURCE_METADATA:
+            meta = SOURCE_METADATA[name]
+            missing = _REQUIRED_METADATA_KEYS - meta.keys()
+            if missing:
+                raise TypeError(
+                    f"SOURCE_METADATA['{name}'] missing required keys: {sorted(missing)}"
+                )
+            for key, value in meta.items():
+                setattr(cls, key, value)
 
     # ------------------------------------------------------------------
     # Public resolve interface

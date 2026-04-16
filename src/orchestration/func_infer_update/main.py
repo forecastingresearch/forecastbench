@@ -7,7 +7,7 @@ from typing import Any
 
 from helpers import data_utils, decorator, keys
 from orchestration import _source_io
-from sources import SOURCES
+from sources.infer import InferSource
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ SOURCE = "infer"
 @decorator.log_runtime
 def driver(_: Any) -> None:
     """Update INFER questions and resolution files."""
-    source = SOURCES[SOURCE]
+    source = InferSource()
     source.api_key = keys.API_KEY_INFER
 
     dfq, dff = data_utils.get_data_from_cloud_storage(

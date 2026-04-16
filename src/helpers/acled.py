@@ -6,7 +6,12 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 
+from sources._metadata import SOURCE_METADATA
+
 from . import data_utils
+
+SOURCE_INTRO = SOURCE_METADATA["acled"]["source_intro"]
+RESOLUTION_CRITERIA = SOURCE_METADATA["acled"]["resolution_criteria"]
 
 source = "acled"
 
@@ -17,9 +22,9 @@ _source = None
 def _get_source():
     global _source
     if _source is None:
-        from sources import SOURCES
+        from sources.acled import AcledSource
 
-        _source = SOURCES[source]
+        _source = AcledSource()
     return _source
 
 
@@ -83,17 +88,6 @@ ACLED classifies events into six distinct categories:
 Detailed information about the categories can be found at:
 https://acleddata.com/knowledge-base/codebook/#acled-events
 """
-
-SOURCE_INTRO = (
-    "The Armed Conflict Location & Event Data Project (ACLED) collects real-time data on the "
-    "locations, dates, actors, fatalities, and types of all reported political violence and "
-    "protest events around the world. You're going to predict how questions based on this data "
-    "will resolve."
-)
-
-RESOLUTION_CRITERIA = (
-    "Resolves to the value calculated from the ACLED dataset once the data is published."
-)
 
 
 def read_dff(local_question_bank_dir=None) -> pd.DataFrame:

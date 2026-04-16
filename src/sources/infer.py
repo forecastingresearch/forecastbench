@@ -30,12 +30,6 @@ class InferSource(MarketSource):
     """INFER Public prediction market source."""
 
     name: ClassVar[str] = "infer"
-    source_intro: ClassVar[str] = (
-        "We would like you to predict the outcome of a prediction market. A prediction market, in "
-        "this context, is the aggregate of predictions submitted by users on the website INFER "
-        "Public. You're going to predict the probability that the market will resolve as 'Yes'."
-    )
-    resolution_criteria: ClassVar[str] = "Resolves to the outcome of the question found at {url}."
 
     # ------------------------------------------------------------------
     # Public: fetch

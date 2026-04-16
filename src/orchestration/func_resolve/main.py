@@ -17,7 +17,8 @@ from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
 from resolve.explode_question_set import explode_question_set
 from resolve.resolve_all import resolve_all
-from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES, SOURCES
+from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES
+from sources.registry import SOURCES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

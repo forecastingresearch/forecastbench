@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from _fb_types import NullifiedQuestion, SourceQuestionBank, SourceType
-from sources import SOURCES
+from sources.registry import SOURCES
 
 # ---------------------------------------------------------------------------
 # _fb_types.py

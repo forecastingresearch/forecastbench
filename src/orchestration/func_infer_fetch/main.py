@@ -7,7 +7,7 @@ from typing import Any
 
 from helpers import data_utils, decorator, env, keys
 from orchestration import _source_io
-from sources import SOURCES
+from sources.infer import InferSource
 from utils import gcp
 
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +19,7 @@ SOURCE = "infer"
 @decorator.log_runtime
 def driver(_: Any) -> None:
     """Fetch INFER questions and upload to question bank."""
-    source = SOURCES[SOURCE]
+    source = InferSource()
     source.api_key = keys.API_KEY_INFER
 
     dfq = data_utils.get_data_from_cloud_storage(SOURCE, return_question_data=True)

@@ -1,5 +1,10 @@
 """DBnomics-specific variables."""
 
+from sources._metadata import SOURCE_METADATA
+
+SOURCE_INTRO = SOURCE_METADATA["dbnomics"]["source_intro"]
+RESOLUTION_CRITERIA = SOURCE_METADATA["dbnomics"]["resolution_criteria"]
+
 FETCH_COLUMN_DTYPE = {
     "id": str,
     "period": str,
@@ -8,15 +13,6 @@ FETCH_COLUMN_DTYPE = {
     "value_at_freeze_datetime_explanation": str,
 }
 FETCH_COLUMNS = list(FETCH_COLUMN_DTYPE.keys())
-
-SOURCE_INTRO = (
-    "DBnomics collects data on topics such as population and living conditions, "
-    "environment and energy, agriculture, finance, trade and others from publicly available "
-    "resources, for example national and international statistical institutions, researchers and "
-    "private companies. You're going to predict how questions based on this data will resolve."
-)
-
-RESOLUTION_CRITERIA = "Resolves to the value found at {url} once the data is published."
 
 METEOFRANCE_STATIONS = [
     {"id": "07005", "station": "Abbeville"},
