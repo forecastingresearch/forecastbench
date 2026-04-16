@@ -63,6 +63,8 @@ $ gcloud auth application-default print-access-token >/dev/null 2>&1 && echo "GC
 
 ### When coding
 
+* Ignore code under directories that begin with the text "upload"; these are staging directories for the deployment to Google Cloud.
+
 #### Running Python code
 To run the code under `src/`, except for `src/www.forecastbench.org`, you must first load the values in `variables.mk` as environment variables.
 
@@ -110,3 +112,13 @@ NB: `variables.mk` contains both runtime environment variables and variables tha
     ...
   """
   ```
+
+## Commits
+
+When working on a branch, if you’re revising earlier work, amend the relevant existing commit instead of creating a new one.
+
+### Commit messages
+* Use Conventional Commits
+* Use backticks when referencing code in a commit message
+* Wrap at 100 chars, not before
+* Close PRs from commit messages
