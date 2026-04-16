@@ -586,6 +586,7 @@ def write_question_fixed_effects(question_fixed_effects: Dict[str, pd.DataFrame]
 
     df = pd.concat(question_fixed_effects.values(), ignore_index=True)
     df.loc[get_market_mask(df), "horizon"] = None
+    df["forecast_due_date"] = df["forecast_due_date"].astype(str)
 
     directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
     iso_date = dates.get_date_today_as_iso()
