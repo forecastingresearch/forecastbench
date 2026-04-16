@@ -37,9 +37,9 @@ permalink: /datasets/question-fixed-effects/
       <h1 class="site-feature-row__title">Available files</h1>
       {% assign question_files = site.static_files | where_exp: "file", "file.path contains 'assets/data/question-fixed-effects/'" %}
       {% if question_files.size > 0 %}
-        {% assign sorted_files = question_files | sort: "modified_time" | reverse | limit: 10 %}
+        {% assign sorted_files = question_files | sort: "modified_time" | reverse %}
         <ul>
-        {% for file in sorted_files %}
+        {% for file in sorted_files limit: 10 %}
           <li>
             <small><a href="{{ file.path | relative_url }}">{{ file.name }}</a></small>
           </li>
