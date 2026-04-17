@@ -115,7 +115,9 @@ NB: `variables.mk` contains both runtime environment variables and variables tha
 
 ## Commits
 
-When working on a branch, if you’re revising earlier work, amend the relevant existing commit instead of creating a new one.
+* Run `make lint` and fix any linting errors before committing
+* Run `make test` and fix any test errors before committing
+* When working on a branch, if you’re revising earlier work, amend the relevant existing commit instead of creating a new one.
 
 ### Commit messages
 * Use Conventional Commits
