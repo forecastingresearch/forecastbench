@@ -95,8 +95,7 @@ def fetch_all_stock(dfq):
     - dfq (list of dict): A list of dicts for all stocks information in questions.jsonl.
 
     Returns:
-    - list: A list of dictionaries. Each dictionary contains detailed information and
-    metadata about a stock, including its current price, if available.
+    - pd.DataFrame: Stock data including delisted stocks marked with resolved=True.
     """
     stock_list = []
 
@@ -146,6 +145,18 @@ def fetch_all_stock(dfq):
             )
 
             logger.info(company_name)
+        elif company_name is None and ticker in set_current and ticker not in set_top_500:
+            existing = dfq[dfq["id"] == ticker].iloc[0].to_dict()
+            existing.update(
+                {
+                    "resolved": True,
+                    "fetch_datetime": current_time,
+                    "probability": float("nan"),
+                    "freeze_datetime_value": "N/A",
+                }
+            )
+            stock_list.append(existing)
+            logger.warning(f"{ticker} detected as delisted (not in S&P 500 and fetch failed)")
 
     return pd.DataFrame(stock_list)
 
@@ -166,7 +177,6 @@ def driver(_):
             f.write(json_str + "\n")
 
     logger.info("Uploading to GCP...")
-    # Upload
     gcp.storage.upload(
         bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=filenames["local_fetch"],

@@ -12,6 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E4
 from helpers import constants, data_utils, dates, decorator, env  # noqa: E402
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
+from sources.yfinance import TICKER_RENAMES  # noqa: E402
 from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
@@ -164,14 +165,25 @@ def create_resolution_file(question, period, force=False):
             }
         )
 
+    is_resolved = question.get("resolved", False)
+
     yesterday = dates.get_date_today() - timedelta(days=1)
-    if not force and not df.empty and pd.to_datetime(df["date"].iloc[-1]).date() >= yesterday:
+    if (
+        not force
+        and not is_resolved
+        and not df.empty
+        and pd.to_datetime(df["date"].iloc[-1]).date() >= yesterday
+    ):
         logger.info(f"{question['id']} is skipped because it's already up-to-date!")
         # Check last date to see if we've already gotten the resolution value for today
         # If we have it already, return to avoid unnecessary API calls
         return
 
     df_new = get_historical_prices(df, question["id"], period)
+
+    if is_resolved:
+        df_new = finalize_resolution_file(df_new)
+
     if not df.equals(df_new):
         # Only upload dataframes that changed.
         logger.info(f"Uploading resolution file for {question['id']}")
@@ -199,8 +211,13 @@ def update_questions(dfq, dff, overwrite_price_history=False):
     day_diff = (dates.get_date_today() - constants.QUESTION_BANK_DATA_STORAGE_START_DATE).days
     period = select_time_range(day_diff)
 
+    renamed_tickers = {e["original_ticker"] for e in TICKER_RENAMES}
+
     for question in dff_list:
-        create_resolution_file(question, period, force=overwrite_price_history)
+        if question["id"] in renamed_tickers:
+            logger.info(f"Skipping {question['id']} (renamed ticker, handled separately)")
+        else:
+            create_resolution_file(question, period, force=overwrite_price_history)
 
         del question["fetch_datetime"]
         del question["probability"]
@@ -217,7 +234,85 @@ def update_questions(dfq, dff, overwrite_price_history=False):
             new_q_row = new_q_row.astype(constants.QUESTION_FILE_COLUMN_DTYPE)
             dfq = pd.concat([dfq, new_q_row], ignore_index=True)
 
+    create_renamed_ticker_resolution_files(period)
+
     return dfq
+
+
+def finalize_resolution_file(df):
+    """Forward-fill a resolution file to yesterday.
+
+    Args:
+        df (pd.DataFrame): Resolution data with columns [id, date, value].
+
+    Returns:
+        pd.DataFrame: Forward-filled to yesterday.
+    """
+    if df.empty:
+        return df
+
+    end_date = dates.get_date_today() - timedelta(days=1)
+
+    df = df.copy()
+    ticker_id = df["id"].iloc[0]
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.set_index("date")
+
+    full_range = pd.date_range(start=df.index.min(), end=end_date)
+    df = df.reindex(full_range).ffill().rename_axis("date").reset_index()
+    df["id"] = ticker_id
+
+    return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+
+
+def create_renamed_ticker_resolution_files(period):
+    """Fetch resolution data for renamed tickers using the replacement ticker.
+
+    For each entry in TICKER_RENAMES, fetch price history under the replacement
+    ticker and write it to a resolution file named after the original ticker.
+
+    Args:
+        period (str): yfinance period string for history lookback.
+    """
+    local_filename = "/tmp/tmp.jsonl"
+
+    for entry in TICKER_RENAMES:
+        original = entry["original_ticker"]
+        replacement = entry["replacement_ticker"]
+        remote_filename = f"{SOURCE}/{original}.jsonl"
+
+        if os.path.exists(local_filename):
+            os.remove(local_filename)
+        gcp.storage.download_no_error_message_on_404(
+            bucket_name=env.QUESTION_BANK_BUCKET,
+            filename=remote_filename,
+            local_filename=local_filename,
+        )
+        if os.path.exists(local_filename):
+            current_df = pd.read_json(
+                local_filename,
+                lines=True,
+                dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE,
+                convert_dates=False,
+            )
+        else:
+            current_df = pd.DataFrame(columns=constants.RESOLUTION_FILE_COLUMNS)
+
+        df_new = get_historical_prices(current_df, replacement, period)
+        if df_new.empty:
+            logger.warning(f"No data for replacement ticker {replacement} (original: {original})")
+            continue
+
+        df_new["id"] = original
+
+        if not current_df.equals(df_new):
+            logger.info(f"Uploading resolution file for {original} (via {replacement})")
+            df_new.to_json(local_filename, orient="records", lines=True, date_format="iso")
+            gcp.storage.upload(
+                bucket_name=env.QUESTION_BANK_BUCKET,
+                local_filename=local_filename,
+                filename=remote_filename,
+            )
 
 
 @decorator.log_runtime
@@ -236,7 +331,6 @@ def driver(_):
     dfq = update_questions(dfq, dff, overwrite_price_history=overwrite_price_history)
 
     logger.info("Uploading to GCP...")
-    # Save and upload
     data_utils.upload_questions(dfq, SOURCE)
     logger.info("Done.")
 
