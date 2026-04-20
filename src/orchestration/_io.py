@@ -213,6 +213,7 @@ def upload_hash_mapping(raw_json: str, source_name: str) -> None:
         bucket_name=env.QUESTION_BANK_BUCKET,
         local_filename=local_filename,
         destination_folder=source_name,
+        filename="hash_mapping.json",
     )
 
 
