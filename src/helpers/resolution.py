@@ -29,15 +29,24 @@ def make_columns_hashable(df):
     return BaseSource._make_columns_hashable(df)
 
 
-def get_resolution_values() -> dict[str, dict[str, pd.DataFrame]]:
-    """Get resolution values from GCP. Delegates to orchestration._io.load_question_bank().
+def get_and_unpack_question_bank(
+    sources_to_get: list[str] | None = None,
+) -> dict[str, dict[str, pd.DataFrame]]:
+    """Download and unpack the question bank.
+
+    Backward-compat wrapper around `orchestration._io.load_question_bank()` that
+    converts `SourceQuestionBank` objects back to the plain-dict shape consumed
+    by the not-yet-refactored baseline evals job.
+
+    Args:
+        sources_to_get: List of source names. Defaults to all sources.
 
     Returns:
         {source: {"dfq": pd.DataFrame, "dfr": pd.DataFrame}} by source.
     """
     from orchestration._io import load_question_bank
 
-    question_bank = load_question_bank()
+    question_bank = load_question_bank(sources_to_get=sources_to_get)
     return {source: {"dfq": sqb.dfq, "dfr": sqb.dfr} for source, sqb in question_bank.items()}
 
 
