@@ -66,7 +66,9 @@ def update_questions(dfq, dff):
     """
     dff_list = dff.to_dict("records")
 
-    # drop nullified questions from dfq
+    # Drop nullified series from dfq so no future question sets are built on them.
+    # Pre-cutoff forecasts already submitted on these ids still resolve via dfr in
+    # the dataset resolve path, which does not depend on dfq membership.
     dfq = dfq[~dfq["id"].isin(fred.NULLIFIED_IDS)]
 
     for question in dff_list:

@@ -259,7 +259,9 @@ def fetch_all(dfq, FRED_QUESTIONS_NAMES):
     # get the dict version of FRED_QUESTIONS_NAMES for easy acceess
     fred_questions = {q["id"]: q for q in FRED_QUESTIONS_NAMES}
 
-    # drop nullified questions from dfq
+    # Drop nullified series from dfq so no future question sets are built on them.
+    # Pre-cutoff forecasts already submitted on these ids still resolve via dfr in
+    # the dataset resolve path, which does not depend on dfq membership.
     dfq = dfq[~dfq["id"].isin(fred.NULLIFIED_IDS)]
 
     # get current series ids that are not in newly fetched set

@@ -146,7 +146,6 @@ fred_questions = [
         "id": "CREACBW027SBOG",
         "series_name": "the amount of money representing all commercial real estate loans made by commercial banks in the US",
     },
-    {"id": "CURRCIR", "series_name": "the number of US dollars in circulation"},
     {
         "id": "D2WLTGAL",
         "series_name": "the amount of money held by the US Treasury in its general account at the Federal Reserve Bank of New York",
