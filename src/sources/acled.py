@@ -72,6 +72,9 @@ class AcledSource(DatasetSource):
             return np.nan
 
         d = self._id_unhash(mid)
+        if d is None:
+            logger.error(f"ACLED: could NOT unhash {mid}")
+            return np.nan
 
         return self._acled_resolve(
             **d,
