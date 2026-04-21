@@ -77,9 +77,23 @@ def get_access_token() -> str:
 @backoff.on_exception(
     backoff.expo,
     requests.exceptions.RequestException,
-    max_time=300,
+    max_time=3600,
     on_backoff=data_utils.print_error_info_handler,
 )
+def get_acled_page(
+    endpoint: str, headers: dict[str, str], params: dict[str, Any]
+) -> dict[str, Any]:
+    """Fetch a single ACLED page and retry transient request failures."""
+    response = requests.get(
+        endpoint, headers=headers, params=params, verify=certifi.where(), timeout=100
+    )
+
+    if not response.ok:
+        logger.error(f"Request to ACLED API endpoint {endpoint} failed with params {params}")
+    response.raise_for_status()
+    return response.json()
+
+
 def get_acled_events(access_token: str) -> pd.DataFrame:
     """
     Fetch data from the ACLED API and return it as a pandas DataFrame.
@@ -108,12 +122,7 @@ def get_acled_events(access_token: str) -> pd.DataFrame:
     while True:
         params["page"] += 1
         logger.info(f"Downloading page {params['page']}")
-        response = requests.get(endpoint, headers=headers, params=params, verify=certifi.where())
-
-        if not response.ok:
-            logger.error(f"Request to ACLED API endpoint {endpoint} failed with params {params}")
-        response.raise_for_status()
-        data = response.json()
+        data = get_acled_page(endpoint=endpoint, headers=headers, params=params)
 
         if data["count"] == 0:
             break
