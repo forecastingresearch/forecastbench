@@ -248,7 +248,7 @@ class TestResolveOrchestration:
         dfq = make_question_df([{"id": "q1"}, {"id": "q2"}])
         dfr = pd.DataFrame()
 
-        result, _ = source.resolve(df, dfq, dfr)
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 1, 1))
         assert (result["resolved_to"] == 1.0).all()
         assert (result["resolved"]).all()
 
@@ -263,7 +263,7 @@ class TestResolveOrchestration:
         dfq = make_question_df([{"id": "null_q1"}, {"id": "normal_q"}])
         dfr = pd.DataFrame()
 
-        result, _ = source.resolve(df, dfq, dfr)
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 1, 1))
         null_row = result[result["id"] == "null_q1"].iloc[0]
         normal_row = result[result["id"] == "normal_q"].iloc[0]
 
@@ -286,7 +286,7 @@ class TestResolveOrchestration:
         dfq = make_question_df([{"id": "null_q1"}, {"id": "normal_q"}])
         dfr = pd.DataFrame()
 
-        result, _ = source.resolve(df, dfq, dfr)
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 1, 1))
         assert pd.isna(result.iloc[0]["resolved_to"])
         assert bool(result.iloc[0]["resolved"]) is True
 
@@ -301,7 +301,7 @@ class TestResolveOrchestration:
         dfq = make_question_df([{"id": "null_q1"}])
         dfr = pd.DataFrame()
 
-        result, _ = source.resolve(df, dfq, dfr)
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 1, 1))
         assert len(result) == 1
         assert pd.isna(result.iloc[0]["resolved_to"])
 
@@ -314,7 +314,12 @@ class TestResolveOrchestration:
             ]
         )
         with pytest.raises(ValueError, match="received rows for other sources"):
-            source.resolve(df, make_question_df([{"id": "q1"}]), pd.DataFrame())
+            source.resolve(
+                df,
+                make_question_df([{"id": "q1"}]),
+                pd.DataFrame(),
+                forecast_due_date=date(2025, 1, 1),
+            )
 
     def test_resolve_rejects_mixed_source_rows(self):
         """Passing a mix of own and foreign source rows should raise ValueError."""
@@ -326,4 +331,9 @@ class TestResolveOrchestration:
             ]
         )
         with pytest.raises(ValueError, match="received rows for other sources"):
-            source.resolve(df, make_question_df([{"id": "q1"}, {"id": "q2"}]), pd.DataFrame())
+            source.resolve(
+                df,
+                make_question_df([{"id": "q1"}, {"id": "q2"}]),
+                pd.DataFrame(),
+                forecast_due_date=date(2025, 1, 1),
+            )

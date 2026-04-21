@@ -52,7 +52,7 @@ class TestFredSourceNullification:
             ]
         )
 
-        result, _ = source.resolve(df, dfq, dfr, as_of=date(2025, 10, 31))
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 10, 31))
 
         row = result[result["id"] == "CURRCIR"].iloc[0]
         assert row["resolved_to"] == 1.0
@@ -73,7 +73,7 @@ class TestFredSourceNullification:
         dfq = make_question_df([{"id": "CURRCIR"}])
         dfr = make_resolution_df([{"id": "CURRCIR", "date": "2025-10-31", "value": 100.0}])
 
-        result, _ = source.resolve(df, dfq, dfr, as_of=date(2025, 11, 1))
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 11, 1))
 
         row = result[result["id"] == "CURRCIR"].iloc[0]
         assert pd.isna(row["resolved_to"])
@@ -103,7 +103,7 @@ class TestFredSourceNullification:
             ]
         )
 
-        result, _ = source.resolve(df, dfq, dfr, as_of=date(2025, 10, 15))
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 10, 15))
 
         row = result[result["id"] == "CURRCIR"].iloc[0]
         assert pd.isna(row["resolved_to"])
