@@ -113,7 +113,7 @@ class TestYfinanceSourceNullification:
             }
         )
 
-        result, _ = source.resolve(df, dfq, dfr, as_of=date(2025, 8, 17))
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 8, 17))
 
         jnpr_row = result[result["id"] == "JNPR"].iloc[0]
         assert pd.isna(jnpr_row["resolved_to"])
@@ -142,7 +142,7 @@ class TestYfinanceSourceNullification:
             }
         )
 
-        result, _ = source.resolve(df, dfq, dfr, as_of=date(2025, 3, 30))
+        result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 3, 30))
 
         jnpr_row = result[result["id"] == "JNPR"].iloc[0]
         assert jnpr_row["resolved_to"] == 1.0
