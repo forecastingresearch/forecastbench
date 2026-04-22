@@ -51,6 +51,7 @@ def get_access_token() -> str:
         "password": keys.API_PASSWORD_ACLED,
         "grant_type": "password",
         "client_id": "acled",
+        "scope": "authenticated",
     }
 
     try:
