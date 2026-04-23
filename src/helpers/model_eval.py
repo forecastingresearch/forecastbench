@@ -232,18 +232,20 @@ def get_response_from_anthropic_model(model_name, prompt, max_tokens, temperatur
     """
 
     def api_call():
-
-        with anthropic_console.messages.stream(
-            model=model_name,
-            temperature=temperature,
-            max_tokens=1024,
-            messages=[
+        params = {
+            "model": model_name,
+            "max_tokens": 1024,
+            "messages": [
                 {
                     "role": "user",
                     "content": prompt,
                 },
             ],
-        ) as stream:
+        }
+        if model_name != "claude-opus-4-7":
+            params["temperature"] = temperature
+
+        with anthropic_console.messages.stream(**params) as stream:
             stream.until_done()
 
         return stream.get_final_message().content[0].text
