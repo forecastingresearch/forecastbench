@@ -16,8 +16,6 @@ import openai
 import together
 from google import genai
 from google.genai import types
-from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
 from termcolor import colored
 
 from . import (
@@ -44,7 +42,6 @@ xai_client = openai.OpenAI(
     api_key=keys.API_KEY_XAI,
     base_url="https://api.x.ai/v1",
 )
-mistral_client = MistralClient(api_key=keys.API_KEY_MISTRAL)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -256,43 +253,6 @@ def get_response_from_anthropic_model(model_name, prompt, max_tokens, temperatur
     )
 
 
-def get_response_from_mistral_model(model_name, prompt, max_tokens, temperature, wait_time):
-    """
-    Make an API call to the OpenAI API and retry on failure after a specified wait time.
-
-    Args:
-        model_name (str): Name of the model to use (such as "gpt-4").
-        prompt (str): Fully specififed prompt to use for the API call.
-        max_tokens (int): Maximum number of tokens to sample.
-        temperature (float): Sampling temperature.
-        wait_time (int): Time to wait before retrying, in seconds.
-
-    Returns:
-        str: Response string from the API call.
-    """
-
-    def api_call():
-        """
-        Make an API call to the OpenAI API, without retrying on failure.
-
-        Returns:
-            str: Response string from the API call.
-        """
-        messages = [ChatMessage(role="user", content=prompt)]
-
-        # No streaming
-        chat_response = mistral_client.chat(
-            model=model_name,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-
-        return chat_response.choices[0].message.content
-
-    return get_response_with_retry(api_call, wait_time, "Mistral API request exceeded rate limit.")
-
-
 def get_response_from_together_ai_model(model_name, prompt, max_tokens, temperature, wait_time):
     """
     Make an API call to the Together AI API and retry on failure after a specified wait time.
@@ -421,10 +381,6 @@ def get_response_from_model(
         )
     elif model_source == constants.GOOGLE_SOURCE:
         return get_response_from_google_model(
-            model_name, prompt, max_tokens, temperature, wait_time
-        )
-    elif model_source == constants.MISTRAL_SOURCE:
-        return get_response_from_mistral_model(
             model_name, prompt, max_tokens, temperature, wait_time
         )
     elif model_source == constants.XAI_SOURCE:

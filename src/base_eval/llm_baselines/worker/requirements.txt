@@ -5,7 +5,6 @@ matplotlib
 anthropic
 openai
 together
-mistralai==0.4.2
 papermill
 google-genai>=1.0.0
 google-cloud-storage
