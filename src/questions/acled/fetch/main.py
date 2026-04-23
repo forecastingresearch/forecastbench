@@ -7,7 +7,6 @@ import sys
 from typing import Any
 
 import backoff
-import certifi
 import pandas as pd
 import requests
 
@@ -84,9 +83,7 @@ def get_acled_page(
     endpoint: str, headers: dict[str, str], params: dict[str, Any]
 ) -> dict[str, Any]:
     """Fetch a single ACLED page and retry transient request failures."""
-    response = requests.get(
-        endpoint, headers=headers, params=params, verify=certifi.where(), timeout=100
-    )
+    response = requests.get(endpoint, headers=headers, params=params, timeout=100)
 
     if not response.ok:
         logger.error(f"Request to ACLED API endpoint {endpoint} failed with params {params}")

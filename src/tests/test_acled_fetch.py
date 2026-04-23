@@ -77,8 +77,9 @@ def test_page_scoped_retry_does_not_restart_pagination(monkeypatch):
     page_attempts = Counter()
     requested_pages = []
 
-    def fake_get(_endpoint, headers=None, params=None, verify=None):
-        del headers, verify
+    def fake_get(_endpoint, headers=None, params=None, timeout=None):
+        del headers
+        assert timeout == 100
         page = params["page"]
         requested_pages.append(page)
         page_attempts[page] += 1
@@ -133,7 +134,6 @@ def test_page_scoped_retry_does_not_restart_pagination(monkeypatch):
         raise AssertionError(f"Unexpected page request: {page}")
 
     monkeypatch.setattr(module.requests, "get", fake_get)
-    monkeypatch.setattr(module.certifi, "where", lambda: "/tmp/cacert.pem")
 
     df = module.get_acled_events(access_token="token")
 
