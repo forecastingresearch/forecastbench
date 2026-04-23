@@ -118,6 +118,36 @@ class TestCheckAndPrepareForecastFile:
         result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
         assert len(result) == 1
 
+    def test_market_na_resolution_date_does_not_crash(self):
+        """Market sources may carry placeholder resolution dates before merge-time replacement."""
+        df = pd.DataFrame(
+            {
+                "id": ["q1"],
+                "source": ["metaculus"],
+                "direction": [()],
+                "forecast": [0.5],
+                "resolution_date": ["N/A"],
+            }
+        )
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        assert len(result) == 1
+        assert pd.isna(result.iloc[0]["resolution_date"])
+
+    def test_drops_na_dataset_resolution_dates(self):
+        """Dataset placeholder dates stay invalid and are dropped."""
+        df = pd.DataFrame(
+            {
+                "id": ["q1", "q2"],
+                "source": ["fred", "fred"],
+                "direction": [(), ()],
+                "forecast": [0.5, 0.5],
+                "resolution_date": ["2025-01-08", "N/A"],
+            }
+        )
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        assert len(result) == 1
+        assert result.iloc[0]["id"] == "q1"
+
     def test_makes_columns_hashable(self):
         """List values in id/direction become tuples."""
         df = pd.DataFrame(

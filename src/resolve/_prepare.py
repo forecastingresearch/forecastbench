@@ -73,7 +73,8 @@ def check_and_prepare_forecast_file(
             "invalid forecasts."
         )
 
-    # Drop invalid resolution dates for dataset questions
+    # Drop invalid resolution dates for dataset questions and overwirte all resolution dates for
+    # market questions
     df_len = len(df)
     forecast_due_date_date = dates.convert_iso_str_to_date(forecast_due_date)
     valid_resolution_dates = [
@@ -88,6 +89,7 @@ def check_and_prepare_forecast_file(
             & (df["resolution_date"].isin(valid_resolution_dates))
         )
     ]
+    df.loc[df["source"].isin(MARKET_SOURCE_NAMES), "resolution_date"] = pd.NaT
     df["resolution_date"] = df["resolution_date"].apply(convert_and_bound_dates)
     if df_len != len(df):
         logger.warning(
