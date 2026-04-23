@@ -59,6 +59,8 @@ Claude-Opus-4-5-20251101 (zero shot with freeze values),2025-11-24
 Claude-Opus-4-5-20251101 (zero shot),2025-11-24
 Claude-Opus-4-6 (zero shot with freeze values),2026-02-05
 Claude-Opus-4-6 (zero shot),2026-02-05
+Claude-Opus-4-7 (zero shot with freeze values),2026-04-16
+Claude-Opus-4-7 (zero shot),2026-04-16
 Claude-Sonnet-4-6 (zero shot with freeze values),2026-02-17
 Claude-Sonnet-4-6 (zero shot),2026-02-17
 Claude-Opus-4-20250514 (scratchpad with freeze values),2025-05-22
@@ -238,6 +240,8 @@ Grok-4-20-Beta-0309-Reasoning (zero shot with freeze values),2026-03-09
 Grok-4-20-Beta-0309-Reasoning (zero shot),2026-03-09
 Grok-4-20-Beta-0309-Non-Reasoning (zero shot with freeze values),2026-03-09
 Grok-4-20-Beta-0309-Non-Reasoning (zero shot),2026-03-09
+Grok-4-20-0309-Non-Reasoning (zero shot with freeze values),2026-03-09
+Grok-4-20-0309-Non-Reasoning (zero shot),2026-03-09
 UnusedGrok-2-1212 (scratchpad with freeze values),2024-12-12
 UnusedGrok-2-1212 (scratchpad),2024-12-12
 UnusedGrok-2-1212 (zero shot with freeze values),2024-12-12
@@ -312,6 +316,8 @@ Meta-Llama-3.1-405B-Instruct-Turbo (zero shot with freeze values),2024-07-23
 Meta-Llama-3.1-405B-Instruct-Turbo (zero shot),2024-07-23
 MiniMax-M2.5 (zero shot with freeze values),2026-02-12
 MiniMax-M2.5 (zero shot),2026-02-12
+MiniMax-M2.7 (zero shot with freeze values),2026-03-18
+MiniMax-M2.7 (zero shot),2026-03-18
 Mistral-Large-2407 (scratchpad with freeze values),2024-07-24
 Mistral-Large-2407 (scratchpad),2024-07-24
 Mistral-Large-2407 (zero shot with freeze values),2024-07-24

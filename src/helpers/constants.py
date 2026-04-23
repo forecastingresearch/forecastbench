@@ -286,17 +286,23 @@ MODELS_TO_RUN = {
         "full_name": "MiniMaxAI/MiniMax-M2.5",
         "token_limit": 228700,
     },
+    "MiniMax-M2.7": {
+        "source": TOGETHER_AI_SOURCE,
+        "org": MINIMAX_ORG,
+        "full_name": "MiniMaxAI/MiniMax-M2.7",
+        "token_limit": 202752,
+    },
     "Kimi-K2.5": {
         "source": TOGETHER_AI_SOURCE,
         "org": MOONSHOT_ORG,
         "full_name": "moonshotai/Kimi-K2.5",
         "token_limit": 262144,
     },
-    "GLM-5": {
+    "Kimi-K2.6": {
         "source": TOGETHER_AI_SOURCE,
-        "org": ZAI_ORG,
-        "full_name": "zai-org/GLM-5",
-        "token_limit": 202752,
+        "org": MOONSHOT_ORG,
+        "full_name": "moonshotai/Kimi-K2.6",
+        "token_limit": 262144,
     },
     "GLM-5.1": {
         "source": TOGETHER_AI_SOURCE,
@@ -311,16 +317,22 @@ MODELS_TO_RUN = {
         "token_limit": 262144,
     },
     # anthropic context window from: https://platform.claude.com/docs/en/about-claude/models/overview
+    "claude-haiku-4-5-20251001": {
+        "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
+        "full_name": "claude-haiku-4-5-20251001",
+        "token_limit": 200000,
+    },
     "claude-sonnet-4-5-20250929": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
         "full_name": "claude-sonnet-4-5-20250929",
         "token_limit": 200000,
     },
-    "claude-haiku-4-5-20251001": {
+    "claude-sonnet-4-6": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
-        "full_name": "claude-haiku-4-5-20251001",
+        "full_name": "claude-sonnet-4-6",
         "token_limit": 200000,
     },
     "claude-opus-4-6": {
@@ -329,16 +341,10 @@ MODELS_TO_RUN = {
         "full_name": "claude-opus-4-6",
         "token_limit": 200000,
     },
-    "claude-opus-4-1-20250805": {
+    "claude-opus-4-7": {
         "source": ANTHROPIC_SOURCE,
         "org": ANTHROPIC_ORG,
-        "full_name": "claude-opus-4-1-20250805",
-        "token_limit": 200000,
-    },
-    "claude-sonnet-4-6": {
-        "source": ANTHROPIC_SOURCE,
-        "org": ANTHROPIC_ORG,
-        "full_name": "claude-sonnet-4-6",
+        "full_name": "claude-opus-4-7",
         "token_limit": 200000,
     },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
@@ -354,16 +360,16 @@ MODELS_TO_RUN = {
         "full_name": "grok-4-1-fast-non-reasoning",
         "token_limit": 2000000,
     },
-    "grok-4.20-beta-0309-reasoning": {
+    "grok-4.20-0309-reasoning": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
-        "full_name": "grok-4.20-beta-0309-reasoning",
+        "full_name": "grok-4.20-0309-reasoning",
         "token_limit": 2000000,
     },
-    "grok-4.20-beta-0309-non-reasoning": {
+    "grok-4.20-0309-non-reasoning": {
         "source": XAI_SOURCE,
         "org": XAI_ORG,
-        "full_name": "grok-4.20-beta-0309-non-reasoning",
+        "full_name": "grok-4.20-0309-non-reasoning",
         "token_limit": 2000000,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models
