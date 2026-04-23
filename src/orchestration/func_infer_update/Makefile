@@ -30,7 +30,7 @@ deploy : .gcloudignore requirements.txt Dockerfile
 	cp requirements.txt $(UPLOAD_DIR)/requirements.txt
 	cp Dockerfile $(UPLOAD_DIR)/
 	gcloud run jobs deploy \
-		func-data-infer-update-questions-new \
+		func-data-infer-update-questions \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
