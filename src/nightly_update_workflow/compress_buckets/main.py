@@ -15,11 +15,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def get_bucket_mount_dir(bucket: str) -> str:
+    """Return the mounted filesystem path for a bucket available to this job."""
+    mount_root = env.BUCKET_MOUNT_POINT or "/mnt"
+    return f"{mount_root}/{bucket}"
+
+
 @decorator.log_runtime
 def compress_bucket_and_upload_tarball(bucket: str, compression: str = "gz") -> None:
     """Compress files in bucket and upload to same bucket as `<bucket>.tar.gz`.
 
-    Copy bucket contents to local disk with parallel transfers, create a tarball, and upload it.
+    Create a tarball from the mounted bucket path and upload it.
 
     Args:
         bucket (str): Name of the GCP Storage bucket to process.
@@ -30,25 +36,21 @@ def compress_bucket_and_upload_tarball(bucket: str, compression: str = "gz") -> 
     """
     assert compression in ["gz", "xz"]
     ext = f".tar.{compression}"
-    local_dir = f"/tmp/{bucket}"
     local_tarball = f"/tmp/{bucket}{ext}"
+    source_dir = get_bucket_mount_dir(bucket=bucket)
+    source_parent, source_leaf = os.path.split(source_dir)
 
-    logger.info(f"Copying gs://{bucket}/ to {local_dir}/ with parallel transfers.")
-    os.makedirs(local_dir, exist_ok=True)
-    subprocess.run(
-        ["gsutil", "-m", "rsync", "-r", "-x", r".*\.tar\.(gz|xz)$", f"gs://{bucket}/", local_dir],
-        check=True,
-    )
-
-    logger.info(f"Creating tarball {local_tarball}.")
+    logger.info(f"Creating tarball {local_tarball} from mounted path {source_dir}.")
     subprocess.run(
         [
             "tar",
-            f"c{'z' if compression == 'gz' else 'J'}f",
+            f"{'czf' if compression == 'gz' else 'cJf'}",
             local_tarball,
+            "--exclude=*.gz",
+            "--exclude=*.xz",
             "-C",
-            "/tmp",
-            bucket,
+            source_parent,
+            source_leaf,
         ],
         check=True,
     )
