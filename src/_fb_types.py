@@ -45,3 +45,26 @@ class SourceQuestionBank:
 
 
 QuestionBank = dict[str, SourceQuestionBank]
+
+
+@dataclass
+class UpdateResult:
+    """Return value of a source's update() method.
+
+    Validates contents on construction: dfq must be a valid QuestionFrame,
+    each resolution file must be a valid ResolutionFrame.
+    """
+
+    dfq: pd.DataFrame
+    resolution_files: dict[str, pd.DataFrame] | None = None
+    hash_mapping: dict[str, dict] | None = None
+
+    def __post_init__(self):
+        """Validate schema constraints."""
+        from _schemas import QuestionFrame, ResolutionFrame
+
+        self.dfq = QuestionFrame.validate(self.dfq)
+        if self.resolution_files:
+            self.resolution_files = {
+                qid: ResolutionFrame.validate(df) for qid, df in self.resolution_files.items()
+            }

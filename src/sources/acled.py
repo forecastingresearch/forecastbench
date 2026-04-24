@@ -10,7 +10,6 @@ from typing import ClassVar
 import numpy as np
 import pandas as pd
 
-from _fb_types import SourceType
 from _schemas import AcledResolutionFrame
 
 from ._dataset import DatasetSource
@@ -22,8 +21,6 @@ class AcledSource(DatasetSource):
     """Armed Conflict Location & Event Data source with custom resolution logic."""
 
     name: ClassVar[str] = "acled"
-    display_name: ClassVar[str] = "ACLED"
-    source_type: ClassVar[SourceType] = SourceType.DATASET
     resolution_schema: ClassVar[type] = AcledResolutionFrame
 
     def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:
@@ -148,3 +145,15 @@ class AcledSource(DatasetSource):
     def _id_unhash(self, hash_key: str):
         """Look up the original question dict from a hash key."""
         return self.hash_mapping.get(hash_key)
+
+    # ------------------------------------------------------------------
+    # Fetch / update (not yet implemented)
+    # ------------------------------------------------------------------
+
+    def fetch(self, **kwargs):
+        """Fetch ACLED data from external API."""
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        """Process fetched ACLED data into questions and resolution files."""
+        raise NotImplementedError

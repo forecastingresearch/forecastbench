@@ -9,20 +9,26 @@ UPLOAD_DIR = upload
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
 
-Procfile:
-	cp -r $(ROOT_DIR)src/helpers/Procfile .
+Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
+	sed \
+		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
+		-e 's/STACK/google-22-full/g' \
+		-e 's/PYTHON_VERSION/python312/g' \
+		$< > Dockerfile
 
-deploy : main.py .gcloudignore requirements.txt Procfile
+deploy : .gcloudignore requirements.txt Dockerfile
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_schemas.py $(UPLOAD_DIR)/
+	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/helpers
+	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/sources
 	mkdir -p $(UPLOAD_DIR)/orchestration
 	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
-	cp $^ $(UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/orchestration/_source_io.py $(UPLOAD_DIR)/orchestration/
+	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
+	cp $(ROOT_DIR)src/_schemas.py $(UPLOAD_DIR)/
+	cp main.py $(UPLOAD_DIR)/main.py
+	cp requirements.txt $(UPLOAD_DIR)/requirements.txt
+	cp Dockerfile $(UPLOAD_DIR)/
 	gcloud run jobs deploy \
 		func-data-infer-fetch \
 		--project $(CLOUD_PROJECT) \
@@ -37,4 +43,4 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore Procfile
+	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile

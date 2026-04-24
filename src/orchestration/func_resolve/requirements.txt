@@ -10,3 +10,4 @@ slack_sdk
 pandera
 pytz
 python-dateutil
+backoff

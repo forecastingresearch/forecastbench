@@ -10,7 +10,7 @@ from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
 from resolve.explode_question_set import explode_question_set
 from resolve.resolve_all import resolve_all
-from sources import SOURCES
+from sources.registry import SOURCES
 from tests.conftest import make_question_df, make_question_set_df, make_resolution_df
 
 # ---------------------------------------------------------------------------
