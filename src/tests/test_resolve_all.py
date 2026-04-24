@@ -1,5 +1,7 @@
 """Tests for resolve/resolve_all.py: orchestration of per-source resolution."""
 
+from datetime import date
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -17,7 +19,7 @@ class _MockSource:
         self._resolved_value = resolved_value
         self._warnings = warnings or []
 
-    def resolve(self, df, dfq, dfr, *, as_of=None):
+    def resolve(self, df, dfq, dfr, *, forecast_due_date):
         df["resolved_to"] = self._resolved_value
         df["resolved"] = True
         return df, self._warnings
@@ -31,13 +33,23 @@ class TestResolveAll:
             [{"id": "q1", "source": "unknown", "forecast_due_date": "2025-01-01"}]
         )
         with pytest.raises(ValueError, match="not able to resolve"):
-            resolve_all(df, question_bank={}, sources={})
+            resolve_all(
+                df,
+                question_bank={},
+                sources={},
+                forecast_due_date=date(2025, 1, 1),
+            )
 
     def test_missing_question_bank_raises(self):
         df = make_forecast_df([{"id": "q1", "source": "test", "forecast_due_date": "2025-01-01"}])
         sources = {"test": _MockSource("test")}
         with pytest.raises(ValueError, match="question bank not found"):
-            resolve_all(df, question_bank={}, sources=sources)
+            resolve_all(
+                df,
+                question_bank={},
+                sources=sources,
+                forecast_due_date=date(2025, 1, 1),
+            )
 
     def test_empty_dfq_raises(self):
         df = make_forecast_df([{"id": "q1", "source": "test", "forecast_due_date": "2025-01-01"}])
@@ -49,14 +61,24 @@ class TestResolveAll:
             )
         }
         with pytest.raises(ValueError, match="dfq empty"):
-            resolve_all(df, question_bank=qb, sources=sources)
+            resolve_all(
+                df,
+                question_bank=qb,
+                sources=sources,
+                forecast_due_date=date(2025, 1, 1),
+            )
 
     def test_empty_dfr_raises(self):
         df = make_forecast_df([{"id": "q1", "source": "test", "forecast_due_date": "2025-01-01"}])
         sources = {"test": _MockSource("test")}
         qb = {"test": SourceQuestionBank(dfq=make_question_df([{"id": "q1"}]), dfr=pd.DataFrame())}
         with pytest.raises(ValueError, match="dfr empty"):
-            resolve_all(df, question_bank=qb, sources=sources)
+            resolve_all(
+                df,
+                question_bank=qb,
+                sources=sources,
+                forecast_due_date=date(2025, 1, 1),
+            )
 
     def test_successful_resolution(self):
         df = make_forecast_df(
@@ -77,7 +99,12 @@ class TestResolveAll:
             )
         }
 
-        result, _ = resolve_all(df, question_bank=qb, sources=sources)
+        result, _ = resolve_all(
+            df,
+            question_bank=qb,
+            sources=sources,
+            forecast_due_date=date(2025, 1, 1),
+        )
         assert len(result) == 1
         assert result.iloc[0]["resolved_to"] == 0.8
 
@@ -100,7 +127,12 @@ class TestResolveAll:
             )
         }
 
-        result, _ = resolve_all(df, question_bank=qb, sources=sources)
+        result, _ = resolve_all(
+            df,
+            question_bank=qb,
+            sources=sources,
+            forecast_due_date=date(2025, 1, 1),
+        )
         assert len(result) == 0  # NaN resolved_to rows are dropped
 
     def test_drops_unresolved_dataset_rows(self):
@@ -109,7 +141,7 @@ class TestResolveAll:
         class _DatasetMockSource:
             name = "fred"
 
-            def resolve(self, df, dfq, dfr, *, as_of=None):
+            def resolve(self, df, dfq, dfr, *, forecast_due_date):
                 # Leave rows unresolved (resolved=False)
                 return df, []
 
@@ -131,7 +163,12 @@ class TestResolveAll:
             )
         }
 
-        result, _ = resolve_all(df, question_bank=qb, sources=sources)
+        result, _ = resolve_all(
+            df,
+            question_bank=qb,
+            sources=sources,
+            forecast_due_date=date(2025, 1, 1),
+        )
         assert len(result) == 0
 
     def test_no_warnings_returns_empty_list(self):
@@ -144,7 +181,12 @@ class TestResolveAll:
                 dfr=make_resolution_df([{"id": "q1", "date": "2025-01-01", "value": 1}]),
             )
         }
-        _, warnings = resolve_all(df, question_bank=qb, sources=sources)
+        _, warnings = resolve_all(
+            df,
+            question_bank=qb,
+            sources=sources,
+            forecast_due_date=date(2025, 1, 1),
+        )
         assert warnings == []
 
     def test_warnings_from_single_source_propagated(self):
@@ -157,7 +199,12 @@ class TestResolveAll:
                 dfr=make_resolution_df([{"id": "q1", "date": "2025-01-01", "value": 1}]),
             )
         }
-        _, warnings = resolve_all(df, question_bank=qb, sources=sources)
+        _, warnings = resolve_all(
+            df,
+            question_bank=qb,
+            sources=sources,
+            forecast_due_date=date(2025, 1, 1),
+        )
         assert warnings == ["something went wrong"]
 
     def test_warnings_from_multiple_sources_collected(self):
@@ -182,7 +229,12 @@ class TestResolveAll:
                 dfr=make_resolution_df([{"id": "q2", "date": "2025-01-01", "value": 1}]),
             ),
         }
-        _, warnings = resolve_all(df, question_bank=qb, sources=sources)
+        _, warnings = resolve_all(
+            df,
+            question_bank=qb,
+            sources=sources,
+            forecast_due_date=date(2025, 1, 1),
+        )
         assert len(warnings) == 3
         assert "warn A" in warnings
         assert "warn B1" in warnings

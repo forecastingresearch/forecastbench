@@ -25,7 +25,7 @@ def resolve_all(
     df: DataFrame[ExplodedQuestionSetFrame],
     question_bank: QuestionBank,
     sources: dict[str, "BaseSource"],
-    forecast_due_date: date | None = None,
+    forecast_due_date: date,
 ) -> tuple[DataFrame[ResolveReadyFrame], list[str]]:
     """Resolve all questions in the exploded question set.
 
@@ -33,7 +33,7 @@ def resolve_all(
         df: Exploded question set DataFrame.
         question_bank: {source_name: SourceQuestionBank}.
         sources: {source_name: BaseSource instance}.
-        forecast_due_date: Date for nullification gating.
+        forecast_due_date: Forecast due date used for nullification gating.
 
     Returns:
         (resolved_df, warnings_for_slack)
@@ -72,7 +72,12 @@ def resolve_all(
             raise ValueError(msg)
 
         df_source = df[df["source"] == source_name].copy()
-        df_source, source_warnings = source.resolve(df_source, dfq, dfr, as_of=forecast_due_date)
+        df_source, source_warnings = source.resolve(
+            df_source,
+            dfq,
+            dfr,
+            forecast_due_date=forecast_due_date,
+        )
         parts.append(df_source)
         warnings_for_slack.extend(source_warnings)
 

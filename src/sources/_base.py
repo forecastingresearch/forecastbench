@@ -57,11 +57,12 @@ class BaseSource(ABC):
         dfq: DataFrame[QuestionFrame],
         dfr: pd.DataFrame,
         *,
-        as_of: date | None = None,
+        forecast_due_date: date,
     ) -> tuple[DataFrame[ResolveReadyFrame], list[str]]:
         """Resolve questions for this source.
 
         df must contain only rows for this source.
+        forecast_due_date is used to determine which questions are nullified.
         Nullified rows are removed before _resolve() so source-specific logic never sees them,
         then added back with resolved_to=NaN afterward.
 
@@ -76,7 +77,7 @@ class BaseSource(ABC):
                     f"Only rows for '{self.name}' are allowed."
                 )
 
-        nullified_ids = self.get_nullified_ids(as_of=as_of)
+        nullified_ids = self.get_nullified_ids(as_of=forecast_due_date)
         if nullified_ids:
             null_mask = df["id"].apply(self._id_is_nullified, nullified_ids=nullified_ids)
             df_nullified = df[null_mask].copy()
