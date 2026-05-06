@@ -1,0 +1,16 @@
+backoff
+certifi
+google-api-python-client
+google-cloud-artifact-registry
+google-cloud-container
+google-cloud-run
+numpy
+pandas>=2.2.2,<3.0
+pandera
+pydantic>=2.5.2,<3.0.0
+python-dateutil
+pytz
+requests
+scipy
+slack_sdk
+termcolor

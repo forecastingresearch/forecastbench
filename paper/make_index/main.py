@@ -3,10 +3,10 @@
 import os
 import sys
 
+from utils import gcp
 from variables import BUCKET_NAME
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from utils import gcp  # noqa: E402
 
 # Get the bucket
 prefix = "datasets/forecast_sets"

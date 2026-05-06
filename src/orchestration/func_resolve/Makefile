@@ -5,6 +5,10 @@ all :
 .PHONY : all clean deploy
 
 UPLOAD_DIR = upload
+ROOT_DIR ?= $(abspath ../../..)/
+include $(ROOT_DIR)orchestration_upload.mk
+
+ORCHESTRATION_EXTRA_PACKAGES = resolve
 
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
@@ -19,17 +23,7 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 NUM_CPUS = 2
 
 deploy : main.py .gcloudignore requirements.txt Dockerfile
-	mkdir -p $(UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/helpers
-	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/sources
-	cp -r $(ROOT_DIR)src/resolve $(UPLOAD_DIR)/resolve
-	mkdir -p $(UPLOAD_DIR)/orchestration
-	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_schemas.py $(UPLOAD_DIR)/
-	cp $^ $(UPLOAD_DIR)/
+	$(stage-orchestration-upload)
 	gcloud run jobs deploy \
 		func-resolve-forecasts \
 		--project $(CLOUD_PROJECT) \

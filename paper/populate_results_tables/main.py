@@ -4,10 +4,10 @@ import os
 import sys
 
 import pandas as pd
+from utils import gcp
 from variables import BUCKET_NAME
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from utils import gcp  # noqa: E402
 
 
 def process_leaderboard_data(filename, n):

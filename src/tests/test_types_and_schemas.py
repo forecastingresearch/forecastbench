@@ -3,9 +3,11 @@
 from datetime import date
 
 import pandas as pd
+import pandera.pandas as pa
 import pytest
 
 from _fb_types import NullifiedQuestion, SourceQuestionBank, SourceType
+from _schemas import ForecastFrame
 from sources.registry import SOURCES
 
 # ---------------------------------------------------------------------------
@@ -53,6 +55,54 @@ class TestSourceQuestionBank:
         dfr = pd.DataFrame({"id": ["q1"], "date": ["2025-01-01"], "value": [100]})
         sqb = SourceQuestionBank(dfq=dfq, dfr=dfr, hash_mapping={"h1": {"key": "v"}})
         assert sqb.hash_mapping == {"h1": {"key": "v"}}
+
+
+# ---------------------------------------------------------------------------
+# _schemas.py
+# ---------------------------------------------------------------------------
+
+
+class TestForecastFrame:
+    """Test forecast submission schema."""
+
+    def test_valid_forecast_rows_pass(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "id": "q1",
+                    "source": "fred",
+                    "forecast": 0.61,
+                    "resolution_date": "2026-06-01",
+                    "reasoning": "",
+                },
+                {
+                    "id": "q2",
+                    "source": "metaculus",
+                    "forecast": 0.42,
+                    "resolution_date": None,
+                    "reasoning": "",
+                },
+            ]
+        )
+
+        validated = ForecastFrame.validate(df)
+
+        assert validated.equals(df)
+
+    def test_reasoning_column_is_required(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "id": "q1",
+                    "source": "fred",
+                    "forecast": 0.61,
+                    "resolution_date": "2026-06-01",
+                }
+            ]
+        )
+
+        with pytest.raises(pa.errors.SchemaError, match="reasoning"):
+            ForecastFrame.validate(df)
 
 
 # ---------------------------------------------------------------------------

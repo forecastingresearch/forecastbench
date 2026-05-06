@@ -12,6 +12,7 @@ import pandas as pd
 import requests
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
+from utils import gcp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from helpers import (  # noqa: E402
@@ -23,9 +24,6 @@ from helpers import (  # noqa: E402
     fred,
     keys,
 )
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
-from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

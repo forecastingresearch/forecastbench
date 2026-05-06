@@ -5,6 +5,10 @@ all:
 .PHONY: all clean deploy
 
 UPLOAD_DIR = upload
+ROOT_DIR ?= $(abspath ../../..)/
+include $(ROOT_DIR)orchestration_upload.mk
+
+ORCHESTRATION_EXTRA_PACKAGES = llm_forecaster
 
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
@@ -14,22 +18,12 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
 		-e 's/STACK/google-22-full/g' \
 		-e 's/PYTHON_VERSION/python312/g' \
-		-e 's/"main.py"/"main.py", "$(if $(filter $(BUILD_ENV),prod),PROD,TEST)"/g' \
 		$< > Dockerfile
 
 deploy : main.py .gcloudignore requirements.txt Dockerfile
-	mkdir -p $(UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_schemas.py $(UPLOAD_DIR)/
-	mkdir -p $(UPLOAD_DIR)/orchestration
-	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
-	cp $^ $(UPLOAD_DIR)/
+	$(stage-orchestration-upload)
 	gcloud run jobs deploy \
-		func-baseline-llm-forecasts-manager \
+		func-llm-forecaster-manager \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
@@ -38,7 +32,7 @@ deploy : main.py .gcloudignore requirements.txt Dockerfile
 		--memory 2Gi \
 		--max-retries 0 \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
-		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS) \
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),TEST_OR_PROD=$(if $(filter $(BUILD_ENV),prod),PROD,TEST) \
 		--source $(UPLOAD_DIR)
 
 clean:
