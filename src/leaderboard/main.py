@@ -1292,7 +1292,7 @@ def write_leaderboard_js_file_full(
                search: { regex: true, smart: true },
                createdRow: function(row, data, dataIndex) {
                  if ({{ model_highlight_rows | tojson }}.includes(data.Model)) {
-                   $(row).css('background-color', '#fdece8');
+                   $(row).css('background-color', '#fef0e6');
                  }
                },
                infoCallback: function(settings, start, end, max, total, pre) {
@@ -1524,7 +1524,7 @@ def write_dataset_leaderboard_js_file_full(
                search: { regex: true, smart: true },
                createdRow: function(row, data, dataIndex) {
                  if ({{ model_highlight_rows | tojson }}.includes(data.Model)) {
-                   $(row).css('background-color', '#fdece8');
+                   $(row).css('background-color', '#fef0e6');
                  }
                },
                infoCallback: function(settings, start, end, max, total, pre) {
@@ -1647,7 +1647,7 @@ def write_leaderboard_js_file_compact(
               responsive:true,
               createdRow: function(row, data, dataIndex) {
                  if ({{ model_highlight_rows | tojson }}.includes(data.Model)) {
-                   $(row).css('background-color', '#fdece8');
+                   $(row).css('background-color', '#fef0e6');
                  }
                },
               infoCallback: function(settings, start, end, max, total, pre) {

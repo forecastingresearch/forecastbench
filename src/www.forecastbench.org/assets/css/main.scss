@@ -5,6 +5,16 @@ search: false
 
 @charset "utf-8";
 
+// FRI brand — override Minimal Mistakes !default variables
+$primary-color: #E96B26;
+$text-color: #102B23;
+$background-color: #F6F8F1;
+$footer-background-color: #102B23;
+$link-color: #102B23;
+$masthead-link-color: #102B23;
+$border-color: rgba(16, 43, 35, 0.2);
+$muted-text-color: rgba(16, 43, 35, 0.65);
+
 @import "minimal-mistakes/skins/{{ site.minimal_mistakes_skin | default: 'default' }}"; // skin
 @import "minimal-mistakes"; // main partials
 

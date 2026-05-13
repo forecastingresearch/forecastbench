@@ -489,6 +489,18 @@
     }
     const showParity = parityData !== null;
 
+    // Pre-compute parity text so we can size both boxes consistently
+    const trendItem = legendItems.find(item => item.type === 'trend');
+    const textX = trendItem ? trendItem.x + 5 : 8;
+    const mainText = showParity
+      ? (parityAchieved
+        ? `LLM-superforecaster parity achieved: ${formatParityAchievedDate(parityAchievedDate)}`
+        : `Projected LLM-superforecaster parity: ${parityData.intersection}`)
+      : '';
+    const minTextWidth = showParity ? mainText.length * 7 + textX + 20 : 0;
+    const sharedBoxWidth = Math.max(totalWidth + 16, minTextWidth);
+    const sharedLegendX = Math.min(legendX, width - sharedBoxWidth - 15);
+
     // Position legend and parity display at lower right, computed bottom-up
     const parityBoxHeight = (showParity && !parityAchieved) ? 48 : 32;
     let legendY, displayY;
@@ -506,12 +518,12 @@
     if (showLegend) {
       const legend = g.append('g').attr('class', 'legend');
 
-      legend.attr('transform', `translate(${legendX}, ${legendY})`);
+      legend.attr('transform', `translate(${sharedLegendX}, ${legendY})`);
 
       // Background (color and border handled by CSS)
       legend.append('rect')
         .attr('x', -8).attr('y', -8)
-        .attr('width', totalWidth + 16).attr('height', 32)
+        .attr('width', sharedBoxWidth).attr('height', 32)
         .attr('rx', 6);
 
       // Draw legend items
@@ -556,17 +568,12 @@
         : `Projected LLM-superforecaster parity: ${parityData.intersection}`;
       const ciText = `(95% CI: ${parityData.lower} – ${parityData.upper})`;
 
-      intersectionDisplay.attr('transform', `translate(${legendX}, ${displayY})`);
-
-      const boxWidth = totalWidth + 16;
+      intersectionDisplay.attr('transform', `translate(${sharedLegendX}, ${displayY})`);
 
       intersectionDisplay.append('rect')
         .attr('x', -8).attr('y', -8)
-        .attr('width', boxWidth).attr('height', parityBoxHeight)
+        .attr('width', sharedBoxWidth).attr('height', parityBoxHeight)
         .attr('rx', 6);
-
-      const trendItem = legendItems.find(item => item.type === 'trend');
-      const textX = trendItem ? trendItem.x + 5 : 8;
 
       intersectionDisplay.append('text')
         .attr('x', textX).attr('y', 12)

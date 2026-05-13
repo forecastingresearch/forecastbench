@@ -1,10 +1,8 @@
 ---
 layout: splash
 permalink: /
-head_scripts:
-    - https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js
+classes: home
 footer_scripts:
-    - /assets/js/particles.js
     - /assets/js/align-check-card.js
 head_css:
   - https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css
@@ -23,16 +21,18 @@ after_footer_scripts:
   - /assets/js/tooltip-init.js
   - https://cdn.jsdelivr.net/npm/d3@7
   - /assets/js/explore_sota_graph.js
+title: "ForecastBench"
 header:
-  overlay_color: "#171e29"
-excerpt: "A dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
+  overlay_color: "#102B23"
+  illustration: /assets/images/illustrations/fri-hero graphic-rgb-green-lines.jpg
+excerpt: "ForecastBench is a dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
 featured: "Scoring with the<br>Brier Index"
 featured_link: "https://forecastingresearch.substack.com/p/introducing-the-brier-index"
 featured_date: "Mar 4, 2026"
 ---
 
 <!-- Tournament leaderboard Section with Background -->
-<div class="tournament-section" style="background-color: #d0d8e6; margin: 0 -50vw; padding: 3rem 50vw; margin-top: -2rem; margin-bottom: 0;">
+<div class="tournament-section" style="background-color: #EEF0E8; margin: 0 -50vw; padding: 3rem 50vw; margin-top: -2rem; margin-bottom: 0;">
   <div style="display:flex;">
     <div style="flex:2; padding-right:1rem; display:flex; justify-content:flex-end;">
       <div style="width:450px; margin-right:2rem;">
@@ -52,10 +52,10 @@ featured_date: "Mar 4, 2026"
 <!-- Wave Separator -->
 <div class="wave-separator" style="position: relative; height: 100px; margin: -2.5rem -30vw 0 -30vw; padding:0 ; overflow: hidden; z-index: 1;">
   <!-- Deeper blue-gray background (upper part) -->
-  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #d0d8e6; z-index: 1;"></div>
+  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #EEF0E8; z-index: 1;"></div>
 
   <!-- Light slate section with wave clip-path -->
-  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #e0e4ee; z-index: 2; clip-path: polygon(
+  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #EEF0E8; z-index: 2; clip-path: polygon(
     0% 80%,
     8% 70%,
     16% 55%,
@@ -76,7 +76,7 @@ featured_date: "Mar 4, 2026"
 </div>
 
 <!-- Baseline leaderboard Section with Background -->
-<div class="baseline-section" style="background-color: #e0e4ee; margin: 0 -50vw; padding: 3rem 50vw 0 50vw; margin-top: 0; margin-bottom: 0; position: relative; z-index: 3;">
+<div class="baseline-section" style="background-color: #EEF0E8; margin: 0 -50vw; padding: 3rem 50vw 0 50vw; margin-top: 0; margin-bottom: 0; position: relative; z-index: 3;">
   <div style="display:flex;">
      <div style="flex:2; margin-left:-1rem;">
        <div class="leaderboard-wrapper-home">
@@ -96,10 +96,10 @@ featured_date: "Mar 4, 2026"
 <!-- Wave Separator (Inverted) -->
 <div class="wave-separator-inverted" style="position: relative; height: 100px; margin: 0 -30vw 0 -30vw; padding:0; overflow: hidden; z-index: 1;">
   <!-- Light slate background (upper part) -->
-  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #e0e4ee; z-index: 1;"></div>
+  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #EEF0E8; z-index: 1;"></div>
 
   <!-- Chart section background with inverted wave clip-path -->
-  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ececf4; z-index: 2; clip-path: polygon(
+  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #F6F8F1; z-index: 2; clip-path: polygon(
     0% 20%,
     8% 30%,
     16% 45%,
@@ -120,7 +120,7 @@ featured_date: "Mar 4, 2026"
 </div>
 
 <!-- Chart Section with Background -->
-<div class="chart-section-home" style="background-color: #ececf4; margin: 0 -50vw; padding: 1rem 50vw 4rem 50vw; margin-top: 0; margin-bottom: -3rem; position: relative; z-index: 3;">
+<div class="chart-section-home" style="background-color: #F6F8F1; margin: 0 -50vw; padding: 1rem 50vw 4rem 50vw; margin-top: 0; margin-bottom: -3rem; position: relative; z-index: 3;">
   <div style="display: flex; flex-direction: column; align-items: center;">
     <div style="text-align: center; margin-bottom: 1rem;">
       <h1 style="margin-bottom: 0.5rem;">Projected LLM-superforecaster parity</h1>
