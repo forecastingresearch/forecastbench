@@ -10,6 +10,7 @@ import pytest
 from sources.acled import AcledSource
 from sources.fred import FredSource
 from sources.infer import InferSource
+from sources.manifold import ManifoldSource
 from sources.metaculus import MetaculusSource
 
 # ---------------------------------------------------------------------------
@@ -75,6 +76,12 @@ def infer_source():
     src = InferSource()
     src.api_key = "test-key"
     return src
+
+
+@pytest.fixture()
+def manifold_source():
+    """Return a ManifoldSource instance."""
+    return ManifoldSource()
 
 
 # ---------------------------------------------------------------------------
@@ -252,3 +259,60 @@ def make_infer_fetch_df(rows):
         if col not in df.columns:
             df[col] = default
     return df
+
+
+# ---------------------------------------------------------------------------
+# Manifold-specific factories
+# ---------------------------------------------------------------------------
+
+
+def make_manifold_api_market(**overrides):
+    """Build a realistic Manifold market dict as returned by /market/{id}."""
+    base = {
+        "id": "mkt_001",
+        "question": "Will X happen by 2026?",
+        "textDescription": "Background text.",
+        "createdTime": 1704067200000,  # 2024-01-01 epoch ms
+        "closeTime": 1735689600000,  # 2025-01-01 epoch ms
+        "isResolved": False,
+        "resolution": None,
+        "resolutionTime": None,
+        "resolutionProbability": None,
+        "url": "https://manifold.markets/user/test-market",
+        "uniqueBettorCount": 20,
+        "totalLiquidity": 200,
+    }
+    base.update(overrides)
+    return base
+
+
+def make_manifold_search_result(**overrides):
+    """Build a search result item from /search-markets (subset of market fields)."""
+    base = {
+        "id": "mkt_001",
+        "uniqueBettorCount": 20,
+        "totalLiquidity": 200,
+        "closeTime": 1735689600000,  # 2025-01-01 epoch ms
+    }
+    base.update(overrides)
+    return base
+
+
+def make_manifold_bet(**overrides):
+    """Build a single bet dict as returned by /bets endpoint."""
+    base = {
+        "id": "bet_001",
+        "contractId": "mkt_001",
+        "createdTime": 1717200000000,  # ~2024-06-01 epoch ms
+        "probAfter": 0.6,
+        "probBefore": 0.5,
+        "isFilled": True,
+        "amount": 10,
+    }
+    base.update(overrides)
+    return base
+
+
+def make_manifold_fetch_df(rows):
+    """Build a DataFrame matching ManifoldFetchFrame schema (just id column)."""
+    return pd.DataFrame(rows)
