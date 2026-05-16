@@ -127,10 +127,10 @@ baselines: llm-baselines naive-and-dummy-forecasters
 manifold: manifold-fetch manifold-update-questions
 
 manifold-fetch:
-	$(MAKE) -C src/questions/manifold/fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_manifold_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 manifold-update-questions:
-	$(MAKE) -C src/questions/manifold/update_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_manifold_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 metaculus: metaculus-fetch metaculus-update-questions
 
