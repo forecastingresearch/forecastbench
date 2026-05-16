@@ -26,9 +26,10 @@ def driver(_: Any) -> None:
     )
 
     logger.info("Loading existing resolution files...")
-    existing_resolution_files = _source_io.load_existing_resolution_files(
-        SOURCE, ids=dff["id"].astype(str).tolist()
-    )
+    # No ids= filter: load ALL existing resolution files so that we
+    # matching the old non-refactored behaviour.
+    # TODO: we can drop pre-benchmark start date history/ids.
+    existing_resolution_files = _source_io.load_existing_resolution_files(SOURCE)
     logger.info(f"Loaded {len(existing_resolution_files)} resolution files")
 
     files_in_storage = gcp.storage.list_with_prefix(
