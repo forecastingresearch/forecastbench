@@ -168,7 +168,6 @@ class ManifoldSource(MarketSource):
                 else:
                     logger.info(f"Skipped writing to resolution files, not changed -id={row['id']}")
 
-
         # --- Regenerate missing resolution files for resolved questions ---
         for _index, row in dfq[dfq["resolved"]].iterrows():
             filename = f"{self.name}/{row['id']}.jsonl"
