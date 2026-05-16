@@ -35,7 +35,7 @@ deploy : .gcloudignore requirements.txt Dockerfile
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 60s \
+		--task-timeout 560s \
 		--memory 512Mi \
 		--max-retries 0 \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
