@@ -92,6 +92,18 @@ class InferFetchFrame(QuestionFrame):
     nullify_question: Series[bool]
 
 
+class ManifoldFetchFrame(pa.DataFrameModel):
+    """Output of ManifoldSource.fetch(). Just market IDs from search-markets endpoint."""
+
+    id: Series[str]
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = True
+
+
 class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 
