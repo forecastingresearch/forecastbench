@@ -388,6 +388,7 @@ class ManifoldSource(MarketSource):
     @staticmethod
     def _get_resolved_market_value(market: dict) -> float:
         """Map resolution outcome to numeric value.
+
         YES -> 1, NO -> 0, MKT -> market probability, CANCEL -> NaN
         """
         return {"YES": 1, "NO": 0, "MKT": market["resolutionProbability"]}.get(
