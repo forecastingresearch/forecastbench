@@ -161,6 +161,13 @@ class ManifoldSource(MarketSource):
             if df_res is not None:
                 resolution_files[row["id"]] = df_res
                 dfq.at[index, "freeze_datetime_value"] = df_res["value"].iloc[-1]
+                # if rebuilt, then write; else - skip
+                if df_res is not existing_df:
+                    logger.info(f"Rebuilt, will write - id={row['id']}")
+                    resolution_files[row["id"]] = df_res
+                else:
+                    logger.info(f"Skipped writing to resolution files, not changed -id={row['id']}")
+
 
         # --- Regenerate missing resolution files for resolved questions ---
         for _index, row in dfq[dfq["resolved"]].iterrows():
