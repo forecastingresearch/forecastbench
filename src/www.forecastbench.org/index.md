@@ -20,10 +20,11 @@ after_footer_scripts:
   - /assets/js/tooltip-init.js
   - https://cdn.jsdelivr.net/npm/d3@7
   - /assets/js/explore_sota_graph.js
+title: " "
 header:
   overlay_color: "#102B23"
-  illustration: /assets/images/illustrations/fri-illustration-8.jpg
-excerpt: "A dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
+  illustration: /assets/images/illustrations/fri-hero graphic-rgb-green-lines.jpg
+excerpt: "ForecastBench is a dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
 featured: "Scoring with the<br>Brier Index"
 featured_link: "https://forecastingresearch.substack.com/p/introducing-the-brier-index"
 featured_date: "Mar 4, 2026"

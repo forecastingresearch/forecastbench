@@ -95,11 +95,16 @@ body a:hover {
   object-fit: cover;
   object-position: center;
   z-index: 1;
-  opacity: 1;
+  opacity: 0.3;
   pointer-events: none;
 }
 
 #wrapp { position: relative; z-index: 2; }
+
+.page__hero--overlay .page__lead {
+  font-family: "Lora", Georgia, serif;
+  font-weight: 400;
+}
 
 .check-card {
   position: absolute;
@@ -223,14 +228,26 @@ body a:hover {
 
 
 .btn--primary {
-    transition: all 0.25s ease !important;
-    background-color: rgba(233, 107, 38, 0.9) !important;
-    border-color: #E96B26 !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #E96B26 !important;
+  font-size: 16px !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+
+  &::after {
+    content: " ›";
+  }
 }
 
 .btn--primary:hover,
 .btn--primary:focus {
-  background-color: rgba(200, 90, 28, 0.95) !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #E96B26 !important;
+  text-shadow: 0 0 0.5px #E96B26 !important;
 }
 
 
@@ -246,9 +263,24 @@ body a:hover {
   margin: 0rem 0rem !important;
 }
 
-.site-logo img {
-  height: 3rem;
+.site-lockup {
+  display: flex;
+  align-items: center;
+  text-decoration: none !important;
+}
+
+.site-lockup__svg {
+  height: 2.75rem;
   width: auto;
+  overflow: visible;
+
+  .site-lockup__label {
+    transition: fill 0.2s ease;
+  }
+}
+
+.site-lockup:hover .site-lockup__label {
+  fill: #E96B26;
 }
 
 .masthead__menu-item > a {
@@ -258,8 +290,7 @@ body a:hover {
 }
 
 .masthead__inner-wrap {
-  padding-top: 0.25rem !important;
-  padding-bottom: 0.25rem !important;
+  padding: 0.25rem 0 !important;
 }
 
 .masthead__menu-item a {
@@ -400,11 +431,11 @@ a.site-title:focus {
 }
 
 .lb-tab {
-  padding: 0.4rem 1rem;
+  padding: 0.3rem 0.8rem;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: rgba(16, 43, 35, 0.65);
   cursor: pointer;
@@ -1760,6 +1791,11 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   }
 }
 
+/* Make FRI logo slightly larger than other org logos in leaderboard tables */
+img[src*="org_logos/fri.svg"] {
+  height: 26px !important;
+}
+
 /*
  * FRI Typography
  */
@@ -1782,6 +1818,7 @@ h1, h2, h3, h4, h5, h6,
 .fb-footer__title,
 caption {
   font-family: "DM Mono", "Courier New", monospace;
+  font-weight: 300;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   line-height: 1.1;

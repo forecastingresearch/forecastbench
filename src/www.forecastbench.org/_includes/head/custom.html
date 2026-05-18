@@ -2,9 +2,14 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400&family=DM+Sans:ital,opsz,wght@0,9..40,300;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;1,9..40,300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 
-<link rel="icon" type="image/svg+xml" href="{{ '/assets/images/logo/fri-icon-green.svg' | relative_url }}">
+<link rel="icon" type="image/svg+xml" href="{{ '/assets/images/logo/fri-icon-green.svg' | relative_url }}" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="{{ '/assets/images/logo/fri-icon-white.svg' | relative_url }}" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="{{ '/assets/images/logo/favicon/favicon-96x96.png' | relative_url }}" sizes="96x96">
+<link rel="shortcut icon" href="{{ '/assets/images/logo/favicon/favicon.ico' | relative_url }}">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ '/assets/images/logo/favicon/apple-touch-icon.png' | relative_url }}">
+<link rel="manifest" href="{{ '/assets/images/logo/favicon/site.webmanifest' | relative_url }}">
 
 {% if page.head_css %}
   {% for script in page.head_css %}
