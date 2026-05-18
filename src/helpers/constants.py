@@ -153,7 +153,7 @@ EXTERNAL_TOURNAMENT_MODELS_TO_LOGO = {
 }
 
 ORG_TO_LOGO = {
-    BENCHMARK_NAME: "fri.png",
+    BENCHMARK_NAME: "fri.svg",
     ANTHROPIC_ORG: "anthropic.svg",
     DEEPSEEK_ORG: "deepseek.svg",
     MOONSHOT_ORG: "moonshot.svg",

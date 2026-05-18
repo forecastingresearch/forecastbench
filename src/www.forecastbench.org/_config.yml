@@ -7,8 +7,8 @@ description: "A dynamic, continuously-updated forecasting benchmark."
 name: "Forecasting Research Institute"
 url: "https://www.forecastbench.org"
 repository: "forecastingresearch/forecastbench"
-logo: "/assets/images/logo/IconTransparentBCROP.png"
-og_image: "/assets/images/logo/TextColor2.png"
+logo: "/assets/images/logo/fri-icon-green.svg"
+og_image: "/assets/images/logo/fri-icon-green.jpg"
 
 header_anchors: false
 

@@ -61,7 +61,7 @@ body a .fa-brands {
 }
 
 body a:hover {
-  color: rgba(226, 62, 22, 1);
+  color: #E96B26;
 }
 
 #wrapp a:hover {
@@ -86,16 +86,25 @@ body a:hover {
   }
 }
 
-#particles-js {
+.page__hero-illustration {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  object-position: center;
   z-index: 1;
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 #wrapp { position: relative; z-index: 2; }
+
+.page__hero--overlay .page__lead {
+  font-family: "Lora", Georgia, serif;
+  font-weight: 400;
+}
 
 .check-card {
   position: absolute;
@@ -157,7 +166,7 @@ body a:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(226, 62, 22, 1);
+  color: #E96B26;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   margin-bottom: 0.3rem;
 }
@@ -207,26 +216,38 @@ body a:hover {
 
 #wrapp-btn {
     transition: all 0.25s ease !important;
-    background-color: rgba(226, 62, 22, 0.7) !important;
-    border-color: rgba(226, 62, 22, 0.8) !important;
+    background-color: rgba(233, 107, 38, 0.7) !important;
+    border-color: rgba(233, 107, 38, 0.8) !important;
 }
 
 #wrapp-btn:hover,
 #wrapp-btn:focus {
-  background-color: rgba(215, 58, 22, 0.8) !important;
-  border-color: rgba(215, 58, 22, 0.9) !important;
+  background-color: rgba(200, 90, 28, 0.8) !important;
+  border-color: rgba(200, 90, 28, 0.9) !important;
 }
 
 
 .btn--primary {
-    transition: all 0.25s ease !important;
-    background-color: rgba(226, 62, 22, 0.9) !important;
-    border-color: rgba(226, 62, 22, 1) !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #E96B26 !important;
+  font-size: 16px !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+
+  &::after {
+    content: " ›";
+  }
 }
 
 .btn--primary:hover,
 .btn--primary:focus {
-  background-color: rgba(215, 58, 22, 0.95) !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #E96B26 !important;
+  text-shadow: 0 0 0.5px #E96B26 !important;
 }
 
 
@@ -237,20 +258,39 @@ body a:hover {
 }
 
 .masthead__menu {
-  max-height: 2.5rem !important;
+  max-height: 4rem !important;
   overflow: visible;
   margin: 0rem 0rem !important;
 }
 
+.site-lockup {
+  display: flex;
+  align-items: center;
+  text-decoration: none !important;
+}
+
+.site-lockup__svg {
+  height: 2.75rem;
+  width: auto;
+  overflow: visible;
+
+  .site-lockup__label {
+    transition: fill 0.2s ease;
+  }
+}
+
+.site-lockup:hover .site-lockup__label {
+  fill: #E96B26;
+}
+
 .masthead__menu-item > a {
-  font-size: 0.8rem !important;
+  font-size: 0.65rem !important;
   padding: 0rem 0rem !important;
   line-height: 1.5rem !important;
 }
 
 .masthead__inner-wrap {
-  padding-top: 0.25rem !important;
-  padding-bottom: 0.25rem !important;
+  padding: 0.25rem 0 !important;
 }
 
 .masthead__menu-item a {
@@ -260,12 +300,12 @@ body a:hover {
 
 .masthead__menu-item a:hover,
 .masthead__menu-item a:focus {
-  color: rgba(226,62,22,1);
+  color: #E96B26;
 }
 
 .masthead__menu-item > a::before,
 .masthead__menu-item > a::after {
-    background-color: rgba(226, 62, 22, 1) !important;
+    background-color: #E96B26 !important;
     content: none !important;
 }
 
@@ -295,7 +335,7 @@ body a:hover {
 .masthead [class*="menu"] button:focus,
 .masthead .menu-icon:hover,
 .masthead .menu-icon:focus {
-    color: rgba(226, 62, 22, 1) !important;
+    color: #E96B26 !important;
 }
 
 /* Minimal Mistakes hamburger menu styling */
@@ -305,7 +345,7 @@ body a:hover {
 
 .greedy-nav__toggle:hover,
 .greedy-nav__toggle:focus {
-    color: rgba(226, 62, 22, 1) !important;
+    color: #E96B26 !important;
 }
 
 /* Target the hamburger bars specifically - preserve structure but change color */
@@ -333,7 +373,7 @@ a.site-title:visited {
 
 a.site-title:hover,
 a.site-title:focus {
-  color: rgba(226, 62, 22, 1) !important;
+  color: #E96B26 !important;
 }
 
 
@@ -346,7 +386,7 @@ a.site-title:focus {
 }
 
 .page__footer {
-    background-color: #171e29;
+    background-color: #102B23;
     color: rgba(234,234,234,1);
 }
 
@@ -357,7 +397,7 @@ a.site-title:focus {
 
 .page__footer-copyright + .page__footer-copyright {
   font-size: 0.6rem;
-  color: #a7b0c2;
+  color: rgba(16, 43, 35, 0.45);
 }
 
 .page__footer-copyright + .page__footer-copyright a {
@@ -380,7 +420,7 @@ a.site-title:focus {
 .lb-title {
   font-size: 1.3rem;
   font-weight: 700;
-  color: #1e293b;
+  color: #102B23;
   margin-right: auto;
   padding-bottom: 0.4rem;
 }
@@ -391,13 +431,13 @@ a.site-title:focus {
 }
 
 .lb-tab {
-  padding: 0.4rem 1rem;
+  padding: 0.3rem 0.8rem;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: #64748b;
+  color: rgba(16, 43, 35, 0.65);
   cursor: pointer;
   outline: none !important;
   box-shadow: none !important;
@@ -409,12 +449,12 @@ a.site-title:focus {
   }
 
   &:hover {
-    color: rgba(226, 62, 22, 0.8);
+    color: rgba(233, 107, 38, 0.8);
   }
 
   &.active {
-    color: rgba(226, 62, 22, 1);
-    border-bottom-color: rgba(226, 62, 22, 1);
+    color: #E96B26;
+    border-bottom-color: #E96B26;
   }
 }
 
@@ -460,7 +500,7 @@ a.site-title:focus {
 #leaderboard-baseline-compact td:nth-child(4),
 #leaderboard-tournament-compact td:nth-child(4),
 #leaderboard-table-full td:nth-child(9) {
-  background-color: rgba(226, 62, 22, 0.04);
+  background-color: rgba(233, 107, 38, 0.04);
 }
 
 // Wrapper styling (for pages with title/intro text)
@@ -605,7 +645,7 @@ a.site-title:focus {
 }
 
 .dataTables_wrapper table.dataTable tbody tr:hover {
-  background-color: rgba(226, 62, 22, 0.08) !important;
+  background-color: rgba(233, 107, 38, 0.08) !important;
 }
 
 /*
@@ -832,7 +872,7 @@ a.site-title:focus {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #9ca3af;
+  color: rgba(16, 43, 35, 0.4);
   font-size: 0.7rem;
   line-height: 1;
   opacity: 0;
@@ -941,9 +981,9 @@ a.site-title:focus {
   gap: 24px;
   margin-bottom: 24px;
   padding: 20px;
-  background: #f8fafc;
+  background: #F6F8F1;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #EEF0E8;
 }
 
 .control-section {
@@ -965,7 +1005,7 @@ a.site-title:focus {
 
 .control-label {
   font-weight: 600;
-  color: #1e293b;
+  color: #102B23;
   font-size: 15px;
   margin-bottom: 8px;
 }
@@ -973,7 +1013,7 @@ a.site-title:focus {
 /* Question Source - Segmented Control */
 .segmented-control {
   display: inline-flex;
-  background: #e2e8f0;
+  background: #EEF0E8;
   border-radius: 8px;
   padding: 3px 2px;
   position: relative;
@@ -986,7 +1026,7 @@ a.site-title:focus {
   left: 2px;
   width: calc(33.333% - 1.33px);
   height: calc(100% - 6px);
-  background: linear-gradient(135deg, rgba(226, 62, 22, 0.9), rgba(226, 62, 22, 0.8));
+  background: linear-gradient(135deg, rgba(233, 107, 38, 0.9), rgba(233, 107, 38, 0.8));
   border-radius: 5px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1;
@@ -1016,7 +1056,7 @@ a.site-title:focus {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  color: #64748b;
+  color: rgba(16, 43, 35, 0.65);
   border-radius: 5px;
   transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -1051,25 +1091,25 @@ a.site-title:focus {
   display: inline-block;
   padding: 6px 12px;
   background: #ffffff;
-  border: 2px solid #e2e8f0;
+  border: 2px solid #EEF0E8;
   border-radius: 20px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  color: #64748b;
+  color: rgba(16, 43, 35, 0.65);
   transition: all 0.2s ease;
   user-select: none;
 }
 
 .tag-option input[type="checkbox"]:checked + label {
-  background: rgba(226, 62, 22, 0.1);
-  border-color: rgba(226, 62, 22, 0.3);
-  color: rgba(226, 62, 22, 0.9);
+  background: rgba(233, 107, 38, 0.1);
+  border-color: rgba(233, 107, 38, 0.3);
+  color: rgba(233, 107, 38, 0.9);
 }
 
 .tag-option label:hover {
-  border-color: rgba(226, 62, 22, 0.2);
-  background: rgba(226, 62, 22, 0.05);
+  border-color: rgba(233, 107, 38, 0.2);
+  background: rgba(233, 107, 38, 0.05);
 }
 
 /* Toggle Switch */
@@ -1099,7 +1139,7 @@ a.site-title:focus {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #cbd5e1;
+  background-color: rgba(16, 43, 35, 0.2);
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -1118,7 +1158,7 @@ a.site-title:focus {
 }
 
 input[type="checkbox"]:checked + .toggle-slider {
-  background-color: rgba(226, 62, 22, 0.8);
+  background-color: rgba(233, 107, 38, 0.8);
 }
 
 input[type="checkbox"]:checked + .toggle-slider:before {
@@ -1128,7 +1168,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 .toggle-label {
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: #102B23;
   cursor: pointer;
 }
 
@@ -1189,20 +1229,20 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 
 /* CSS variables for chart theming */
 :root {
-  --chart-bg: #fefefe;
-  --chart-text: #1f2937;
-  --chart-grid: rgba(148, 163, 184, 0.2);
-  --chart-grid-major: rgba(148, 163, 184, 0.3);
-  --chart-axes: #64748b;
+  --chart-bg: #ffffff;
+  --chart-text: #102B23;
+  --chart-grid: rgba(16, 43, 35, 0.1);
+  --chart-grid-major: rgba(16, 43, 35, 0.15);
+  --chart-axes: rgba(16, 43, 35, 0.65);
   --chart-point: #93a3b5;
-  --chart-point-hover: rgb(18, 23, 31);
-  --chart-sota: #ea580c;
-  --chart-sota-hover: #dc2626;
-  --chart-sota-ring: #ea580c;
+  --chart-point-hover: #102B23;
+  --chart-sota: #E96B26;
+  --chart-sota-hover: #C85A1C;
+  --chart-sota-ring: #E96B26;
   --chart-error: #dc2626;
-  --chart-ref: #6b7280;
-  --chart-ref-line: #d1d5db;
-  --chart-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --chart-ref: rgba(16, 43, 35, 0.5);
+  --chart-ref-line: rgba(16, 43, 35, 0.15);
+  --chart-font: "DM Mono", "Courier New", monospace;
 }
 
 /* Grid styling with subtle lines */
@@ -1268,12 +1308,12 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   stroke-width: 2.5;
   stroke-dasharray: 8 4;
   opacity: 0.8;
-  filter: drop-shadow(0 1px 2px rgba(234, 88, 12, 0.2));
+  filter: drop-shadow(0 1px 2px rgba(233, 107, 38, 0.2));
 }
 
 /* Confidence band around trend line */
 .confidence-band {
-  fill: rgba(234, 88, 12, 0.15);
+  fill: rgba(233, 107, 38, 0.15);
   opacity: 0.7;
   stroke: none;
 }
@@ -1288,15 +1328,15 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 
 /* Enhanced legend box */
 .legend rect {
-  fill: #f8fafc !important;
-  stroke: #e2e8f0;
+  fill: #F6F8F1 !important;
+  stroke: #EEF0E8;
   stroke-width: 1;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
 }
 
 .intersection-display rect {
-  fill: #f8fafc !important;
-  stroke: #e2e8f0;
+  fill: #F6F8F1 !important;
+  stroke: #EEF0E8;
   stroke-width: 1;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
 }
@@ -1317,13 +1357,13 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 
 .point-sota {
   fill: var(--chart-sota);
-  filter: drop-shadow(0 2px 3px rgba(234, 88, 12, 0.3));
+  filter: drop-shadow(0 2px 3px rgba(233, 107, 38, 0.3));
   transition: all 0.2s ease;
 }
 
 .point-sota:hover {
   fill: var(--chart-sota-hover);
-  filter: drop-shadow(0 3px 6px rgba(234, 88, 12, 0.5));
+  filter: drop-shadow(0 3px 6px rgba(233, 107, 38, 0.5));
 }
 
 .point-ring {
@@ -1356,7 +1396,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
-  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  background: linear-gradient(135deg, #102B23 0%, #071810 100%);
   color: white;
   font-size: 12px;
   font-weight: 500;
@@ -1370,8 +1410,8 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 }
 
 .selection-rect {
-  fill: rgba(234, 88, 12, 0.12);
-  stroke: rgba(234, 88, 12, 0.6);
+  fill: rgba(233, 107, 38, 0.12);
+  stroke: rgba(233, 107, 38, 0.6);
   stroke-width: 1.5;
   stroke-dasharray: 6 3;
   opacity: 0.9;
@@ -1380,7 +1420,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 
 .instruction {
   font-size: 13px;
-  color: #64748b;
+  color: rgba(16, 43, 35, 0.65);
   margin-top: 12px;
   margin-left: 64px;
   font-style: italic;
@@ -1394,16 +1434,16 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   max-width: none;
   margin: 10px 0 0 64px;
   padding-top: 10px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #EEF0E8;
   font-size: 0.62rem;
   line-height: 1.45;
-  color: #64748b;
+  color: rgba(16, 43, 35, 0.65);
   text-align: left;
   font-family: var(--chart-font);
 }
 
 .leaderboard-wrapper .explore-caveat strong {
-  color: #475569;
+  color: rgba(16, 43, 35, 0.65);
   font-weight: 600;
 }
 
@@ -1441,19 +1481,19 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   h2 {
     font-size: 1.2rem;
     font-weight: 600;
-    color: #1e293b;
+    color: #102B23;
   }
 
   p {
     font-size: 0.75rem;
-    color: #64748b;
+    color: rgba(16, 43, 35, 0.65);
   }
 }
 
 .team-intro {
   margin-bottom: 2rem !important;
   font-size: 0.75rem !important;
-  color: #1e293b !important;
+  color: #102B23 !important;
 }
 
 .team-grid {
@@ -1470,13 +1510,13 @@ input[type="checkbox"]:checked + .toggle-slider:before {
     font-size: 0.65rem;
     font-weight: 600;
     margin: 0.4rem 0 0.2rem 0;
-    color: #1e293b;
+    color: #102B23;
   }
 }
 
 .team-role {
   font-size: 0.6rem !important;
-  color: #64748b;
+  color: rgba(16, 43, 35, 0.65);
   margin: 0;
   line-height: 1.2;
 }
@@ -1488,14 +1528,14 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   padding: 0 !important;
 
   a {
-    color: #94a3b8;
+    color: rgba(16, 43, 35, 0.4);
     text-decoration: none;
     font-style: normal;
     font-weight: 400;
     transition: color 0.3s ease;
 
     &:hover {
-      color: rgba(226, 62, 22, 1);
+      color: #E96B26;
     }
   }
 }
@@ -1504,7 +1544,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   width: 120px;
   height: 120px;
   margin: 0 auto;
-  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  background: linear-gradient(135deg, #EEF0E8 0%, rgba(16, 43, 35, 0.2) 100%);
   border-radius: 50%;
   border: 2px solid #f1f5f9;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
@@ -1518,7 +1558,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
     transform: translate(-50%, -50%);
     width: 50%;
     height: 50%;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(16%2C43%2C35%2C0.4)'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
@@ -1572,7 +1612,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 
 .blog-entry__meta {
   font-size: 0.7rem !important;
-  color: #64748b;
+  color: rgba(16, 43, 35, 0.65);
   margin: 0 !important;
 }
 
@@ -1680,7 +1720,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 }
 
 .fb-footer a:hover {
-  color: #f97316;
+  color: #E96B26;
 }
 
 .fb-footer__grid {
@@ -1697,7 +1737,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   margin: 0 0 0.75rem 0;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .fb-footer__list {
@@ -1735,9 +1775,69 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   gap: 0.75rem;
   align-items: center;
   font-size: 0.55rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .fb-footer__divider {
   opacity: 0.6;
 }
+
+.fb-footer__logo img {
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+/* Make FRI logo slightly larger than other org logos in leaderboard tables */
+img[src*="org_logos/fri.svg"] {
+  height: 26px !important;
+}
+
+/*
+ * FRI Typography
+ */
+body, p, li, td, th, .page__content {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-weight: 300;
+}
+
+h1, h2, h3, h4, h5, h6,
+.page__title, .site-title, .page-title {
+  font-family: "Lora", Georgia, serif;
+  font-weight: 400;
+}
+
+// DM Mono for nav links, labels, tags, and buttons — ALL CAPS per FRI spec
+.btn,
+.page__meta,
+.check-card__title,
+.lb-tab,
+.fb-footer__title,
+caption {
+  font-family: "DM Mono", "Courier New", monospace;
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.masthead__menu-item a {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-weight: 300;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+// Blog dates already used monospace; keep DM Mono
+.blog-date {
+  font-family: "DM Mono", "Courier New", monospace;
+}
+
+
+/*
+ * End FRI Typography
+ */
