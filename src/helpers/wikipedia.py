@@ -12,6 +12,7 @@ from scipy.stats import norm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
+from sources._metadata import SOURCE_METADATA  # noqa: E402
 from sources.wikipedia import _IDS_TO_NULLIFY as IDS_TO_NULLIFY  # noqa: F401, E402
 from sources.wikipedia import (  # noqa: F401, E402
     _TRANSFORM_ID_MAPPING as transform_id_mapping,
@@ -19,6 +20,9 @@ from sources.wikipedia import (  # noqa: F401, E402
 from sources.wikipedia import QuestionType  # noqa: F401, E402
 
 from . import constants  # noqa: E402
+
+SOURCE_INTRO = SOURCE_METADATA["wikipedia"]["source_intro"]
+RESOLUTION_CRITERIA = SOURCE_METADATA["wikipedia"]["resolution_criteria"]
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,18 +47,10 @@ _source = None
 def _get_source():
     global _source
     if _source is None:
-        from sources import SOURCES
+        from sources.wikipedia import WikipediaSource
 
-        _source = SOURCES[source]
+        _source = WikipediaSource()
     return _source
-
-
-SOURCE_INTRO = (
-    "Wikipedia is an online encyclopedia created and edited by volunteers. You're going to predict "
-    "how questions based on data sourced from Wikipedia will resolve."
-)
-
-RESOLUTION_CRITERIA = "Resolves to the value calculated from {url} on the resolution date."
 
 
 def transform_id(wid):

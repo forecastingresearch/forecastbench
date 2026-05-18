@@ -12,8 +12,12 @@ from questions.yfinance.update_questions.main import (
     finalize_resolution_file,
     update_questions,
 )
-from sources.yfinance import DELISTED_STOCKS, TICKER_RENAMES, YfinanceSource
+from sources._metadata import SOURCE_METADATA
+from sources.yfinance import YfinanceSource
 from tests.conftest import make_forecast_df, make_question_df
+
+DELISTED_STOCKS = SOURCE_METADATA["yfinance"]["nullified_questions"]
+TICKER_RENAMES = SOURCE_METADATA["yfinance"]["ticker_renames"]
 
 
 class TestTickerRenamesDefinition:

@@ -5,15 +5,12 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from sources.fred import NULLIFIED_IDS  # noqa: F401, E402
+from sources._metadata import SOURCE_METADATA  # noqa: E402
 
-SOURCE_INTRO = (
-    "The Federal Reserve Economic Data database (FRED) provides economic data from national, "
-    "international, public, and private sources.You're going to predict how questions based on "
-    "this data will resolve."
-)
-
-RESOLUTION_CRITERIA = "Resolves to the value found at {url} once the data is published."
+_META = SOURCE_METADATA["fred"]
+SOURCE_INTRO = _META["source_intro"]
+RESOLUTION_CRITERIA = _META["resolution_criteria"]
+NULLIFIED_IDS = [nq.id for nq in _META["nullified_questions"]]
 
 # flake8: noqa: B950
 

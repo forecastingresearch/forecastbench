@@ -5,13 +5,15 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import TYPE_CHECKING, ClassVar, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Union
 
 import numpy as np
 import pandas as pd
 
-from _fb_types import NullifiedQuestion, SourceType
+from _fb_types import NullifiedQuestion, SourceType, UpdateResult
 from _schemas import ResolutionFrame
+
+from ._metadata import SOURCE_METADATA
 
 if TYPE_CHECKING:
     from pandera.typing import DataFrame
@@ -28,24 +30,54 @@ class BaseSource(ABC):
     """
 
     name: ClassVar[str]
-    display_name: ClassVar[str]
     source_type: ClassVar[SourceType]
+    source_intro: ClassVar[str]
+    resolution_criteria: ClassVar[str]
     nullified_questions: ClassVar[list[NullifiedQuestion]] = []
     resolution_schema: ClassVar[type] = ResolutionFrame
 
     def __init__(self) -> None:
         """Initialize with empty hash mapping."""
         self.hash_mapping: dict[str, dict] = {}
+        self.api_key: str | None = None
+
+    def _require_api_key(self) -> str:
+        """Return api_key or raise if not set."""
+        if not self.api_key:
+            raise RuntimeError(
+                f"{self.__class__.__name__}.api_key must be set before calling "
+                "fetch() or update(). Set it in the orchestration layer."
+            )
+        return self.api_key
 
     def __init_subclass__(cls, **kwargs):
-        """Enforce required ClassVars on concrete (non-intermediate) subclasses."""
+        """Enforce required ClassVars and auto-populate from _metadata.
+
+        Concrete subclasses must define ``name`` and ``source_type``. After
+        enforcement, any keys present in ``SOURCE_METADATA[cls.name]`` are set
+        as class attributes automatically (source_intro, resolution_criteria,
+        nullified_questions, etc.) so source files only need ``name``.
+        """
         super().__init_subclass__(**kwargs)
         # Skip enforcement for DatasetSource / MarketSource (they're still abstract)
         if cls.__name__ in ("DatasetSource", "MarketSource"):
             return
-        for attr in ("name", "display_name", "source_type"):
+        for attr in ("name", "source_type"):
             if not hasattr(cls, attr) or getattr(cls, attr) is getattr(BaseSource, attr, None):
                 raise TypeError(f"Concrete source {cls.__name__} must define ClassVar '{attr}'")
+
+        # Auto-populate from metadata
+        _REQUIRED_METADATA_KEYS = {"source_type", "source_intro", "resolution_criteria"}
+        name = getattr(cls, "name", None)
+        if name and name in SOURCE_METADATA:
+            meta = SOURCE_METADATA[name]
+            missing = _REQUIRED_METADATA_KEYS - meta.keys()
+            if missing:
+                raise TypeError(
+                    f"SOURCE_METADATA['{name}'] missing required keys: {sorted(missing)}"
+                )
+            for key, value in meta.items():
+                setattr(cls, key, value)
 
     # ------------------------------------------------------------------
     # Public resolve interface
@@ -154,6 +186,26 @@ class BaseSource(ABC):
                 raise ValueError(msg)
 
         df["id"].apply(check_id)
+
+    @abstractmethod
+    def fetch(self, **kwargs: Any) -> pd.DataFrame:
+        """Fetch raw data from external API. Return shape is source-specific."""
+        ...
+
+    @abstractmethod
+    def update(
+        self,
+        dfq: DataFrame[QuestionFrame],
+        dff: pd.DataFrame,
+        **kwargs: Any,
+    ) -> UpdateResult:
+        """Process fetched data into questions and resolution files.
+
+        Args:
+            dfq (DataFrame[QuestionFrame]): Existing questions.
+            dff (pd.DataFrame): Freshly fetched data (source-specific schema).
+        """
+        ...
 
     # ------------------------------------------------------------------
     # Static utility methods

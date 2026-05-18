@@ -19,7 +19,6 @@ class _StubSource(BaseSource):
     """Minimal concrete subclass for testing BaseSource."""
 
     name = "stub"
-    display_name = "Stub"
     source_type = SourceType.DATASET
 
     def _resolve(self, df, dfq, dfr):
@@ -27,12 +26,17 @@ class _StubSource(BaseSource):
         df["resolved"] = True
         return df, []
 
+    def fetch(self, **kwargs):
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        raise NotImplementedError
+
 
 class _StubSourceWithNullified(BaseSource):
     """Concrete subclass with nullified questions."""
 
     name = "stub_null"
-    display_name = "StubNull"
     source_type = SourceType.DATASET
     nullified_questions = [
         NullifiedQuestion(id="null_q1", nullification_start_date=date(2024, 6, 1)),
@@ -43,6 +47,12 @@ class _StubSourceWithNullified(BaseSource):
         df["resolved_to"] = 1.0
         df["resolved"] = True
         return df, []
+
+    def fetch(self, **kwargs):
+        raise NotImplementedError
+
+    def update(self, dfq, dff, **kwargs):
+        raise NotImplementedError
 
 
 # ---------------------------------------------------------------------------
@@ -57,17 +67,6 @@ class TestInitSubclass:
         with pytest.raises(TypeError, match="must define ClassVar 'name'"):
 
             class _BadSource(BaseSource):
-                display_name = "Bad"
-                source_type = SourceType.DATASET
-
-                def _resolve(self, df, dfq, dfr):
-                    return df
-
-    def test_missing_display_name_raises(self):
-        with pytest.raises(TypeError, match="must define ClassVar 'display_name'"):
-
-            class _BadSource(BaseSource):
-                name = "bad"
                 source_type = SourceType.DATASET
 
                 def _resolve(self, df, dfq, dfr):
@@ -77,7 +76,6 @@ class TestInitSubclass:
         # Should not raise
         class _GoodSource(BaseSource):
             name = "good"
-            display_name = "Good"
             source_type = SourceType.MARKET
 
             def _resolve(self, df, dfq, dfr):
