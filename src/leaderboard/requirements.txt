@@ -6,7 +6,7 @@ gcsfs==2025.7.0
 termcolor
 scipy
 GitPython
-pyfixest>=0.30.2
+pyfixest>=0.50.1
 Jinja2>=3.1.6
 statsmodels>=0.14.5
 joblib

@@ -18,7 +18,7 @@ after_footer_scripts:
   - https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.6.3/dist/floating-ui.dom.min.js
   - /assets/js/leaderboard_tournament_full.js
   - /assets/js/leaderboard_baseline_full.js
-  - /assets/js/leaderboard_dataset_full.js
+  - /assets/js/leaderboard_preliminary_full.js
   - /assets/js/tooltip-init.js
 ---
 
@@ -92,7 +92,7 @@ after_footer_scripts:
   var initFns = {
     tournament:   'initLeaderboard_tournament',
     baseline:     'initLeaderboard_baseline',
-    preliminary:  'initLeaderboard_dataset'
+    preliminary:  'initLeaderboard_preliminary'
   };
   var currentTab = null;
 

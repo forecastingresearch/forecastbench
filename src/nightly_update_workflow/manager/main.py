@@ -189,12 +189,12 @@ def main():
         timeout=timeout_resolve_forecasts,
     )
 
-    # Launch both leaderboards in parallel
+    # Launch leaderboard jobs in parallel
     dict_to_use_leaderboards = "leaderboards"
     timeout_leaderboards = cloud_run.timeout_1h * 4
     operation_leaderboards = call_worker(
         dict_to_use=dict_to_use_leaderboards,
-        task_count=2,
+        task_count=3,
         timeout=timeout_leaderboards,
     )
 

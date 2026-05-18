@@ -43,12 +43,25 @@ class LeaderboardType(str, Enum):
     This enum distinguishes between the supported leaderboard variants:
     * BASELINE: The baseline leaderboard: FB forecast files w/o freeze values.
     * TOURNAMENT: The tournament leaderboard. All forecast files.
-    * DATASET: The dataset-only leaderboard.
+    * PRELIMINARY: The preliminary leaderboard using dataset questions only.
     """
 
     BASELINE = "baseline"
     TOURNAMENT = "tournament"
-    DATASET = "dataset"
+    PRELIMINARY = "preliminary"
+
+
+class MarketQuestionAdjustment(str, Enum):
+    """Enumeration of market question adjustment methods."""
+
+    MARKET_BRIER = "market_brier"
+    TWO_WAY_FIXED_EFFECTS = "two_way_fixed_effects"
+
+
+LEADERBOARD_FILE_STEMS = {
+    LeaderboardType.BASELINE: "baseline_leaderboard",
+    LeaderboardType.TOURNAMENT: "tournament_leaderboard",
+}
 
 
 LEADERBOARD_UPDATED_DATE_STR = "Updated " + datetime.now().strftime("%b. %-d, %Y")
@@ -144,6 +157,17 @@ df_release_dates["model_release_date"] = pd.to_datetime(
 ALWAYS_05_MODEL = {
     "organization": "ForecastBench",
     "model": "Always 0.5",
+}
+
+FORECASTBENCH_CREATED_DUMMY_MODEL_NAMES = {
+    "Always 0",
+    "Always 1",
+    "Always 0.5",
+    "Random Uniform",
+    "Imputed Forecaster",
+    BASELINE_ORG_NAIVE_MODEL["model"],
+    HUMAN_PUBLIC["model"],
+    HUMAN_SUPERFORECASTER["model"],
 }
 
 LAST_UPDATED_DATE = dates.get_date_today_as_iso()
@@ -552,31 +576,37 @@ def process_forecast_file(
     leaderboard_entries.append(processed)
 
 
-def write_llm_super_parity_dates(parity_dates: dict) -> None:
+def write_llm_super_parity_dates(parity_dates: dict, leaderboard_type: LeaderboardType) -> None:
     """Write LLM-Super parity dates for SOTA graph.
 
     Args:
         parity_dates (dict[str, dict[object, dict[str, str]]]): Nested mapping of
             question types to leaderboard identifiers to summary strings
             (e.g., {'lower': 'Aug 2025', 'median': 'Nov 2025', 'upper': 'Apr 2026'}).
+        leaderboard_type (LeaderboardType): The leaderboard these parity dates belong to.
 
     Returns:
         None
     """
+    leaderboard_file_stem = LEADERBOARD_FILE_STEMS[leaderboard_type]
     directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
-    local_filename = f"{directory}/simulated_llm_parity/parity_dates.json"
+    local_filename = f"{directory}/simulated_llm_parity/parity_dates.{leaderboard_file_stem}.json"
     os.makedirs(os.path.dirname(local_filename), exist_ok=True)
     with open(local_filename, "w", encoding="utf-8") as f:
         json.dump(parity_dates, f, default=str, ensure_ascii=False, indent=2, sort_keys=True)
 
 
-def write_question_fixed_effects(question_fixed_effects: Dict[str, pd.DataFrame]) -> None:
+def write_question_fixed_effects(
+    question_fixed_effects: Dict[str, pd.DataFrame],
+    leaderboard_type: LeaderboardType,
+) -> None:
     """Write and upload question fixed effects.
 
     Args:
         question_fixed_effects (Dict[str, pd.DataFrame]): A mapping from label
             (e.g., "dataset", "market") to a DataFrame containing question-level
             fixed effects.
+        leaderboard_type (LeaderboardType): The leaderboard these fixed effects belong to.
 
     Returns:
         None: Concatenated DataFrame is created (and can be written or processed
@@ -584,13 +614,37 @@ def write_question_fixed_effects(question_fixed_effects: Dict[str, pd.DataFrame]
     """
     logger.info(colored("Writing question fixed effects to WEBSITE.", "yellow"))
 
-    df = pd.concat(question_fixed_effects.values(), ignore_index=True)
+    dfs = []
+    for question_type, df_qfe in question_fixed_effects.items():
+        df_qfe = df_qfe.copy()
+        if question_type not in {"dataset", "market"}:
+            raise ValueError(
+                f"Unexpected question type for question fixed effects: {question_type}"
+            )
+        df_qfe["leaderboard_type"] = leaderboard_type.value
+        dfs.append(df_qfe)
+
+    df = pd.concat(dfs, ignore_index=True)
     df.loc[get_market_mask(df), "horizon"] = None
     df["forecast_due_date"] = df["forecast_due_date"].astype(str)
+    df = df[
+        [
+            "forecast_due_date",
+            "source",
+            "id",
+            "horizon",
+            "leaderboard_type",
+            "question_fixed_effect",
+        ]
+    ]
 
     directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
     iso_date = dates.get_date_today_as_iso()
-    local_filename = f"{directory}/question-fixed-effects/question_fixed_effects.{iso_date}.json"
+    leaderboard_file_stem = LEADERBOARD_FILE_STEMS[leaderboard_type]
+    local_filename = (
+        f"{directory}/question-fixed-effects/"
+        f"question_fixed_effects.{leaderboard_file_stem}.{iso_date}.json"
+    )
     os.makedirs(os.path.dirname(local_filename), exist_ok=True)
     df.to_json(local_filename, orient="records")
 
@@ -855,11 +909,11 @@ def write_leaderboard_html_file(
     )
 
 
-def write_dataset_leaderboard_html_file(
+def write_preliminary_leaderboard_html_file(
     df: pd.DataFrame,
     sorting_column_number: int,
 ) -> None:
-    """Generate HTML and CSV leaderboard files for the dataset-only leaderboard.
+    """Generate HTML and CSV leaderboard files for the preliminary leaderboard.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
@@ -1037,7 +1091,7 @@ def write_dataset_leaderboard_html_file(
     ]
     df_html = df[[c for c in html_cols if c in df.columns]]
     html = template.render(
-        title=f"{constants.BENCHMARK_NAME} Dataset Leaderboard",
+        title=f"{constants.BENCHMARK_NAME} Preliminary Leaderboard",
         data=df_html.to_dict(orient="records"),
         columns=json.dumps(df_html.columns.tolist()),
         leaderboard_update_date=LEADERBOARD_UPDATED_DATE_STR,
@@ -1045,7 +1099,7 @@ def write_dataset_leaderboard_html_file(
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
     )
 
-    leaderboard_type = LeaderboardType.DATASET
+    leaderboard_type = LeaderboardType.PRELIMINARY
     stem = f"leaderboard_{leaderboard_type.value}"
     destination_folder = "leaderboards/html"
     local_filename_html, destination_filename_html = data_utils.write_file_to_bucket(
@@ -1339,10 +1393,10 @@ def write_leaderboard_js_file_full(
     }
 
 
-def write_dataset_leaderboard_js_file_full(
+def write_preliminary_leaderboard_js_file_full(
     df: pd.DataFrame,
 ) -> Dict[str, str]:
-    """Generate JS file for website Dataset Leaderboard page.
+    """Generate JS file for website Preliminary Leaderboard page.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
@@ -1351,7 +1405,7 @@ def write_dataset_leaderboard_js_file_full(
         Dict[str, str]: Dictionary with 'filename' and 'js' keys.
     """
     template = Template("""
-        window.initLeaderboard_dataset = function()
+        window.initLeaderboard_preliminary = function()
         {
             const data = {{ data }};
             const isTournament = {{ is_tournament | lower }};
@@ -1467,8 +1521,8 @@ def write_dataset_leaderboard_js_file_full(
             // Register anonymous-team filter before DataTable init so it applies on first draw
             if (isTournament && teamColIndex >= 0) {
               $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, rowData) {
-                if (settings.nTable.id !== 'lb-dataset') return true;
-                const showAnon = document.getElementById('show-anonymous-dataset')?.checked;
+                if (settings.nTable.id !== 'lb-preliminary') return true;
+                const showAnon = document.getElementById('show-anonymous-preliminary')?.checked;
                 if (showAnon) return true;
                 const teamName =
                   (rowData && rowData["Team Name"]) ||
@@ -1480,13 +1534,13 @@ def write_dataset_leaderboard_js_file_full(
             }
 
             $('#leaderboard-table-full').html(`
-               ${isTournament ? `<div id="anon-toggle-dataset" style="margin-bottom:8px; display:flex;
+               ${isTournament ? `<div id="anon-toggle-preliminary" style="margin-bottom:8px; display:flex;
                                       align-items:center; gap:6px;">
-                   <input type="checkbox" id="show-anonymous-dataset" aria-label="Show anonymous teams">
-                   <label for="show-anonymous-dataset"
+                   <input type="checkbox" id="show-anonymous-preliminary" aria-label="Show anonymous teams">
+                   <label for="show-anonymous-preliminary"
                      style="margin:0; cursor:pointer;">Show anonymous teams</label>
                  </div>` : ''}
-               <table id="lb-dataset" class="display compact hover" style="width:100%">
+               <table id="lb-preliminary" class="display compact hover" style="width:100%">
                <thead>
                  <tr>
                    <th>Rank</th>
@@ -1511,7 +1565,7 @@ def write_dataset_leaderboard_js_file_full(
                <tbody></tbody>
              </table>
              `);
-             const table = $("#lb-dataset").DataTable({
+             const table = $("#lb-preliminary").DataTable({
                data: data,
                columns: columns,
                order: [[cols.indexOf("Dataset"), "desc"]],
@@ -1533,7 +1587,7 @@ def write_dataset_leaderboard_js_file_full(
            });
 
            if (isTournament && teamColIndex >= 0) {
-             $('#show-anonymous-dataset').on('change', function() { table.draw(); });
+             $('#show-anonymous-preliminary').on('change', function() { table.draw(); });
              // Apply the filter once on load so anonymous rows start hidden
              table.draw();
            }
@@ -1561,7 +1615,7 @@ def write_dataset_leaderboard_js_file_full(
     )
 
     return {
-        "filename": f"leaderboard_{LeaderboardType.DATASET.value}_full.js",
+        "filename": "leaderboard_preliminary_full.js",
         "js": js,
     }
 
@@ -1945,11 +1999,11 @@ def write_leaderboard(
     )
 
 
-def write_dataset_leaderboard(
+def write_preliminary_leaderboard(
     df: pd.DataFrame,
     primary_scoring_func: Callable[..., any],
 ) -> None:
-    """Generate HTML, CSV, and JS leaderboard files for the dataset-only leaderboard.
+    """Generate HTML, CSV, and JS leaderboard files for the preliminary leaderboard.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
@@ -1958,7 +2012,7 @@ def write_dataset_leaderboard(
     Returns:
         None.
     """
-    logger.info("Making dataset-only leaderboard files.")
+    logger.info("Making preliminary leaderboard files.")
 
     # Replace NaN with empty strings for display
     df = df.fillna("")
@@ -2066,7 +2120,7 @@ def write_dataset_leaderboard(
     )
 
     # Write HTML and CSV leaderboard for datasets repo
-    write_dataset_leaderboard_html_file(
+    write_preliminary_leaderboard_html_file(
         df=df.drop(columns=["Brier Dataset"]),
         sorting_column_number=5,
     )
@@ -2086,7 +2140,7 @@ def write_dataset_leaderboard(
     df_js["Model Organization Logo"] = df_js["Model Organization"].apply(constants.get_org_logo)
     df_js["Team"] = df_js["Team"].apply(constants.get_org_logo)
 
-    js_result = write_dataset_leaderboard_js_file_full(df=df_js)
+    js_result = write_preliminary_leaderboard_js_file_full(df=df_js)
     data_utils.write_file_to_bucket(
         bucket=env.PUBLIC_RELEASE_BUCKET,
         basename=js_result["filename"],
@@ -2127,34 +2181,43 @@ def brier_score(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def remove_tournament_models(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove models that only belong on the Tournament Leaderboard.
+def filter_to_baseline_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
+    """Filter to models used for the baseline leaderboard.
 
-    This means return ForecastBench models that do _not_ contain the words:
-    * with freeze values
-    * with news
-    * with SECOND news
+    Keeps: ForecastBench-created benchmark models and ForecastBench LLM models
+    that use the exact "(zero shot)" variant.
+    Drops external submissions and other ForecastBench LLM variants.
 
     Args:
         df (pd.DataFrame): Combined forecast set.
 
     Returns:
-        pd.DataFrame: Filtered dataframe with all models for Tournament Leaderboard removed.
+        pd.DataFrame: Filtered dataframe with baseline leaderboard models.
     """
     df = df.copy()
-    org_mask = df["organization"] == constants.BENCHMARK_NAME
-    vanilla_model_mask = ~df["model"].str.contains(
-        "with freeze values|with news|with SECOND news|with web search"
+    is_forecastbench_submission = df["organization"] == constants.BENCHMARK_NAME
+    is_forecastbench_created_dummy_model = (
+        is_forecastbench_submission
+        & (df["model_organization"] == constants.BENCHMARK_NAME)
+        & df["model"].isin(FORECASTBENCH_CREATED_DUMMY_MODEL_NAMES)
     )
-    mask = org_mask & vanilla_model_mask
-    return df[mask].reset_index(drop=True)
+    is_forecastbench_llm_submission = is_forecastbench_submission & (
+        df["model_organization"] != constants.BENCHMARK_NAME
+    )
+    has_baseline_variant = df["model"].str.contains("(zero shot)", regex=False) | df[
+        "model"
+    ].str.contains("(scratchpad)", regex=False)
+    is_forecastbench_llm_baseline_variant = is_forecastbench_llm_submission & has_baseline_variant
+    keep_mask = is_forecastbench_created_dummy_model | is_forecastbench_llm_baseline_variant
+    return df[keep_mask].reset_index(drop=True)
 
 
-def remove_vanilla_llm_models(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove ForecastBench LLM models without tournament variant keywords.
+def filter_to_tournament_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
+    """Filter to models used for the tournament leaderboard.
 
-    Keeps: external teams, dummy baselines, human forecasts, and ForecastBench
-    LLM models that contain variant keywords (freeze values, news, web search).
+    Keeps: external submissions, ForecastBench-created models (dummy baselines
+    and human forecasts), and ForecastBench LLM models that contain tournament
+    variant keywords (freeze values, news, web search).
 
     Args:
         df (pd.DataFrame): Leaderboard or forecast data.
@@ -2163,16 +2226,34 @@ def remove_vanilla_llm_models(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: Filtered dataframe.
     """
     df = df.copy()
-    is_benchmark_org = df["organization"] == constants.BENCHMARK_NAME
-    is_benchmark_model_org = df["model_organization"] == constants.BENCHMARK_NAME
-    has_variant = df["model"].str.contains(
+    is_forecastbench_submission = df["organization"] == constants.BENCHMARK_NAME
+    is_external_submission = ~is_forecastbench_submission
+    is_forecastbench_created_dummy_model = (
+        is_forecastbench_submission
+        & (df["model_organization"] == constants.BENCHMARK_NAME)
+        & df["model"].isin(FORECASTBENCH_CREATED_DUMMY_MODEL_NAMES)
+    )
+    has_tournament_variant = df["model"].str.contains(
         "with freeze values|with news|with SECOND news|with web search"
     )
-    is_vanilla_llm = is_benchmark_org & ~is_benchmark_model_org & ~has_variant
-    return df[~is_vanilla_llm].reset_index(drop=True)
+    is_forecastbench_llm_tournament_variant = (
+        is_forecastbench_submission
+        & (df["model_organization"] != constants.BENCHMARK_NAME)
+        & has_tournament_variant
+    )
+    keep_mask = (
+        is_external_submission
+        | is_forecastbench_created_dummy_model
+        | is_forecastbench_llm_tournament_variant
+    )
+    return df[keep_mask].reset_index(drop=True)
 
 
-def two_way_fixed_effects(df: pd.DataFrame, question_type) -> pd.DataFrame:
+def two_way_fixed_effects(
+    df: pd.DataFrame,
+    question_type: str,
+    market_question_adjustment: MarketQuestionAdjustment,
+) -> pd.DataFrame:
     """Generate the difficulty adjusted Brier score.
 
     Calculate "question difficulty" by estimating a two-way fixed effect model:
@@ -2186,21 +2267,25 @@ def two_way_fixed_effects(df: pd.DataFrame, question_type) -> pd.DataFrame:
 
     Args:
         df (pd.DataFrame): Combined forecast set.
+        question_type (str): One of "dataset" or "market".
+        market_question_adjustment (MarketQuestionAdjustment): How to estimate market question
+            effects.
 
     Returns:
         pd.DataFrame: A new DataFrame with an added 'two_way_fixed_effects' column.
     """
     df = df.copy()
+    df_fe = df.copy()
     orig_cols = df.columns.tolist()
 
-    # Remove models that only belong in the Tournament Leaderboard
-    # e.g. with freeze values
-    # After this, all models were submitted by the ForecastBench organization
-    df_fe = remove_tournament_models(df=df)
+    use_two_way_fixed_effects = question_type == "dataset" or (
+        question_type == "market"
+        and market_question_adjustment == MarketQuestionAdjustment.TWO_WAY_FIXED_EFFECTS
+    )
 
-    if question_type == "dataset":
-        # Drop some Benchmark models
-        benchmark_models_to_drop = [
+    if use_two_way_fixed_effects:
+        # Drop some ForecastBench dummy models
+        forecastbench_models_to_drop = [
             "Always 0",
             "Always 1",
             "Always 0.5",
@@ -2211,8 +2296,12 @@ def two_way_fixed_effects(df: pd.DataFrame, question_type) -> pd.DataFrame:
             # * consider its 0.5 forecast for dataset questions
             "Imputed Forecaster",
         ]
-        benchmark_model_mask = ~df_fe["model"].isin(benchmark_models_to_drop)
-        df_fe = df_fe[benchmark_model_mask]
+        forecastbench_model_mask = ~df_fe["model"].isin(forecastbench_models_to_drop)
+        df_fe = df_fe[forecastbench_model_mask]
+
+        # Remove external participants
+        forecastbench_submission_mask = df_fe["organization"] == constants.BENCHMARK_NAME
+        df_fe = df_fe[forecastbench_submission_mask]
 
         # Remove models with old release dates
         org_mask = df_fe["model_organization"] == constants.BENCHMARK_NAME
@@ -2221,8 +2310,11 @@ def two_way_fixed_effects(df: pd.DataFrame, question_type) -> pd.DataFrame:
 
         mod = pf.feols("brier_score ~ 1 | question_pk + model_pk", data=df_fe)
         dict_question_fe = mod.fixef()["C(question_pk)"]
-    elif question_type == "market":
-        # Estimated question fixed effects are eequivalent to the market Brier
+    elif (
+        question_type == "market"
+        and market_question_adjustment == MarketQuestionAdjustment.MARKET_BRIER
+    ):
+        # Estimated question fixed effects are equivalent to the market Brier
         mask = (
             (df_fe["organization"] == constants.BENCHMARK_NAME)
             & (df_fe["model_organization"] == constants.BENCHMARK_NAME)
@@ -2300,12 +2392,15 @@ def brier_skill_score(df: pd.DataFrame) -> pd.DataFrame:
 def score_models(
     df: pd.DataFrame,
     scoring_funcs: List[Callable[[pd.DataFrame], pd.DataFrame]],
+    market_question_adjustment: MarketQuestionAdjustment,
 ) -> pd.DataFrame:
     """Score models using the scoring functions in `scoring_funcs`.
 
     Args:
         df (pd.DataFrame): Combined forecast set.
         scoring_funcs (List[Callable[[pd.DataFrame], pd.DataFrame]]): List of scoring functions.
+        market_question_adjustment (MarketQuestionAdjustment): How to estimate market question
+            effects for the two-way fixed effects scoring function.
 
     Returns:
         Tuple[pd.DataFrame, Dict[str, pd.Series]]:
@@ -2338,7 +2433,11 @@ def score_models(
         for func in scoring_funcs:
             name = func.__name__
             if func is two_way_fixed_effects:
-                df_qt = func(df_qt, question_type).rename(columns={name: f"{name}_{question_type}"})
+                df_qt = func(
+                    df_qt,
+                    question_type,
+                    market_question_adjustment=market_question_adjustment,
+                ).rename(columns={name: f"{name}_{question_type}"})
             else:
                 df_qt = func(df_qt).rename(columns={name: f"{name}_{question_type}"})
 
@@ -2420,6 +2519,7 @@ def score_models(
 def generate_simulated_leaderboards(
     df: pd.DataFrame,
     primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
+    market_question_adjustment: MarketQuestionAdjustment,
     N: int = N_REPLICATES,
 ) -> pd.DataFrame:
     """Generate simulated leaderboards by bootstrap sampling.
@@ -2428,6 +2528,8 @@ def generate_simulated_leaderboards(
         df (pd.DataFrame): Combined forecast set to sample from.
         primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]): Function to compute the
                      primary overall score.
+        market_question_adjustment (MarketQuestionAdjustment): How to estimate market question
+            effects.
         N (int): Number of bootstrap replicates to generate.
 
     Returns:
@@ -2469,6 +2571,7 @@ def generate_simulated_leaderboards(
             df_simulated_leaderboard, _ = score_models(
                 df=df_bs,
                 scoring_funcs=[primary_scoring_func],
+                market_question_adjustment=market_question_adjustment,
             )
         except Exception as e:
             traceback.print_exc()
@@ -2992,6 +3095,7 @@ def get_sota_super_parity_expected_dates(
     df_simulated_scores_dataset: pd.DataFrame,
     df_simulated_scores_market: pd.DataFrame,
     df_simulated_scores_overall: pd.DataFrame,
+    leaderboard_type: LeaderboardType,
 ) -> dict:
     """Compute LLM–superforecaster parity dates per question type and leaderboard.
 
@@ -3000,12 +3104,13 @@ def get_sota_super_parity_expected_dates(
         df_simulated_scores_dataset (pd.DataFrame): Simulated scores for dataset questions.
         df_simulated_scores_market (pd.DataFrame): Simulated scores for market questions.
         df_simulated_scores_overall (pd.DataFrame): Simulated scores for overall questions.
+        leaderboard_type (LeaderboardType): The leaderboard to summarize.
 
     Returns:
-        Dict[str, Dict[LeaderboardType, List[float]]]: Mapping from question type
-            ('dataset' | 'market' | 'overall') to leaderboard type (LeaderboardType)
-            to a list of intersection dates expressed as ordinal day numbers. Lists may
-            be empty when an intersection cannot be estimated for a bootstrap.
+        Dict[str, Dict[str, List[float]]]: Mapping from question type
+            ('dataset' | 'market' | 'overall') to leaderboard type string to a list of
+            intersection dates expressed as ordinal day numbers. Lists may be empty when an
+            intersection cannot be estimated for a bootstrap.
     """
     logger.info("Get SOTA LLM Super parity dates.")
 
@@ -3079,106 +3184,74 @@ def get_sota_super_parity_expected_dates(
         ]
         dataframes[key] = df_tmp.sort_values("model_release_date", ignore_index=True)[cols_to_keep]
 
+    leaderboard_key = leaderboard_type.value
+
     # Compile LLM-Super parity dates
-    sim_95pct_ci = {
-        question_type: {
-            leaderboard_type.value: None
-            for leaderboard_type in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]
-        }
-        for question_type in question_types
-    }
+    sim_95pct_ci = {question_type: {leaderboard_key: None} for question_type in question_types}
     leaderboard_intersection_date = {
-        question_type: {
-            leaderboard_type.value: None
-            for leaderboard_type in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]
-        }
-        for question_type in question_types
+        question_type: {leaderboard_key: None} for question_type in question_types
     }
 
     for question_type in question_types:
         leaderboard_score_col = f"{BRIER_INDEX_COL_PREFIX}_{question_type}"
-        for leaderboard_type in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]:
-            if question_type == "dataset" and leaderboard_type == LeaderboardType.TOURNAMENT:
-                # For dataset questions, the FB tournament models just repeat the forecasts from,
-                # the FB baseline models, so just copy those results over at the end.
-                break
-
-            # Get leaderboard last SOTA release date and intersection date
-            df_leaderboard_question_type = (
-                remove_tournament_models(df=df_leaderboard)
-                if leaderboard_type == LeaderboardType.BASELINE
-                else df_leaderboard
-            )
-            df_leaderboard_prepped, df_leaderboard_super = prep_df_to_find_sota_models(
-                df=df_leaderboard_question_type
-            )
-            df_leaderboard_sota_models = find_sota_models(
-                df=df_leaderboard_prepped,
+        # Get leaderboard last SOTA release date and intersection date
+        df_leaderboard_prepped, df_leaderboard_super = prep_df_to_find_sota_models(
+            df=df_leaderboard
+        )
+        df_leaderboard_sota_models = find_sota_models(
+            df=df_leaderboard_prepped,
+            bootstrap_col=leaderboard_score_col,
+        )
+        df_leaderboard_super = df_leaderboard_super[leaderboard_score_col]
+        if df_leaderboard_super.shape[0] != 1:
+            raise ValueError("Could not find supers in leaderboard data")
+        superforecaster_median = float(df_leaderboard_super.iloc[0])
+        leaderboard_intersection_date[question_type][leaderboard_key] = (
+            calculate_sota_super_intersection_date(
+                df=df_leaderboard_sota_models,
+                superforecaster_median=superforecaster_median,
                 bootstrap_col=leaderboard_score_col,
             )
-            df_leaderboard_super = df_leaderboard_super[leaderboard_score_col]
-            if df_leaderboard_super.shape[0] != 1:
-                raise ValueError("Could not find supers in leaderboard data")
-            superforecaster_median = float(df_leaderboard_super.iloc[0])
-            leaderboard_intersection_date[question_type][leaderboard_type] = (
-                calculate_sota_super_intersection_date(
-                    df=df_leaderboard_sota_models,
-                    superforecaster_median=superforecaster_median,
-                    bootstrap_col=leaderboard_score_col,
-                )
+        )
+        leaderboard_last_sota_release_date_ordinal = float(
+            pd.to_datetime(df_leaderboard_sota_models["model_release_date"]).max().toordinal()
+        )
+
+        # Get intersection dates for all replicates of sim data
+        df_sim_data = dataframes[question_type]
+        bootstrap_cols = [c for c in df_sim_data.columns if c.startswith(SIM_BOOTSTRAP_COL_PREFIX)]
+        superforecaster_parity_dates = []
+        df_sim_data_prepped, df_sim_data_super = prep_df_to_find_sota_models(df=df_sim_data)
+        for col in bootstrap_cols:
+            df_sota_models = find_sota_models(
+                df=df_sim_data_prepped,
+                bootstrap_col=col,
             )
-            leaderboard_last_sota_release_date_ordinal = float(
-                pd.to_datetime(df_leaderboard_sota_models["model_release_date"]).max().toordinal()
+            df_sim_data_super_boot = df_sim_data_super[col]
+            if df_sim_data_super_boot.shape[0] != 1:
+                raise ValueError("Could not find supers in simulated data")
+            superforecaster_median = float(df_sim_data_super_boot.iloc[0])
+            intersection_date_ordinal = calculate_sota_super_intersection_date(
+                df=df_sota_models,
+                superforecaster_median=superforecaster_median,
+                bootstrap_col=col,
             )
-
-            # Get intersection dates for all replicates of sim data
-            df_sim_data = (
-                remove_tournament_models(df=dataframes[question_type])
-                if leaderboard_type == LeaderboardType.BASELINE
-                else dataframes[question_type]
-            )
-            bootstrap_cols = [
-                c for c in df_sim_data.columns if c.startswith(SIM_BOOTSTRAP_COL_PREFIX)
-            ]
-            superforecaster_parity_dates = []
-            df_sim_data_prepped, df_sim_data_super = prep_df_to_find_sota_models(df=df_sim_data)
-            for col in bootstrap_cols:
-                df_sota_models = find_sota_models(
-                    df=df_sim_data_prepped,
-                    bootstrap_col=col,
+            if isinstance(intersection_date_ordinal, float) and np.isfinite(
+                intersection_date_ordinal
+            ):
+                if intersection_date_ordinal > leaderboard_last_sota_release_date_ordinal:
+                    superforecaster_parity_dates.append(intersection_date_ordinal)
+            elif pd.isna(intersection_date_ordinal):
+                logger.warning(f"Skipping invalid intersection_date_ordinal (pd.NaT) for {col}")
+            else:
+                logger.warning(
+                    "Unexpected intersection_date_ordinal type: "
+                    f"{type(intersection_date_ordinal)} for {col}"
                 )
-                df_sim_data_super_boot = df_sim_data_super[col]
-                if df_sim_data_super_boot.shape[0] != 1:
-                    raise ValueError("Could not find supers in simulated data")
-                superforecaster_median = float(df_sim_data_super_boot.iloc[0])
-                intersection_date_ordinal = calculate_sota_super_intersection_date(
-                    df=df_sota_models,
-                    superforecaster_median=superforecaster_median,
-                    bootstrap_col=col,
-                )
-                if isinstance(intersection_date_ordinal, float) and np.isfinite(
-                    intersection_date_ordinal
-                ):
-                    if intersection_date_ordinal > leaderboard_last_sota_release_date_ordinal:
-                        superforecaster_parity_dates.append(intersection_date_ordinal)
-                elif pd.isna(intersection_date_ordinal):
-                    logger.warning(f"Skipping invalid intersection_date_ordinal (pd.NaT) for {col}")
-                else:
-                    logger.warning(
-                        "Unexpected intersection_date_ordinal type: "
-                        f"{type(intersection_date_ordinal)} for {col}"
-                    )
 
-            if not superforecaster_parity_dates:
-                slack.send_message("*PROBLEM CALCULATING LLM PARITY DATES*")
-            sim_95pct_ci[question_type][leaderboard_type] = superforecaster_parity_dates
-
-    def copy_baseline_dataset_vals_to_tournament(d: dict) -> None:
-        """Copy baseline dataset values to tournament dataset values."""
-        d["dataset"][leaderboard_type.TOURNAMENT] = d["dataset"][leaderboard_type.BASELINE]
-
-    copy_baseline_dataset_vals_to_tournament(sim_95pct_ci)
-    copy_baseline_dataset_vals_to_tournament(leaderboard_intersection_date)
+        if not superforecaster_parity_dates:
+            slack.send_message("*PROBLEM CALCULATING LLM PARITY DATES*")
+        sim_95pct_ci[question_type][leaderboard_key] = superforecaster_parity_dates
 
     logger.info("Done getting SOTA LLM Super parity dates.")
     return summarize_parity_dates(sim_95pct_ci, leaderboard_intersection_date)
@@ -3186,16 +3259,18 @@ def get_sota_super_parity_expected_dates(
 
 def make_leaderboard(
     leaderboard_entries: List[pd.DataFrame],
+    leaderboard_type: LeaderboardType,
 ) -> Dict[str, str]:
     """Create and write the full leaderboard from processed entries.
 
     Args:
         leaderboard_entries (List[pd.DataFrame]): Processed forecasts by model and date.
+        leaderboard_type (LeaderboardType): The leaderboard to make.
 
     Returns:
         None
     """
-    logger.info(colored("Making leaderboard", "red"))
+    logger.info(colored(f"Making {leaderboard_type.value} leaderboard", "red"))
 
     df = combine_forecasting_rounds(leaderboard_entries)
     df = get_model_release_date_info(
@@ -3203,6 +3278,14 @@ def make_leaderboard(
         add_model_age_at_due_date=True,
         add_model_release_date=False,
     )
+    if leaderboard_type == LeaderboardType.BASELINE:
+        df = filter_to_baseline_leaderboard_models(df=df)
+        market_question_adjustment = MarketQuestionAdjustment.TWO_WAY_FIXED_EFFECTS
+    elif leaderboard_type == LeaderboardType.TOURNAMENT:
+        df = filter_to_tournament_leaderboard_models(df=df)
+        market_question_adjustment = MarketQuestionAdjustment.MARKET_BRIER
+    else:
+        raise ValueError(f"Unsupported leaderboard type for full leaderboard: {leaderboard_type}")
 
     # The scoring functions to consider
     primary_scoring_func = two_way_fixed_effects
@@ -3216,6 +3299,7 @@ def make_leaderboard(
     df_leaderboard, question_fixed_effects = score_models(
         df=df,
         scoring_funcs=scoring_funcs,
+        market_question_adjustment=market_question_adjustment,
     )
 
     # Get simulated scores
@@ -3223,6 +3307,7 @@ def make_leaderboard(
         generate_simulated_leaderboards(
             df=df,
             primary_scoring_func=primary_scoring_func,
+            market_question_adjustment=market_question_adjustment,
             N=N_REPLICATES,
         )
     )
@@ -3253,6 +3338,7 @@ def make_leaderboard(
         df_simulated_scores_dataset=df_simulated_scores_dataset,
         df_simulated_scores_market=df_simulated_scores_market,
         df_simulated_scores_overall=df_simulated_scores_overall,
+        leaderboard_type=leaderboard_type,
     )
 
     # Compare to human models
@@ -3272,11 +3358,13 @@ def make_leaderboard(
     # Write question fixed effects
     write_question_fixed_effects(
         question_fixed_effects=question_fixed_effects,
+        leaderboard_type=leaderboard_type,
     )
 
     # Write LLM Super parity dates
     write_llm_super_parity_dates(
         parity_dates=llm_super_parity_dates,
+        leaderboard_type=leaderboard_type,
     )
 
     # Write leaderboard
@@ -3285,23 +3373,17 @@ def make_leaderboard(
         add_model_age_at_due_date=False,
         add_model_release_date=True,
     )
-    for leaderboard_type in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]:
-        df_leaderboard_lt = (
-            remove_tournament_models(df=df_leaderboard)
-            if leaderboard_type == LeaderboardType.BASELINE
-            else df_leaderboard
-        )
-        write_leaderboard(
-            df=df_leaderboard_lt,
-            primary_scoring_func=primary_scoring_func,
-            leaderboard_type=leaderboard_type,
-        )
+    write_leaderboard(
+        df=df_leaderboard,
+        primary_scoring_func=primary_scoring_func,
+        leaderboard_type=leaderboard_type,
+    )
 
 
-def make_dataset_leaderboard(
+def make_preliminary_leaderboard(
     leaderboard_entries: List[pd.DataFrame],
 ) -> None:
-    """Create and write the dataset-only leaderboard from processed entries.
+    """Create and write the preliminary leaderboard from processed entries.
 
     Args:
         leaderboard_entries (List[pd.DataFrame]): Processed forecasts by model and date.
@@ -3309,7 +3391,7 @@ def make_dataset_leaderboard(
     Returns:
         None
     """
-    logger.info(colored("Making dataset-only leaderboard", "red"))
+    logger.info(colored("Making preliminary leaderboard", "red"))
 
     df = combine_forecasting_rounds(leaderboard_entries)
     df = get_model_release_date_info(
@@ -3326,20 +3408,24 @@ def make_dataset_leaderboard(
     ]
 
     # Score
-    df_leaderboard, question_fixed_effects = score_models(
+    df_leaderboard, _ = score_models(
         df=df,
         scoring_funcs=scoring_funcs,
+        market_question_adjustment=MarketQuestionAdjustment.MARKET_BRIER,
     )
 
     # Get simulated scores (only dataset scores are used)
+    # Market scores are discarded here, but the bootstrap still scores them; use market Brier
+    # because it is faster than estimating market 2FE.
     df_simulated_scores_dataset, _, _ = generate_simulated_leaderboards(
         df=df,
         primary_scoring_func=primary_scoring_func,
+        market_question_adjustment=MarketQuestionAdjustment.MARKET_BRIER,
         N=N_REPLICATES,
     )
 
-    # Filter to dataset leaderboard models (exclude vanilla ForecastBench LLMs)
-    df_leaderboard = remove_vanilla_llm_models(df_leaderboard)
+    # Filter to tournament-eligible models for the preliminary leaderboard.
+    df_leaderboard = filter_to_tournament_leaderboard_models(df=df_leaderboard)
     kept_model_pks = set(df_leaderboard["model_pk"])
     df_simulated_scores_dataset = df_simulated_scores_dataset.loc[
         df_simulated_scores_dataset.index.isin(kept_model_pks)
@@ -3368,8 +3454,8 @@ def make_dataset_leaderboard(
         df_simulated_scores=df_simulated_scores_dataset,
     )
 
-    # Write dataset leaderboard
-    write_dataset_leaderboard(
+    # Write preliminary leaderboard
+    write_preliminary_leaderboard(
         df=df_leaderboard,
         primary_scoring_func=primary_scoring_func,
     )
@@ -3439,54 +3525,60 @@ def download_and_compile_processed_forecast_files(
 
 
 @decorator.log_runtime
-def driver(_: Any) -> None:
-    """Create a new leaderboard.
+def driver(leaderboard_type: LeaderboardType) -> None:
+    """Create a new baseline or tournament leaderboard.
 
     Args:
-        _ (Any): Unused placeholder argument for GCP Cloud Run Job.
+        leaderboard_type (LeaderboardType): Baseline or tournament leaderboard to create.
 
     Returns:
         None: Exits the process on completion.
     """
     min_days = 50
     min_num_market_questions = 50
-    logger.info(colored("Making leaderboards.", "red"))
+    if leaderboard_type not in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]:
+        raise ValueError("driver only supports baseline and tournament leaderboards.")
+
+    logger.info(colored(f"Making {leaderboard_type.value} leaderboard.", "red"))
     leaderboard_entries, valid_dates = download_and_compile_processed_forecast_files(
         bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
         min_days=min_days,
         min_num_market_questions=min_num_market_questions,
     )
-    make_leaderboard(leaderboard_entries=leaderboard_entries)
-    logger.info(f"Made leaderboard for forecast due dates: {sorted(valid_dates)}.")
+    make_leaderboard(leaderboard_entries=leaderboard_entries, leaderboard_type=leaderboard_type)
+    logger.info(
+        f"Made {leaderboard_type.value} leaderboard for forecast due dates: {sorted(valid_dates)}."
+    )
     logger.info(colored("Done.", "red"))
 
 
 @decorator.log_runtime
-def driver_dataset(_: Any) -> None:
-    """Create the dataset-only leaderboard.
-
-    Args:
-        _ (Any): Unused placeholder argument for GCP Cloud Run Job.
+def driver_preliminary() -> None:
+    """Create the preliminary leaderboard.
 
     Returns:
         None: Exits the process on completion.
     """
     min_days = 0
     min_num_market_questions = 0
-    logger.info(colored("Making dataset-only leaderboard.", "red"))
+    logger.info(colored("Making preliminary leaderboard.", "red"))
     leaderboard_entries, valid_dates = download_and_compile_processed_forecast_files(
         bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
         min_days=min_days,
         min_num_market_questions=min_num_market_questions,
     )
-    make_dataset_leaderboard(leaderboard_entries=leaderboard_entries)
-    logger.info(f"Made dataset leaderboard for forecast due dates: {sorted(valid_dates)}.")
+    make_preliminary_leaderboard(leaderboard_entries=leaderboard_entries)
+    logger.info(f"Made preliminary leaderboard for forecast due dates: {sorted(valid_dates)}.")
     logger.info(colored("Done.", "red"))
 
 
 if __name__ == "__main__":
-    mode = os.environ.get("LEADERBOARD_MODE", "default")
-    if mode == "dataset":
-        driver_dataset(None)
+    leaderboard_type = os.environ.get("LEADERBOARD_TYPE")
+    if leaderboard_type == "baseline":
+        driver(LeaderboardType.BASELINE)
+    elif leaderboard_type == "tournament":
+        driver(LeaderboardType.TOURNAMENT)
+    elif leaderboard_type == "preliminary":
+        driver_preliminary()
     else:
-        driver(None)
+        raise ValueError("LEADERBOARD_TYPE must be 'baseline', 'tournament', or 'preliminary'.")

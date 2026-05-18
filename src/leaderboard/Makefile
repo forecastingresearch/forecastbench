@@ -1,13 +1,15 @@
-all :
+all : deploy
+
+deploy :
 	$(MAKE) clean
-	$(MAKE) deploy
-	$(MAKE) deploy-dataset
+	$(MAKE) -j3 deploy-tournament deploy-baseline deploy-preliminary
 	$(MAKE) clean
 
-.PHONY : all clean deploy deploy-dataset
+.PHONY : all clean deploy deploy-tournament deploy-baseline deploy-preliminary
 
-LEADERBOARD_UPLOAD_DIR = upload-leaderboard
-DATASET_UPLOAD_DIR = upload-dataset-leaderboard
+TOURNAMENT_UPLOAD_DIR = upload-leaderboard-tournament
+BASELINE_UPLOAD_DIR = upload-leaderboard-baseline
+PRELIMINARY_UPLOAD_DIR = upload-leaderboard-preliminary
 
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
@@ -21,19 +23,24 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 
 NUM_CPUS = 8
 
-deploy : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
-	mkdir -p $(LEADERBOARD_UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(LEADERBOARD_UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(LEADERBOARD_UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/sources $(LEADERBOARD_UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_fb_types.py $(LEADERBOARD_UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_schemas.py $(LEADERBOARD_UPLOAD_DIR)/
-	mkdir -p $(LEADERBOARD_UPLOAD_DIR)/orchestration
-	cp $(ROOT_DIR)src/orchestration/__init__.py $(LEADERBOARD_UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/orchestration/_io.py $(LEADERBOARD_UPLOAD_DIR)/orchestration/
-	cp $^ $(LEADERBOARD_UPLOAD_DIR)/
+define PREPARE_UPLOAD_DIR
+	rm -rf $1
+	mkdir -p $1
+	cp -r $(ROOT_DIR)utils $1/
+	cp -r $(ROOT_DIR)src/helpers $1/
+	cp -r $(ROOT_DIR)src/sources $1/
+	cp $(ROOT_DIR)src/_fb_types.py $1/
+	cp $(ROOT_DIR)src/_schemas.py $1/
+	mkdir -p $1/orchestration
+	cp $(ROOT_DIR)src/orchestration/__init__.py $1/orchestration/
+	cp $(ROOT_DIR)src/orchestration/_io.py $1/orchestration/
+	cp main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore $1/
+endef
+
+deploy-tournament : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
+	$(call PREPARE_UPLOAD_DIR,$(TOURNAMENT_UPLOAD_DIR))
 	gcloud run jobs deploy \
-		func-leaderboard \
+		func-leaderboard-tournament \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
@@ -49,23 +56,35 @@ deploy : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudigno
 		--add-volume name=$(PUBLIC_RELEASE_BUCKET),type=cloud-storage,bucket=$(PUBLIC_RELEASE_BUCKET),readonly=false \
 		--add-volume-mount volume=$(PUBLIC_RELEASE_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(PUBLIC_RELEASE_BUCKET) \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
-		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS) \
-		--source $(LEADERBOARD_UPLOAD_DIR)
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_TYPE=tournament \
+		--source $(TOURNAMENT_UPLOAD_DIR)
 
-deploy-dataset : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
-	rm -rf $(DATASET_UPLOAD_DIR)
-	mkdir -p $(DATASET_UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(DATASET_UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(DATASET_UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/sources $(DATASET_UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_fb_types.py $(DATASET_UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_schemas.py $(DATASET_UPLOAD_DIR)/
-	mkdir -p $(DATASET_UPLOAD_DIR)/orchestration
-	cp $(ROOT_DIR)src/orchestration/__init__.py $(DATASET_UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/orchestration/_io.py $(DATASET_UPLOAD_DIR)/orchestration/
-	cp $^ $(DATASET_UPLOAD_DIR)/
+deploy-baseline : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
+	$(call PREPARE_UPLOAD_DIR,$(BASELINE_UPLOAD_DIR))
 	gcloud run jobs deploy \
-		func-leaderboard-dataset \
+		func-leaderboard-baseline \
+		--project $(CLOUD_PROJECT) \
+		--region $(CLOUD_DEPLOY_REGION) \
+		--tasks 1 \
+		--parallelism 1 \
+		--task-timeout 4h \
+		--memory 16Gi \
+		--cpu $(NUM_CPUS) \
+		--max-retries 0 \
+		--add-volume name=$(PROCESSED_FORECAST_SETS_BUCKET),type=cloud-storage,bucket=$(PROCESSED_FORECAST_SETS_BUCKET),readonly=true \
+		--add-volume-mount volume=$(PROCESSED_FORECAST_SETS_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(PROCESSED_FORECAST_SETS_BUCKET) \
+		--add-volume name=$(WORKSPACE_BUCKET),type=cloud-storage,bucket=$(WORKSPACE_BUCKET),readonly=false \
+		--add-volume-mount volume=$(WORKSPACE_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(WORKSPACE_BUCKET) \
+		--add-volume name=$(PUBLIC_RELEASE_BUCKET),type=cloud-storage,bucket=$(PUBLIC_RELEASE_BUCKET),readonly=false \
+		--add-volume-mount volume=$(PUBLIC_RELEASE_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(PUBLIC_RELEASE_BUCKET) \
+		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_TYPE=baseline \
+		--source $(BASELINE_UPLOAD_DIR)
+
+deploy-preliminary : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
+	$(call PREPARE_UPLOAD_DIR,$(PRELIMINARY_UPLOAD_DIR))
+	gcloud run jobs deploy \
+		func-leaderboard-preliminary \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
@@ -81,8 +100,8 @@ deploy-dataset : main.py requirements.txt Dockerfile model_release_dates.csv .gc
 		--add-volume name=$(PUBLIC_RELEASE_BUCKET),type=cloud-storage,bucket=$(PUBLIC_RELEASE_BUCKET),readonly=false \
 		--add-volume-mount volume=$(PUBLIC_RELEASE_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(PUBLIC_RELEASE_BUCKET) \
 		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
-		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_MODE=dataset \
-		--source $(DATASET_UPLOAD_DIR)
+		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_TYPE=preliminary \
+		--source $(PRELIMINARY_UPLOAD_DIR)
 
 clean :
-	rm -rf $(LEADERBOARD_UPLOAD_DIR) $(DATASET_UPLOAD_DIR) .gcloudignore Dockerfile
+	rm -rf $(TOURNAMENT_UPLOAD_DIR) $(BASELINE_UPLOAD_DIR) $(PRELIMINARY_UPLOAD_DIR) .gcloudignore Dockerfile

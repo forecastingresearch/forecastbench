@@ -19,10 +19,13 @@ resolve_forecasts = [
 ]
 leaderboards = [
     [
-        ("func-leaderboard", True, cloud_run.timeout_1h * 4, 1),
+        ("func-leaderboard-tournament", True, cloud_run.timeout_1h * 4, 1),
     ],
     [
-        ("func-leaderboard-dataset", True, cloud_run.timeout_1h * 4, 1),
+        ("func-leaderboard-baseline", True, cloud_run.timeout_1h * 4, 1),
+    ],
+    [
+        ("func-leaderboard-preliminary", True, cloud_run.timeout_1h * 4, 1),
     ],
 ]
 

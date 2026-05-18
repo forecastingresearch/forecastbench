@@ -109,7 +109,7 @@ metadata: tag-questions validate-questions
 
 resolve: resolve-forecasts
 
-leaderboards: leaderboard leaderboard-dataset
+leaderboards: leaderboard-tournament leaderboard-baseline leaderboard-preliminary
 
 curate-questions: create-question-set publish-question-set
 
@@ -211,11 +211,14 @@ naive-and-dummy-forecasters:
 leaderboard-prereqs:
 	$(MAKE) -C src/leaderboard Dockerfile .gcloudignore
 
-leaderboard: leaderboard-prereqs
-	$(MAKE) -C src/leaderboard deploy || echo "* $@" >> $(MAKE_FAILURE_LOG)
+leaderboard-tournament: leaderboard-prereqs
+	$(MAKE) -C src/leaderboard deploy-tournament || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
-leaderboard-dataset: leaderboard-prereqs
-	$(MAKE) -C src/leaderboard deploy-dataset || echo "* $@" >> $(MAKE_FAILURE_LOG)
+leaderboard-baseline: leaderboard-prereqs
+	$(MAKE) -C src/leaderboard deploy-baseline || echo "* $@" >> $(MAKE_FAILURE_LOG)
+
+leaderboard-preliminary: leaderboard-prereqs
+	$(MAKE) -C src/leaderboard deploy-preliminary || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 nightly-worker-job:
 	$(MAKE) -C src/nightly_update_workflow/worker || echo "* $@" >> $(MAKE_FAILURE_LOG)

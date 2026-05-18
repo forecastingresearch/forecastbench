@@ -1,7 +1,10 @@
 (function() {
   const CSV_PATH_TOURNAMENT = '/assets/data/sota_graph_tournament.csv';
   const CSV_PATH_BASELINE = '/assets/data/sota_graph_baseline.csv';
-  const PARITY_DATE_PATH = '/assets/data/parity_dates.json';
+  const PARITY_DATE_PATHS = [
+    '/assets/data/parity_dates.baseline_leaderboard.json',
+    '/assets/data/parity_dates.tournament_leaderboard.json'
+  ];
   const Y_DOMAIN = [40, 85];
   const SHOW_REFS = true;
 
@@ -758,6 +761,17 @@
     return shouldIncludeFreeze() ? CSV_PATH_TOURNAMENT : CSV_PATH_BASELINE;
   }
 
+  function mergeParityDates(parityDateFiles) {
+    return parityDateFiles.reduce((merged, parityDateFile) => {
+      Object.entries(parityDateFile || {}).forEach(([questionType, leaderboards]) => {
+        merged[questionType] = {
+          ...(merged[questionType] || {}),
+          ...(leaderboards || {})
+        };
+      });
+      return merged;
+    }, {});
+  }
 
   let originalRows = [];
 
@@ -897,10 +911,18 @@
   }
 
   // Load parity dates JSON
-  fetch(PARITY_DATE_PATH)
-    .then(response => response.json())
+  Promise.all(
+    PARITY_DATE_PATHS.map(path =>
+      fetch(path).then(response => {
+        if (!response.ok) {
+          throw new Error(`Could not load parity dates from ${path}: ${response.status}`);
+        }
+        return response.json();
+      })
+    )
+  )
     .then(data => {
-      parityDates = data;
+      parityDates = mergeParityDates(data);
       // Redraw chart if data is already loaded
       if (originalRows && originalRows.length) {
         renderForType(getSelectedType());
