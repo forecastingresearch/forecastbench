@@ -1352,6 +1352,11 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   font-family: var(--chart-font);
 }
 
+.legend,
+.intersection-display {
+  pointer-events: none;
+}
+
 /* Enhanced legend box */
 .legend rect {
   fill: #F6F8F1 !important;

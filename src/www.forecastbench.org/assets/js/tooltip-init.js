@@ -1,9 +1,9 @@
 function initializeTooltips() {
-  // Reuse existing tooltip if present; otherwise create it
-  let tooltip = document.querySelector('.tooltip');
+  // Keep table/header tooltips separate from the explore chart tooltip.
+  let tooltip = document.querySelector('.leaderboard-tooltip');
   if (!tooltip) {
     tooltip = document.createElement('div');
-    tooltip.className = 'tooltip';
+    tooltip.className = 'tooltip leaderboard-tooltip';
     tooltip.style.position = 'fixed';
     tooltip.style.display = 'none';
     document.body.appendChild(tooltip);
