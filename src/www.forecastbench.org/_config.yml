@@ -56,6 +56,9 @@ footer:
       icon: "fas fa-fw fa-envelope"
       url: "mailto:forecastbench@forecastingresearch.org"
 
+after_footer_scripts:
+  - /assets/js/mobile-nav.js
+
 exclude:
   - entrypoint.sh
   - Procfile

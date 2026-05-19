@@ -189,6 +189,14 @@ body a:hover {
   line-height: 1.2;
 }
 
+/* Force hamburger toggle visible on mobile (items moved to hidden-links via mobile-nav.js) */
+@media (max-width: 768px) {
+  .greedy-nav__toggle.hidden {
+    display: block !important;
+    visibility: visible !important;
+  }
+}
+
 /* Mobile responsive styling for check-card */
 @media (max-width: 768px) {
   .check-card {
@@ -299,6 +307,10 @@ body a:hover {
   line-height: 1.5rem !important;
 }
 
+.greedy-nav .hidden-links .masthead__menu-item > a {
+  padding: 10px 20px !important;
+}
+
 .masthead__inner-wrap {
   padding: 0.25rem 0 !important;
 }
@@ -365,10 +377,6 @@ body a:hover {
     background: currentColor !important;
 }
 
-/* Override any theme primary color on hamburger */
-.greedy-nav__toggle .navicon {
-    background: inherit !important;
-}
 
 
 
