@@ -233,11 +233,23 @@ body a:hover {
   box-shadow: none !important;
   color: #E96B26 !important;
   font-size: 16px !important;
+  font-weight: 400 !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
 
   &::after {
-    content: " ›";
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 10px;
+    background-image: url("data:image/svg+xml,%3Csvg width='8' height='10' viewBox='0 0 8 10' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.601719 8.85794L4.82572 4.58594V4.48994L0.601719 0.249939H2.40972L6.66572 4.53794L2.40972 8.85794H0.601719Z' fill='%23E96B26'/%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-size: contain;
+    flex-shrink: 0;
+    margin-left: 10px;
+    transition: transform 0.2s ease;
   }
 }
 
@@ -247,7 +259,12 @@ body a:hover {
   border-color: transparent !important;
   box-shadow: none !important;
   color: #E96B26 !important;
-  text-shadow: 0 0 0.5px #E96B26 !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+
+  &::after {
+    transform: translateX(4px);
+  }
 }
 
 
@@ -273,18 +290,11 @@ body a:hover {
   height: 2.75rem;
   width: auto;
   overflow: visible;
-
-  .site-lockup__label {
-    transition: fill 0.2s ease;
-  }
 }
 
-.site-lockup:hover .site-lockup__label {
-  fill: #E96B26;
-}
 
 .masthead__menu-item > a {
-  font-size: 0.65rem !important;
+  font-size: 16px !important;
   padding: 0rem 0rem !important;
   line-height: 1.5rem !important;
 }
