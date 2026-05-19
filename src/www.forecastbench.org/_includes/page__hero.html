@@ -43,8 +43,8 @@
       <!-- Featured card (only shows if page.featured is set) -->
       {% if page.featured %}
         {% if page.featured_link %}
-          <a href="{{ page.featured_link }}" class="check-card">
-            <div class="check-card__title">Featured</div>
+          <a href="{{ page.featured_link }}" class="check-card" target="_blank" rel="noopener noreferrer">
+            <div class="check-card__title">Featured Post</div>
             <div class="check-card__text">{{ page.featured }}</div>
             {% if page.featured_date %}
               <div class="check-card__date">{{ page.featured_date }}</div>
@@ -52,7 +52,7 @@
           </a>
         {% else %}
           <div class="check-card check-card--no-link">
-            <div class="check-card__title">Featured</div>
+            <div class="check-card__title">Featured Post</div>
             <div class="check-card__text">{{ page.featured }}</div>
             {% if page.featured_date %}
               <div class="check-card__date">{{ page.featured_date }}</div>
