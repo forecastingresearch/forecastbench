@@ -26,9 +26,9 @@ header:
   overlay_color: "#102B23"
   illustration: /assets/images/illustrations/fri-hero graphic-rgb-green-lines.jpg
 excerpt: "ForecastBench is a dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
-featured: "Scoring with the<br>Brier Index"
-featured_link: "https://forecastingresearch.substack.com/p/introducing-the-brier-index"
-featured_date: "Mar 4, 2026"
+featured:
+featured_link:
+featured_date:
 ---
 
 <!-- Tournament leaderboard Section with Background -->
