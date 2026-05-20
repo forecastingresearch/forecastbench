@@ -201,6 +201,15 @@ def get_org_logo(org: str) -> str:
 
 MODELS_TO_RUN = {
     # oai context window from: https://platform.openai.com/docs/models/
+    "gpt-5.5-2026-04-23": {
+        "source": OAI_SOURCE,
+        "org": OAI_ORG,
+        "full_name": "gpt-5.5-2026-04-23",
+        "token_limit": 128000,
+        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
+        # See model_eval.get_response_from_oai_model() for use.
+        "reasoning_model": True,
+    },
     "gpt-5.4-2026-03-05": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -228,15 +237,6 @@ MODELS_TO_RUN = {
         # See model_eval.get_response_from_oai_model() for use.
         "reasoning_model": True,
     },
-    "gpt-5.2-2025-12-11": {
-        "source": OAI_SOURCE,
-        "org": OAI_ORG,
-        "full_name": "gpt-5.2-2025-12-11",
-        "token_limit": 128000,
-        # `reasoning_model` is OpenAI specific. It should be true for o1 and o3 class models.
-        # See model_eval.get_response_from_oai_model() for use.
-        "reasoning_model": True,
-    },
     "gpt-5-mini-2025-08-07": {
         "source": OAI_SOURCE,
         "org": OAI_ORG,
@@ -256,29 +256,17 @@ MODELS_TO_RUN = {
         "reasoning_model": True,
     },
     # together.ai context window from: https://docs.together.ai/docs/serverless-models
-    "DeepSeek-V3.1": {
+    "DeepSeek-V4-Pro": {
         "source": TOGETHER_AI_SOURCE,
         "org": DEEPSEEK_ORG,
-        "full_name": "deepseek-ai/DeepSeek-V3.1",
+        "full_name": "deepseek-ai/DeepSeek-V4-Pro",
         "token_limit": 128000,
-    },
-    "MiniMax-M2.5": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": MINIMAX_ORG,
-        "full_name": "MiniMaxAI/MiniMax-M2.5",
-        "token_limit": 228700,
     },
     "MiniMax-M2.7": {
         "source": TOGETHER_AI_SOURCE,
         "org": MINIMAX_ORG,
         "full_name": "MiniMaxAI/MiniMax-M2.7",
         "token_limit": 202752,
-    },
-    "Kimi-K2.5": {
-        "source": TOGETHER_AI_SOURCE,
-        "org": MOONSHOT_ORG,
-        "full_name": "moonshotai/Kimi-K2.5",
-        "token_limit": 262144,
     },
     "Kimi-K2.6": {
         "source": TOGETHER_AI_SOURCE,
@@ -343,28 +331,22 @@ MODELS_TO_RUN = {
         "token_limit": 1000000,
     },
     # google context window from: https://ai.google.dev/gemini-api/docs/models
+    "gemini-3.5-flash": {
+        "source": GOOGLE_SOURCE,
+        "org": GOOGLE_ORG,
+        "full_name": "gemini-3.5-flash",
+        "token_limit": 1048576,
+    },
     "gemini-3.1-pro-preview": {
         "source": GOOGLE_SOURCE,
         "org": GOOGLE_ORG,
         "full_name": "gemini-3.1-pro-preview",
         "token_limit": 1048576,
     },
-    "gemini-3.1-flash-lite-preview": {
-        "source": GOOGLE_SOURCE,
-        "org": GOOGLE_ORG,
-        "full_name": "gemini-3.1-flash-lite-preview",
-        "token_limit": 1048576,
-    },
     "gemini-3.1-flash-lite": {
         "source": GOOGLE_SOURCE,
         "org": GOOGLE_ORG,
         "full_name": "gemini-3.1-flash-lite",
-        "token_limit": 1048576,
-    },
-    "gemini-3-flash-preview": {
-        "source": GOOGLE_SOURCE,
-        "org": GOOGLE_ORG,
-        "full_name": "gemini-3-flash-preview",
         "token_limit": 1048576,
     },
 }
