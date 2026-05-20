@@ -209,6 +209,12 @@ def main():
         bucket=env.PROCESSED_FORECAST_SETS_BUCKET
     )
 
+    cloud_run.block_and_check_job_result(
+        operation=operation_compress_processed_forecast_sets_bucket,
+        name=env.PROCESSED_FORECAST_SETS_BUCKET,
+        exit_on_error=False,
+    )
+
     dict_to_use_website = "website"
     operation_website = call_worker(dict_to_use=dict_to_use_website, task_count=1)
     cloud_run.block_and_check_job_result(
@@ -238,12 +244,6 @@ def main():
             if question_curation.is_today_question_set_publication_date()
             else ""
         ),
-    )
-
-    cloud_run.block_and_check_job_result(
-        operation=operation_compress_processed_forecast_sets_bucket,
-        name=env.QUESTION_BANK_BUCKET,
-        exit_on_error=False,
     )
 
     slack.send_message(message="Nightly update succeeded 😊")
