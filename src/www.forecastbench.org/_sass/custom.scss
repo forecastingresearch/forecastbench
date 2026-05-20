@@ -1741,7 +1741,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 /* ForecastBench footer (LEAP-style) */
 .fb-footer {
   color: #e8ecf5;
-  padding: 2rem 1.5rem 1.5rem;
+  padding: 0.5rem 1.5rem 0;
   font-size: 0.6rem;
 }
 
@@ -1758,7 +1758,7 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   max-width: 1200px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: minmax(220px, 1fr) max-content;
   gap: 1.5rem;
 }
 
@@ -1780,11 +1780,38 @@ input[type="checkbox"]:checked + .toggle-slider:before {
   gap: 0.45rem;
 }
 
+.fb-footer__related-links {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  font-size: 0.65rem;
+}
+
+.fb-footer__related-links li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.fb-footer__related-links li + li::before {
+  content: "\2022";
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0.65rem;
+}
+
 .fb-footer__socials a {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   font-size: inherit;
+}
+
+.fb-footer__socials {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  font-size: 0.65rem;
 }
 
 .fb-footer__icon img {
@@ -1798,15 +1825,47 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 
 .fb-footer__bottom {
   max-width: 1200px;
-  margin: 2rem auto 0 auto;
-  padding-top: 1rem;
+  margin: 1rem auto -0.35rem auto;
+  padding-top: 0;
   border-top: 1px solid rgba(107, 114, 128, 0.25);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fb-footer__legal {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
-  font-size: 0.55rem;
-  color: rgba(255, 255, 255, 0.5);
+}
+
+.fb-footer__copyright-group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.fb-footer__legal-logo {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.fb-footer__legal-logo img {
+  display: block;
+  width: 68px;
+  height: auto;
+  opacity: 0.85;
+}
+
+.fb-footer__contact {
+  margin-left: auto;
+  text-align: right;
 }
 
 .fb-footer__divider {
@@ -1819,6 +1878,23 @@ input[type="checkbox"]:checked + .toggle-slider:before {
 
   &:hover {
     opacity: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .fb-footer__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .fb-footer__socials {
+    flex-wrap: wrap;
+  }
+
+  .fb-footer__contact {
+    margin-left: 0;
+    text-align: left;
   }
 }
 

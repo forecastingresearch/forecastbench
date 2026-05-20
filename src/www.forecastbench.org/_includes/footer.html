@@ -2,18 +2,9 @@
   <div class="fb-footer__grid">
     <div class="fb-footer__col">
       <p class="fb-footer__title">Related Work</p>
-      <ul class="fb-footer__list">
+      <ul class="fb-footer__list fb-footer__related-links">
         <li><a href="{{ site.fri_url }}" rel="noopener">Forecasting Research Institute</a></li>
         <li><a href="https://leap.forecastingresearch.org/" rel="noopener">Longitudinal Expert AI Panel</a></li>
-      </ul>
-    </div>
-
-    <div class="fb-footer__col">
-      <p class="fb-footer__title">Resources</p>
-      <ul class="fb-footer__list">
-        {% for item in site.data.navigation.main %}
-        <li><a href="{{ item.url | relative_url }}" rel="noopener">{{ item.title }}</a></li>
-        {% endfor %}
       </ul>
     </div>
 
@@ -47,22 +38,25 @@
         {% endif %}
       </ul>
     </div>
-
-    <div class="fb-footer__col">
-      <p class="fb-footer__title">Contact</p>
-      <ul class="fb-footer__list">
-        {% if site.footer.contact %}
-          {% for link in site.footer.contact %}
-          <li><a href="{{ link.url }}">{{ link.label | default: link.url | replace: 'mailto:', '' }}</a></li>
-          {% endfor %}
-        {% endif %}
-      </ul>
-    </div>
   </div>
 
   <div class="fb-footer__bottom">
-    <div class="fb-footer__copyright">&copy; {{site.copyright_begin}}&ndash;{{ site.time | date: '%Y' }} <a href="{{ site.fri_url }}" rel="noopener">{{ site.fri }}</a></div>
-    <div class="fb-footer__divider">•</div>
-    <div>Content licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></div>
+    <div class="fb-footer__legal">
+      <div class="fb-footer__copyright-group">
+        <a class="fb-footer__legal-logo" href="{{ site.fri_url }}" rel="noopener" aria-label="{{ site.fri }}">
+          <img src="{{ '/assets/images/logo/fri-icon-white.svg' | relative_url }}" alt="" width="68" height="56">
+        </a>
+        <div class="fb-footer__copyright">&copy; {{site.copyright_begin}}&ndash;{{ site.time | date: '%Y' }} <a href="{{ site.fri_url }}" rel="noopener">{{ site.fri }}</a></div>
+      </div>
+      <div class="fb-footer__divider">•</div>
+      <div>Content licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></div>
+    </div>
+    {% if site.footer.contact %}
+      <div class="fb-footer__contact">
+        {% for link in site.footer.contact %}
+          <a href="{{ link.url }}">{{ link.label | default: link.url | replace: 'mailto:', '' }}</a>{% unless forloop.last %}<span class="fb-footer__divider">•</span>{% endunless %}
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
 </div>
