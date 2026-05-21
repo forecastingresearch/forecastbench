@@ -47,9 +47,6 @@ footer:
     - label: "Hugging Face"
       icon: ""
       url: "https://huggingface.co/forecastingresearch"
-    - label: "Wiki"
-      icon: "fa-brands fa-wikipedia-w"
-      url: "https://github.com/forecastingresearch/forecastbench/wiki"
 
   contact:
     - label: "forecastbench@forecastingresearch.org"

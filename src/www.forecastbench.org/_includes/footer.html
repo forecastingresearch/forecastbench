@@ -14,7 +14,7 @@
         {% if site.footer.social %}
           {% for link in site.footer.social %}
             {% assign label_down = link.label | downcase %}
-            <li>
+            <li class="fb-footer__social-item fb-footer__social-item--{{ label_down | replace: ' ', '-' }}">
               <a href="{{ link.url }}" rel="nofollow noopener noreferrer">
                 <span class="fb-footer__icon">
                   {% if label_down == "substack" %}
@@ -44,19 +44,29 @@
     <div class="fb-footer__legal">
       <div class="fb-footer__copyright-group">
         <a class="fb-footer__legal-logo" href="{{ site.fri_url }}" rel="noopener" aria-label="{{ site.fri }}">
-          <img src="{{ '/assets/images/logo/fri-icon-white.svg' | relative_url }}" alt="" width="68" height="56">
+          <img src="{{ '/assets/images/logo/fri-icon-white.svg' | relative_url }}" alt="" width="56" height="56">
         </a>
-        <div class="fb-footer__copyright">&copy; {{site.copyright_begin}}&ndash;{{ site.time | date: '%Y' }} <a href="{{ site.fri_url }}" rel="noopener">{{ site.fri }}</a></div>
+        <div class="fb-footer__legal-text">
+          <div class="fb-footer__copyright-row">
+            <div class="fb-footer__copyright">&copy; {{site.copyright_begin}}&ndash;{{ site.time | date: '%Y' }} <a href="{{ site.fri_url }}" rel="noopener">{{ site.fri }}</a></div>
+            {% if site.footer.contact %}
+              <div class="fb-footer__contact fb-footer__contact-desktop">
+                {% for link in site.footer.contact %}
+                  <a href="{{ link.url }}">{{ link.label | default: link.url | replace: 'mailto:', '' }}</a>{% unless forloop.last %}<span class="fb-footer__divider">•</span>{% endunless %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          <div>Content licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></div>
+          {% if site.footer.contact %}
+            <div class="fb-footer__contact fb-footer__contact-mobile">
+              {% for link in site.footer.contact %}
+                <a href="{{ link.url }}">{{ link.label | default: link.url | replace: 'mailto:', '' }}</a>{% unless forloop.last %}<span class="fb-footer__divider">•</span>{% endunless %}
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
       </div>
-      <div class="fb-footer__divider">•</div>
-      <div>Content licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></div>
     </div>
-    {% if site.footer.contact %}
-      <div class="fb-footer__contact">
-        {% for link in site.footer.contact %}
-          <a href="{{ link.url }}">{{ link.label | default: link.url | replace: 'mailto:', '' }}</a>{% unless forloop.last %}<span class="fb-footer__divider">•</span>{% endunless %}
-        {% endfor %}
-      </div>
-    {% endif %}
   </div>
 </div>
