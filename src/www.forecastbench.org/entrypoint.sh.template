@@ -19,8 +19,7 @@ PUBLIC_RELEASE_MNT="$MOUNT_POINT/PUBLIC_RELEASE_BUCKET"
 QUESTION_FE_DIR="assets/data/question-fixed-effects"
 mkdir -p "$ASSETS_MNT/$QUESTION_FE_DIR"
 QUESTION_FE_SRC="$PUBLIC_RELEASE_MNT/question-fixed-effects"
-cp -a "$QUESTION_FE_SRC"/question_fixed_effects.baseline_leaderboard.*.json "$ASSETS_MNT/$QUESTION_FE_DIR/"
-cp -a "$QUESTION_FE_SRC"/question_fixed_effects.tournament_leaderboard.*.json "$ASSETS_MNT/$QUESTION_FE_DIR/"
+cp -a "$QUESTION_FE_SRC"/question_fixed_effects.*.json "$ASSETS_MNT/$QUESTION_FE_DIR/"
 
 # SOTA LLM Super parity dates
 SOTA_LLM_SUPER_DIR="assets/data/"

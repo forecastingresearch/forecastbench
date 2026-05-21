@@ -643,7 +643,7 @@ def write_question_fixed_effects(
     leaderboard_file_stem = LEADERBOARD_FILE_STEMS[leaderboard_type]
     local_filename = (
         f"{directory}/question-fixed-effects/"
-        f"question_fixed_effects.{leaderboard_file_stem}.{iso_date}.json"
+        f"question_fixed_effects.{iso_date}.{leaderboard_file_stem}.json"
     )
     os.makedirs(os.path.dirname(local_filename), exist_ok=True)
     df.to_json(local_filename, orient="records")
