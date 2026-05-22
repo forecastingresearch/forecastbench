@@ -7,4 +7,3 @@ requests
 certifi
 backoff
 numpy
-pyarrow

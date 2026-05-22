@@ -135,7 +135,7 @@ class ManifoldSource(MarketSource):
 
             # Assign market details to dfq row
             dfq.at[index, "question"] = market["question"]
-            dfq.at[index, "background"] = market.get("textDescription", "")
+            dfq.at[index, "background"] = market["textDescription"]
             dfq.at[index, "market_info_resolution_criteria"] = "N/A"
             dfq.at[index, "market_info_open_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
                 market["createdTime"]
@@ -143,7 +143,7 @@ class ManifoldSource(MarketSource):
             dfq.at[index, "market_info_close_datetime"] = dates.convert_epoch_time_in_ms_to_iso(
                 market["closeTime"]
             )
-            dfq.at[index, "url"] = market.get("url", "")
+            dfq.at[index, "url"] = market["url"]
             if market["isResolved"]:
                 dfq.at[index, "resolved"] = True
                 dfq.at[index, "market_info_resolution_datetime"] = (
@@ -159,7 +159,6 @@ class ManifoldSource(MarketSource):
                 existing_df=existing_df,
             )
             if df_res is not None:
-                resolution_files[row["id"]] = df_res
                 dfq.at[index, "freeze_datetime_value"] = df_res["value"].iloc[-1]
                 # if rebuilt, then write; else - skip
                 if df_res is not existing_df:
@@ -256,7 +255,7 @@ class ManifoldSource(MarketSource):
         base=2,
         on_backoff=data_utils.print_error_info_handler,
     )
-    def _get_market(self, market_id: str) -> dict | None:
+    def _get_market(self, market_id: str) -> dict:
         """Fetch full market details from /market/{id}."""
         logger.info(f"Calling market endpoint for {market_id}")
         endpoint = f"{_MANIFOLD_API_BASE}/market/{market_id}"
@@ -330,7 +329,7 @@ class ManifoldSource(MarketSource):
         if (
             existing_df is not None
             and not existing_df.empty
-            and pd.to_datetime(existing_df["date"].iloc[-1]).date() >= yesterday
+            and pd.to_datetime(existing_df["date"].max()).date() >= yesterday
         ):
             return existing_df
 
