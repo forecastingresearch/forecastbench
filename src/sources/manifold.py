@@ -322,12 +322,19 @@ class ManifoldSource(MarketSource):
         market_id = market["id"]
 
         # --- Already up-to-date check ---
-        if (
-            existing_df is not None
-            and not existing_df.empty
-            and pd.to_datetime(existing_df["date"].max()).date() >= yesterday
-        ):
-            return existing_df
+        # If resolved: must extend through the resolution date (so the resolution row is present).
+        # If unresolved: must extend through yesterday.
+        # Without the isResolved branch, a same-day rerun after a market resolves would silently
+        # keep the stale file (last_date == yesterday < resolution_date == today).
+        if existing_df is not None and not existing_df.empty:
+            last_date = pd.to_datetime(existing_df["date"].max()).date()
+            cutoff = (
+                pd.Timestamp(market_info_resolution_datetime).date()
+                if market["isResolved"]
+                else yesterday
+            )
+            if last_date >= cutoff:
+                return existing_df
 
         # --- Fetch bets and build daily series ---
         forecasts = self._get_market_bets(market_id)
