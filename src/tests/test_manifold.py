@@ -479,19 +479,6 @@ class TestUpdate:
 
     @patch.object(ManifoldSource, "_build_resolution_file")
     @patch.object(ManifoldSource, "_get_market")
-    def test_get_market_returns_none_skipped(self, mock_market, mock_build, manifold_source):
-        """_get_market returning None skips the row."""
-        mock_market.return_value = None
-        dfq = make_question_df([{"id": "mkt_001", "resolved": False}])
-        dff = make_manifold_fetch_df([{"id": "mkt_001"}])
-
-        result = manifold_source.update(dfq, dff)
-
-        mock_build.assert_not_called()
-        assert "mkt_001" not in (result.resolution_files or {})
-
-    @patch.object(ManifoldSource, "_build_resolution_file")
-    @patch.object(ManifoldSource, "_get_market")
     def test_build_resolution_returns_none(self, mock_market, mock_build, manifold_source):
         """_build_resolution_file returning None: no resolution file stored."""
         mock_market.return_value = make_manifold_api_market(id="mkt_001")

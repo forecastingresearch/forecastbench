@@ -130,8 +130,6 @@ class ManifoldSource(MarketSource):
         dfq["resolved"] = dfq["resolved"].astype(bool)
         for index, row in dfq[~dfq["resolved"]].iterrows():
             market = self._get_market(row["id"])
-            if market is None:
-                continue
 
             # Assign market details to dfq row
             dfq.at[index, "question"] = market["question"]
@@ -172,8 +170,6 @@ class ManifoldSource(MarketSource):
             filename = f"{self.name}/{row['id']}.jsonl"
             if filename not in files_in_storage and row["id"] not in resolution_files:
                 market = self._get_market(row["id"])
-                if market is None:
-                    continue
                 df_res = self._build_resolution_file(
                     market=market,
                     market_info_resolution_datetime=row["market_info_resolution_datetime"],
