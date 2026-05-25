@@ -284,7 +284,7 @@ class TestCallSearchEndpoint:
                 make_manifold_search_result(id="b"),
             ]
         )
-        ids = manifold_source._call_search_endpoint()
+        ids = manifold_source._call_search_endpoint(max_resolution_date=date(2028, 1, 14))
         assert ids == {"a", "b"}
 
     @patch("sources.manifold.requests.get")
@@ -297,7 +297,7 @@ class TestCallSearchEndpoint:
                 make_manifold_search_result(id="ok", uniqueBettorCount=17),
             ]
         )
-        ids = manifold_source._call_search_endpoint()
+        ids = manifold_source._call_search_endpoint(max_resolution_date=date(2028, 1, 14))
         assert ids == {"ok"}
 
     @patch("sources.manifold.requests.get")
@@ -310,7 +310,7 @@ class TestCallSearchEndpoint:
                 make_manifold_search_result(id="ok", totalLiquidity=120),
             ]
         )
-        ids = manifold_source._call_search_endpoint()
+        ids = manifold_source._call_search_endpoint(max_resolution_date=date(2028, 1, 14))
         assert ids == {"ok"}
 
     @patch("sources.manifold.requests.get")
@@ -325,7 +325,7 @@ class TestCallSearchEndpoint:
                 make_manifold_search_result(id="ok", closeTime=1748736000000),
             ]
         )
-        ids = manifold_source._call_search_endpoint()
+        ids = manifold_source._call_search_endpoint(max_resolution_date=date(2028, 1, 14))
         assert ids == {"ok"}
 
     @patch("sources.manifold.requests.get")
@@ -333,7 +333,10 @@ class TestCallSearchEndpoint:
         """additional_params are merged into API request params."""
         freeze_today(date(2026, 1, 15))
         mock_get.return_value = self._mock_response([])
-        manifold_source._call_search_endpoint({"topicSlug": "ai"})
+        manifold_source._call_search_endpoint(
+            max_resolution_date=date(2028, 1, 14),
+            additional_params={"topicSlug": "ai"},
+        )
 
         mock_get.assert_called_once()
         called_params = mock_get.call_args[1].get("params") or mock_get.call_args[0][1]

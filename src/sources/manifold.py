@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any, ClassVar
 
 import backoff
@@ -76,13 +76,28 @@ class ManifoldSource(MarketSource):
     # ------------------------------------------------------------------
 
     @pa.check_types
-    def fetch(self, **kwargs: Any) -> DataFrame[ManifoldFetchFrame]:
+    def fetch(
+        self,
+        *,
+        max_resolution_date: date | None = None,
+        **kwargs: Any,
+    ) -> DataFrame[ManifoldFetchFrame]:
         """Fetch market IDs from Manifold search-markets endpoint.
 
         Calls search-markets (1 global + N topic slugs), filters by
         min bettors, min liquidity, and max resolution date.
+
+        Args:
+            max_resolution_date (date | None): Cutoff for market close date.
+                Defaults to today + ``_MAX_RESOLUTION_DATE_IN_DAYS``. Computed
+                once here and threaded through so the inner endpoint calls
+                share the same cutoff instead of each recomputing "today".
         """
-        ids = self._search_markets()
+        if max_resolution_date is None:
+            max_resolution_date = dates.get_date_today() + timedelta(
+                days=_MAX_RESOLUTION_DATE_IN_DAYS
+            )
+        ids = self._search_markets(max_resolution_date=max_resolution_date)
         logger.info(f"Discovered {len(ids)} candidate market IDs from search.")
         return pd.DataFrame({"id": sorted(ids)})
 
@@ -193,7 +208,12 @@ class ManifoldSource(MarketSource):
         max_time=500,
         on_backoff=data_utils.print_error_info_handler,
     )
-    def _call_search_endpoint(self, additional_params: dict | None = None) -> set[str]:
+    def _call_search_endpoint(
+        self,
+        *,
+        max_resolution_date: date,
+        additional_params: dict | None = None,
+    ) -> set[str]:
         """Call search-markets and return qualifying market IDs."""
         endpoint = f"{_MANIFOLD_API_BASE}/search-markets"
         params: dict[str, Any] = {
@@ -214,9 +234,6 @@ class ManifoldSource(MarketSource):
             )
             response.raise_for_status()
 
-        today = dates.get_date_today()
-        max_resolution_date = today + timedelta(days=_MAX_RESOLUTION_DATE_IN_DAYS)
-
         def resolves_by(close_time_epoch_ms: int) -> bool:
             close_sec = min(close_time_epoch_ms / 1000, dates.MAX_EPOCH_SEC)
             close_date = dates.convert_epoch_time_in_sec_to_datetime(close_sec).date()
@@ -230,12 +247,15 @@ class ManifoldSource(MarketSource):
             and resolves_by(market["closeTime"])
         }
 
-    def _search_markets(self) -> set[str]:
+    def _search_markets(self, *, max_resolution_date: date) -> set[str]:
         """Discover market IDs across all topic slugs."""
         logger.info("Calling Manifold search-markets endpoint")
-        ids = self._call_search_endpoint()
+        ids = self._call_search_endpoint(max_resolution_date=max_resolution_date)
         for topic in _TOPIC_SLUGS:
-            ids |= self._call_search_endpoint({"topicSlug": topic})
+            ids |= self._call_search_endpoint(
+                max_resolution_date=max_resolution_date,
+                additional_params={"topicSlug": topic},
+            )
         return ids
 
     # ------------------------------------------------------------------
