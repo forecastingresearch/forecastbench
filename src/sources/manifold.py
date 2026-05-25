@@ -204,7 +204,7 @@ class ManifoldSource(MarketSource):
         }
         if additional_params:
             params.update(additional_params)
-        logger.info(f"Calling {endpoint} with additional params {additional_params}")
+            logger.info(f"Calling {endpoint} with additional params: {additional_params}")
 
         response = requests.get(endpoint, params=params, verify=certifi.where())
         if not response.ok:
