@@ -99,9 +99,8 @@ def get_fetch_and_update():
         "yfinance",
     ]
     day_of_week = dates.get_datetime_today().strftime("%A")
-    if day_of_week in ["Tuesday", "Wednesday"]:
-        # Add acled to sources to fetch if it's Tuesday or Wednesday.
-        # See Issue #115.
+    if day_of_week in ["Wednesday"]:
+        # Fetch ACLED data on Wednesdays. See Issue #115.
         sources += [
             "acled",
         ]
