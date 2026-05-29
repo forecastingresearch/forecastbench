@@ -84,6 +84,14 @@ def manifold_source():
     return ManifoldSource()
 
 
+@pytest.fixture()
+def metaculus_source():
+    """Return a MetaculusSource instance with a fake API key."""
+    src = MetaculusSource()
+    src.api_key = "test-key"
+    return src
+
+
 # ---------------------------------------------------------------------------
 # DataFrame factories
 # ---------------------------------------------------------------------------
@@ -316,3 +324,85 @@ def make_manifold_bet(**overrides):
 def make_manifold_fetch_df(rows):
     """Build a DataFrame matching ManifoldFetchFrame schema (just id column)."""
     return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# Metaculus-specific factories
+# ---------------------------------------------------------------------------
+
+
+def make_metaculus_market(**overrides):
+    """Build a realistic Metaculus per-question API response dict.
+
+    Simulates GET /api/posts/{id}/ response. Supports nested overrides for the
+    ``question`` sub-dict via the ``question`` keyword argument.
+    """
+    base = {
+        "id": 42472,
+        "title": "Will X happen by 2027?",
+        "resolved": False,
+        "nr_forecasters": 50,
+        "status": "open",
+        "question": {
+            "description": "Background text for the question.",
+            "resolution_criteria": "Resolves Yes if X happens.",
+            "open_time": "2026-01-01T00:00:00Z",
+            "actual_close_time": "2027-01-01T00:00:00Z",
+            "actual_resolve_time": None,
+            "scheduled_close_time": "2027-01-01T00:00:00Z",
+            "scheduled_resolve_time": "2027-01-02T00:00:00Z",
+            "cp_reveal_time": "2026-01-03T00:00:00Z",
+            "resolution": None,
+            "type": "binary",
+            "aggregations": {
+                "recency_weighted": {
+                    "history": [
+                        {
+                            "start_time": 1735689600.0,  # 2025-01-01 00:00 UTC
+                            "end_time": 1735776000.0,  # 2025-01-02 00:00 UTC
+                            "centers": [0.4],
+                            "forecaster_count": 10,
+                        },
+                        {
+                            "start_time": 1735776000.0,  # 2025-01-02 00:00 UTC
+                            "end_time": 1735862400.0,  # 2025-01-03 00:00 UTC
+                            "centers": [0.5],
+                            "forecaster_count": 20,
+                        },
+                        {
+                            "start_time": 1735862400.0,  # 2025-01-03 00:00 UTC
+                            "end_time": 1735948800.0,  # 2025-01-04 00:00 UTC
+                            "centers": [0.6],
+                            "forecaster_count": 30,
+                        },
+                    ],
+                }
+            },
+        },
+    }
+    question_overrides = overrides.pop("question", None)
+    base.update(overrides)
+    if question_overrides:
+        base["question"].update(question_overrides)
+    return base
+
+
+def make_metaculus_search_result(**overrides):
+    """Build a single Metaculus search result entry (lighter than full market)."""
+    base = {
+        "id": 42472,
+        "nr_forecasters": 50,
+        "question": {
+            "cp_reveal_time": "2025-01-01T00:00:00Z",
+        },
+    }
+    question_overrides = overrides.pop("question", None)
+    base.update(overrides)
+    if question_overrides:
+        base["question"].update(question_overrides)
+    return base
+
+
+def make_metaculus_fetch_df(ids):
+    """Build a DataFrame matching MetaculusFetchFrame schema."""
+    return pd.DataFrame({"id": [str(i) for i in ids]})

@@ -104,6 +104,18 @@ class ManifoldFetchFrame(pa.DataFrameModel):
         coerce = True
 
 
+class MetaculusFetchFrame(pa.DataFrameModel):
+    """Output of MetaculusSource.fetch(). Just question IDs from the search endpoint."""
+
+    id: Series[str]
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = True
+
+
 class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 
