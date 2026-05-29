@@ -1,10 +1,9 @@
 google-cloud-storage
 google-cloud-secret-manager
 pandas>=2.2.2,<3.0
-pyarrow
-backoff
-certifi
-tqdm
-scipy
 pandera
-termcolor
+scipy
+requests
+certifi
+backoff
+numpy

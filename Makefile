@@ -135,10 +135,10 @@ manifold-update-questions:
 metaculus: metaculus-fetch metaculus-update-questions
 
 metaculus-fetch:
-	$(MAKE) -C src/questions/metaculus/fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_metaculus_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 metaculus-update-questions:
-	$(MAKE) -C src/questions/metaculus/update_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_metaculus_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 infer: infer-fetch infer-update-questions
 
