@@ -437,7 +437,7 @@ class TestCallSearchEndpoint:
                 make_metaculus_search_result(id=200),
             ]
         )
-        ids = metaculus_source._call_search_endpoint()
+        ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
         assert ids == {"100", "200"}
 
     @patch("sources.metaculus.requests.get")
@@ -450,7 +450,7 @@ class TestCallSearchEndpoint:
                 make_metaculus_search_result(id=200, nr_forecasters=6),  # included
             ]
         )
-        ids = metaculus_source._call_search_endpoint()
+        ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
         assert ids == {"200"}
 
     @patch("sources.metaculus.requests.get")
@@ -467,7 +467,7 @@ class TestCallSearchEndpoint:
                 ),  # past = included
             ]
         )
-        ids = metaculus_source._call_search_endpoint()
+        ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
         assert ids == {"200"}
 
     @patch("sources.metaculus.requests.get")
@@ -477,7 +477,7 @@ class TestCallSearchEndpoint:
         result = make_metaculus_search_result(id=100)
         del result["question"]["cp_reveal_time"]
         mock_get.return_value = self._mock_response([result])
-        ids = metaculus_source._call_search_endpoint()
+        ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
         assert ids == set()
 
     @patch("sources.metaculus.requests.get")
@@ -486,7 +486,7 @@ class TestCallSearchEndpoint:
         freeze_today(date(2026, 3, 1))
         mock_get.return_value = self._mock_response([])
         metaculus_source._call_search_endpoint(
-            additional_params={"categories": "artificial-intelligence"}
+            today=date(2026, 3, 1), additional_params={"categories": "artificial-intelligence"}
         )
         call_kwargs = mock_get.call_args
         assert call_kwargs.kwargs["params"]["categories"] == "artificial-intelligence"
@@ -496,7 +496,7 @@ class TestCallSearchEndpoint:
         """Integer API IDs are returned as strings."""
         freeze_today(date(2026, 3, 1))
         mock_get.return_value = self._mock_response([make_metaculus_search_result(id=42472)])
-        ids = metaculus_source._call_search_endpoint()
+        ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
         assert all(isinstance(i, str) for i in ids)
 
     @patch("sources.metaculus.requests.get")
@@ -504,7 +504,7 @@ class TestCallSearchEndpoint:
         """No matching questions returns empty set."""
         freeze_today(date(2026, 3, 1))
         mock_get.return_value = self._mock_response([])
-        ids = metaculus_source._call_search_endpoint()
+        ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
         assert ids == set()
 
     @patch("sources.metaculus.requests.get")
@@ -517,7 +517,7 @@ class TestCallSearchEndpoint:
                 make_metaculus_search_result(id=100),
             ]
         )
-        ids = metaculus_source._call_search_endpoint()
+        ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
         assert ids == {"100"}
 
 
