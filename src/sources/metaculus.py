@@ -431,6 +431,8 @@ class MetaculusSource(MarketSource):
 
         # The API can return forecast periods with end_times in the future. Drop future dates.
         df = df[df["date"] <= dates.get_date_yesterday()]
+        if df.empty and not dfq.at[index, "resolved"]:
+            return None
 
         # If resolved, add final resolution value
         if dfq.at[index, "resolved"]:

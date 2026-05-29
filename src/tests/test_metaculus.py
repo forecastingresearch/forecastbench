@@ -370,6 +370,28 @@ class TestCreateResolutionFile:
         assert max(result["date"].tolist()) <= "2025-01-04"
         assert "2025-01-09" not in result["date"].tolist()
 
+    def test_future_only_unresolved_market_returns_none(self, metaculus_source, freeze_today):
+        """Unresolved markets with no usable historical date do not produce empty files."""
+        freeze_today(date(2025, 1, 5))  # yesterday = 2025-01-04
+        market = make_metaculus_market(
+            question={
+                "aggregations": {
+                    "recency_weighted": {
+                        "history": [
+                            {
+                                "start_time": 1736294400.0,  # 2025-01-08 00:00
+                                "end_time": 1736467200.0,  # 2025-01-10 00:00 -> date 2025-01-09
+                                "centers": [0.9],
+                            },
+                        ]
+                    }
+                }
+            }
+        )
+        dfq = self._dfq_row()
+        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        assert result is None
+
     def test_date_assignment_subtracts_day(self, metaculus_source):
         """Regular end_datetime maps to date = end_date - 1 day."""
         # Single entry: start 2025-01-01, end 2025-01-02 00:00 UTC
