@@ -889,7 +889,7 @@ class TestUpdate:
         )
         dff = make_metaculus_fetch_df([])
 
-        result = metaculus_source.update(dfq, dff, existing_resolution_files={})
+        result = metaculus_source.update(dfq, dff)
 
         # Should have called _get_market for the resolved question's missing file
         mock_market.assert_called_once_with("42472")

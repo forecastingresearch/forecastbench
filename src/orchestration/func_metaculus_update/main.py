@@ -26,10 +26,6 @@ def driver(_: Any) -> None:
         SOURCE, return_question_data=True, return_fetch_data=True
     )
 
-    logger.info("Loading existing resolution files...")
-    existing_resolution_files = _source_io.load_existing_resolution_files(SOURCE)
-    logger.info(f"Loaded {len(existing_resolution_files)} resolution files")
-
     files_in_storage = gcp.storage.list_with_prefix(
         bucket_name=env.QUESTION_BANK_BUCKET, prefix=SOURCE
     )
@@ -37,7 +33,6 @@ def driver(_: Any) -> None:
     result = source.update(
         dfq,
         dff,
-        existing_resolution_files=existing_resolution_files,
         files_in_storage=files_in_storage,
     )
 

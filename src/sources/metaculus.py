@@ -93,7 +93,6 @@ class MetaculusSource(MarketSource):
         dfq: DataFrame[QuestionFrame],
         dff: DataFrame[MetaculusFetchFrame],
         *,
-        existing_resolution_files: dict[str, DataFrame[ResolutionFrame]] | None = None,
         files_in_storage: list[str] | None = None,
     ) -> UpdateResult:
         """Fetch full question data and build resolution files.
@@ -107,9 +106,6 @@ class MetaculusSource(MarketSource):
         Args:
             dfq (DataFrame[QuestionFrame]): Existing questions.
             dff (DataFrame[MetaculusFetchFrame]): Discovered question IDs from fetch().
-            existing_resolution_files (dict | None): Accepted for interface symmetry with
-                other market sources; unused here because Metaculus rebuilds every
-                resolution file from the full aggregation history on each run.
             files_in_storage (list[str] | None): Existing resolution file paths in storage,
                 used to decide which resolved questions need regenerating.
         """
