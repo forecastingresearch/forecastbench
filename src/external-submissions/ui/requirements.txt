@@ -1,0 +1,4 @@
+flask>=3.0
+google-cloud-firestore>=2.0
+google-cloud-storage>=2.0
+requests>=2.0

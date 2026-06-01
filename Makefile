@@ -101,6 +101,45 @@ all: deploy
 
 deploy: orchestration questions metadata resolve leaderboards curate-questions website baselines
 
+# External submissions pipeline
+.PHONY: deploy-submissions deploy-submissions-function setup-submissions-permissions deploy-submissions-scheduler
+
+deploy-submissions:
+	@cd src/external-submissions/functions && \
+		CLOUD_PROJECT=$(CLOUD_PROJECT) \
+		SA_EMAIL=$(SUBMISSIONS_SERVICE_ACCOUNT) \
+		UPLOAD_BUCKET=$(SUBMISSIONS_BUCKET) \
+		INTERSTITIAL_BUCKET=$(SUBMISSIONS_INTERSTITIAL_BUCKET) \
+		HISTORY_BUCKET=$(SUBMISSIONS_HISTORY_BUCKET) \
+		FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET) \
+		bash deploy.sh
+
+deploy-submissions-function:
+	@cd src/external-submissions/functions && \
+		CLOUD_PROJECT=$(CLOUD_PROJECT) \
+		SA_EMAIL=$(SUBMISSIONS_SERVICE_ACCOUNT) \
+		UPLOAD_BUCKET=$(SUBMISSIONS_BUCKET) \
+		INTERSTITIAL_BUCKET=$(SUBMISSIONS_INTERSTITIAL_BUCKET) \
+		HISTORY_BUCKET=$(SUBMISSIONS_HISTORY_BUCKET) \
+		FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET) \
+		bash deploy.sh $(FUNC)
+
+setup-submissions-permissions:
+	@cd src/external-submissions/functions && \
+		PROJECT=$(CLOUD_PROJECT) \
+		SA_EMAIL=$(SUBMISSIONS_SERVICE_ACCOUNT) \
+		UPLOAD_BUCKET=$(SUBMISSIONS_BUCKET) \
+		INTERSTITIAL_BUCKET=$(SUBMISSIONS_INTERSTITIAL_BUCKET) \
+		HISTORY_BUCKET=$(SUBMISSIONS_HISTORY_BUCKET) \
+		FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET) \
+		DEPLOYER=$(SUBMISSIONS_DEPLOYER) \
+		bash setup_permissions.sh
+
+deploy-submissions-scheduler:
+	@cd src/external-submissions/scheduler && \
+		PROJECT=$(CLOUD_PROJECT) REGION=$(CLOUD_DEPLOY_REGION) \
+		bash deploy.sh
+
 questions: manifold metaculus acled infer yfinance polymarket wikipedia fred dbnomics
 
 orchestration: nightly-worker-job nightly-manager-job compress_buckets

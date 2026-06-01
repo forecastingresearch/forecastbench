@@ -1,0 +1,10 @@
+# Copy this file to variables.mk and fill in values for your environment.
+# variables.mk is gitignored — never commit real values.
+
+GCP_PROJECT=forecastbench-dev
+SA_EMAIL=submissions@forecastbench-dev.iam.gserviceaccount.com
+
+UPLOAD_BUCKET=forecastbench-submissions-dev
+INTERSTITIAL_BUCKET=forecastbench-submissions-interstitial-dev
+PROCESSING_BUCKET=forecastbench-forecast-sets-dev
+HISTORY_BUCKET=forecastbench-submissions-history-dev
