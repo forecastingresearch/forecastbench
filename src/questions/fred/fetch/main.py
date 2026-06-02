@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 
 import backoff
@@ -35,6 +36,21 @@ PARAMS = {
     "file_type": "json",
 }
 
+# FRED throttles each API key at ~2 requests/second (120/minute); exceeding it
+# returns HTTP 429. Space requests out to stay safely under that limit.
+# See https://fred.stlouisfed.org/docs/api/fred/v2/errors.html
+_MIN_REQUEST_INTERVAL = 0.6  # seconds between requests => ~1.6 req/s
+_last_request_time = 0.0
+
+
+def _throttle():
+    """Sleep if needed so consecutive FRED requests stay under ~2 req/s."""
+    global _last_request_time
+    elapsed = time.monotonic() - _last_request_time
+    if elapsed < _MIN_REQUEST_INTERVAL:
+        time.sleep(_MIN_REQUEST_INTERVAL - elapsed)
+    _last_request_time = time.monotonic()
+
 
 @backoff.on_exception(
     backoff.expo,
@@ -63,6 +79,7 @@ def fetch_paginated_data(url, params, field_name, pagination):
     pages_fetched = 0
 
     while True:
+        _throttle()
         response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()
