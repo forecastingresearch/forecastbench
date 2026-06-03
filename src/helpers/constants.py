@@ -311,6 +311,12 @@ MODELS_TO_RUN = {
         "full_name": "claude-opus-4-7",
         "token_limit": 200000,
     },
+    "claude-opus-4-8": {
+        "source": ANTHROPIC_SOURCE,
+        "org": ANTHROPIC_ORG,
+        "full_name": "claude-opus-4-8",
+        "token_limit": 200000,
+    },
     # xAI context window from: https://console.x.ai/ -> click on API Models (cube symbol on menu)
     "grok-4.20-0309-reasoning": {
         "source": XAI_SOURCE,

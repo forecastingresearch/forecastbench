@@ -242,7 +242,7 @@ def get_response_from_anthropic_model(model_name, prompt, max_tokens, temperatur
                 },
             ],
         }
-        if model_name != "claude-opus-4-7":
+        if model_name not in ["claude-opus-4-7", "claude-opus-4-8"]:
             params["temperature"] = temperature
 
         with anthropic_console.messages.stream(**params) as stream:
