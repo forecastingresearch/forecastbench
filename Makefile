@@ -167,10 +167,10 @@ yfinance-update-questions:
 polymarket: polymarket-fetch polymarket-update-questions
 
 polymarket-fetch:
-	$(MAKE) -C src/questions/polymarket/fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_polymarket_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 polymarket-update-questions:
-	$(MAKE) -C src/questions/polymarket/update_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_polymarket_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 wikipedia: wikipedia-fetch wikipedia-update-questions
 

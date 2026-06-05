@@ -92,6 +92,14 @@ class InferFetchFrame(QuestionFrame):
     nullify_question: Series[bool]
 
 
+class PolymarketFetchFrame(QuestionFrame):
+    """Output of PolymarketSource.fetch(). QuestionFrame plus transient fields for update()."""
+
+    fetch_datetime: Series[str]
+    probability: Series[object] = pa.Field(nullable=True)
+    historical_prices: Series[object]  # list[dict] with {date, value} per question
+
+
 class ManifoldFetchFrame(pa.DataFrameModel):
     """Output of ManifoldSource.fetch(). Just market IDs from search-markets endpoint."""
 

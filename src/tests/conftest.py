@@ -12,6 +12,7 @@ from sources.fred import FredSource
 from sources.infer import InferSource
 from sources.manifold import ManifoldSource
 from sources.metaculus import MetaculusSource
+from sources.polymarket import PolymarketSource
 
 # ---------------------------------------------------------------------------
 # Time-freezing fixture
@@ -90,6 +91,12 @@ def metaculus_source():
     src = MetaculusSource()
     src.api_key = "test-key"
     return src
+
+
+@pytest.fixture()
+def polymarket_source():
+    """Return a PolymarketSource instance."""
+    return PolymarketSource()
 
 
 # ---------------------------------------------------------------------------
@@ -406,3 +413,70 @@ def make_metaculus_search_result(**overrides):
 def make_metaculus_fetch_df(ids):
     """Build a DataFrame matching MetaculusFetchFrame schema."""
     return pd.DataFrame({"id": [str(i) for i in ids]})
+
+
+# ---------------------------------------------------------------------------
+# Polymarket-specific factories
+# ---------------------------------------------------------------------------
+
+
+def make_polymarket_api_market(**overrides):
+    """Build a realistic Polymarket Gamma API market dict.
+
+    Override specific fields as needed. All JSON-encoded string fields
+    (outcomes, outcomePrices, clobTokenIds) match the real API format.
+    """
+    base = {
+        "conditionId": "0xabc123",
+        "question": "Will X happen by 2026?",
+        "description": "Background text.",
+        "slug": "will-x-happen-by-2026",
+        "outcomes": '["Yes", "No"]',
+        "outcomePrices": '["0.65", "0.35"]',
+        "clobTokenIds": '["token_yes", "token_no"]',
+        "liquidityNum": 50000,
+        "active": True,
+        "closed": False,
+        "archived": False,
+        "startDateIso": "2025-01-01",
+        "endDate": "2026-06-01T00:00:00Z",
+        "umaResolutionStatus": None,
+        "umaEndDate": None,
+        "events": [{"endDate": "2026-06-01T00:00:00Z"}],
+    }
+    base.update(overrides)
+    return base
+
+
+def make_polymarket_price_history(entries):
+    """Build a price history list as returned by the CLOB API.
+
+    Args:
+        entries: list of (epoch_sec, prob) tuples.
+    """
+    return [{"t": t, "p": p} for t, p in entries]
+
+
+def make_polymarket_fetch_df(rows):
+    """Build a DataFrame matching PolymarketFetchFrame schema."""
+    defaults = {
+        "question": "N/A",
+        "background": "N/A",
+        "url": "N/A",
+        "resolved": False,
+        "forecast_horizons": "N/A",
+        "freeze_datetime_value": "N/A",
+        "freeze_datetime_value_explanation": "N/A",
+        "market_info_resolution_criteria": "N/A",
+        "market_info_open_datetime": "N/A",
+        "market_info_close_datetime": "N/A",
+        "market_info_resolution_datetime": "N/A",
+        "fetch_datetime": "2026-01-15T00:00:00+00:00",
+        "probability": 0.5,
+        "historical_prices": [{"date": "2024-06-01", "value": 0.5}],
+    }
+    df = pd.DataFrame(rows)
+    for col, default in defaults.items():
+        if col not in df.columns:
+            df[col] = default
+    return df
