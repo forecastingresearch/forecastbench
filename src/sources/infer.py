@@ -40,16 +40,17 @@ class InferSource(MarketSource):
         self,
         *,
         dfq: DataFrame[QuestionFrame] | None = None,
-        files_in_storage: list[str] | None = None,
+        existing_resolution_ids: set[str] | None = None,
     ) -> DataFrame[InferFetchFrame]:
         """Fetch questions from the INFER API.
 
         Args:
             dfq (DataFrame[QuestionFrame] | None): Existing question bank.
-            files_in_storage (list[str] | None): Existing resolution file paths.
+            existing_resolution_ids (set[str] | None): Bare IDs that already have a resolution
+                file in storage.
         """
         self._require_api_key()
-        files_in_storage = files_in_storage or []
+        existing_resolution_ids = existing_resolution_ids or set()
 
         # Determine which existing questions need re-fetching
         resolved_ids: list[str] = []
@@ -62,7 +63,7 @@ class InferSource(MarketSource):
         logger.info(f"Number unresolved_ids: {len(unresolved_ids)}")
 
         resolved_ids_without_files = [
-            id for id in resolved_ids if f"{self.name}/{id}.jsonl" not in files_in_storage
+            id for id in resolved_ids if str(id) not in existing_resolution_ids
         ]
         logger.info(f"resolved_ids_without_resolution_files: {resolved_ids_without_files}")
 

@@ -337,7 +337,7 @@ class TestFetch:
             [make_infer_api_question(id=100, state="active")],  # active fetch
         ]
         dfq = make_question_df([{"id": "100", "resolved": False}])
-        dff = infer_source.fetch(dfq=dfq, files_in_storage=[])
+        dff = infer_source.fetch(dfq=dfq, existing_resolution_ids=set())
 
         assert len(dff) == 1
 
@@ -350,7 +350,7 @@ class TestFetch:
         ]
         dfq = make_question_df([{"id": "100", "resolved": True}])
         # No resolution file in storage → should re-fetch
-        dff = infer_source.fetch(dfq=dfq, files_in_storage=[])
+        dff = infer_source.fetch(dfq=dfq, existing_resolution_ids=set())
 
         assert len(dff) == 1
         mock_api.assert_any_call(status="all", question_ids=["100"])
@@ -361,7 +361,7 @@ class TestFetch:
         mock_api.side_effect = [
             [make_infer_api_question(id=300)],
         ]
-        dff = infer_source.fetch(dfq=None, files_in_storage=[])
+        dff = infer_source.fetch(dfq=None, existing_resolution_ids=set())
         assert len(dff) == 1
 
     def test_api_key_required(self):

@@ -93,7 +93,7 @@ class MetaculusSource(MarketSource):
         dfq: DataFrame[QuestionFrame],
         dff: DataFrame[MetaculusFetchFrame],
         *,
-        files_in_storage: list[str] | None = None,
+        existing_resolution_ids: set[str] | None = None,
     ) -> UpdateResult:
         """Fetch full question data and build resolution files.
 
@@ -106,8 +106,8 @@ class MetaculusSource(MarketSource):
         Args:
             dfq (DataFrame[QuestionFrame]): Existing questions.
             dff (DataFrame[MetaculusFetchFrame]): Discovered question IDs from fetch().
-            files_in_storage (list[str] | None): Existing resolution file paths in storage,
-                used to decide which resolved questions need regenerating.
+            existing_resolution_ids (set[str] | None): Bare IDs that already have a resolution
+                file in storage, used to decide which resolved questions need regenerating.
         """
         self._require_api_key()
         resolution_files: dict[str, pd.DataFrame] = {}
@@ -167,11 +167,10 @@ class MetaculusSource(MarketSource):
                 dfq.at[index, "freeze_datetime_value"] = "N/A"
 
         # Regenerate missing resolution files for resolved questions
-        files_in_storage = files_in_storage or []
+        existing_resolution_ids = existing_resolution_ids or set()
         for index, row in dfq[dfq["resolved"]].iterrows():
             question_id = str(row["id"])
-            filename = f"{self.name}/{question_id}.jsonl"
-            if filename not in files_in_storage and question_id not in resolution_files:
+            if question_id not in existing_resolution_ids and question_id not in resolution_files:
                 market = self._get_market(row["id"])
                 df_res = self._create_resolution_file(dfq, index, market)
                 if df_res is not None:

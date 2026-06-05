@@ -5,10 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from helpers import data_utils, decorator, env, keys
+from helpers import data_utils, decorator, keys
 from orchestration import _source_io
 from sources.metaculus import MetaculusSource
-from utils import gcp
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,14 +25,12 @@ def driver(_: Any) -> None:
         SOURCE, return_question_data=True, return_fetch_data=True
     )
 
-    files_in_storage = gcp.storage.list_with_prefix(
-        bucket_name=env.QUESTION_BANK_BUCKET, prefix=SOURCE
-    )
+    existing_resolution_ids = _source_io.list_existing_resolution_ids(SOURCE)
 
     result = source.update(
         dfq,
         dff,
-        files_in_storage=files_in_storage,
+        existing_resolution_ids=existing_resolution_ids,
     )
 
     logger.info("Uploading to GCP...")

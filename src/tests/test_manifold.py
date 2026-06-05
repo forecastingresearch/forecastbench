@@ -514,7 +514,7 @@ class TestUpdate:
         )
         dff = make_manifold_fetch_df([{"id": "mkt_001"}])
 
-        result = manifold_source.update(dfq, dff, files_in_storage=[])
+        result = manifold_source.update(dfq, dff, existing_resolution_ids=set())
 
         assert "mkt_001" in result.resolution_files
 
@@ -533,7 +533,7 @@ class TestUpdate:
         )
         dff = make_manifold_fetch_df([{"id": "mkt_001"}])
 
-        result = manifold_source.update(dfq, dff, files_in_storage=["manifold/mkt_001.jsonl"])
+        result = manifold_source.update(dfq, dff, existing_resolution_ids={"mkt_001"})
 
         # _get_market should not be called for the resolved question
         mock_market.assert_not_called()
