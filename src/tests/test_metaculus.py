@@ -912,7 +912,7 @@ class TestUpdate:
         )
         dff = make_metaculus_fetch_df([])
 
-        metaculus_source.update(dfq, dff, files_in_storage=["metaculus/42472.jsonl"])
+        metaculus_source.update(dfq, dff, existing_resolution_ids={"42472"})
 
         mock_market.assert_not_called()
         mock_res.assert_not_called()
