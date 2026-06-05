@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 from git import Actor, Repo
 
-from . import env, keys
+from . import constants, env, keys
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -85,8 +85,8 @@ def clone_and_push_files(
         repo.index.add([destination])
 
     error_encountered = False
-    author = Actor("ForecastBench bot", "benchmark@forecastingresearch.org")
-    committer = Actor("ForecastBench bot", "benchmark@forecastingresearch.org")
+    author = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
+    committer = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
     ssh_env = {"GIT_SSH_COMMAND": f"ssh -i {tmp_key_file_path} -o StrictHostKeyChecking=no"}
     try:
         repo.index.commit(commit_message, author=author, committer=committer)
