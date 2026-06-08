@@ -1,20 +1,21 @@
 """Tests for yfinance source, fetch, and update logic."""
 
 from datetime import date
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
 
+from _schemas import YfinanceFetchFrame
 from helpers import constants
-from questions.yfinance.fetch.main import fetch_all_stock
-from questions.yfinance.update_questions.main import (
-    finalize_resolution_file,
-    update_questions,
-)
 from sources._metadata import SOURCE_METADATA
 from sources.yfinance import YfinanceSource
-from tests.conftest import make_forecast_df, make_question_df
+from tests.conftest import (
+    make_forecast_df,
+    make_question_df,
+    make_resolution_df,
+    make_yfinance_fetch_df,
+)
 
 DELISTED_STOCKS = SOURCE_METADATA["yfinance"]["nullified_questions"]
 TICKER_RENAMES = SOURCE_METADATA["yfinance"]["ticker_renames"]
@@ -153,380 +154,396 @@ class TestYfinanceSourceNullification:
         assert bool(jnpr_row["resolved"]) is True
 
 
-class TestDetectDelistedStocks:
-    """Test detection of delisted stocks during fetch."""
+# ===========================================================================
+# Refactored YfinanceSource (sources/yfinance.py) — fetch/update behaviour.
+# The classes above test the metadata and base-class nullification; the classes
+# below test the refactored source's own fetch/update logic.
+# ===========================================================================
 
-    @patch("questions.yfinance.fetch.main.time.sleep")
-    @patch("questions.yfinance.fetch.main.get_sp500_tickers")
-    @patch("questions.yfinance.fetch.main.fetch_one_stock")
-    def test_stock_not_in_sp500_and_fetch_fails_is_resolved(
-        self, mock_fetch, mock_sp500, mock_sleep
+
+class TestSourceGetSp500Tickers:
+    """Tests for YfinanceSource._get_sp500_tickers."""
+
+    _HTML = """
+    <html><body>
+    <table id="constituents">
+      <tr><th>Symbol</th><th>Security</th></tr>
+      <tr><td>AAPL</td><td>Apple Inc.</td></tr>
+      <tr><td>MSFT</td><td>Microsoft Corp.</td></tr>
+      <tr><td>GOOGL</td><td>Alphabet Inc.</td></tr>
+    </table>
+    </body></html>
+    """
+
+    @patch("sources.yfinance.requests.get")
+    def test_parses_wikipedia_table(self, mock_get):
+        """Returns the ticker list from the Wikipedia constituents table."""
+        mock_resp = Mock()
+        mock_resp.content = self._HTML.encode()
+        mock_resp.raise_for_status = Mock()
+        mock_get.return_value = mock_resp
+
+        assert YfinanceSource._get_sp500_tickers() == ["AAPL", "MSFT", "GOOGL"]
+
+    @patch("sources.yfinance.requests.get")
+    def test_sends_benchmark_user_agent(self, mock_get):
+        """Sends the benchmark User-Agent header (regression for the dropped/Mozilla UA)."""
+        mock_resp = Mock()
+        mock_resp.content = self._HTML.encode()
+        mock_resp.raise_for_status = Mock()
+        mock_get.return_value = mock_resp
+
+        YfinanceSource._get_sp500_tickers()
+
+        _, kwargs = mock_get.call_args
+        assert kwargs["headers"] == {"User-Agent": constants.BENCHMARK_USER_AGENT}
+
+    @patch("sources.yfinance.requests.get")
+    def test_returns_empty_on_error(self, mock_get):
+        """Returns an empty list when the request fails (legacy-faithful swallow)."""
+        mock_get.side_effect = Exception("Network error")
+        assert YfinanceSource._get_sp500_tickers() == []
+
+
+class TestSourceSelectTimeRange:
+    """Tests for YfinanceSource._select_time_range."""
+
+    @pytest.mark.parametrize(
+        "days,expected",
+        [
+            (0, "1d"),
+            (1, "1d"),
+            (5, "5d"),
+            (30, "1mo"),
+            (90, "3mo"),
+            (180, "6mo"),
+            (365, "1y"),
+            (730, "2y"),
+            (1825, "5y"),
+            (3650, "10y"),
+            (4000, "max"),
+        ],
+    )
+    def test_time_range_mapping(self, days, expected):
+        """Correct yfinance period for each day range."""
+        assert YfinanceSource._select_time_range(days) == expected
+
+
+class TestSourceFetchOneStock:
+    """Tests for YfinanceSource._fetch_one_stock."""
+
+    @patch("sources.yfinance.yf.Ticker")
+    def test_uses_unadjusted_close(self, mock_ticker_cls, freeze_today):
+        """History is requested with auto_adjust=False (raw close prices)."""
+        freeze_today(date(2026, 3, 18))
+        mock_ticker = MagicMock()
+        mock_ticker.info = {"longName": "Apple Inc."}
+        hist = pd.DataFrame(
+            {"Date": pd.to_datetime(["2026-03-16", "2026-03-17"]), "Close": [253.0, 254.23]}
+        ).set_index("Date")
+        mock_ticker.history.return_value = hist
+        mock_ticker_cls.return_value = mock_ticker
+
+        name, out = YfinanceSource._fetch_one_stock("AAPL")
+
+        mock_ticker.history.assert_called_once_with(period="5d", auto_adjust=False)
+        assert name == "Apple Inc."
+        assert out["Close"].iloc[-1] == 254.23  # capped at yesterday, last row
+
+    @patch("sources.yfinance.yf.Ticker")
+    def test_returns_none_on_error(self, mock_ticker_cls):
+        """Returns (None, None) when the ticker lookup fails (legacy-faithful swallow)."""
+        mock_ticker_cls.return_value.info.__getitem__.side_effect = KeyError("longName")
+        assert YfinanceSource._fetch_one_stock("INVALID") == (None, None)
+
+
+class TestSourceFetch:
+    """Tests for YfinanceSource.fetch."""
+
+    @staticmethod
+    def _ticker_with(close, name="Apple Inc.", summary="A company."):
+        ticker = MagicMock()
+        ticker.info = {"longName": name, "longBusinessSummary": summary}
+        ticker.history.return_value = pd.DataFrame(
+            {"Date": pd.to_datetime(["2026-03-17"]), "Close": [close]}
+        ).set_index("Date")
+        return ticker
+
+    @patch("sources.yfinance.yf.Ticker")
+    @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
+    def test_builds_valid_fetch_frame(
+        self, _mock_tickers, mock_ticker_cls, yfinance_source, freeze_today
     ):
-        """A stock not in S&P 500 that fails to fetch appears as resolved in the result."""
-        mock_sp500.return_value = ["AAPL", "MSFT"]
-        mock_fetch.return_value = (None, None)
+        """A fetched ticker produces a schema-valid YfinanceFetchFrame row."""
+        freeze_today(date(2026, 3, 18))
+        mock_ticker_cls.return_value = self._ticker_with(254.23)
 
-        from tests.conftest import make_question_df
+        dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}]))
 
+        YfinanceFetchFrame.validate(dff)
+        row = dff[dff["id"] == "AAPL"].iloc[0]
+        assert bool(row["resolved"]) is False
+        assert row["url"] == "https://finance.yahoo.com/quote/AAPL"
+        assert float(row["probability"]) == 254.23
+
+    @patch("sources.yfinance.yf.Ticker")
+    @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=[])
+    def test_delisted_ticker_marked_resolved(
+        self, _mock_tickers, mock_ticker_cls, yfinance_source, freeze_today
+    ):
+        """A pool ticker that left the S&P 500 and fails to fetch is carried forward as resolved."""
+        freeze_today(date(2026, 3, 18))
+        mock_ticker_cls.return_value.info.__getitem__.side_effect = KeyError("longName")
+
+        dfq = make_question_df([{"id": "OLDCO", "question": "legacy question"}])
+        dff = yfinance_source.fetch(dfq=dfq)
+
+        row = dff[dff["id"] == "OLDCO"].iloc[0]
+        assert bool(row["resolved"]) is True
+        assert row["freeze_datetime_value"] == "N/A"
+        assert pd.isna(row["probability"])
+        assert row["question"] == "legacy question"  # original question text preserved
+
+    @patch("sources.yfinance.yf.Ticker")
+    @patch.object(YfinanceSource, "_fetch_one_stock")
+    @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL", "FAILS"])
+    def test_in_sp500_fetch_failure_is_dropped(
+        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+    ):
+        """A ticker still in the S&P 500 that fails to fetch is dropped (not delisted)."""
+        freeze_today(date(2026, 3, 18))
+        hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
+        mock_fetch_one.side_effect = lambda sym: (
+            ("Apple Inc.", hist) if sym == "AAPL" else (None, None)
+        )
+        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+
+        dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}]))
+
+        assert "FAILS" not in dff["id"].values
+        assert "AAPL" in dff["id"].values
+
+    @patch("sources.yfinance.yf.Ticker")
+    @patch.object(YfinanceSource, "_fetch_one_stock")
+    @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
+    def test_not_in_sp500_but_fetch_succeeds_not_resolved(
+        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+    ):
+        """A pool ticker no longer in the S&P 500 that still returns data is not marked resolved."""
+        freeze_today(date(2026, 3, 18))
+        hist = pd.DataFrame({"Close": [100.0], "Date": pd.to_datetime(["2026-03-17"])})
+        mock_fetch_one.return_value = ("Some Co", hist)
+        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+
+        dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}, {"id": "OUTCO"}]))
+
+        outco = dff[dff["id"] == "OUTCO"].iloc[0]
+        assert bool(outco["resolved"]) is False
+
+
+class TestSourceBuildResolutionFile:
+    """Tests for YfinanceSource._build_resolution_file."""
+
+    @staticmethod
+    def _prices(dates_, values):
+        return pd.DataFrame({"date": pd.to_datetime(dates_), "value": values})
+
+    def test_skips_when_up_to_date(self, yfinance_source, freeze_today):
+        """Returns None (no upload) when the existing file already reaches yesterday."""
+        freeze_today(date(2026, 3, 18))
+        existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-17", "value": 250.0}])
+        existing["date"] = existing["date"].astype(str)
+        out = yfinance_source._build_resolution_file(
+            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing
+        )
+        assert out is None
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_force_rebuilds_when_up_to_date(self, mock_fetch, yfinance_source, freeze_today):
+        """force=True re-fetches even when the existing file is current."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [248.0, 251.0])
+        existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-17", "value": 250.0}])
+        existing["date"] = existing["date"].astype(str)
+
+        out = yfinance_source._build_resolution_file(
+            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing, force=True
+        )
+        assert out is not None
+        mock_fetch.assert_called_once()
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_resolved_forward_fills_to_yesterday(self, mock_fetch, yfinance_source, freeze_today):
+        """A resolved (delisted) ticker is forward-filled through yesterday."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(["2026-03-13"], [99.5])
+
+        out = yfinance_source._build_resolution_file(
+            {"id": "GONE", "resolved": True}, period="1mo", existing_df=None
+        )
+        assert out is not None
+        assert pd.to_datetime(out["date"]).max().date() == date(2026, 3, 17)  # yesterday
+        assert float(out["value"].iloc[-1]) == 99.5  # final close carried forward
+        assert (out["id"] == "GONE").all()
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_new_ticker_failed_fetch_returns_none(self, mock_fetch, yfinance_source, freeze_today):
+        """A brand-new ticker whose fetch returns nothing writes no file (no empty upload)."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = pd.DataFrame()  # fetch failure / no data
+        out = yfinance_source._build_resolution_file(
+            {"id": "NEWCO", "resolved": False}, period="1mo", existing_df=None
+        )
+        assert out is None
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_failed_fetch_keeps_existing_file(self, mock_fetch, yfinance_source, freeze_today):
+        """When fetch fails but a file exists, the existing data is kept (returned unchanged)."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = pd.DataFrame()  # fetch failure
+        existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-10", "value": 250.0}])
+        existing["date"] = existing["date"].astype(str)
+        # Not up-to-date (last date 03-10 < yesterday 03-17), so it doesn't early-skip; fetch fails.
+        out = yfinance_source._build_resolution_file(
+            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing, force=True
+        )
+        # Existing equals the fallback -> no change -> None (existing file left as-is).
+        assert out is None
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_unchanged_returns_none(self, mock_fetch, yfinance_source, freeze_today):
+        """If the rebuilt file equals the existing one, returns None (no upload)."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [248.0, 251.0])
+        built = yfinance_source._build_resolution_file(
+            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=None
+        )
+        out = yfinance_source._build_resolution_file(
+            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=built, force=True
+        )
+        assert out is None
+
+
+class TestSourceUpdate:
+    """Tests for YfinanceSource.update."""
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_appends_new_question_and_strips_transient(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """A new fetched ticker is added to dfq without transient fetch columns."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = pd.DataFrame(
+            {"date": pd.to_datetime(["2026-03-16", "2026-03-17"]), "value": [10.0, 11.0]}
+        )
+        dfq = make_question_df([{"id": "OLD"}])
+        dff = make_yfinance_fetch_df([{"id": "NEW"}])
+
+        result = yfinance_source.update(dfq, dff)
+
+        assert "NEW" in result.dfq["id"].values
+        assert "fetch_datetime" not in result.dfq.columns
+        assert "probability" not in result.dfq.columns
+        assert "NEW" in result.resolution_files
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_renamed_ticker_resolution_built_from_replacement(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """Renamed tickers resolve under the original id using the replacement's price history.
+
+        Regression for the delisted/renamed-ticker handling (prod fix 5042c68).
+        """
+        freeze_today(date(2026, 3, 18))
+        renames = yfinance_source.ticker_renames
+        assert renames, "yfinance metadata should declare ticker_renames"
+        original = renames[0]["original_ticker"]
+        replacement = renames[0]["replacement_ticker"]
+
+        seen = []
+
+        def fake_fetch(symbol, period):
+            seen.append(symbol)
+            return pd.DataFrame(
+                {"date": pd.to_datetime(["2026-03-16", "2026-03-17"]), "value": [5.0, 6.0]}
+            )
+
+        mock_fetch.side_effect = fake_fetch
+
+        dfq = make_question_df([{"id": original}])
+        # The original ticker is NOT in dff (yfinance serves no data under it).
+        dff = make_yfinance_fetch_df([{"id": "AAPL"}])
+
+        result = yfinance_source.update(dfq, dff)
+
+        assert original in result.resolution_files
+        assert (result.resolution_files[original]["id"] == original).all()
+        assert replacement in seen
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_renamed_original_skipped_in_main_loop(self, mock_fetch, yfinance_source, freeze_today):
+        """A renamed original in dff is built via its replacement, never fetched directly."""
+        freeze_today(date(2026, 3, 18))
+        original = yfinance_source.ticker_renames[0]["original_ticker"]
+        replacement = yfinance_source.ticker_renames[0]["replacement_ticker"]
+
+        seen = []
+
+        def fake_fetch(symbol, period):
+            seen.append(symbol)
+            return pd.DataFrame({"date": pd.to_datetime(["2026-03-17"]), "value": [6.0]})
+
+        mock_fetch.side_effect = fake_fetch
+
+        dfq = make_question_df([{"id": original}])
+        dff = make_yfinance_fetch_df([{"id": original}])
+
+        result = yfinance_source.update(dfq, dff)
+
+        assert original in result.resolution_files
+        assert original not in seen  # original symbol never fetched directly
+        assert replacement in seen
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_delisted_stock_preserves_existing_question_fields(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """Updating a delisted (resolved) ticker keeps its existing question text/background."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = pd.DataFrame(
+            {"date": pd.to_datetime(["2026-03-13"]), "value": [149.0]}
+        )
         dfq = make_question_df(
+            [{"id": "HES", "question": "Will HES go up?", "background": "Hess Corporation."}]
+        )
+        dff = make_yfinance_fetch_df(
             [
-                {"id": "AAPL"},
-                {"id": "MSFT"},
-                {"id": "HES", "question": "Will HES go up?", "background": "Hess Corp."},
+                {
+                    "id": "HES",
+                    "question": "Will HES go up?",
+                    "background": "Hess Corporation.",
+                    "resolved": True,
+                    "freeze_datetime_value": "N/A",
+                    "probability": float("nan"),
+                }
             ]
         )
-        result_df = fetch_all_stock(dfq)
-        hes_rows = result_df[result_df["id"] == "HES"]
-        assert len(hes_rows) == 1
-        hes = hes_rows.iloc[0]
+
+        result = yfinance_source.update(dfq, dff)
+
+        hes = result.dfq[result.dfq["id"] == "HES"].iloc[0]
         assert bool(hes["resolved"]) is True
         assert hes["question"] == "Will HES go up?"
-        assert hes["background"] == "Hess Corp."
+        assert hes["background"] == "Hess Corporation."
         assert hes["freeze_datetime_value"] == "N/A"
-
-    @patch("questions.yfinance.fetch.main.time.sleep")
-    @patch("questions.yfinance.fetch.main.get_sp500_tickers")
-    @patch("questions.yfinance.fetch.main.fetch_one_stock")
-    def test_stock_in_sp500_and_fetch_fails_not_in_result(self, mock_fetch, mock_sp500, mock_sleep):
-        """A stock in S&P 500 that fails to fetch doesn't appear in results."""
-        mock_sp500.return_value = ["AAPL", "MSFT"]
-        mock_fetch.return_value = (None, None)
-
-        dfq = pd.DataFrame({"id": ["AAPL"]})
-        result_df = fetch_all_stock(dfq)
-        assert result_df.empty or "AAPL" not in result_df["id"].values
-
-    @patch("questions.yfinance.fetch.main.time.sleep")
-    @patch("questions.yfinance.fetch.main.dates")
-    @patch("questions.yfinance.fetch.main.yf")
-    @patch("questions.yfinance.fetch.main.get_sp500_tickers")
-    @patch("questions.yfinance.fetch.main.fetch_one_stock")
-    def test_stock_not_in_sp500_but_fetch_succeeds_not_resolved(
-        self, mock_fetch, mock_sp500, mock_yf, mock_dates, mock_sleep
-    ):
-        """A stock not in S&P 500 that returns data has resolved=False."""
-        mock_sp500.return_value = ["AAPL"]
-        hist = pd.DataFrame({"Close": [100.0], "Date": [pd.Timestamp("2026-04-12")]})
-        mock_fetch.return_value = ("Hess Corporation", hist)
-        mock_yf.Ticker.return_value.info.get.return_value = "N/A"
-        mock_dates.get_datetime_now.return_value = "2026-04-13T00:00:00Z"
-
-        dfq = pd.DataFrame({"id": ["AAPL", "HES"]})
-        result_df = fetch_all_stock(dfq)
-        hes_rows = result_df[result_df["id"] == "HES"]
-        assert len(hes_rows) == 1
-        assert bool(hes_rows.iloc[0]["resolved"]) is False
+        # Resolved tickers are forward-filled and uploaded.
+        assert "HES" in result.resolution_files
 
 
-class TestUpdateQuestionsDelistedStock:
-    """Test that delisted stocks don't wipe out existing question data."""
+class TestSourceFinalizeResolutionFile:
+    """Tests for YfinanceSource._finalize_resolution_file."""
 
-    @patch("questions.yfinance.update_questions.main.create_renamed_ticker_resolution_files")
-    @patch("questions.yfinance.update_questions.main.create_resolution_file")
-    def test_delisted_stock_preserves_existing_fields(self, mock_create_res, mock_create_renamed):
-        """When a delisted stock is updated, existing fields like question are preserved."""
-        dfq = pd.DataFrame(
-            [
-                {
-                    "id": "AAPL",
-                    "question": "Will AAPL's market close price go up?",
-                    "background": "Apple Inc.",
-                    "url": "https://finance.yahoo.com/quote/AAPL",
-                    "resolved": False,
-                    "forecast_horizons": [7, 30, 90],
-                    "freeze_datetime_value": "200.0",
-                    "freeze_datetime_value_explanation": "The latest market close price of AAPL.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                },
-                {
-                    "id": "HES",
-                    "question": "Will HES's market close price go up?",
-                    "background": "Hess Corporation is an oil company.",
-                    "url": "https://finance.yahoo.com/quote/HES",
-                    "resolved": False,
-                    "forecast_horizons": [7, 30, 90],
-                    "freeze_datetime_value": "150.0",
-                    "freeze_datetime_value_explanation": "The latest market close price of HES.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                },
-            ]
-        )
-
-        # Simulate fetch output: both entries are complete records.
-        dff = pd.DataFrame(
-            [
-                {
-                    "id": "AAPL",
-                    "question": "Will AAPL's market close price go up?",
-                    "background": "Apple Inc.",
-                    "url": "https://finance.yahoo.com/quote/AAPL",
-                    "resolved": False,
-                    "forecast_horizons": [7, 30, 90],
-                    "freeze_datetime_value": "200.0",
-                    "freeze_datetime_value_explanation": "The latest market close price of AAPL.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                    "fetch_datetime": "2026-04-16T00:00:00Z",
-                    "probability": 200.0,
-                },
-                {
-                    "id": "HES",
-                    "question": "Will HES's market close price go up?",
-                    "background": "Hess Corporation is an oil company.",
-                    "url": "https://finance.yahoo.com/quote/HES",
-                    "resolved": True,
-                    "forecast_horizons": [7, 30, 90],
-                    "freeze_datetime_value": "N/A",
-                    "freeze_datetime_value_explanation": "The latest market close price of HES.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                    "fetch_datetime": "2026-04-16T00:00:00Z",
-                    "probability": float("nan"),
-                },
-            ]
-        )
-
-        result = update_questions(dfq, dff)
-        hes = result[result["id"] == "HES"].iloc[0]
-        assert bool(hes["resolved"]) is True
-        assert hes["question"] == "Will HES's market close price go up?"
-        assert hes["background"] == "Hess Corporation is an oil company."
-        assert hes["freeze_datetime_value"] == "N/A"
-
-    @patch("questions.yfinance.update_questions.main.create_renamed_ticker_resolution_files")
-    @patch("questions.yfinance.update_questions.main.create_resolution_file")
-    def test_active_stock_updates_all_fields(self, mock_create_res, mock_create_renamed):
-        """When an active stock is updated, all fields from fetch are applied."""
-        dfq = pd.DataFrame(
-            [
-                {
-                    "id": "AAPL",
-                    "question": "Old question",
-                    "background": "Old background",
-                    "url": "https://finance.yahoo.com/quote/AAPL",
-                    "resolved": False,
-                    "forecast_horizons": [7, 30],
-                    "freeze_datetime_value": "100.0",
-                    "freeze_datetime_value_explanation": "The latest market close price of AAPL.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                }
-            ]
-        )
-
-        dff = pd.DataFrame(
-            [
-                {
-                    "id": "AAPL",
-                    "question": "New question",
-                    "background": "New background",
-                    "url": "https://finance.yahoo.com/quote/AAPL",
-                    "resolved": False,
-                    "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
-                    "freeze_datetime_value": "200.0",
-                    "freeze_datetime_value_explanation": "The latest market close price of AAPL.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                    "fetch_datetime": "2026-04-16T00:00:00Z",
-                    "probability": 200.0,
-                }
-            ]
-        )
-
-        result = update_questions(dfq, dff)
-        aapl = result[result["id"] == "AAPL"].iloc[0]
-        assert aapl["question"] == "New question"
-        assert aapl["background"] == "New background"
-
-
-class TestTickerRenameResolution:
-    """Test that renamed tickers are handled correctly in update_questions."""
-
-    @patch("questions.yfinance.update_questions.main.create_renamed_ticker_resolution_files")
-    @patch("questions.yfinance.update_questions.main.create_resolution_file")
-    def test_renamed_ticker_skipped_in_main_loop(self, mock_create_res, mock_create_renamed):
-        """create_resolution_file should not be called for original tickers in TICKER_RENAMES."""
-        dfq = pd.DataFrame(
-            [
-                {
-                    "id": "AAPL",
-                    "question": "Will AAPL go up?",
-                    "background": "Apple Inc.",
-                    "url": "https://finance.yahoo.com/quote/AAPL",
-                    "resolved": False,
-                    "forecast_horizons": [7, 30, 90],
-                    "freeze_datetime_value": "200.0",
-                    "freeze_datetime_value_explanation": "The latest market close price of AAPL.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                },
-                {
-                    "id": "FI",
-                    "question": "Will FI go up?",
-                    "background": "Fiserv.",
-                    "url": "https://finance.yahoo.com/quote/FI",
-                    "resolved": False,
-                    "forecast_horizons": [7, 30, 90],
-                    "freeze_datetime_value": "N/A",
-                    "freeze_datetime_value_explanation": "The latest market close price of FI.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                },
-            ]
-        )
-
-        dff = pd.DataFrame(
-            [
-                {
-                    "id": "AAPL",
-                    "question": "Will AAPL go up?",
-                    "background": "Apple Inc.",
-                    "url": "https://finance.yahoo.com/quote/AAPL",
-                    "resolved": False,
-                    "forecast_horizons": [7, 30, 90],
-                    "freeze_datetime_value": "200.0",
-                    "freeze_datetime_value_explanation": "The latest market close price of AAPL.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                    "fetch_datetime": "2026-04-16T00:00:00Z",
-                    "probability": 200.0,
-                },
-                {
-                    "id": "FI",
-                    "question": "Will FI go up?",
-                    "background": "Fiserv.",
-                    "url": "https://finance.yahoo.com/quote/FI",
-                    "resolved": True,
-                    "forecast_horizons": [7, 30, 90],
-                    "freeze_datetime_value": "N/A",
-                    "freeze_datetime_value_explanation": "The latest market close price of FI.",
-                    "market_info_resolution_criteria": "N/A",
-                    "market_info_open_datetime": "N/A",
-                    "market_info_close_datetime": "N/A",
-                    "market_info_resolution_datetime": "N/A",
-                    "fetch_datetime": "2026-04-16T00:00:00Z",
-                    "probability": float("nan"),
-                },
-            ]
-        )
-
-        result = update_questions(dfq, dff)
-
-        # create_resolution_file should only be called for AAPL, not FI
-        called_ids = [c.args[0]["id"] for c in mock_create_res.call_args_list]
-        assert "AAPL" in called_ids
-        assert "FI" not in called_ids
-
-        # But FI should still be updated in dfq (resolved=True flows through)
-        fi_row = result[result["id"] == "FI"].iloc[0]
-        assert bool(fi_row["resolved"]) is True
-
-    @patch("questions.yfinance.update_questions.main.gcp.storage.upload")
-    @patch("questions.yfinance.update_questions.main.gcp.storage.download_no_error_message_on_404")
-    @patch("questions.yfinance.update_questions.main.get_historical_prices")
-    def test_renamed_ticker_fetches_replacement_data(
-        self, mock_get_hist, mock_download, mock_upload
-    ):
-        """Data is fetched using replacement_ticker and written with original_ticker as ID."""
-        from questions.yfinance.update_questions.main import (
-            create_renamed_ticker_resolution_files,
-        )
-
-        mock_download.return_value = None  # no existing file
-
-        mock_get_hist.return_value = pd.DataFrame(
-            {
-                "id": ["FISV", "FISV"],
-                "date": ["2026-04-14", "2026-04-15"],
-                "value": [220.0, 221.0],
-            }
-        )
-
-        create_renamed_ticker_resolution_files("5y")
-
-        # get_historical_prices should be called with replacement tickers
-        call_tickers = [c.args[1] for c in mock_get_hist.call_args_list]
-        assert "FISV" in call_tickers
-        assert "MRSH" in call_tickers
-
-        # Upload should write to yfinance/{original}.jsonl
-        upload_filenames = [c[1]["filename"] for c in mock_upload.call_args_list]
-        assert "yfinance/FI.jsonl" in upload_filenames
-        assert "yfinance/MMC.jsonl" in upload_filenames
-
-    @patch("questions.yfinance.update_questions.main.finalize_resolution_file")
-    @patch("questions.yfinance.update_questions.main.gcp.storage.upload")
-    @patch("questions.yfinance.update_questions.main.gcp.storage.download_no_error_message_on_404")
-    @patch("questions.yfinance.update_questions.main.get_historical_prices")
-    def test_renamed_ticker_not_finalized(
-        self, mock_get_hist, mock_download, mock_upload, mock_finalize
-    ):
-        """finalize_resolution_file should not be called for renamed tickers."""
-        from questions.yfinance.update_questions.main import (
-            create_renamed_ticker_resolution_files,
-        )
-
-        mock_download.return_value = None
-
-        mock_get_hist.return_value = pd.DataFrame(
-            {
-                "id": ["FISV", "FISV"],
-                "date": ["2026-04-14", "2026-04-15"],
-                "value": [220.0, 221.0],
-            }
-        )
-
-        create_renamed_ticker_resolution_files("5y")
-
-        mock_finalize.assert_not_called()
-
-
-class TestFinalizeResolutionFile:
-    """Test forward-filling a resolution file to cover resolution dates up to yesterday."""
-
-    def test_forward_fills_to_yesterday(self, freeze_today):
-        """The finalized resolution file extends to yesterday, not into the future."""
-        freeze_today(date(2026, 4, 13))
-
-        df = pd.DataFrame(
-            {
-                "id": ["HES", "HES", "HES"],
-                "date": ["2025-05-01", "2025-05-02", "2025-05-03"],
-                "value": [150.0, 151.0, 149.0],
-            }
-        )
-
-        result = finalize_resolution_file(df)
-
-        last_date = pd.to_datetime(result["date"]).max().date()
-        assert last_date == date(2026, 4, 12)  # yesterday
-
-        # All forward-filled values should be the last known price
-        final_rows = result[pd.to_datetime(result["date"]).dt.date > date(2025, 5, 3)]
-        assert (final_rows["value"].astype(float) == 149.0).all()
-
-    def test_empty_df_returns_empty(self):
+    def test_empty_df_returns_empty(self, yfinance_source):
         """Empty input returns empty output."""
         df = pd.DataFrame(columns=["id", "date", "value"])
-        result = finalize_resolution_file(df)
-        assert result.empty
+        assert yfinance_source._finalize_resolution_file(df).empty

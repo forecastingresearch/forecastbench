@@ -1,0 +1,7 @@
+google-cloud-storage
+pandas>=2.2.2,<3.0
+pandera
+requests
+numpy
+yfinance
+beautifulsoup4
