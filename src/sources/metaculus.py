@@ -446,7 +446,7 @@ class MetaculusSource(MarketSource):
 
     @staticmethod
     def _finalize_resolution_df(df: pd.DataFrame) -> DataFrame[ResolutionFrame]:
-        """Cast types and return as a validated ResolutionFrame.
+        """Cast types and select resolution columns.
 
         Unlike infer/manifold, Metaculus does not filter to the benchmark start date:
         the aggregation history is already bounded by the question's open window, and
@@ -455,5 +455,4 @@ class MetaculusSource(MarketSource):
         Args:
             df (pd.DataFrame): Raw resolution data with id, date, value columns.
         """
-        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
-        return ResolutionFrame.validate(df)
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)

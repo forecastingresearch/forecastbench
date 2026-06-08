@@ -407,11 +407,10 @@ class ManifoldSource(MarketSource):
 
     @staticmethod
     def _finalize_resolution_df(df: pd.DataFrame) -> DataFrame[ResolutionFrame]:
-        """Filter to benchmark period and validate as ResolutionFrame."""
+        """Filter to benchmark period and select resolution columns."""
         df["date"] = pd.to_datetime(df["date"])
         df = df[df["date"].dt.date >= constants.BENCHMARK_START_DATE_DATETIME_DATE]
-        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
-        return ResolutionFrame.validate(df)
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
     @staticmethod
     def _get_resolved_market_value(market: dict) -> float:
