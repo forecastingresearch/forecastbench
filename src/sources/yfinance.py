@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import ClassVar
 
 import pandas as pd
@@ -27,6 +27,18 @@ class YfinanceSource(DatasetSource):
     """Yahoo Finance financial data source."""
 
     name: ClassVar[str] = "yfinance"
+
+    # Pinned at the start of fetch()/update() so every downstream helper (via self.get_date_today())
+    # observes one consistent date for the whole run, even if it straddles midnight.
+    _today: date | None = None
+
+    def get_date_today(self) -> date:
+        """Return the date pinned for this run, or the live date if none is pinned.
+
+        fetch() and update() pin ``self._today`` once at the start; downstream helpers call this
+        instead of ``dates.get_date_today()`` so they all see the same date.
+        """
+        return self._today if self._today is not None else dates.get_date_today()
 
     # ------------------------------------------------------------------
     # Public: fetch
@@ -57,7 +69,10 @@ class YfinanceSource(DatasetSource):
             f"Stock tickers not in top 500 but in current stocks: {set_current - set_top_500}"
         )
 
+        # Pin 'today' once for this run so all downstream date logic is consistent.
+        self._today = dates.get_date_today()
         current_time = dates.get_datetime_now()
+
         rows = []
         for ticker_symbol in all_tickers:
             time.sleep(1)  # Avoid YFRateLimitError
@@ -144,8 +159,11 @@ class YfinanceSource(DatasetSource):
         existing_resolution_files = existing_resolution_files or {}
         resolution_files: dict[str, pd.DataFrame] = {}
 
-        day_diff = (dates.get_date_today() - constants.QUESTION_BANK_DATA_STORAGE_START_DATE).days
-        period = self._select_time_range(day_diff)
+        # Pin 'today' once for this run so all downstream date logic is consistent.
+        self._today = dates.get_date_today()
+        period = self._select_time_range(
+            (self._today - constants.QUESTION_BANK_DATA_STORAGE_START_DATE).days
+        )
 
         renamed_tickers = {entry["original_ticker"] for entry in self.ticker_renames}
 
@@ -214,8 +232,7 @@ class YfinanceSource(DatasetSource):
     # Private: single stock fetch
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _fetch_one_stock(ticker_symbol: str) -> tuple[str | None, pd.DataFrame | None]:
+    def _fetch_one_stock(self, ticker_symbol: str) -> tuple[str | None, pd.DataFrame | None]:
         """Fetch company name and the latest historical row for one ticker.
 
         Args:
@@ -228,7 +245,7 @@ class YfinanceSource(DatasetSource):
             ticker = yf.Ticker(ticker_symbol)
             company_name = ticker.info["longName"]
             hist = ticker.history(period="5d", auto_adjust=False).reset_index()
-            yesterday = dates.get_date_today() - timedelta(days=1)
+            yesterday = self.get_date_today() - timedelta(days=1)
             hist["Date"] = pd.to_datetime(hist["Date"])
             hist = hist[hist["Date"].dt.date <= yesterday].tail(1)
             return company_name, hist
@@ -315,7 +332,7 @@ class YfinanceSource(DatasetSource):
                 return None
             return existing_df
 
-        yesterday = dates.get_date_today() - timedelta(days=1)
+        yesterday = self.get_date_today() - timedelta(days=1)
         df["date"] = pd.to_datetime(df["date"]).dt.date
         df = df[
             (df["date"] >= constants.QUESTION_BANK_DATA_STORAGE_START_DATE)
@@ -328,8 +345,7 @@ class YfinanceSource(DatasetSource):
         df["id"] = ticker_symbol
         return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
-    @staticmethod
-    def _finalize_resolution_file(df: pd.DataFrame) -> pd.DataFrame:
+    def _finalize_resolution_file(self, df: pd.DataFrame) -> pd.DataFrame:
         """Forward-fill a resolved ticker's resolution file to yesterday.
 
         Args:
@@ -341,7 +357,7 @@ class YfinanceSource(DatasetSource):
         if df.empty:
             return df
 
-        end_date = dates.get_date_today() - timedelta(days=1)
+        end_date = self.get_date_today() - timedelta(days=1)
 
         df = df.copy()
         ticker_id = df["id"].iloc[0]
@@ -374,7 +390,7 @@ class YfinanceSource(DatasetSource):
             unchanged).
         """
         is_resolved = question.get("resolved", False)
-        yesterday = dates.get_date_today() - timedelta(days=1)
+        yesterday = self.get_date_today() - timedelta(days=1)
 
         # Already up-to-date check — skip the API call entirely. Resolved (delisted) tickers are
         # always rebuilt so the final close price is forward-filled.

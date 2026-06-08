@@ -161,6 +161,21 @@ class TestYfinanceSourceNullification:
 # ===========================================================================
 
 
+class TestSourceGetDateToday:
+    """Tests for YfinanceSource.get_date_today (pinned-date accessor)."""
+
+    def test_falls_back_to_live_date_when_unpinned(self, yfinance_source, freeze_today):
+        """With no run pinned, returns the live date."""
+        freeze_today(date(2026, 3, 18))
+        assert yfinance_source.get_date_today() == date(2026, 3, 18)
+
+    def test_returns_pinned_date(self, yfinance_source, freeze_today):
+        """Once pinned, returns the pinned date regardless of the live clock."""
+        freeze_today(date(2026, 3, 18))
+        yfinance_source._today = date(2025, 1, 1)
+        assert yfinance_source.get_date_today() == date(2025, 1, 1)
+
+
 class TestSourceGetSp500Tickers:
     """Tests for YfinanceSource._get_sp500_tickers."""
 
@@ -233,7 +248,7 @@ class TestSourceFetchOneStock:
     """Tests for YfinanceSource._fetch_one_stock."""
 
     @patch("sources.yfinance.yf.Ticker")
-    def test_uses_unadjusted_close(self, mock_ticker_cls, freeze_today):
+    def test_uses_unadjusted_close(self, mock_ticker_cls, yfinance_source, freeze_today):
         """History is requested with auto_adjust=False (raw close prices)."""
         freeze_today(date(2026, 3, 18))
         mock_ticker = MagicMock()
@@ -244,17 +259,17 @@ class TestSourceFetchOneStock:
         mock_ticker.history.return_value = hist
         mock_ticker_cls.return_value = mock_ticker
 
-        name, out = YfinanceSource._fetch_one_stock("AAPL")
+        name, out = yfinance_source._fetch_one_stock("AAPL")
 
         mock_ticker.history.assert_called_once_with(period="5d", auto_adjust=False)
         assert name == "Apple Inc."
         assert out["Close"].iloc[-1] == 254.23  # capped at yesterday, last row
 
     @patch("sources.yfinance.yf.Ticker")
-    def test_returns_none_on_error(self, mock_ticker_cls):
+    def test_returns_none_on_error(self, mock_ticker_cls, yfinance_source):
         """Returns (None, None) when the ticker lookup fails (legacy-faithful swallow)."""
         mock_ticker_cls.return_value.info.__getitem__.side_effect = KeyError("longName")
-        assert YfinanceSource._fetch_one_stock("INVALID") == (None, None)
+        assert yfinance_source._fetch_one_stock("INVALID") == (None, None)
 
 
 class TestSourceFetch:
