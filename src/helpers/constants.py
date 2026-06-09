@@ -150,6 +150,8 @@ EXTERNAL_TOURNAMENT_MODELS_TO_LOGO = {
     "Stochastic Radiant": "stochastic-radiant.svg",
     "Google DeepMind": "deepmind.svg",
     "limeforecast": "limeforecast.png",
+    "Voicetree": "voicetree.png",
+    "Artificial Judgement": "artificial-judgement.png",
 }
 
 ORG_TO_LOGO = {
