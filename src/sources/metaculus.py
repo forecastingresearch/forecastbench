@@ -157,7 +157,7 @@ class MetaculusSource(MarketSource):
             dfq.at[index, "forecast_horizons"] = "N/A"
 
             # Build resolution file
-            df_res = self._create_resolution_file(dfq, index, market)
+            df_res = self._build_resolution_df(dfq, index, market)
             if df_res is not None:
                 resolution_files[str(row["id"])] = df_res
                 dfq.at[index, "freeze_datetime_value"] = (
@@ -172,7 +172,7 @@ class MetaculusSource(MarketSource):
             question_id = str(row["id"])
             if question_id not in existing_resolution_ids and question_id not in resolution_files:
                 market = self._get_market(row["id"])
-                df_res = self._create_resolution_file(dfq, index, market)
+                df_res = self._build_resolution_df(dfq, index, market)
                 if df_res is not None:
                     resolution_files[question_id] = df_res
 
@@ -324,12 +324,12 @@ class MetaculusSource(MarketSource):
             return 0
         return np.nan
 
-    def _create_resolution_file(
+    def _build_resolution_df(
         self,
         dfq: pd.DataFrame,
         index: int,
         market: dict,
-    ) -> pd.DataFrame | None:
+    ) -> DataFrame[ResolutionFrame] | None:
         """Build the resolution file for a market from its aggregation history.
 
         Overwrites the resolution file entirely on each run (Metaculus returns the

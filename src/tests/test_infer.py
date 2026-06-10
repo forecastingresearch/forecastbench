@@ -190,12 +190,12 @@ class TestFinalizeResolutionDf:
 
 
 # ---------------------------------------------------------------------------
-# _build_resolution_file (mock _get_historical_forecasts)
+# _build_resolution_df (mock _get_historical_forecasts)
 # ---------------------------------------------------------------------------
 
 
-class TestBuildResolutionFile:
-    """Tests for InferSource._build_resolution_file."""
+class TestBuildResolutionDf:
+    """Tests for InferSource._build_resolution_df."""
 
     def _question(self, **overrides):
         base = {
@@ -212,7 +212,7 @@ class TestBuildResolutionFile:
         """Nullified question with no existing data returns single NaN row."""
         freeze_today(date(2026, 1, 15))
         q = self._question(nullify_question=True)
-        df = infer_source._build_resolution_file(q, resolved=False, existing_df=None)
+        df = infer_source._build_resolution_df(q, resolved=False, existing_df=None)
 
         assert len(df) == 1
         assert np.isnan(df["value"].iloc[0])
@@ -229,7 +229,7 @@ class TestBuildResolutionFile:
             ]
         )
         q = self._question(nullify_question=True)
-        df = infer_source._build_resolution_file(q, resolved=False, existing_df=existing)
+        df = infer_source._build_resolution_df(q, resolved=False, existing_df=existing)
 
         assert df["value"].isna().all()
         mock_hist.assert_not_called()
@@ -245,7 +245,7 @@ class TestBuildResolutionFile:
             ]
         )
         q = self._question()
-        df = infer_source._build_resolution_file(q, resolved=False, existing_df=existing)
+        df = infer_source._build_resolution_df(q, resolved=False, existing_df=existing)
 
         assert df.equals(existing)
         mock_hist.assert_not_called()
@@ -262,7 +262,7 @@ class TestBuildResolutionFile:
         )
         existing = make_resolution_df([{"id": "200", "date": "2024-06-01", "value": 0.5}])
         q = self._question()
-        df = infer_source._build_resolution_file(q, resolved=False, existing_df=existing)
+        df = infer_source._build_resolution_df(q, resolved=False, existing_df=existing)
 
         assert not df.empty
         mock_hist.assert_called_once()
@@ -282,7 +282,7 @@ class TestBuildResolutionFile:
             market_info_resolution_datetime="2026-01-11T00:00:00+00:00",
             probability=1.0,
         )
-        df = infer_source._build_resolution_file(q, resolved=True, existing_df=None)
+        df = infer_source._build_resolution_df(q, resolved=True, existing_df=None)
 
         # Should have rows up to resolution date
         assert not df.empty
@@ -372,14 +372,14 @@ class TestFetch:
 
 
 # ---------------------------------------------------------------------------
-# update() (mock _build_resolution_file)
+# update() (mock _build_resolution_df)
 # ---------------------------------------------------------------------------
 
 
 class TestUpdate:
     """Tests for InferSource.update."""
 
-    @patch.object(InferSource, "_build_resolution_file")
+    @patch.object(InferSource, "_build_resolution_df")
     def test_basic_update(self, mock_build, infer_source):
         """Returns UpdateResult with valid dfq and resolution files."""
         mock_build.return_value = make_resolution_df(
@@ -394,7 +394,7 @@ class TestUpdate:
         assert "200" in result.resolution_files
         QuestionFrame.validate(result.dfq)
 
-    @patch.object(InferSource, "_build_resolution_file")
+    @patch.object(InferSource, "_build_resolution_df")
     def test_new_question_inserted(self, mock_build, infer_source):
         """Question not in dfq gets appended."""
         mock_build.return_value = make_resolution_df(
@@ -407,7 +407,7 @@ class TestUpdate:
         assert len(result.dfq) == 2
         assert set(result.dfq["id"].tolist()) == {"100", "300"}
 
-    @patch.object(InferSource, "_build_resolution_file")
+    @patch.object(InferSource, "_build_resolution_df")
     def test_existing_question_updated(self, mock_build, infer_source):
         """Existing question fields are updated in place."""
         mock_build.return_value = make_resolution_df(
@@ -420,7 +420,7 @@ class TestUpdate:
         assert len(result.dfq) == 1
         assert result.dfq.iloc[0]["question"] == "New text"
 
-    @patch.object(InferSource, "_build_resolution_file")
+    @patch.object(InferSource, "_build_resolution_df")
     def test_nullified_marked_resolved(self, mock_build, infer_source):
         """Nullified questions are marked as resolved in dfq."""
         mock_build.return_value = make_resolution_df(
@@ -433,7 +433,7 @@ class TestUpdate:
         row = result.dfq[result.dfq["id"] == "200"].iloc[0]
         assert bool(row["resolved"]) is True
 
-    @patch.object(InferSource, "_build_resolution_file")
+    @patch.object(InferSource, "_build_resolution_df")
     def test_transient_fields_stripped(self, mock_build, infer_source):
         """fetch_datetime, probability, nullify_question not in output dfq."""
         mock_build.return_value = make_resolution_df(

@@ -53,59 +53,12 @@ class TestGetResolvedMarketValue:
 
 
 # ---------------------------------------------------------------------------
-# _finalize_resolution_df (pure, no mocking)
+# _build_resolution_df (mock _get_market_bets)
 # ---------------------------------------------------------------------------
 
 
-class TestFinalizeResolutionDf:
-    """Tests for ManifoldSource._finalize_resolution_df static method."""
-
-    def test_filters_before_benchmark_start(self):
-        """Rows before BENCHMARK_START_DATE are dropped."""
-        df = pd.DataFrame(
-            {
-                "id": ["A", "A", "A"],
-                "date": pd.to_datetime(["2020-01-01", "2024-06-01", "2024-07-01"]),
-                "value": [0.1, 0.2, 0.3],
-            }
-        )
-        result = ManifoldSource._finalize_resolution_df(df)
-        assert len(result) == 2
-        assert result["value"].tolist() == [0.2, 0.3]
-
-    def test_validates_schema(self):
-        """Output is a valid ResolutionFrame."""
-        df = pd.DataFrame(
-            {
-                "id": ["A"],
-                "date": pd.to_datetime(["2024-06-01"]),
-                "value": [0.5],
-            }
-        )
-        result = ManifoldSource._finalize_resolution_df(df)
-        ResolutionFrame.validate(result)
-
-    def test_only_keeps_id_date_value(self):
-        """Extra columns are stripped."""
-        df = pd.DataFrame(
-            {
-                "id": ["A"],
-                "date": pd.to_datetime(["2024-06-01"]),
-                "value": [0.5],
-                "extra": ["junk"],
-            }
-        )
-        result = ManifoldSource._finalize_resolution_df(df)
-        assert list(result.columns) == ["id", "date", "value"]
-
-
-# ---------------------------------------------------------------------------
-# _build_resolution_file (mock _get_market_bets)
-# ---------------------------------------------------------------------------
-
-
-class TestBuildResolutionFile:
-    """Tests for ManifoldSource._build_resolution_file."""
+class TestBuildResolutionDf:
+    """Tests for ManifoldSource._build_resolution_df."""
 
     @patch.object(ManifoldSource, "_get_market_bets")
     def test_already_up_to_date(self, mock_bets, manifold_source, freeze_today):
@@ -118,7 +71,7 @@ class TestBuildResolutionFile:
             ]
         )
         market = make_manifold_api_market()
-        result = manifold_source._build_resolution_file(
+        result = manifold_source._build_resolution_df(
             market=market, market_info_resolution_datetime="N/A", existing_df=existing
         )
 
@@ -134,7 +87,7 @@ class TestBuildResolutionFile:
             make_manifold_bet(id="b2", createdTime=1768226400000, probAfter=0.6),  # 2026-01-12
         ]
         market = make_manifold_api_market()
-        result = manifold_source._build_resolution_file(
+        result = manifold_source._build_resolution_df(
             market=market, market_info_resolution_datetime="N/A", existing_df=None
         )
 
@@ -151,7 +104,7 @@ class TestBuildResolutionFile:
         freeze_today(date(2026, 1, 15))
         mock_bets.return_value = []
         market = make_manifold_api_market()
-        result = manifold_source._build_resolution_file(
+        result = manifold_source._build_resolution_df(
             market=market, market_info_resolution_datetime="N/A", existing_df=None
         )
         assert result is None
@@ -165,7 +118,7 @@ class TestBuildResolutionFile:
             make_manifold_bet(isFilled=False, createdTime=1768226400000),
         ]
         market = make_manifold_api_market()
-        result = manifold_source._build_resolution_file(
+        result = manifold_source._build_resolution_df(
             market=market, market_info_resolution_datetime="N/A", existing_df=None
         )
         assert result is None
@@ -179,7 +132,7 @@ class TestBuildResolutionFile:
             make_manifold_bet(id="b2", createdTime=1768384800000, probAfter=0.8),  # 2026-01-14
         ]
         market = make_manifold_api_market()
-        result = manifold_source._build_resolution_file(
+        result = manifold_source._build_resolution_df(
             market=market, market_info_resolution_datetime="N/A", existing_df=None
         )
 
@@ -203,7 +156,7 @@ class TestBuildResolutionFile:
             resolution="YES",
             resolutionTime=1768310400000,  # 2026-01-13T12:00:00Z
         )
-        result = manifold_source._build_resolution_file(
+        result = manifold_source._build_resolution_df(
             market=market,
             market_info_resolution_datetime="2026-01-13T12:00:00+00:00",
             existing_df=None,
@@ -231,7 +184,7 @@ class TestBuildResolutionFile:
             resolution="CANCEL",
             resolutionTime=1768310400000,  # 2026-01-13T12:00:00Z
         )
-        result = manifold_source._build_resolution_file(
+        result = manifold_source._build_resolution_df(
             market=market,
             market_info_resolution_datetime="2026-01-13T12:00:00+00:00",
             existing_df=None,
@@ -250,7 +203,7 @@ class TestBuildResolutionFile:
             make_manifold_bet(id="b2", createdTime=1768464000000, probAfter=0.9),  # 2026-01-15
         ]
         market = make_manifold_api_market()
-        result = manifold_source._build_resolution_file(
+        result = manifold_source._build_resolution_df(
             market=market, market_info_resolution_datetime="N/A", existing_df=None
         )
 
@@ -377,14 +330,14 @@ class TestFetch:
 
 
 # ---------------------------------------------------------------------------
-# update() (mock _get_market + _build_resolution_file)
+# update() (mock _get_market + _build_resolution_df)
 # ---------------------------------------------------------------------------
 
 
 class TestUpdate:
     """Tests for ManifoldSource.update."""
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_new_id_appended(self, mock_market, mock_build, manifold_source):
         """IDs in dff not in dfq get appended with defaults."""
@@ -402,7 +355,7 @@ class TestUpdate:
         new_row = result.dfq[result.dfq["id"] == "new_001"].iloc[0]
         assert new_row["freeze_datetime_value_explanation"] == "The market value."
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_existing_unresolved_updated(self, mock_market, mock_build, manifold_source):
         """Unresolved question fields are updated from market details."""
@@ -425,7 +378,7 @@ class TestUpdate:
         assert row["background"] == "New background"
         assert row["url"] == "https://manifold.markets/updated"
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_market_becomes_resolved(self, mock_market, mock_build, manifold_source):
         """Market with isResolved=True marks dfq row as resolved."""
@@ -447,10 +400,10 @@ class TestUpdate:
         assert bool(row["resolved"]) is True
         assert row["market_info_resolution_datetime"] != "N/A"
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_resolution_file_stored(self, mock_market, mock_build, manifold_source):
-        """Resolution file from _build_resolution_file is in result."""
+        """Resolution file from _build_resolution_df is in result."""
         res_df = make_resolution_df([{"id": "mkt_001", "date": "2024-06-01", "value": 0.5}])
         mock_market.return_value = make_manifold_api_market(id="mkt_001")
         mock_build.return_value = res_df
@@ -461,7 +414,7 @@ class TestUpdate:
 
         assert "mkt_001" in result.resolution_files
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_freeze_datetime_value_set(self, mock_market, mock_build, manifold_source):
         """freeze_datetime_value is set to last value of resolution df."""
@@ -480,10 +433,10 @@ class TestUpdate:
         row = result.dfq[result.dfq["id"] == "mkt_001"].iloc[0]
         assert str(row["freeze_datetime_value"]) == "0.75"
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_build_resolution_returns_none(self, mock_market, mock_build, manifold_source):
-        """_build_resolution_file returning None: no resolution file stored."""
+        """_build_resolution_df returning None: no resolution file stored."""
         mock_market.return_value = make_manifold_api_market(id="mkt_001")
         mock_build.return_value = None
         dfq = make_question_df([{"id": "mkt_001", "resolved": False}])
@@ -493,7 +446,7 @@ class TestUpdate:
 
         assert "mkt_001" not in (result.resolution_files or {})
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_regenerates_missing_resolved_files(self, mock_market, mock_build, manifold_source):
         """Resolved questions missing from storage get resolution files regenerated."""
@@ -518,7 +471,7 @@ class TestUpdate:
 
         assert "mkt_001" in result.resolution_files
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_skips_resolved_already_in_storage(self, mock_market, mock_build, manifold_source):
         """Resolved questions with files in storage are not re-fetched."""
@@ -539,7 +492,7 @@ class TestUpdate:
         mock_market.assert_not_called()
         assert "mkt_001" not in (result.resolution_files or {})
 
-    @patch.object(ManifoldSource, "_build_resolution_file")
+    @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
     def test_output_schema_valid(self, mock_market, mock_build, manifold_source):
         """Output dfq passes QuestionFrame validation."""

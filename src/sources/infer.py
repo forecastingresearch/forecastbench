@@ -129,7 +129,7 @@ class InferSource(MarketSource):
 
             # Build/update resolution file
             existing_df = existing_resolution_files.get(question_id)
-            df_res = self._build_resolution_file(
+            df_res = self._build_resolution_df(
                 question=question,
                 resolved=question["resolved"],
                 existing_df=existing_df,
@@ -320,7 +320,7 @@ class InferSource(MarketSource):
     # Private: resolution file building
     # ------------------------------------------------------------------
 
-    def _build_resolution_file(
+    def _build_resolution_df(
         self,
         question: dict,
         resolved: bool,
