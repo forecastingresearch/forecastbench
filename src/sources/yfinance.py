@@ -174,7 +174,7 @@ class YfinanceSource(DatasetSource):
                 # Resolution file is rebuilt from the replacement ticker below.
                 logger.info(f"Skipping {question_id} (renamed ticker, handled separately)")
             else:
-                df_res = self._build_resolution_file(
+                df_res = self._build_resolution_df(
                     question=question,
                     period=period,
                     existing_df=existing_resolution_files.get(question_id),
@@ -370,13 +370,13 @@ class YfinanceSource(DatasetSource):
 
         return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
-    def _build_resolution_file(
+    def _build_resolution_df(
         self,
         question: dict,
         period: str,
         existing_df: DataFrame[ResolutionFrame] | None = None,
         force: bool = False,
-    ) -> pd.DataFrame | None:
+    ) -> DataFrame[ResolutionFrame] | None:
         """Build or update a resolution file for a single stock ticker.
 
         Args:

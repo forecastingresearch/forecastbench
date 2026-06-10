@@ -356,8 +356,8 @@ class TestSourceFetch:
         assert bool(outco["resolved"]) is False
 
 
-class TestSourceBuildResolutionFile:
-    """Tests for YfinanceSource._build_resolution_file."""
+class TestSourceBuildResolutionDf:
+    """Tests for YfinanceSource._build_resolution_df."""
 
     @staticmethod
     def _prices(dates_, values):
@@ -368,7 +368,7 @@ class TestSourceBuildResolutionFile:
         freeze_today(date(2026, 3, 18))
         existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-17", "value": 250.0}])
         existing["date"] = existing["date"].astype(str)
-        out = yfinance_source._build_resolution_file(
+        out = yfinance_source._build_resolution_df(
             {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing
         )
         assert out is None
@@ -381,7 +381,7 @@ class TestSourceBuildResolutionFile:
         existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-17", "value": 250.0}])
         existing["date"] = existing["date"].astype(str)
 
-        out = yfinance_source._build_resolution_file(
+        out = yfinance_source._build_resolution_df(
             {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing, force=True
         )
         assert out is not None
@@ -393,7 +393,7 @@ class TestSourceBuildResolutionFile:
         freeze_today(date(2026, 3, 18))
         mock_fetch.return_value = self._prices(["2026-03-13"], [99.5])
 
-        out = yfinance_source._build_resolution_file(
+        out = yfinance_source._build_resolution_df(
             {"id": "GONE", "resolved": True}, period="1mo", existing_df=None
         )
         assert out is not None
@@ -406,7 +406,7 @@ class TestSourceBuildResolutionFile:
         """A brand-new ticker whose fetch returns nothing writes no file (no empty upload)."""
         freeze_today(date(2026, 3, 18))
         mock_fetch.return_value = pd.DataFrame()  # fetch failure / no data
-        out = yfinance_source._build_resolution_file(
+        out = yfinance_source._build_resolution_df(
             {"id": "NEWCO", "resolved": False}, period="1mo", existing_df=None
         )
         assert out is None
@@ -419,7 +419,7 @@ class TestSourceBuildResolutionFile:
         existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-10", "value": 250.0}])
         existing["date"] = existing["date"].astype(str)
         # Not up-to-date (last date 03-10 < yesterday 03-17), so it doesn't early-skip; fetch fails.
-        out = yfinance_source._build_resolution_file(
+        out = yfinance_source._build_resolution_df(
             {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing, force=True
         )
         # Existing equals the fallback -> no change -> None (existing file left as-is).
@@ -430,10 +430,10 @@ class TestSourceBuildResolutionFile:
         """If the rebuilt file equals the existing one, returns None (no upload)."""
         freeze_today(date(2026, 3, 18))
         mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [248.0, 251.0])
-        built = yfinance_source._build_resolution_file(
+        built = yfinance_source._build_resolution_df(
             {"id": "AAPL", "resolved": False}, period="1mo", existing_df=None
         )
-        out = yfinance_source._build_resolution_file(
+        out = yfinance_source._build_resolution_df(
             {"id": "AAPL", "resolved": False}, period="1mo", existing_df=built, force=True
         )
         assert out is None
