@@ -387,14 +387,14 @@ class InferSource(MarketSource):
 
     @staticmethod
     def _finalize_resolution_df(df: pd.DataFrame) -> DataFrame[ResolutionFrame]:
-        """Apply date filtering and return as validated ResolutionFrame.
+        """Apply date filtering and select resolution columns.
 
         Args:
             df (pd.DataFrame): Raw resolution data with id, date, value columns.
         """
         df["date"] = pd.to_datetime(df["date"])
         df = df[df["date"].dt.date >= constants.BENCHMARK_START_DATE_DATETIME_DATE]
-        return ResolutionFrame.validate(df[["id", "date", "value"]])
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
     # ------------------------------------------------------------------
     # Private: question transformation

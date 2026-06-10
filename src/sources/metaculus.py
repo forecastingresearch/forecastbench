@@ -439,20 +439,5 @@ class MetaculusSource(MarketSource):
             }
 
         df["id"] = str(market["id"])
-        df = df[["id", "date", "value"]]
 
-        return self._finalize_resolution_df(df)
-
-    @staticmethod
-    def _finalize_resolution_df(df: pd.DataFrame) -> DataFrame[ResolutionFrame]:
-        """Cast types and return as a validated ResolutionFrame.
-
-        Unlike infer/manifold, Metaculus does not filter to the benchmark start date:
-        the aggregation history is already bounded by the question's open window, and
-        this preserves the legacy job's output exactly.
-
-        Args:
-            df (pd.DataFrame): Raw resolution data with id, date, value columns.
-        """
-        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
-        return ResolutionFrame.validate(df)
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
