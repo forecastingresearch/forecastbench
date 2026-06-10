@@ -151,12 +151,12 @@ class TestSubtractOneDay:
 
 
 # ---------------------------------------------------------------------------
-# _build_resolution_file (pure, no mocking)
+# _build_resolution_df (pure, no mocking)
 # ---------------------------------------------------------------------------
 
 
-class TestBuildResolutionFile:
-    """Tests for PolymarketSource._build_resolution_file."""
+class TestBuildResolutionDf:
+    """Tests for PolymarketSource._build_resolution_df."""
 
     def test_basic(self, polymarket_source):
         """Extracts resolution df from historical_prices and validates schema."""
@@ -167,7 +167,7 @@ class TestBuildResolutionFile:
                 {"date": "2024-06-02", "value": 0.6},
             ],
         }
-        result = polymarket_source._build_resolution_file(question)
+        result = polymarket_source._build_resolution_df(question)
         assert len(result) == 2
         assert (result["id"] == "0xabc123").all()
         assert list(result.columns) == ["id", "date", "value"]
@@ -182,7 +182,7 @@ class TestBuildResolutionFile:
                 {"date": "2024-06-01", "value": 0.5},
             ],
         }
-        result = polymarket_source._build_resolution_file(question)
+        result = polymarket_source._build_resolution_df(question)
         assert len(result) == 2
 
 
@@ -860,14 +860,14 @@ class TestFetch:
 
 
 # ---------------------------------------------------------------------------
-# update() (mock _build_resolution_file)
+# update() (mock _build_resolution_df)
 # ---------------------------------------------------------------------------
 
 
 class TestUpdate:
     """Tests for PolymarketSource.update."""
 
-    @patch.object(PolymarketSource, "_build_resolution_file")
+    @patch.object(PolymarketSource, "_build_resolution_df")
     def test_new_id_appended(self, mock_build, polymarket_source):
         """An ID in dff not in dfq gets appended."""
         mock_build.return_value = make_resolution_df(
@@ -881,7 +881,7 @@ class TestUpdate:
         assert "0xnew" in result.dfq["id"].values
         assert len(result.dfq) == 2
 
-    @patch.object(PolymarketSource, "_build_resolution_file")
+    @patch.object(PolymarketSource, "_build_resolution_df")
     def test_existing_updated(self, mock_build, polymarket_source):
         """An existing ID's fields are updated from dff."""
         mock_build.return_value = make_resolution_df(
@@ -896,9 +896,9 @@ class TestUpdate:
         assert row["question"] == "Updated question"
         assert len(result.dfq) == 1
 
-    @patch.object(PolymarketSource, "_build_resolution_file")
+    @patch.object(PolymarketSource, "_build_resolution_df")
     def test_resolution_file_stored(self, mock_build, polymarket_source):
-        """The resolution file from _build_resolution_file is in the result."""
+        """The resolution file from _build_resolution_df is in the result."""
         mock_build.return_value = make_resolution_df(
             [{"id": "0xabc123", "date": "2024-06-01", "value": 0.5}]
         )
@@ -909,7 +909,7 @@ class TestUpdate:
 
         assert "0xabc123" in result.resolution_files
 
-    @patch.object(PolymarketSource, "_build_resolution_file")
+    @patch.object(PolymarketSource, "_build_resolution_df")
     def test_strips_transient_fields(self, mock_build, polymarket_source):
         """Transient fields are not present in the output dfq."""
         mock_build.return_value = make_resolution_df(
@@ -923,7 +923,7 @@ class TestUpdate:
         for col in ["fetch_datetime", "probability", "historical_prices"]:
             assert col not in result.dfq.columns
 
-    @patch.object(PolymarketSource, "_build_resolution_file")
+    @patch.object(PolymarketSource, "_build_resolution_df")
     def test_output_schema_valid(self, mock_build, polymarket_source):
         """The output dfq passes QuestionFrame validation."""
         mock_build.return_value = make_resolution_df(

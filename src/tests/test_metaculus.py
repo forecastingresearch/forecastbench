@@ -85,82 +85,12 @@ class TestParseRetryAfter:
 
 
 # ---------------------------------------------------------------------------
-# _finalize_resolution_df (pure, no mocking)
+# _build_resolution_df
 # ---------------------------------------------------------------------------
 
 
-class TestFinalizeResolutionDf:
-    """Tests for MetaculusSource._finalize_resolution_df static method."""
-
-    def test_validates_schema(self):
-        """Output is a valid ResolutionFrame."""
-        df = pd.DataFrame(
-            {
-                "id": ["42472"],
-                "date": [date(2025, 6, 1)],
-                "value": [0.5],
-            }
-        )
-        result = MetaculusSource._finalize_resolution_df(df)
-        ResolutionFrame.validate(result)
-
-    def test_keeps_all_historical_data(self):
-        """Unlike Infer, rows before BENCHMARK_START_DATE are NOT filtered."""
-        df = pd.DataFrame(
-            {
-                "id": ["A", "A", "A"],
-                "date": [date(2018, 1, 1), date(2020, 6, 1), date(2025, 7, 1)],
-                "value": [0.1, 0.2, 0.3],
-            }
-        )
-        result = MetaculusSource._finalize_resolution_df(df)
-        assert len(result) == 3
-
-    def test_date_coerced_to_string(self):
-        """datetime.date objects become 'YYYY-MM-DD' strings."""
-        df = pd.DataFrame(
-            {
-                "id": ["A"],
-                "date": [date(2025, 6, 1)],
-                "value": [0.5],
-            }
-        )
-        result = MetaculusSource._finalize_resolution_df(df)
-        assert result["date"].iloc[0] == "2025-06-01"
-
-    def test_id_coerced_to_string(self):
-        """Integer IDs are coerced to string."""
-        df = pd.DataFrame(
-            {
-                "id": [42472],
-                "date": [date(2025, 6, 1)],
-                "value": [0.5],
-            }
-        )
-        result = MetaculusSource._finalize_resolution_df(df)
-        assert result["id"].iloc[0] == "42472"
-
-    def test_only_keeps_id_date_value(self):
-        """Extra columns are stripped."""
-        df = pd.DataFrame(
-            {
-                "id": ["A"],
-                "date": [date(2025, 6, 1)],
-                "value": [0.5],
-                "extra": ["junk"],
-            }
-        )
-        result = MetaculusSource._finalize_resolution_df(df)
-        assert list(result.columns) == ["id", "date", "value"]
-
-
-# ---------------------------------------------------------------------------
-# _create_resolution_file
-# ---------------------------------------------------------------------------
-
-
-class TestCreateResolutionFile:
-    """Tests for MetaculusSource._create_resolution_file."""
+class TestBuildResolutionDf:
+    """Tests for MetaculusSource._build_resolution_df."""
 
     def _dfq_row(self, resolved=False, resolution_datetime="N/A"):
         return make_question_df(
@@ -179,7 +109,7 @@ class TestCreateResolutionFile:
             question={"aggregations": {"recency_weighted": {"history": []}}}
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is None
 
     def test_single_day_entries_filtered(self, metaculus_source):
@@ -201,7 +131,7 @@ class TestCreateResolutionFile:
             }
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is None
 
     def test_single_day_last_millisecond_kept(self, metaculus_source):
@@ -224,7 +154,7 @@ class TestCreateResolutionFile:
             }
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         assert len(result) >= 1
 
@@ -252,7 +182,7 @@ class TestCreateResolutionFile:
             }
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         # Should have continuous dates from start through last date
         dates_in_result = result["date"].tolist()
@@ -282,7 +212,7 @@ class TestCreateResolutionFile:
             }
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         # Both entries map to date 2025-01-01 (end_date - 1 day)
         # The second (0.9) should be kept
@@ -304,7 +234,7 @@ class TestCreateResolutionFile:
             resolved=True,
             resolution_datetime="2025-01-03T00:00:00+00:00",
         )
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         # Last row should be the resolution value (yes -> 1)
         assert float(result.iloc[-1]["value"]) == 1.0
@@ -335,7 +265,7 @@ class TestCreateResolutionFile:
             }
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         # Should have dates from Dec 31 through Jan 4 (today - 1 day)
         assert len(result) >= 2
@@ -364,7 +294,7 @@ class TestCreateResolutionFile:
             }
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         # No date may exceed yesterday (2025-01-04); the future 2025-01-09 entry is dropped.
         assert max(result["date"].tolist()) <= "2025-01-04"
@@ -389,7 +319,7 @@ class TestCreateResolutionFile:
             }
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is None
 
     def test_date_assignment_subtracts_day(self, metaculus_source):
@@ -412,7 +342,7 @@ class TestCreateResolutionFile:
             }
         )
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         # end_date 2025-01-02 minus 1 day = 2025-01-01
         assert "2025-01-01" in result["date"].tolist()
@@ -421,7 +351,7 @@ class TestCreateResolutionFile:
         """Output id column contains string values."""
         market = make_metaculus_market()
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         assert all(isinstance(v, str) for v in result["id"].tolist())
 
@@ -429,7 +359,7 @@ class TestCreateResolutionFile:
         """Output passes ResolutionFrame.validate()."""
         market = make_metaculus_market()
         dfq = self._dfq_row()
-        result = metaculus_source._create_resolution_file(dfq, 0, market)
+        result = metaculus_source._build_resolution_df(dfq, 0, market)
         assert result is not None
         ResolutionFrame.validate(result)
 
@@ -682,7 +612,7 @@ class TestFetch:
 
 
 # ---------------------------------------------------------------------------
-# update() (mock _get_market and _create_resolution_file)
+# update() (mock _get_market and _build_resolution_df)
 # ---------------------------------------------------------------------------
 
 
@@ -699,7 +629,7 @@ class TestUpdate:
             }
         )
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_new_question_appended(self, mock_market, mock_res, metaculus_source):
         """ID in dff not in dfq gets appended with defaults."""
@@ -715,7 +645,7 @@ class TestUpdate:
         row = result.dfq[result.dfq["id"] == "200"].iloc[0]
         assert row["freeze_datetime_value_explanation"] == "The community prediction."
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_existing_question_not_duplicated(self, mock_market, mock_res, metaculus_source):
         """ID already in dfq does not add a new row."""
@@ -728,7 +658,7 @@ class TestUpdate:
         result = metaculus_source.update(dfq, dff)
         assert len(result.dfq) == 1
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_question_fields_updated(self, mock_market, mock_res, metaculus_source):
         """Unresolved question fields are updated from market data."""
@@ -753,7 +683,7 @@ class TestUpdate:
         assert row["market_info_resolution_criteria"] == "New criteria"
         assert "metaculus.com/questions/42472" in row["url"]
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_background_empty_string_kept(self, mock_market, mock_res, metaculus_source):
         """Empty description string is stored as-is, not converted to 'N/A'."""
@@ -767,7 +697,7 @@ class TestUpdate:
         result = metaculus_source.update(dfq, dff)
         assert result.dfq.iloc[0]["background"] == ""
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_background_missing_key_becomes_na(self, mock_market, mock_res, metaculus_source):
         """Missing description key becomes 'N/A'."""
@@ -782,7 +712,7 @@ class TestUpdate:
         result = metaculus_source.update(dfq, dff)
         assert result.dfq.iloc[0]["background"] == "N/A"
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_resolved_market_sets_resolution_datetime(
         self, mock_market, mock_res, metaculus_source
@@ -808,10 +738,10 @@ class TestUpdate:
         # min(close=March 1, resolve=Feb 15) = Feb 15
         assert "2026-02-15" in str(row["market_info_resolution_datetime"])
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_resolution_file_stored(self, mock_market, mock_res, metaculus_source):
-        """Resolution file from _create_resolution_file is stored in result."""
+        """Resolution file from _build_resolution_df is stored in result."""
         mock_market.return_value = make_metaculus_market()
         res_df = self._resolution_df()
         mock_res.return_value = res_df
@@ -822,7 +752,7 @@ class TestUpdate:
         result = metaculus_source.update(dfq, dff)
         assert "42472" in result.resolution_files
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_freeze_value_from_last_resolution(self, mock_market, mock_res, metaculus_source):
         """freeze_datetime_value is the last value in the resolution file."""
@@ -836,10 +766,10 @@ class TestUpdate:
         # QuestionFrame coerces freeze_datetime_value to str
         assert str(result.dfq.iloc[0]["freeze_datetime_value"]) == "0.75"
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_freeze_value_na_when_no_resolution(self, mock_market, mock_res, metaculus_source):
-        """freeze_datetime_value is 'N/A' when _create_resolution_file returns None."""
+        """freeze_datetime_value is 'N/A' when _build_resolution_df returns None."""
         mock_market.return_value = make_metaculus_market()
         mock_res.return_value = None
 
@@ -849,7 +779,7 @@ class TestUpdate:
         result = metaculus_source.update(dfq, dff)
         assert result.dfq.iloc[0]["freeze_datetime_value"] == "N/A"
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_market_api_failure_propagates(self, mock_market, mock_res, metaculus_source):
         """A persistent _get_market failure propagates (fail loudly), not silently skipped."""
@@ -862,7 +792,7 @@ class TestUpdate:
             metaculus_source.update(dfq, dff)
         mock_res.assert_not_called()
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_resolved_missing_resolution_regenerated(self, mock_market, mock_res, metaculus_source):
         """Resolved question without existing resolution file triggers regeneration."""
@@ -895,7 +825,7 @@ class TestUpdate:
         mock_market.assert_called_once_with("42472")
         assert "42472" in result.resolution_files
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_resolved_with_existing_file_not_regenerated(
         self, mock_market, mock_res, metaculus_source
@@ -917,7 +847,7 @@ class TestUpdate:
         mock_market.assert_not_called()
         mock_res.assert_not_called()
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_cap_new_questions(self, mock_market, mock_res, metaculus_source):
         """New IDs exceeding _QUESTION_LIMIT - unresolved are capped."""
@@ -942,7 +872,7 @@ class TestUpdate:
         with pytest.raises(RuntimeError, match="api_key must be set"):
             src.update(dfq, dff)
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_forecast_horizons_always_na(self, mock_market, mock_res, metaculus_source):
         """Every updated row has forecast_horizons = 'N/A'."""
@@ -955,7 +885,7 @@ class TestUpdate:
         result = metaculus_source.update(dfq, dff)
         assert result.dfq.iloc[0]["forecast_horizons"] == "N/A"
 
-    @patch.object(MetaculusSource, "_create_resolution_file")
+    @patch.object(MetaculusSource, "_build_resolution_df")
     @patch.object(MetaculusSource, "_get_market")
     def test_valid_question_frame_output(self, mock_market, mock_res, metaculus_source):
         """result.dfq passes QuestionFrame.validate()."""

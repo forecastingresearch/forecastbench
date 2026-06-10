@@ -167,7 +167,7 @@ class ManifoldSource(MarketSource):
 
             # Build resolution file
             existing_df = existing_resolution_files.get(row["id"])
-            df_res = self._build_resolution_file(
+            df_res = self._build_resolution_df(
                 market=market,
                 market_info_resolution_datetime=dfq.at[index, "market_info_resolution_datetime"],
                 existing_df=existing_df,
@@ -185,7 +185,7 @@ class ManifoldSource(MarketSource):
         for _index, row in dfq[dfq["resolved"]].iterrows():
             if str(row["id"]) not in existing_resolution_ids and row["id"] not in resolution_files:
                 market = self._get_market(row["id"])
-                df_res = self._build_resolution_file(
+                df_res = self._build_resolution_df(
                     market=market,
                     market_info_resolution_datetime=row["market_info_resolution_datetime"],
                     existing_df=None,
@@ -331,7 +331,7 @@ class ManifoldSource(MarketSource):
     # Private: resolution file building
     # ------------------------------------------------------------------
 
-    def _build_resolution_file(
+    def _build_resolution_df(
         self,
         market: dict,
         market_info_resolution_datetime: str,
