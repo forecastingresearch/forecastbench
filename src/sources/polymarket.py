@@ -546,5 +546,4 @@ class PolymarketSource(MarketSource):
         """
         df = pd.DataFrame(question["historical_prices"])
         df["id"] = question["id"]
-        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
-        return ResolutionFrame.validate(df)
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
