@@ -75,6 +75,10 @@ Thumbs.db
 # Worktrees
 .worktrees/
 
+# Local copies of the onboarding wrapper scripts (may contain team details)
+onboard.sh
+edge_cases.sh
+
 # Compressed files
 *.7z
 *.dmg
