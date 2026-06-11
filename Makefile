@@ -151,10 +151,10 @@ infer-update-questions:
 acled: acled-fetch acled-update-questions
 
 acled-fetch:
-	$(MAKE) -C src/questions/acled/fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_acled_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 acled-update-questions:
-	$(MAKE) -C src/questions/acled/update_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_acled_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 yfinance: yfinance-fetch yfinance-update-questions
 
