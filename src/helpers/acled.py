@@ -1,14 +1,25 @@
-"""ACLED-specific variables."""
+"""ACLED shared helpers.
+
+Light home of ACLED's pure computation (aggregations + naive-forecast helpers): the module
+imports only numpy/pandas and the lightweight metadata layer at load time. Hash-mapping access
+routes through a lazily-instantiated ``AcledSource`` (see ``_get_source``), so importing this
+module stays light — only *calling* the hash funcs pulls the (now heavy) ``sources.acled``.
+
+The sole caller of those hash funcs is the unrefactored ``base_eval`` naive forecaster, which
+therefore declares ``backoff`` in its requirements. ``question_curation`` imports this module only
+for the ``SOURCE_INTRO``/``RESOLUTION_CRITERIA`` constants (served from ``_metadata``); it never
+triggers the lazy import, so it and its many consumers stay light.
+
+When ``base_eval`` is refactored to call ``AcledSource.get_naive_forecast()`` this computation can
+move onto the source class (Phase 1 plan) and this module shrinks to a metadata-only shim.
+"""
 
 from datetime import timedelta
-from enum import Enum
 
 import numpy as np
 import pandas as pd
 
 from sources._metadata import SOURCE_METADATA
-
-from . import data_utils
 
 SOURCE_INTRO = SOURCE_METADATA["acled"]["source_intro"]
 RESOLUTION_CRITERIA = SOURCE_METADATA["acled"]["resolution_criteria"]
@@ -52,134 +63,6 @@ def upload_hash_mapping():
     raw_json = _get_source().dump_hash_mapping()
     if raw_json:
         _upload(raw_json, source)
-
-
-FETCH_COLUMN_DTYPE = {
-    "event_id_cnty": str,
-    "event_date": str,
-    "iso": int,
-    "region": str,
-    "country": str,
-    "admin1": str,
-    "event_type": str,
-    "fatalities": int,
-    "timestamp": str,
-}
-FETCH_COLUMNS = list(FETCH_COLUMN_DTYPE.keys())
-
-BACKGROUND = """
-ACLED classifies events into six distinct categories:
-
-1. Battles: violent interactions between two organized armed groups at a particular time and
-   location;
-2. Protests: in-person public demonstrations of three or more participants in which the participants
-   do not engage in violence, though violence may be used against them;
-3. Riots: violent events where demonstrators or mobs of three or more engage in violent or
-   destructive acts, including but not limited to physical fights, rock throwing, property
-   destruction, etc.;
-4. Explosions/Remote violence: incidents in which one side uses weapon types that, by their nature,
-   are at range and widely destructive;
-5. Violence against civilians: violent events where an organized armed group inflicts violence upon
-   unarmed non-combatants; and
-6. Strategic developments: contextually important information regarding incidents and activities of
-   groups that are not recorded as any of the other event types, yet may trigger future events or
-   contribute to political dynamics within and across states.
-
-Detailed information about the categories can be found at:
-https://acleddata.com/knowledge-base/codebook/#acled-events
-"""
-
-
-def read_dff(local_question_bank_dir=None) -> pd.DataFrame:
-    """
-    Read fetch file and create dfr.
-
-    Args:
-        local_question_bank_dir (str): the location where the question bank was unzipped.
-
-    Returns:
-        df (pd.DataFrame): parsed and formatted fetch file.
-        dfr (pd.DataFrame): the ACLED resolution values.
-    """
-    if local_question_bank_dir is None:
-        filenames = data_utils.generate_filenames(source=source)
-        df = data_utils.download_and_read(
-            filename=filenames["jsonl_fetch"],
-            local_filename=filenames["local_fetch"],
-            df_tmp=pd.DataFrame(columns=FETCH_COLUMNS),
-            dtype=FETCH_COLUMN_DTYPE,
-        )
-    else:
-        filenames = data_utils.generate_filenames(source=source)
-        source_fetch_file = filenames.get("jsonl_fetch")
-        local_filename = f"{local_question_bank_dir}/{source_fetch_file}"
-
-        df = pd.read_json(
-            local_filename,
-            lines=True,
-            dtype=FETCH_COLUMN_DTYPE,
-            convert_dates=False,
-        )
-
-    # The values for the `event_date` field in the following entries are incorrect.
-    # They are "0025-" for "2025" and "0024-" for "2024-"
-    #
-    # Bug reported to ACLED on 26 Sept 2025
-    #
-    # 2025:
-    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=ABW24
-    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=YEM104718
-    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=YEM99604
-    #
-    # 2024:
-    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=NCL346
-    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=NCL351
-    # * https://acleddata.com/api/acled/read?_format=json&event_id_cnty=PYF127
-    def fix_year_prefix(date_str):
-        if isinstance(date_str, str):
-            if date_str.startswith("0025-"):
-                return "2025-" + date_str[5:]
-            if date_str.startswith("0024-"):
-                return "2024-" + date_str[5:]
-        return date_str
-
-    df["event_date"] = df["event_date"].apply(fix_year_prefix)
-    # End fix bug with ACLED data
-
-    df["event_date"] = pd.to_datetime(df["event_date"])
-
-    df = df[["country", "event_date", "event_type", "fatalities"]].copy()
-
-    dfr = (
-        pd.get_dummies(df, columns=["event_type"], prefix="", prefix_sep="")
-        .groupby(["country", "event_date"])
-        .sum()
-        .reset_index()
-    )
-
-    return df, dfr
-
-
-def download_dff_and_prepare_dfr(local_question_bank_dir: str = None) -> tuple:
-    """Prepare ACLED data for resolution."""
-    df, dfr = read_dff(local_question_bank_dir=local_question_bank_dir)
-    countries = df["country"].unique()
-    event_types = list(df["event_type"].unique()) + ["fatalities"]
-    return (
-        dfr,
-        countries,
-        event_types,
-    )
-
-
-class QuestionType(Enum):
-    """Types of questions.
-
-    These will determine how a given question is resolved.
-    """
-
-    N_30_DAYS_GT_30_DAY_AVG_OVER_PAST_360_DAYS = 0
-    N_30_DAYS_X_10_GT_30_DAY_AVG_OVER_PAST_360_DAYS_PLUS_1 = 1
 
 
 def get_forecast(comparison_value, dfr, country, col, ref_date):
@@ -233,17 +116,6 @@ def get_base_comparison_value(key, dfr, country, col, ref_date):
     raise ValueError("Invalid key.")
 
 
-def get_freeze_value(key, dfr, country, event_type, today):
-    """Return the freeze value given the key."""
-    if key == "last30Days.gt.30DayAvgOverPast360Days":
-        return thirty_day_avg_over_past_360_days(dfr, country, event_type, today)
-
-    if key == "last30DaysTimes10.gt.30DayAvgOverPast360DaysPlus1":
-        return thirty_day_avg_over_past_360_days_plus_1(dfr, country, event_type, today)
-
-    raise Exception("Invalid key.")
-
-
 def sum_over_past_30_days(dfr, country, col, ref_date):
     """Sum over the 30 days before the ref_date."""
     dfc = dfr[dfr["country"] == country].copy()
@@ -269,61 +141,3 @@ def thirty_day_avg_over_past_360_days(dfr, country, col, ref_date):
 def thirty_day_avg_over_past_360_days_plus_1(dfr, country, col, ref_date):
     """Get 1 plus the 30 day average over the 360 days before the ref_date."""
     return 1 + thirty_day_avg_over_past_360_days(dfr, country, col, ref_date)
-
-
-QUESTIONS = {
-    "last30Days.gt.30DayAvgOverPast360Days": {
-        "question_type": QuestionType.N_30_DAYS_GT_30_DAY_AVG_OVER_PAST_360_DAYS,
-        "question": (
-            (
-                "Will there be more {event_type} in {country} for the 30 days before "
-                "{resolution_date} compared to the 30-day average of {event_type} over the 360 "
-                "days preceding {forecast_due_date}?"
-                "\n\n"
-                "e.g. If the forecast due date is 2024-01-01 and we have the following data:\n"
-                "Date,{event_type}\n"
-                "2023-11-11,1\n"
-                "2023-10-10,2\n"
-                "to calculate the 30-day average of {event_type} over the preceding 360 "
-                "days, we’d have: (1+2)/12=0.25.\n\n"
-                "In this example, for the question to resolve positively, 1 or more "
-                "{event_type} would need to occur in the 30 days leading up to the resolution."
-            ),
-            ("event_type", "country"),
-        ),
-        "freeze_datetime_value_explanation": (
-            (
-                "The 30-day average of {event_type} over the past 360 days in {country}. "
-                "This reference value will potentially change as ACLED updates its dataset."
-            ),
-            ("event_type", "country"),
-        ),
-    },
-    "last30DaysTimes10.gt.30DayAvgOverPast360DaysPlus1": {
-        "question_type": QuestionType.N_30_DAYS_X_10_GT_30_DAY_AVG_OVER_PAST_360_DAYS_PLUS_1,
-        "question": (
-            (
-                "Will there be more than ten times as many {event_type} in {country} for the 30 "
-                "days before {resolution_date} compared to one plus the 30-day average of "
-                "{event_type} over the 360 days preceding {forecast_due_date}?"
-                "\n\n"
-                "e.g. If the forecast due date is 2024-01-01 and we have the following data:\n"
-                "Date,{event_type}\n"
-                "2023-11-11,1\n"
-                "2023-10-10,2\n"
-                "to calculate one plus the 30-day average of {event_type} over the preceding 360 "
-                "days, we’d have: 1+(1+2)/12=1.25.\n\n"
-                "In this example, for the question to resolve positively, 13 (10 x 1.25) or more "
-                "{event_type} would need to occur in the 30 days leading up to the resolution."
-            ),
-            ("event_type", "country"),
-        ),
-        "freeze_datetime_value_explanation": (
-            (
-                "One plus the 30-day average of {event_type} over the past 360 days in {country}. "
-                "This reference value will potentially change as ACLED updates its dataset."
-            ),
-            ("event_type", "country"),
-        ),
-    },
-}
