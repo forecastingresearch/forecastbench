@@ -602,6 +602,24 @@ class TestGetAccessToken:
         with pytest.raises(ValueError, match="Access token not found"):
             acled_source_with_creds._get_access_token()
 
+    @patch("sources.acled.requests.post")
+    def test_timeout_is_retried_by_backoff(self, mock_post, acled_source_with_creds, monkeypatch):
+        """Regression: a transient Timeout during auth must reach @backoff and be retried.
+
+        The legacy try/except re-raised Timeout/ConnectionError as a plain RequestException,
+        which @backoff (configured for Timeout/ConnectionError only) never retried.
+        """
+        monkeypatch.setattr(backoff._sync.time, "sleep", lambda _: None)
+        mock_post.side_effect = [
+            requests.exceptions.Timeout("transient"),
+            _FakeResponse(make_acled_api_auth_response()),
+        ]
+
+        token = acled_source_with_creds._get_access_token()
+
+        assert token == "test-token-abc123"
+        assert mock_post.call_count == 2
+
 
 # ---------------------------------------------------------------------------
 # _get_events (mock requests.get)
