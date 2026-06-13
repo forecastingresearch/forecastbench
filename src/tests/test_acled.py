@@ -721,6 +721,19 @@ class TestGetEvents:
 
         assert list(df["event_id_cnty"]) == ["AAA", "ZZZ"]
 
+    def test_empty_first_page_returns_empty_frame(self, monkeypatch, acled_source_with_creds):
+        """Regression: empty data on the first page returns an empty frame instead of raising
+        ValueError from pd.concat([]), so the job's `if dff.empty` guard is reachable."""
+        monkeypatch.setattr(
+            "sources.acled.requests.get",
+            lambda *args, **kwargs: _FakeResponse(make_acled_api_data_response([], count=0)),
+        )
+
+        df = acled_source_with_creds._get_events(access_token="token")
+
+        assert df.empty
+        assert list(df.columns) == FETCH_COLUMNS
+
 
 # ---------------------------------------------------------------------------
 # fetch()
