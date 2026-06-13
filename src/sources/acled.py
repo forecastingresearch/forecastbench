@@ -229,24 +229,19 @@ class AcledSource(DatasetSource):
             "scope": "authenticated",
         }
 
-        try:
-            response = requests.post(endpoint, headers=headers, data=params)
-            logger.debug(f"Response status code: {response.status_code}")
-            logger.debug(f"Response headers: {response.headers}")
-            logger.debug(f"Response content: {response.text}")
-            response.raise_for_status()
+        # No try/except: let Timeout/ConnectionError propagate to the @backoff decorator so they
+        # are retried. Wrapping them in a plain RequestException (as the legacy code did) defeated
+        # the retry, since backoff only retries Timeout/ConnectionError, not their base class.
+        response = requests.post(endpoint, headers=headers, data=params)
+        logger.debug(f"Response status code: {response.status_code}")
+        logger.debug(f"Response headers: {response.headers}")
+        logger.debug(f"Response content: {response.text}")
+        response.raise_for_status()
 
-            data = response.json()
-            if "access_token" not in data:
-                raise ValueError("Access token not found in response")
-            return data["access_token"]
-
-        except requests.exceptions.RequestException as e:
-            raise requests.exceptions.RequestException(
-                f"Failed to authenticate with ACLED API: {str(e)}"
-            )
-        except ValueError as e:
-            raise ValueError(f"Error processing API response: {str(e)}")
+        data = response.json()
+        if "access_token" not in data:
+            raise ValueError("Access token not found in response")
+        return data["access_token"]
 
     @backoff.on_exception(
         backoff.expo,
