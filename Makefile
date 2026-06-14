@@ -175,10 +175,10 @@ polymarket-update-questions:
 wikipedia: wikipedia-fetch wikipedia-update-questions
 
 wikipedia-fetch:
-	$(MAKE) -C src/questions/wikipedia/fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_wikipedia_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 wikipedia-update-questions:
-	$(MAKE) -C src/questions/wikipedia/update_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_wikipedia_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 fred: fred-fetch fred-update-questions
 
