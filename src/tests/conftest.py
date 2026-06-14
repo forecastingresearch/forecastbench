@@ -13,6 +13,7 @@ from sources.infer import InferSource
 from sources.manifold import ManifoldSource
 from sources.metaculus import MetaculusSource
 from sources.polymarket import PolymarketSource
+from sources.wikipedia import WikipediaSource
 
 # ---------------------------------------------------------------------------
 # Time-freezing fixture
@@ -97,6 +98,12 @@ def metaculus_source():
 def polymarket_source():
     """Return a PolymarketSource instance."""
     return PolymarketSource()
+
+
+@pytest.fixture()
+def wikipedia_source():
+    """Return a WikipediaSource instance."""
+    return WikipediaSource()
 
 
 # ---------------------------------------------------------------------------

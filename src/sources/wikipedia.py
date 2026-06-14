@@ -5,17 +5,29 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from enum import Enum
-from typing import ClassVar
+from io import BytesIO
+from typing import TYPE_CHECKING, ClassVar
+from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 import pandas as pd
+import pandera.pandas as pa
+from pandera.typing import DataFrame
 
+from _fb_types import UpdateResult, WikipediaFetchResult
+from _schemas import QuestionFrame
 from helpers import constants, dates
 
 from ._dataset import DatasetSource
 from ._metadata import SOURCE_METADATA
+
+if TYPE_CHECKING:
+    import requests
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +42,723 @@ class QuestionType(Enum):
     SAME_OR_LESS = 4
 
 
+# ---------------------------------------------------------------------------
+# Module-level constants
+# ---------------------------------------------------------------------------
+
+_HEADERS = {"User-Agent": constants.BENCHMARK_USER_AGENT}
+
+_WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATETIME = (
+    constants.QUESTION_BANK_DATA_STORAGE_START_DATETIME - timedelta(days=360 * 4)
+)
+_WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE = (
+    _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATETIME.date()
+)
+
+_FIDE_BACKGROUND = (
+    "The International Chess Federation (FIDE) governs international chess "
+    "competition. Each month, FIDE publishes the lists 'Top 100 Players', 'Top 100 "
+    "Women', 'Top 100 Juniors' and 'Top 100 Girls' and rankings of countries according "
+    "to the average rating of their top 10 players and top 10 female players.\n"
+    "To create the rankings, FIDE uses the Elo rating system, which is a method for "
+    "calculating the relative skill levels of players in zero-sum games such as chess. "
+    "The difference in the ratings between two players serves as a predictor of the "
+    "outcome of a match. Two players with equal ratings who play against each other "
+    "are expected to score an equal number of wins. A player whose rating is 100 "
+    "points greater than their opponent's is expected to score 64%; if the difference "
+    "is 200 points, then the expected score for the stronger player is 76%.\n"
+    "A player's Elo rating is a number which may change depending on the outcome of "
+    "rated games played. After every game, the winning player takes points from the "
+    "losing one. The difference between the ratings of the winner and loser determines "
+    "the total number of points gained or lost after a game. If the higher-rated "
+    "player wins, then only a few rating points will be taken from the lower-rated "
+    "player. However, if the lower-rated player scores an upset win, many rating "
+    "points will be transferred. The lower-rated player will also gain a few points "
+    "from the higher rated player in the event of a draw. This means that this rating "
+    "system is self-correcting. Players whose ratings are too low or too high should, "
+    "in the long run, do better or worse correspondingly than the rating system "
+    "predicts and thus gain or lose rating points until the ratings reflect their true "
+    "playing strength.\n"
+    "Elo ratings are comparative only, and are valid only within the rating pool in "
+    "which they were calculated, rather than being an absolute measure of a player's "
+    "strength."
+)
+
+_PAGES = [
+    {
+        "id_root": "FIDE_rankings_elo_rating",
+        "page_title": "FIDE_rankings",
+        "table_index": [
+            {
+                "start_date": _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+                "table_index": [1, 3],
+            },
+        ],
+        "question_type": QuestionType.ONE_PERCENT_MORE,
+        "key": {
+            "id",
+        },
+        "fields": {
+            "id": "Player",
+            "value": "Rating",
+        },
+        "resolution_file_value_column_dtype": int,
+        "question": (
+            (
+                "According to Wikipedia, will {id} have an Elo rating on {resolution_date} that's "
+                "at least 1% higher than on {forecast_due_date}?"
+            ),
+            ("id",),
+        ),
+        "background": (_FIDE_BACKGROUND, tuple()),
+        "freeze_datetime_value_explanation": (
+            "{id}'s ELO rating.",
+            ("id",),
+        ),
+        "clean_func": "clean_FIDE_rankings",
+    },
+    {
+        "id_root": "FIDE_rankings_ranking",
+        "page_title": "FIDE_rankings",
+        "table_index": [
+            {
+                "start_date": _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+                "table_index": [1, 3],
+            },
+        ],
+        "question_type": QuestionType.SAME_OR_LESS,
+        "key": {
+            "id",
+        },
+        "fields": {
+            "id": "Player",
+            "value": "Rank",
+        },
+        "resolution_file_value_column_dtype": int,
+        "question": (
+            (
+                "According to Wikipedia, will {id} have a FIDE ranking on {resolution_date} as "
+                "high or higher than their ranking on {forecast_due_date}?"
+            ),
+            ("id",),
+        ),
+        "background": (_FIDE_BACKGROUND, tuple()),
+        "freeze_datetime_value_explanation": (
+            "{id}'s FIDE ranking.",
+            ("id",),
+        ),
+        "clean_func": "clean_FIDE_rankings",
+    },
+    {
+        "id_root": "List_of_world_records_in_swimming",
+        "page_title": "List_of_world_records_in_swimming",
+        "table_index": [
+            {
+                "start_date": _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+                "table_index": [0, 2],
+            },
+            {
+                "start_date": datetime(2025, 5, 4).date(),
+                "table_index": [0, 1],
+            },
+        ],
+        "question_type": QuestionType.SAME,
+        "key": {
+            "id",
+            "value",
+        },
+        "fields": {
+            "id": "Name",
+            "value": "Event",
+        },
+        "resolution_file_value_column_dtype": str,
+        "question": (
+            (
+                "According to Wikipedia, will {id} still hold the world record for {value} in "
+                "long course (50 metres) swimming pools on {resolution_date}?"
+            ),
+            ("id", "value"),
+        ),
+        "background": (
+            (
+                "The world records in swimming are ratified by World Aquatics (formerly known as "
+                "FINA), the international governing body of swimming. Records can be set in long "
+                "course (50 metres) or short course (25 metres) swimming pools.\n"
+                "The ratification process is described in FINA Rule SW12, and involves submission "
+                "of paperwork certifying the accuracy of the timing system and the length of the "
+                "pool, satisfaction of FINA rules regarding swimwear and a negative doping test by "
+                "the swimmer(s) involved. Records can be set at intermediate distances in an "
+                "individual race and for the first leg of a relay race. Records which have not yet "
+                "been fully ratified are marked with a '#' symbol in these lists."
+            ),
+            tuple(),
+        ),
+        "freeze_datetime_value_explanation": (
+            "{id} is a record holder in the {value}.",
+            (
+                "id",
+                "value",
+            ),
+        ),
+        "clean_func": "clean_List_of_world_records_in_swimming",
+    },
+    {
+        "id_root": "List_of_infectious_diseases",
+        "page_title": "List_of_infectious_diseases",
+        "table_index": [
+            {
+                "start_date": _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+                "table_index": 0,
+            },
+        ],
+        "question_type": QuestionType.MORE,
+        "key": {
+            "id",
+        },
+        "fields": {
+            "id": "Common name",
+            "value": "Vaccine(s)",
+        },
+        "resolution_file_value_column_dtype": str,
+        "question": (
+            (
+                "According to Wikipedia, will a vaccine have been developed for {id} by "
+                "{resolution_date}?"
+            ),
+            ("id",),
+        ),
+        "background": (
+            (
+                "According to Wikipedia, {id} is the common name of an infectious disease. A "
+                "vaccine is a biological preparation that provides active acquired immunity to a "
+                "particular infectious or malignant disease. The safety and effectiveness of "
+                "vaccines has been widely studied and verified. A vaccine typically contains an "
+                "agent that resembles a disease-causing microorganism and is often made from "
+                "weakened or killed forms of the microbe, its toxins, or one of its surface "
+                "proteins. The agent stimulates the body's immune system to recognize the agent "
+                "as a threat, destroy it, and recognize further and destroy any of the "
+                "microorganisms associated with that agent that it may encounter in the future."
+            ),
+            ("id",),
+        ),
+        "freeze_datetime_value_explanation": (
+            "Vaccine status for {id}. 'No' means that a vaccine has not yet been created. "
+            "'Yes' means that it has.",
+            ("id",),
+        ),
+        "clean_func": "clean_List_of_infectious_diseases",
+        "is_resolved_func": "is_resolved_List_of_infectious_diseases",
+        "value_func": "get_value_List_of_infectious_diseases",
+    },
+]
+
+for _page in _PAGES:
+    _page["table_index"].sort(key=lambda e: e["start_date"])
+
+
 class WikipediaSource(DatasetSource):
     """Wikipedia dataset source with custom row-by-row resolution logic."""
 
     name: ClassVar[str] = "wikipedia"
+
+    # ------------------------------------------------------------------
+    # Public: fetch
+    # ------------------------------------------------------------------
+
+    def fetch(self, **kwargs) -> WikipediaFetchResult:
+        """Fetch Wikipedia table data for all configured pages.
+
+        Returns a dict mapping id_root -> DataFrame of raw table data.
+        """
+
+        def _download_page(page):
+            session = self._make_session()
+            return page["id_root"], self._download_tables(page, session)
+
+        results: WikipediaFetchResult = {}
+        with ThreadPoolExecutor(max_workers=len(_PAGES)) as ex:
+            for id_root, df in ex.map(_download_page, _PAGES):
+                if df is None or df.empty:
+                    raise ValueError(f"No Wikipedia data was downloaded for {id_root}.")
+                results[id_root] = df
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Public: update
+    # ------------------------------------------------------------------
+
+    @pa.check_types
+    def update(
+        self,
+        dfq: DataFrame[QuestionFrame],
+        dff: WikipediaFetchResult,
+        **kwargs,
+    ) -> UpdateResult:
+        """Process fetched Wikipedia data into questions and resolution files.
+
+        Args:
+            dfq (DataFrame[QuestionFrame]): Existing questions.
+            dff (WikipediaFetchResult): dict mapping id_root -> fetched table DataFrame.
+        """
+        resolution_files: dict[str, pd.DataFrame] = {}
+
+        for page in _PAGES:
+            id_root = page["id_root"]
+            page_dff = dff.get(id_root)
+            if page_dff is None or page_dff.empty:
+                continue
+
+            page_dff = page_dff.copy()
+            page_dff["date"] = pd.to_datetime(page_dff["date"])
+            if "clean_func" in page:
+                page_dff = eval(f"WikipediaSource.{page['clean_func']}(page_dff)")
+
+            dfq, page_res = self._update_page_questions(page=page, dfq=dfq, dff=page_dff)
+            resolution_files.update(page_res)
+
+        dfq = self._resolve_questions_for_dropped_pages(dfq)
+        dfq = self._resolve_questions_for_id_transformations(dfq)
+
+        return UpdateResult(
+            dfq=dfq,
+            resolution_files=resolution_files,
+            hash_mapping=self.hash_mapping,
+        )
+
+    # ------------------------------------------------------------------
+    # Private: fetch helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _make_session() -> requests.Session:
+        """Create an HTTP session with retry logic."""
+        # NB: requests/bs4 are imported lazily here (and in _get_edit_history) rather than at module
+        # top level so that importing `sources.wikipedia` stays light. `helpers.wikipedia` and
+        # `sources.registry` both import this module, and those are pulled (directly or via
+        # `helpers.question_curation`) by ~13 jobs that never scrape Wikipedia (resolve, metaculus,
+        # metadata, curate, leaderboard, nightly, base_eval). A top-level import would force
+        # beautifulsoup4/lxml into all of their images.
+        # TODO: revisit once requirements are refactored — if those consumers stop importing this
+        # module at load time (e.g. question_curation rewired to sources._metadata), these can move
+        # back to module-level imports.
+        import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
+
+        session = requests.Session()
+        session.headers.update(_HEADERS)
+        _retry = Retry(total=3, backoff_factor=0.25, status_forcelist=[429, 500, 502, 503, 504])
+        session.mount(
+            "https://", HTTPAdapter(pool_connections=8, pool_maxsize=8, max_retries=_retry)
+        )
+        return session
+
+    @staticmethod
+    def _get_edit_history(page_title: str, session: requests.Session) -> list[tuple]:
+        """Get the edit history of a Wikipedia page.
+
+        Get the last edit of the day for each day between today and
+        _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE.
+        """
+        # Lazy import (see _make_session for rationale); TODO: revisit when requirements refactor.
+        from bs4 import BeautifulSoup
+
+        base_history_url = (
+            f"https://en.wikipedia.org/w/index.php?title={page_title}&action=history&limit=200"
+        )
+        offset = ""
+        edit_history = []
+        last_seen_dates = set()
+
+        while True:
+            history_url = base_history_url + offset
+            response = session.get(history_url, timeout=30)
+            soup = BeautifulSoup(response.text, "html.parser")
+            edits = soup.find_all("li", attrs={"data-mw-revid": True})
+
+            for edit in edits:
+                edit_date_str = edit.find("a", class_="mw-changeslist-date").text
+                edit_date = datetime.strptime(edit_date_str, "%H:%M, %d %B %Y")
+                edit_url = (
+                    "https://en.wikipedia.org"
+                    + edit.find("a", class_="mw-changeslist-date")["href"]
+                )
+                oldid = parse_qs(urlparse(edit_url).query).get("oldid", [None])[0]
+
+                if edit_date.date() not in last_seen_dates:
+                    edit_history.append((edit_date, oldid))
+                    last_seen_dates.add(edit_date.date())
+
+                if edit_date.date() <= _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE:
+                    return [
+                        (dt, rev)
+                        for dt, rev in edit_history
+                        if dt.date() >= _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE
+                    ]
+
+            next_page = soup.find("a", {"class": "mw-nextlink"})
+            if not next_page:
+                break
+            offset = "&offset=" + next_page["href"].split("offset=")[1]
+
+        return edit_history
+
+    @staticmethod
+    def _download_wikipedia_table(
+        page_title: str,
+        edit_date: datetime,
+        revid: str,
+        table_index: list,
+        session: requests.Session,
+    ) -> pd.DataFrame:
+        """Download tables from url."""
+        url = f"https://en.wikipedia.org/api/rest_v1/page/html/{page_title}/{revid}"
+        while True:
+            response = session.get(url, timeout=30)
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After")
+                delay = 5
+                if retry_after:
+                    try:
+                        delay = int(retry_after)
+                    except ValueError:
+                        try:
+                            retry_dt = parsedate_to_datetime(retry_after)
+                            now = datetime.now(tz=retry_dt.tzinfo)
+                            delay = max(0, int((retry_dt - now).total_seconds()))
+                        except Exception:
+                            delay = 5
+
+                logger.info(f"Rate limited, waiting {delay}s")
+                time.sleep(delay)
+                continue
+            response.raise_for_status()
+            break
+
+        tables = pd.read_html(BytesIO(response.content))
+        table_index_to_use = max(
+            [e for e in table_index if e["start_date"] <= edit_date.date()],
+            key=lambda e: e["start_date"],
+        )
+        ti = table_index_to_use["table_index"]
+        return tables[ti] if isinstance(ti, int) else pd.concat([tables[i] for i in ti])
+
+    @staticmethod
+    def _download_tables(page: dict, session: requests.Session) -> pd.DataFrame | None:
+        """Download all historical changes for the tables on the page."""
+        page_title = page.get("page_title")
+        n_rows_to_keep = page.get("table_keep_first_n_rows")
+        table_index = page.get("table_index", 0)
+        columns = list(page.get("fields").values())
+
+        edit_history = WikipediaSource._get_edit_history(page_title=page_title, session=session)
+        edit_history.sort(reverse=True, key=lambda x: x[0])
+
+        value_col = page["fields"]["value"]
+        value_col_dtype = page["resolution_file_value_column_dtype"]
+
+        df_list = []
+        for edit_date, revid in edit_history:
+            try:
+                dfw = WikipediaSource._download_wikipedia_table(
+                    page_title=page_title,
+                    edit_date=edit_date,
+                    revid=revid,
+                    table_index=table_index,
+                    session=session,
+                )
+                if n_rows_to_keep is not None:
+                    dfw = dfw.iloc[:n_rows_to_keep]
+                dfw = dfw[columns]
+                dfw["date"] = edit_date.date().isoformat()
+                if value_col_dtype in (int, float):
+                    dfw[value_col] = pd.to_numeric(dfw[value_col], errors="coerce")
+                elif value_col_dtype is str:
+                    pass
+                else:
+                    raise ValueError(f"`{value_col_dtype}` dtype not yet supported.")
+                dfw = dfw.dropna()
+                dfw[value_col] = dfw[value_col].astype(value_col_dtype)
+                df_list.append(dfw.dropna())
+            except Exception as e:
+                logger.error(f"In {edit_date} {revid}\n{e}\n")
+        df = pd.concat(df_list, ignore_index=True) if df_list else None
+        return df
+
+    # ------------------------------------------------------------------
+    # Private: update helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _fill_template(page: dict, page_key: str, values: dict) -> str:
+        """Fill a question/background/explanation template."""
+        fill_values = {field: values[field] for field in page[page_key][1]}
+        # Always maintain resolution_date and forecast_due_date when formatting the string.
+        default_values = {
+            "resolution_date": "{resolution_date}",
+            "forecast_due_date": "{forecast_due_date}",
+        }
+        combined_fill_values = {**default_values, **fill_values}
+        return page[page_key][0].format(**combined_fill_values)
+
+    @staticmethod
+    def _build_resolution_df(
+        dff: pd.DataFrame, page: dict, wid: str, question_key: pd.Series
+    ) -> pd.DataFrame | None:
+        """Build the per-question resolution DataFrame. Returns a DataFrame or None.
+
+        Validation is intentionally left to UpdateResult.__post_init__ (which validates every
+        resolution file against ResolutionFrame); here we only cast the id/date dtypes, mirroring
+        the other sources' resolution-building helpers.
+
+        Args:
+            dff (pd.DataFrame): Fetched data DataFrame for a page.
+            page (dict): Page config dict.
+            wid (str): Hashed question ID.
+            question_key (pd.Series): Series with key field values identifying the question.
+        """
+        id_field = page["fields"]["id"]
+        value_field = page["fields"]["value"]
+
+        mask = pd.Series(True, index=dff.index)
+        for field_name in question_key.index:
+            mask &= dff[field_name] == question_key[field_name]
+
+        df = dff[mask].copy()
+        if df["date"].max().date() < constants.QUESTION_BANK_DATA_STORAGE_START_DATE:
+            # Fetching more data than we need for naive forecasts. Don't need to create resolution
+            # files for events that are no longer current.
+            return None
+
+        df.rename(columns={id_field: "id", value_field: "value"}, inplace=True)
+        df["id"] = wid
+
+        def fill_missing_with_nan(df, dff):
+            """Fill in nan where the item has dropped out of the table.
+
+            Sometimes values drop out of the table then reappear. This could be for valid reasons,
+            e.g. someone had a world record, lost it, then got it again. Either way, fill these with
+            nan. Invalid reasons (e.g. name changes) need to be caught by hand and nullified.
+            """
+            all_dates = dff["date"].sort_values().unique()
+            all_dates = all_dates[all_dates >= constants.QUESTION_BANK_DATA_STORAGE_START_DATETIME]
+            next_after_df_max_date = all_dates[all_dates > df["date"].max()]
+            max_cutoff = (
+                next_after_df_max_date.min()
+                if len(next_after_df_max_date) > 0
+                else df["date"].max()
+            )
+            all_dates = all_dates[(all_dates <= max_cutoff) & (all_dates >= df["date"].min())]
+            drop_out_dates = []
+            for drop_out_date in [date for date in all_dates if date not in df["date"].unique()]:
+                drop_out_dates.append(
+                    {
+                        "id": wid,
+                        "value": None,
+                        "date": drop_out_date,
+                    }
+                )
+            df = pd.concat([df, pd.DataFrame(drop_out_dates)], ignore_index=True)
+            return df
+
+        df = fill_missing_with_nan(df=df, dff=dff)
+
+        df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+        df = df.sort_values(by="date", ignore_index=True)
+
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+
+    def _add_to_dfq(
+        self,
+        dfq: pd.DataFrame,
+        dfr: pd.DataFrame,
+        page: dict,
+        wid: str,
+        id_field_value: str,
+    ) -> pd.DataFrame:
+        """Add the question to dfq."""
+        dfr = dfr.sort_values(by="date")
+        value = dfr.iloc[-1]["value"]
+
+        resolved = value is None
+        if "is_resolved_func" in page.keys():
+            resolved = eval(f"WikipediaSource.{page['is_resolved_func']}(value)")
+
+        if "value_func" in page.keys():
+            value = eval(f"WikipediaSource.{page['value_func']}(value)")
+
+        values = {
+            "id": id_field_value,
+            "value": value,
+        }
+        question = self._fill_template(page=page, page_key="question", values=values)
+        freeze_datetime_value_explanation = self._fill_template(
+            page=page, page_key="freeze_datetime_value_explanation", values=values
+        )
+
+        background = self._fill_template(page=page, page_key="background", values=values)
+
+        row = {
+            "id": wid,
+            "question": question,
+            "background": background,
+            "market_info_resolution_criteria": "N/A",
+            "market_info_open_datetime": "N/A",
+            "market_info_close_datetime": "N/A",
+            "url": f"https://en.wikipedia.org/wiki/{page['page_title']}",
+            "market_info_resolution_datetime": "N/A",
+            "resolved": resolved,
+            "forecast_horizons": [] if resolved else constants.FORECAST_HORIZONS_IN_DAYS,
+            "freeze_datetime_value": value,
+            "freeze_datetime_value_explanation": freeze_datetime_value_explanation,
+        }
+
+        df_question = pd.DataFrame([row])
+        if row["id"] not in dfq["id"].values:
+            return df_question if dfq.empty else pd.concat([dfq, df_question], ignore_index=True)
+
+        # Update the row where `dfq["id"] == df_question["id"]`.
+        dfq = dfq.set_index("id")
+        df_question = df_question.set_index("id")
+        dfq.update(df_question)
+        return dfq.reset_index()
+
+    def _update_page_questions(
+        self, page: dict, dfq: pd.DataFrame, dff: pd.DataFrame
+    ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
+        """Update questions and resolutions for the provided Wikipedia page.
+
+        Returns (dfq, resolution_files_dict).
+        """
+        question_id_root = page.get("id_root")
+        logger.info(f"Updating questions for {question_id_root}.")
+
+        # The `key` field of each page contains the unique entry/entries that make a question.
+        # See issue #123.
+        id_fields = [page["fields"][key] for key in page["key"]]
+        resolution_files = {}
+
+        for _, row in dff[id_fields].drop_duplicates().iterrows():
+            id_field_value_for_wid = str(row.iloc[0]) if len(row) == 1 else str(sorted(row))
+            wid = self._id_hash(id_root=question_id_root, id_field_value=id_field_value_for_wid)
+            try:
+                dfr = self._build_resolution_df(dff=dff, page=page, wid=wid, question_key=row)
+                if dfr is not None:
+                    resolution_files[wid] = dfr
+                    dfq = self._add_to_dfq(
+                        dfq=dfq,
+                        dfr=dfr,
+                        page=page,
+                        wid=wid,
+                        id_field_value=row[page["fields"]["id"]],
+                    )
+            except Exception as e:
+                logger.warning(f"Couldn't add {question_id_root} {wid}: {row}")
+                logger.warning(f"Exception encountered: {e}")
+
+        return dfq, resolution_files
+
+    def _resolve_questions_for_dropped_pages(self, dfq: pd.DataFrame) -> pd.DataFrame:
+        """Resolve questions for pages that have been removed from _PAGES.
+
+        If we ever remove pages, we want to stop sampling from those questions. Simply resolve them.
+        """
+        id_roots = [d["id_root"] for d in _PAGES]
+        for index, row in dfq.iterrows():
+            d = self._id_unhash(hash_key=row["id"])
+            if d is None or d.get("id_root") not in id_roots:
+                dfq.loc[index, "resolved"] = True
+        return dfq
+
+    @staticmethod
+    def _resolve_questions_for_id_transformations(dfq: pd.DataFrame) -> pd.DataFrame:
+        """Resolve questions for keys in `_TRANSFORM_ID_MAPPING`.
+
+        `_TRANSFORM_ID_MAPPING` contains keys of questions that were erroneously made for one reason
+        or another. Those keys point to the correct IDs for those questions. When the correct ID is
+        resolved, ensure the original question ID is resolved too.
+        """
+        for key, value in _TRANSFORM_ID_MAPPING.items():
+            resolved_series = dfq[dfq["id"] == value]["resolved"]
+            if not resolved_series.empty and resolved_series.iloc[0]:
+                dfq.loc[dfq["id"] == key, "resolved"] = True
+                logger.info(f"Resolving: {key}")
+        return dfq
+
+    # ------------------------------------------------------------------
+    # Clean / value / resolved functions (referenced by _PAGES via eval)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def clean_FIDE_rankings(df: pd.DataFrame) -> pd.DataFrame:
+        """Clean fetched data for FIDE_rankings.
+
+        Fix inconsistent player names.
+        """
+        df = df[~df["Player"].str.contains("Change from the previous month")].copy()
+        replacements = {
+            "Gukesh D.": "Gukesh Dommaraju",
+            "Gukesh D": "Gukesh Dommaraju",
+            "Leinier Dominguez": "Leinier Domínguez Pérez",
+            "Leinier Dominguez Pérez": "Leinier Domínguez Pérez",
+            "Nana Dzagnidze]": "Nana Dzagnidze",
+        }
+        df["Player"] = df["Player"].replace(replacements)
+        return df
+
+    @staticmethod
+    def clean_List_of_world_records_in_swimming(df: pd.DataFrame) -> pd.DataFrame:
+        """Clean fetched data for List_of_world_records_in_swimming.
+
+        Drop any rows that contain parens.
+        """
+        df = df[~df["Name"].str.contains(r"[()]")].reset_index(drop=True)
+        df = df[~df["Name"].str.contains("eventsort")].reset_index(drop=True)
+        df = df[~df["Name"].str.contains("recordinfo")].reset_index(drop=True)
+        return df
+
+    @staticmethod
+    def clean_List_of_infectious_diseases(df: pd.DataFrame) -> pd.DataFrame:
+        """Clean fetched data for List_of_infectious_diseases.
+
+        * Remove rows with multiple answers.
+        * Change all `Under research[x]` to `No`
+        * Change all `No` to 0
+        * Change all `Yes` to 1
+        """
+        duplicates = df[df.duplicated(subset=["date", "Common name"], keep=False)]
+        df = df.drop(duplicates.index).reset_index(drop=True)
+        # On and before this date the `"Vaccine(s)"` field had other info in it.
+        df = df[df["date"] > pd.Timestamp("2021-07-07")]
+        df["Vaccine(s)"] = df["Vaccine(s)"].replace(
+            {
+                r"Under research.*": "No",
+                r"Under Development.*": "No",
+                r"Yes.*": "Yes",
+                r"No.*": "No",
+            },
+            regex=True,
+        )
+        df.loc[df["Vaccine(s)"] == "No", "Vaccine(s)"] = 0
+        df.loc[df["Vaccine(s)"] == "Yes", "Vaccine(s)"] = 1
+        df["Vaccine(s)"] = df["Vaccine(s)"].astype(int)
+        df = df.dropna(ignore_index=True)
+        return df
+
+    @staticmethod
+    def is_resolved_List_of_infectious_diseases(value) -> bool:
+        """Return true if the vaccine has been developed."""
+        return value == 1 or str(value).lower() == "yes"
+
+    @staticmethod
+    def get_value_List_of_infectious_diseases(value) -> str:
+        """Return Yes/No instead of 1/0."""
+        return "Yes" if value else "No"
+
+    # ------------------------------------------------------------------
+    # Resolve
+    # ------------------------------------------------------------------
 
     def _resolve(self, df: pd.DataFrame, dfq: pd.DataFrame, dfr: pd.DataFrame) -> pd.DataFrame:
         """Resolve Wikipedia questions row by row."""
@@ -99,11 +824,7 @@ class WikipediaSource(DatasetSource):
             )
             return np.nan
 
-        # lazy to avoid circular import
-        # TO DO: fix during wikipedia refactor
-        from helpers.wikipedia import PAGES
-
-        question_type = [q["question_type"] for q in PAGES if q["id_root"] == d["id_root"]]
+        question_type = [q["question_type"] for q in _PAGES if q["id_root"] == d["id_root"]]
         if len(question_type) != 1:
             logger.error(
                 f"Nullifying Wikipedia market {mid}. Couldn't find comparison type "
@@ -193,18 +914,6 @@ class WikipediaSource(DatasetSource):
         """Look up the original question dict, applying ID transform first."""
         hash_key = self._transform_id(hash_key)
         return self.hash_mapping.get(hash_key)
-
-    # ------------------------------------------------------------------
-    # Fetch / update (not yet implemented)
-    # ------------------------------------------------------------------
-
-    def fetch(self, **kwargs):
-        """Fetch Wikipedia data."""
-        raise NotImplementedError
-
-    def update(self, dfq, dff, **kwargs):
-        """Process fetched Wikipedia data into questions and resolution files."""
-        raise NotImplementedError
 
 
 # flake8: noqa: B950

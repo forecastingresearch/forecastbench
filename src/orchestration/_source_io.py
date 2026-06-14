@@ -9,6 +9,7 @@ from typing import Iterable
 
 import pandas as pd
 
+from _fb_types import WikipediaFetchResult
 from helpers import constants, data_utils, env
 from utils import gcp
 
@@ -106,3 +107,62 @@ def upload_resolution_files(source: str, resolution_files: dict[str, pd.DataFram
             filename=remote_filename,
         )
     logger.info(f"Uploaded {len(resolution_files)} resolution files for {source}.")
+
+
+# ---------------------------------------------------------------------------
+# Wikipedia per-page fetch IO
+#
+# Wikipedia's fetch returns one DataFrame per page (keyed by id_root) with page-varying columns,
+# so it cannot use write_fetch_output's single-file layout. Files live under wikipedia/fetch/.
+# ---------------------------------------------------------------------------
+
+_WIKIPEDIA_FETCH_DIR = "wikipedia/fetch"
+
+
+def write_wikipedia_fetch_output(fetch_result: WikipediaFetchResult) -> None:
+    """Write per-page Wikipedia fetch DataFrames to wikipedia/fetch/<id_root>.jsonl.
+
+    Args:
+        fetch_result (WikipediaFetchResult): Mapping of id_root to fetched table DataFrame.
+    """
+    for id_root, df in fetch_result.items():
+        filename = f"{id_root}.jsonl"
+        local_filename = f"/tmp/{filename}"
+        df.to_json(local_filename, orient="records", lines=True, force_ascii=False)
+        gcp.storage.upload(
+            bucket_name=env.QUESTION_BANK_BUCKET,
+            local_filename=local_filename,
+            destination_folder=_WIKIPEDIA_FETCH_DIR,
+        )
+    logger.info(f"Uploaded {len(fetch_result)} Wikipedia fetch files.")
+
+
+def read_wikipedia_fetch_files() -> WikipediaFetchResult:
+    """Download per-page Wikipedia fetch files from wikipedia/fetch/.
+
+    Returns:
+        WikipediaFetchResult mapping id_root to fetched table DataFrame.
+    """
+    files = gcp.storage.list_with_prefix(
+        bucket_name=env.QUESTION_BANK_BUCKET,
+        prefix=f"{_WIKIPEDIA_FETCH_DIR}/",
+    )
+    result: WikipediaFetchResult = {}
+    for remote_path in files:
+        if not remote_path.endswith(".jsonl"):
+            continue
+        basename = os.path.basename(remote_path)
+        id_root = basename.removesuffix(".jsonl")
+        local_filename = f"/tmp/{basename}"
+
+        gcp.storage.download_no_error_message_on_404(
+            bucket_name=env.QUESTION_BANK_BUCKET,
+            filename=remote_path,
+            local_filename=local_filename,
+        )
+        if os.path.exists(local_filename):
+            df = pd.read_json(local_filename, lines=True, dtype={}, convert_dates=False)
+            if not df.empty:
+                result[id_root] = df
+    logger.info(f"Loaded {len(result)} Wikipedia fetch files.")
+    return result
