@@ -18,7 +18,7 @@ import pandera.pandas as pa
 from termcolor import colored
 
 from _fb_types import QuestionBank, SourceQuestionBank
-from _schemas import AcledResolutionFrame, QuestionFrame, ResolutionFrame
+from _schemas import QuestionFrame, ResolutionFrame
 from helpers import constants, data_utils, dates, env, keys
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource
@@ -34,51 +34,23 @@ logger = logging.getLogger(__name__)
 
 
 def _read_acled_dfr(local_question_bank_dir: str) -> pd.DataFrame:
-    """Read ACLED fetch file and prepare the resolution DataFrame."""
-    acled_fetch_column_dtype = {
-        "event_id_cnty": str,
-        "event_date": str,
-        "iso": int,
-        "region": str,
-        "country": str,
-        "admin1": str,
-        "event_type": str,
-        "fatalities": int,
-        "timestamp": str,
-    }
-    filenames = data_utils.generate_filenames("acled")
-    source_fetch_file = filenames.get("jsonl_fetch")
-    local_filename = f"{local_question_bank_dir}/{source_fetch_file}"
+    """Read the ACLED fetch file and build the resolution DataFrame.
 
-    df = pd.read_json(
+    The dff -> dfr transform (year-prefix fix, one-hot encode, aggregate) is owned by the
+    domain layer; this is just the IO wrapper that reads the fetch file off the unzipped
+    question bank and delegates to it, so the transform lives in exactly one place.
+    """
+    from sources.acled import FETCH_COLUMN_DTYPE, AcledSource
+
+    filenames = data_utils.generate_filenames("acled")
+    local_filename = f"{local_question_bank_dir}/{filenames['jsonl_fetch']}"
+    dff = pd.read_json(
         local_filename,
         lines=True,
-        dtype=acled_fetch_column_dtype,
+        dtype=FETCH_COLUMN_DTYPE,
         convert_dates=False,
     )
-
-    # Fix year prefix bug in ACLED data
-    def fix_year_prefix(date_str):
-        if isinstance(date_str, str):
-            if date_str.startswith("0025-"):
-                return "2025-" + date_str[5:]
-            if date_str.startswith("0024-"):
-                return "2024-" + date_str[5:]
-        return date_str
-
-    df["event_date"] = df["event_date"].apply(fix_year_prefix)
-    df = AcledResolutionFrame.validate(df)
-    df["event_date"] = pd.to_datetime(df["event_date"])
-
-    df = df[["country", "event_date", "event_type", "fatalities"]].copy()
-
-    dfr = (
-        pd.get_dummies(df, columns=["event_type"], prefix="", prefix_sep="")
-        .groupby(["country", "event_date"])
-        .sum()
-        .reset_index()
-    )
-
+    dfr, _, _ = AcledSource._prepare_resolution_data(dff)
     return dfr
 
 

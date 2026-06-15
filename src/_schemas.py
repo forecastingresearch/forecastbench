@@ -131,6 +131,26 @@ class MetaculusFetchFrame(pa.DataFrameModel):
         coerce = True
 
 
+class AcledFetchFrame(pa.DataFrameModel):
+    """Output of AcledSource.fetch(). Raw per-event rows from the ACLED API."""
+
+    event_id_cnty: Series[str]
+    event_date: Series[str]
+    iso: Series[int]
+    region: Series[str]
+    country: Series[str]
+    admin1: Series[str]
+    event_type: Series[str]
+    fatalities: Series[int]
+    timestamp: Series[str]
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = True
+
+
 class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 
