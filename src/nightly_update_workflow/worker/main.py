@@ -4,7 +4,8 @@ import os
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import cloud_run, dates, question_curation  # noqa: E402
+from helpers import cloud_run, dates, env, question_curation  # noqa: E402
+from orchestration import _io
 
 metadata = [
     [
@@ -12,11 +13,18 @@ metadata = [
         ("func-metadata-validate-questions", False, cloud_run.timeout_1h, 1),
     ]
 ]
-resolve_forecasts = [
-    [
-        ("func-resolve-forecasts", True, cloud_run.timeout_1h * 3, 50),
-    ]
-]
+
+
+def get_resolve_forecasts():
+    """Build the resolve_forecasts job list with one task per forecast set folder."""
+    _, date_folders = _io.get_valid_forecast_files_and_dates(bucket=env.FORECAST_SETS_BUCKET)
+    task_count = len(date_folders)
+    if task_count == 0:
+        print("WARNING: No forecast set folders found in bucket, running 1 task.")
+        task_count = 1
+    return [[("func-resolve-forecasts", True, cloud_run.timeout_1h * 3, task_count)]]
+
+
 leaderboards = [
     [
         ("func-leaderboard-tournament", True, cloud_run.timeout_1h * 4, 1),
@@ -146,7 +154,7 @@ def main():
         "metadata": metadata,
         "create_question_set": get_create_question_set(),
         "publish_question_set_make_llm_baseline": get_publish_question_set_make_llm_baseline(),
-        "resolve_forecasts": resolve_forecasts,
+        "resolve_forecasts": get_resolve_forecasts(),
         "leaderboards": leaderboards,
         "naive_and_dummy_forecasters": get_naive_and_dummy_forecasters(),
         "website": website,
