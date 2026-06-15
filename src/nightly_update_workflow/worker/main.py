@@ -5,7 +5,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import cloud_run, dates, env, question_curation  # noqa: E402
-from orchestration import _io
+from orchestration import _io  # noqa: E402
 
 metadata = [
     [
@@ -20,8 +20,7 @@ def get_resolve_forecasts():
     _, date_folders = _io.get_valid_forecast_files_and_dates(bucket=env.FORECAST_SETS_BUCKET)
     task_count = len(date_folders)
     if task_count == 0:
-        print("WARNING: No forecast set folders found in bucket, running 1 task.")
-        task_count = 1
+        raise ValueError("No forecast set folder found in bucket")
     return [[("func-resolve-forecasts", True, cloud_run.timeout_1h * 3, task_count)]]
 
 
