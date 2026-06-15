@@ -159,10 +159,10 @@ acled-update-questions:
 yfinance: yfinance-fetch yfinance-update-questions
 
 yfinance-fetch:
-	$(MAKE) -C src/questions/yfinance/fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_yfinance_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 yfinance-update-questions:
-	$(MAKE) -C src/questions/yfinance/update_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_yfinance_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 polymarket: polymarket-fetch polymarket-update-questions
 

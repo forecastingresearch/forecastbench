@@ -13,6 +13,7 @@ from sources.infer import InferSource
 from sources.manifold import ManifoldSource
 from sources.metaculus import MetaculusSource
 from sources.polymarket import PolymarketSource
+from sources.yfinance import YfinanceSource
 
 # ---------------------------------------------------------------------------
 # Time-freezing fixture
@@ -97,6 +98,12 @@ def metaculus_source():
 def polymarket_source():
     """Return a PolymarketSource instance."""
     return PolymarketSource()
+
+
+@pytest.fixture()
+def yfinance_source():
+    """Return a YfinanceSource instance."""
+    return YfinanceSource()
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +275,38 @@ def make_infer_fetch_df(rows):
         "fetch_datetime": "2026-01-15T00:00:00+00:00",
         "probability": 0.5,
         "nullify_question": False,
+    }
+    df = pd.DataFrame(rows)
+    for col, default in defaults.items():
+        if col not in df.columns:
+            df[col] = default
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Yfinance-specific factories
+# ---------------------------------------------------------------------------
+
+
+def make_yfinance_fetch_df(rows):
+    """Build a DataFrame matching YfinanceFetchFrame schema.
+
+    Each row should have at least 'id'. Missing columns get defaults.
+    """
+    defaults = {
+        "question": "Will {id} go up?",
+        "background": "N/A",
+        "url": "N/A",
+        "resolved": False,
+        "forecast_horizons": "N/A",
+        "freeze_datetime_value": "100.0",
+        "freeze_datetime_value_explanation": "N/A",
+        "market_info_resolution_criteria": "N/A",
+        "market_info_open_datetime": "N/A",
+        "market_info_close_datetime": "N/A",
+        "market_info_resolution_datetime": "N/A",
+        "fetch_datetime": "2026-03-18T00:00:00+00:00",
+        "probability": 100.0,
     }
     df = pd.DataFrame(rows)
     for col, default in defaults.items():
