@@ -425,6 +425,36 @@ class TestSourceFetchSkipsNullified:
         assert "WBA" not in ticker_calls, "nullified ticker must not be passed to yf.Ticker"
 
 
+class TestSourceFetchSkipsRenamed:
+    """Renamed originals are never fetched; only their replacement is."""
+
+    @patch("sources.yfinance.yf.Ticker")
+    @patch.object(YfinanceSource, "_fetch_one_stock")
+    def test_renamed_original_skipped_and_carried_forward(
+        self, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+    ):
+        """The renamed original (e.g. FI) is not fetched and is carried forward as resolved; its
+        replacement (e.g. FISV) is still fetched normally."""
+        freeze_today(date(2026, 3, 18))
+        original = yfinance_source.ticker_renames[0]["original_ticker"]  # FI
+        replacement = yfinance_source.ticker_renames[0]["replacement_ticker"]  # FISV
+        hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
+        mock_fetch_one.return_value = ("Some Co", hist)
+        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+
+        with patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL", replacement]):
+            dfq = make_question_df([{"id": "AAPL"}, {"id": original}, {"id": replacement}])
+            dff = yfinance_source.fetch(dfq=dfq)
+
+        fetched = [call.args[0] for call in mock_fetch_one.call_args_list]
+        assert original not in fetched, "renamed original must never be fetched"
+        assert replacement in fetched, "the live replacement must still be fetched"
+
+        fi = dff[dff["id"] == original].iloc[0]
+        assert bool(fi["resolved"]) is True
+        assert fi["freeze_datetime_value"] == "N/A"
+
+
 class TestSourceBuildResolutionDf:
     """Tests for YfinanceSource._build_resolution_df."""
 
@@ -587,6 +617,43 @@ class TestSourceUpdate:
         assert original in result.resolution_files
         assert original not in seen  # original symbol never fetched directly
         assert replacement in seen
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_renamed_original_is_exact_copy_of_replacement(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """When the replacement is in the pool, the original's resolution file is a relabelled copy
+        of the replacement's series (identical date/value), and the replacement is fetched once."""
+        freeze_today(date(2026, 3, 18))
+        original = yfinance_source.ticker_renames[0]["original_ticker"]  # FI
+        replacement = yfinance_source.ticker_renames[0]["replacement_ticker"]  # FISV
+
+        seen = []
+
+        def fake_fetch(symbol, period):
+            seen.append(symbol)
+            return pd.DataFrame(
+                {"date": pd.to_datetime(["2026-03-16", "2026-03-17"]), "value": [10.0, 11.0]}
+            )
+
+        mock_fetch.side_effect = fake_fetch
+
+        dfq = make_question_df([{"id": original}, {"id": replacement}])
+        dff = make_yfinance_fetch_df(
+            [{"id": replacement, "resolved": False}, {"id": original, "resolved": True}]
+        )
+
+        result = yfinance_source.update(dfq, dff)
+
+        # Replacement fetched exactly once (its own build); original never fetched.
+        assert seen.count(replacement) == 1
+        assert original not in seen
+        # Both files present and identical except for the id column.
+        fi = result.resolution_files[original].reset_index(drop=True)
+        fisv = result.resolution_files[replacement].reset_index(drop=True)
+        assert (fi["id"] == original).all()
+        assert (fisv["id"] == replacement).all()
+        assert fi[["date", "value"]].equals(fisv[["date", "value"]])
 
     @patch.object(YfinanceSource, "_fetch_historical_prices")
     def test_nullified_stock_preserves_question_fields_and_is_not_fetched(
