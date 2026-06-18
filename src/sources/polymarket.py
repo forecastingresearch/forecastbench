@@ -291,6 +291,12 @@ class PolymarketSource(MarketSource):
 
         return all_markets
 
+    @backoff.on_exception(
+        backoff.expo,
+        requests.exceptions.RequestException,
+        max_time=20,
+        on_backoff=data_utils.print_error_info_handler,
+    )
     def _get_market(self, condition_id: str) -> dict:
         """Fetch a single market by condition ID, trying open then closed markets.
 
