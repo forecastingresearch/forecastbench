@@ -117,10 +117,9 @@ class PolymarketFetchFrame(QuestionFrame):
 
 
 class YfinanceFetchFrame(QuestionFrame):
-    """Output of YfinanceSource.fetch(). QuestionFrame plus transient fields for update()."""
+    """Output of YfinanceSource.fetch(). QuestionFrame plus a transient field for update()."""
 
     fetch_datetime: Series[str]
-    probability: Series[object] = pa.Field(nullable=True)
 
 
 class ManifoldFetchFrame(pa.DataFrameModel):
