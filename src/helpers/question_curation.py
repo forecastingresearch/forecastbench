@@ -1,7 +1,8 @@
 """Info relevant to selecting questions."""
 
 import os
-from datetime import timedelta
+from datetime import date, timedelta
+from typing import Optional
 
 from . import (
     acled,
@@ -122,3 +123,16 @@ def is_today_question_curation_date():
     created.
     """
     return get_num_days_since_original_forecast_due_date() % 14 == 14 - FREEZE_WINDOW_IN_DAYS
+
+
+def get_next_forecast_due_date(today: Optional[date] = None) -> str:
+    """Return the next forecast due date in ISO format, on or after `today`.
+
+    Due dates fall every 14 days from `constants.BENCHMARK_TOURNAMENT_START_DATE`.
+
+    Args:
+        today (Optional[date]): Reference date; defaults to today in UTC.
+    """
+    today = today or dates.get_date_today()
+    days_since = (today - constants.BENCHMARK_TOURNAMENT_START_DATE_DATETIME_DATE).days
+    return (today + timedelta(days=-days_since % 14)).isoformat()
