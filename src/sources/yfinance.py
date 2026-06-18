@@ -54,9 +54,11 @@ class YfinanceSource(DatasetSource):
         """Fetch S&P 500 stock data from Yahoo Finance.
 
         The ticker universe is the union of the current S&P 500 constituents and any tickers
-        already in the question bank. Tickers that are still in the question pool but have dropped
-        out of the S&P 500 and can no longer be fetched are marked resolved (delisted) using their
-        existing question row.
+        already in the question bank, minus the curated nullified (known-delisted) tickers, which
+        are never fetched: they 404 on every run and the noise hides genuinely-new delistings.
+        Nullified tickers still in the pool are carried forward as resolved using their existing
+        question row. Tickers that are still in the pool, have dropped out of the S&P 500, and can
+        no longer be fetched (but are not yet curated as nullified) are likewise marked resolved.
 
         Args:
             dfq (DataFrame[QuestionFrame] | None): Existing question bank.
@@ -64,17 +66,35 @@ class YfinanceSource(DatasetSource):
         top_500 = self._get_sp500_tickers()
         set_top_500 = set(top_500)
         set_current = set(dfq["id"].unique()) if dfq is not None and "id" in dfq.columns else set()
-        all_tickers = list(set_top_500 | set_current)
+
+        # Known-delisted (nullified) tickers 404 on every fetch and only add log noise that masks
+        # genuinely-new delistings. Never fetch them: drop them from the universe up front and
+        # carry their existing question rows forward as resolved (the same row the delisted
+        # heuristic below would have emitted, minus the wasted request and the 404).
+        nullified_ids = self.get_nullified_ids()
+        nullified_in_pool = sorted(set_current & nullified_ids)
+        all_tickers = list((set_top_500 | set_current) - nullified_ids)
 
         logger.info(
-            f"Stock tickers not in top 500 but in current stocks: {set_current - set_top_500}"
+            "Stock tickers not in top 500 but in current stocks (excluding known-delisted): "
+            f"{set_current - set_top_500 - nullified_ids}"
         )
+        if nullified_in_pool:
+            logger.info(
+                f"Skipping fetch for {len(nullified_in_pool)} known-delisted (nullified) tickers; "
+                f"carrying them forward as resolved: {nullified_in_pool}"
+            )
 
         # Pin 'today' once for this run so all downstream date logic is consistent.
         self._today = dates.get_date_today()
         current_time = dates.get_datetime_now()
 
         rows = []
+
+        # Carry forward known-delisted tickers as resolved without hitting the API.
+        for ticker_symbol in nullified_in_pool:
+            rows.append(self._carry_forward_resolved(ticker_symbol, dfq, current_time))
+
         for ticker_symbol in all_tickers:
             time.sleep(1)  # Avoid YFRateLimitError
             company_name, hist = self._fetch_one_stock(ticker_symbol)
@@ -115,22 +135,38 @@ class YfinanceSource(DatasetSource):
                 and ticker_symbol in set_current
                 and ticker_symbol not in set_top_500
             ):
-                # Delisted: still in the question pool but no longer fetchable and out of the
-                # S&P 500. Carry forward the existing question row, marked resolved.
-                existing = dfq[dfq["id"] == ticker_symbol].iloc[0].to_dict()
-                existing.update(
-                    {
-                        "resolved": True,
-                        "fetch_datetime": current_time,
-                        "freeze_datetime_value": "N/A",
-                    }
-                )
-                rows.append(existing)
+                # Newly delisted: still in the question pool but no longer fetchable and out of
+                # the S&P 500, yet not in the curated nullified list. Carry the existing question
+                # row forward as resolved and warn so it can be added to nullified_questions.
+                rows.append(self._carry_forward_resolved(ticker_symbol, dfq, current_time))
                 logger.warning(
-                    f"{ticker_symbol} detected as delisted (not in S&P 500 and fetch failed)"
+                    f"{ticker_symbol} detected as delisted (not in S&P 500 and fetch failed); "
+                    "consider adding it to nullified_questions"
                 )
 
         return pd.DataFrame(rows)
+
+    @staticmethod
+    def _carry_forward_resolved(ticker_symbol: str, dfq: pd.DataFrame, current_time: str) -> dict:
+        """Return a delisted ticker's existing question row, marked resolved.
+
+        Shared by the curated-nullified skip (before fetch) and the runtime delisted heuristic
+        (fetch returned nothing). freeze_datetime_value gets the delisted marker.
+
+        Args:
+            ticker_symbol (str): Ticker whose existing question row to carry forward.
+            dfq (pd.DataFrame): Existing question bank (must contain ``ticker_symbol``).
+            current_time (str): Fetch timestamp to stamp on the carried-forward row.
+        """
+        existing = dfq[dfq["id"] == ticker_symbol].iloc[0].to_dict()
+        existing.update(
+            {
+                "resolved": True,
+                "fetch_datetime": current_time,
+                "freeze_datetime_value": "N/A",
+            }
+        )
+        return existing
 
     # ------------------------------------------------------------------
     # Public: update
@@ -146,6 +182,10 @@ class YfinanceSource(DatasetSource):
         overwrite_price_history: bool = False,
     ) -> UpdateResult:
         """Process fetched stock data into updated questions and resolution files.
+
+        Curated nullified (known-delisted) tickers are never sent to the API here either — they
+        404 forever and their final close is fixed — so their resolution files are forward-filled
+        from existing data instead of re-fetched.
 
         Args:
             dfq (DataFrame[QuestionFrame]): Existing questions.
@@ -165,6 +205,7 @@ class YfinanceSource(DatasetSource):
         )
 
         renamed_tickers = {entry["original_ticker"] for entry in self.ticker_renames}
+        nullified_ids = self.get_nullified_ids()
 
         for question in dff.to_dict("records"):
             question_id = str(question["id"])
@@ -172,6 +213,13 @@ class YfinanceSource(DatasetSource):
             if question_id in renamed_tickers:
                 # Resolution file is rebuilt from the replacement ticker below.
                 logger.info(f"Skipping {question_id} (renamed ticker, handled separately)")
+            elif question_id in nullified_ids:
+                # Known-delisted (nullified): never hit the API (it 404s). The final close is
+                # fixed, so just forward-fill the existing resolution file to yesterday so that
+                # newly-arriving resolution dates still find an exact-date row.
+                df_res = self._forward_fill_existing(existing_resolution_files.get(question_id))
+                if df_res is not None:
+                    resolution_files[question_id] = df_res
             else:
                 df_res = self._build_resolution_df(
                     question=question,
@@ -367,6 +415,25 @@ class YfinanceSource(DatasetSource):
         df["id"] = ticker_id
 
         return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
+
+    def _forward_fill_existing(self, existing_df: pd.DataFrame | None) -> pd.DataFrame | None:
+        """Forward-fill an existing resolution file to yesterday without fetching.
+
+        For curated nullified (known-delisted) tickers, whose price is fixed and which 404 on the
+        API. Mirrors the resolved path of ``_build_resolution_df`` minus the doomed request.
+
+        Args:
+            existing_df (pd.DataFrame | None): Existing resolution data, or None.
+
+        Returns:
+            The forward-filled DataFrame, or None when there is no existing file or nothing changed.
+        """
+        if existing_df is None or existing_df.empty:
+            return None
+        df_new = self._finalize_resolution_file(existing_df)
+        if existing_df.equals(df_new):
+            return None
+        return df_new
 
     def _build_resolution_df(
         self,
