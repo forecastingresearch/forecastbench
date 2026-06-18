@@ -306,7 +306,6 @@ def make_yfinance_fetch_df(rows):
         "market_info_close_datetime": "N/A",
         "market_info_resolution_datetime": "N/A",
         "fetch_datetime": "2026-03-18T00:00:00+00:00",
-        "probability": 100.0,
     }
     df = pd.DataFrame(rows)
     for col, default in defaults.items():

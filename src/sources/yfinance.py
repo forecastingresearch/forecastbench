@@ -101,7 +101,6 @@ class YfinanceSource(DatasetSource):
                         "resolved": False,
                         "market_info_resolution_datetime": "N/A",
                         "fetch_datetime": current_time,
-                        "probability": current_price,
                         "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
                         "freeze_datetime_value": current_price,
                         "freeze_datetime_value_explanation": (
@@ -122,7 +121,6 @@ class YfinanceSource(DatasetSource):
                     {
                         "resolved": True,
                         "fetch_datetime": current_time,
-                        "probability": float("nan"),
                         "freeze_datetime_value": "N/A",
                     }
                 )
@@ -185,7 +183,6 @@ class YfinanceSource(DatasetSource):
 
             # Strip transient fetch-only fields (not part of QuestionFrame)
             del question["fetch_datetime"]
-            del question["probability"]
 
             # Upsert into dfq
             if question["id"] in dfq["id"].values:
