@@ -102,6 +102,9 @@ class YfinanceSource(DatasetSource):
         current_time = dates.get_datetime_now()
 
         rows = []
+        # Pooled tickers that 404 this run but aren't curated (neither nullified nor renamed).
+        # Recorded so the driver can surface them (e.g. via Slack) for triage into the right list.
+        self.uncurated_delisted_tickers: list[str] = []
 
         # Carry forward known-unfetchable tickers (nullified + renamed originals) without the API.
         for ticker_symbol in carry_forward_ids:
@@ -147,13 +150,15 @@ class YfinanceSource(DatasetSource):
                 and ticker_symbol in set_current
                 and ticker_symbol not in set_top_500
             ):
-                # Newly delisted: still in the question pool but no longer fetchable and out of
-                # the S&P 500, yet not in the curated nullified list. Carry the existing question
-                # row forward as resolved and warn so it can be added to nullified_questions.
+                # In the question pool, no longer fetchable, and out of the S&P 500, but not in any
+                # curated list: either newly delisted or newly renamed. Carry the existing row
+                # forward as resolved and record it so the driver can flag it for triage.
                 rows.append(self._carry_forward_resolved(ticker_symbol, dfq, current_time))
+                self.uncurated_delisted_tickers.append(ticker_symbol)
                 logger.warning(
-                    f"{ticker_symbol} detected as delisted (not in S&P 500 and fetch failed); "
-                    "consider adding it to nullified_questions"
+                    f"{ticker_symbol} failed to fetch and is no longer in the S&P 500 (likely "
+                    "delisted or renamed). If delisted, add it to nullified_questions; if renamed, "
+                    "add it to ticker_renames (mapping it to its replacement symbol)."
                 )
 
         return pd.DataFrame(rows)

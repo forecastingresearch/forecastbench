@@ -354,6 +354,27 @@ class TestSourceFetch:
         outco = dff[dff["id"] == "OUTCO"].iloc[0]
         assert bool(outco["resolved"]) is False
 
+    @patch("sources.yfinance.yf.Ticker")
+    @patch.object(YfinanceSource, "_fetch_one_stock")
+    @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
+    def test_records_uncurated_delisted_for_triage(
+        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+    ):
+        """A pooled ticker that 404s but isn't curated is recorded for triage; nullified/renamed
+        tickers (carried forward without fetching) are not."""
+        freeze_today(date(2026, 3, 18))
+        hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
+        mock_fetch_one.side_effect = lambda sym: (
+            ("Apple Inc.", hist) if sym == "AAPL" else (None, None)
+        )
+        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+
+        # ZZZZ: uncurated 404. WBA: nullified. FI: renamed original. Only ZZZZ is for triage.
+        dfq = make_question_df([{"id": "AAPL"}, {"id": "ZZZZ"}, {"id": "WBA"}, {"id": "FI"}])
+        yfinance_source.fetch(dfq=dfq)
+
+        assert yfinance_source.uncurated_delisted_tickers == ["ZZZZ"]
+
 
 class TestSourceFetchSkipsNullified:
     """Nullified (known-delisted) tickers are never fetched, only carried forward."""
