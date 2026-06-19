@@ -10,6 +10,8 @@ ifeq (,$(filter check-failures,$(MAKECMDGOALS)))
 endif
 endif
 
+.DEFAULT_GOAL := lint
+
 include *.mk
 export CLOUD_PROJECT
 export QUESTION_BANK_BUCKET
@@ -29,6 +31,9 @@ export BUILD_ENV
 export WORKSPACE_BUCKET
 
 export CLOUD_DEPLOY_REGION := us-central1
+
+export RUNTIME_STACK := google-24-full
+export PYTHON_RUNTIME := python$(subst .,,$(strip $(shell cat $(ROOT_DIR).python-version)))
 
 export LLM_BASELINE_DOCKER_IMAGE_NAME := llm-baselines
 export LLM_BASELINE_DOCKER_REPO_NAME := llm-baselines

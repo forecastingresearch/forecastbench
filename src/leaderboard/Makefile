@@ -11,15 +11,7 @@ TOURNAMENT_UPLOAD_DIR = upload-leaderboard-tournament
 BASELINE_UPLOAD_DIR = upload-leaderboard-baseline
 PRELIMINARY_UPLOAD_DIR = upload-leaderboard-preliminary
 
-.gcloudignore:
-	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
-
-Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
-	sed \
-		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
-		-e 's/STACK/google-22-full/g' \
-		-e 's/PYTHON_VERSION/python312/g' \
-		$< > Dockerfile
+include $(ROOT_DIR)deploy_config.mk
 
 NUM_CPUS = 8
 LEADERBOARD_DEPENDENCIES = main.py llm_identities.py requirements.txt Dockerfile .gcloudignore

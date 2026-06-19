@@ -15,9 +15,9 @@ jobs:
         submodules: true
 
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v7
       with:
-        python-version: '3.12'
+        python-version-file: '.python-version'
 
     - name: Install Python dependencies
       run: make setup-python-env

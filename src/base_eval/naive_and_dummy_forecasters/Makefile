@@ -6,15 +6,7 @@ all :
 
 UPLOAD_DIR = upload
 
-.gcloudignore:
-	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
-
-Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
-	sed \
-		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
-		-e 's/STACK/google-22-full/g' \
-		-e 's/PYTHON_VERSION/python312/g' \
-		$< > Dockerfile
+include $(ROOT_DIR)deploy_config.mk
 
 deploy : main.py .gcloudignore requirements.txt Dockerfile
 	rm -rf $(UPLOAD_DIR)

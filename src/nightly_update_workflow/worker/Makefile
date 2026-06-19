@@ -6,10 +6,9 @@ all :
 
 UPLOAD_DIR = upload
 
-Procfile:
-	cp -r $(ROOT_DIR)src/helpers/Procfile .
+include $(ROOT_DIR)deploy_config.mk
 
-deploy : main.py requirements.txt  Procfile
+deploy : main.py requirements.txt  Dockerfile
 	rm -rf $(UPLOAD_DIR)
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
@@ -34,4 +33,4 @@ deploy : main.py requirements.txt  Procfile
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR)
+	rm -rf $(UPLOAD_DIR) Dockerfile
