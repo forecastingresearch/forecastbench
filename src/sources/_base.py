@@ -33,8 +33,17 @@ class BaseSource(ABC):
     source_type: ClassVar[SourceType]
     source_intro: ClassVar[str]
     resolution_criteria: ClassVar[str]
-    nullified_questions: ClassVar[list[NullifiedQuestion]] = []
+    nullified_questions: ClassVar[list[NullifiedQuestion]]
     resolution_schema: ClassVar[type] = ResolutionFrame
+
+    # Source-specific metadata keys this source needs to even run, beyond the globally required set.
+    # Declared on the concrete subclass (e.g. yfinance -> {"ticker_renames"}) so a missing/typo'd key
+    # in SOURCE_METADATA fails loudly at class-definition time rather than late at runtime.
+    additional_required_metadata_keys: ClassVar[set[str]] = set()
+
+    # Test-only escape hatch. Every production source must have a SOURCE_METADATA entry; test stubs
+    # that exercise BaseSource directly set this True to opt out of that requirement.
+    _allow_missing_metadata: ClassVar[bool] = False
 
     def __init__(self) -> None:
         """Initialize with empty hash mapping."""
@@ -67,17 +76,26 @@ class BaseSource(ABC):
                 raise TypeError(f"Concrete source {cls.__name__} must define ClassVar '{attr}'")
 
         # Auto-populate from metadata
-        _REQUIRED_METADATA_KEYS = {"source_type", "source_intro", "resolution_criteria"}
+        _REQUIRED_METADATA_KEYS = {
+            "source_type",
+            "source_intro",
+            "resolution_criteria",
+            "nullified_questions",
+        }
         name = getattr(cls, "name", None)
-        if name and name in SOURCE_METADATA:
-            meta = SOURCE_METADATA[name]
-            missing = _REQUIRED_METADATA_KEYS - meta.keys()
-            if missing:
-                raise TypeError(
-                    f"SOURCE_METADATA['{name}'] missing required keys: {sorted(missing)}"
-                )
-            for key, value in meta.items():
-                setattr(cls, key, value)
+        if name not in SOURCE_METADATA:
+            if cls._allow_missing_metadata:
+                return
+            raise TypeError(
+                f"Concrete source {cls.__name__} (name={name!r}) has no entry in SOURCE_METADATA. "
+                "Add one in sources/_metadata.py."
+            )
+        meta = SOURCE_METADATA[name]
+        missing = (_REQUIRED_METADATA_KEYS | cls.additional_required_metadata_keys) - meta.keys()
+        if missing:
+            raise TypeError(f"SOURCE_METADATA['{name}'] missing required keys: {sorted(missing)}")
+        for key, value in meta.items():
+            setattr(cls, key, value)
 
     # ------------------------------------------------------------------
     # Public resolve interface
