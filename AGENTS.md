@@ -95,12 +95,10 @@ NB: `variables.mk` contains both runtime environment variables and variables tha
 
 ## Code style
 
-* Formatting: black (line length 100)
-* Import sorting: isort (black-compatible profile)
-* Linting: flake8
-* Docstrings: pydocstyle
+* Formatting + linting: ruff (`ruff format` for formatting, `ruff check` for imports, lint, and
+  docstrings), line length 100
 * Run `make lint` to apply formatting and check all of the above
-* Configuration is in `pyproject.toml` and `setup.cfg`
+* Configuration is in `pyproject.toml`
 * Functions should use type hints
 * Docstring format:
 

@@ -2,13 +2,34 @@
 testpaths = ["src/tests"]
 pythonpath = ["src"]
 
-[tool.black]
+[tool.ruff]
 line-length = 100
-force-exclude = '''
-(
-    ^/.venv.*
-    | ^/utils/
-    | ^/experiments/stability-analysis/
-    | ^/experiments/ranking-simulation/
-)
-'''
+src = ["src"]
+extend-exclude = [
+    "utils",
+    "experiments/stability-analysis",
+    "experiments/ranking-simulation",
+]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "B", "I", "D", "PLE0100", "PLE0101"]
+ignore = ["E203", "E701", "B9"]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 110
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.isort]
+known-first-party = ["utils"]
+
+[tool.ruff.lint.per-file-ignores]
+# These files hold long generated-data / LLM-prompt string literals whose overflow lines live
+# inside multi-line strings (so they can't carry an inline `# noqa`).
+"src/tests/**" = ["D"]
+"src/helpers/fred.py" = ["E501"]
+"src/helpers/llm_crowd_prompts.py" = ["E501"]
+"src/helpers/llm_prompts.py" = ["E501"]
+"src/sources/wikipedia.py" = ["E501"]
+"paper/source_table/main.py" = ["E501"]

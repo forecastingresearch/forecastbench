@@ -40,14 +40,12 @@ export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_B
 .PHONY: all clean lint test deploy
 
 MAKE_LINT_ERROR_OUT ?= 0
-ISORT_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check-only,)
-BLACK_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check,)
+RUFF_CHECK_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),,--fix)
+RUFF_FORMAT_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check,)
 
 lint:
-	isort $(ISORT_FLAGS) .
-	black $(BLACK_FLAGS) .
-	flake8 .
-	pydocstyle .
+	ruff check $(RUFF_CHECK_FLAGS) .
+	ruff format $(RUFF_FORMAT_FLAGS) .
 
 test: .venv
 	@. ${ROOT_DIR}.venv/bin/activate && python -m pytest src/tests/ $(ARGS)
