@@ -16,8 +16,8 @@ ORCHESTRATION_EXTRA_PACKAGES = resolve
 Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 	sed \
 		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
-		-e 's/STACK/google-22-full/g' \
-		-e 's/PYTHON_VERSION/python312/g' \
+		-e 's/STACK/$(RUNTIME_STACK)/g' \
+		-e 's/PYTHON_VERSION/$(PYTHON_RUNTIME)/g' \
 		$< > Dockerfile
 
 NUM_CPUS = 2
