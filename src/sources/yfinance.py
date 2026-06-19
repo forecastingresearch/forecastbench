@@ -27,6 +27,7 @@ class YfinanceSource(DatasetSource):
     """Yahoo Finance financial data source."""
 
     name: ClassVar[str] = "yfinance"
+    required_metadata_keys: ClassVar[set[str]] = {"ticker_renames"}
 
     # Pinned at the start of fetch()/update() so every downstream helper (via self.get_date_today())
     # observes one consistent date for the whole run, even if it straddles midnight.

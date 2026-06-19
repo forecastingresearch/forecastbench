@@ -21,6 +21,7 @@ SOURCE_METADATA = {
         "resolution_criteria": (
             "Resolves to the value calculated from the ACLED dataset once the data is published."
         ),
+        "nullified_questions": [],
     },
     "dbnomics": {
         "source_type": SourceType.DATASET,
@@ -32,6 +33,7 @@ SOURCE_METADATA = {
             "this data will resolve."
         ),
         "resolution_criteria": "Resolves to the value found at {url} once the data is published.",
+        "nullified_questions": [],
     },
     "fred": {
         "source_type": SourceType.DATASET,
@@ -61,6 +63,7 @@ SOURCE_METADATA = {
             "resolve as 'Yes'."
         ),
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
+        "nullified_questions": [],
     },
     "manifold": {
         "source_type": SourceType.MARKET,
@@ -71,6 +74,7 @@ SOURCE_METADATA = {
             "resolve as 'Yes'."
         ),
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
+        "nullified_questions": [],
     },
     "metaculus": {
         "source_type": SourceType.MARKET,
@@ -81,6 +85,7 @@ SOURCE_METADATA = {
             "resolve as 'Yes'."
         ),
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
+        "nullified_questions": [],
     },
     "polymarket": {
         "source_type": SourceType.MARKET,

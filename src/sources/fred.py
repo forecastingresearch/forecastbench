@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from _fb_types import NullifiedQuestion
-
 from ._dataset import DatasetSource
 from ._metadata import SOURCE_METADATA
 
@@ -20,9 +18,6 @@ class FredSource(DatasetSource):
     """Federal Reserve Economic Data source."""
 
     name: ClassVar[str] = "fred"
-    nullified_questions: ClassVar[list[NullifiedQuestion]] = SOURCE_METADATA["fred"][
-        "nullified_questions"
-    ]
 
     def fetch(self, **kwargs):
         """Fetch FRED data from external API."""
