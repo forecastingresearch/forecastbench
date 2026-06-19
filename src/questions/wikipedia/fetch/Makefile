@@ -6,15 +6,11 @@ all :
 
 UPLOAD_DIR = upload
 
-.gcloudignore:
-	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
-
-Procfile:
-	cp -r $(ROOT_DIR)src/helpers/Procfile .
+include $(ROOT_DIR)deploy_config.mk
 
 NUM_CPUS = 4
 
-deploy : main.py .gcloudignore requirements.txt Procfile
+deploy : main.py .gcloudignore requirements.txt Dockerfile
 	rm -rf $(UPLOAD_DIR)
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
@@ -41,4 +37,4 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore Procfile
+	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile

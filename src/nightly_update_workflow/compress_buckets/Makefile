@@ -6,8 +6,8 @@ all :
 
 UPLOAD_DIR = upload
 
-.gcloudignore:
-	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
+DOCKERFILE_TEMPLATE = Dockerfile.template
+include $(ROOT_DIR)deploy_config.mk
 
 deploy : main.py .gcloudignore requirements.txt Dockerfile
 	rm -rf $(UPLOAD_DIR)
@@ -35,4 +35,4 @@ deploy : main.py .gcloudignore requirements.txt Dockerfile
 		--source $(UPLOAD_DIR)
 
 clean :
-	rm -rf $(UPLOAD_DIR) .gcloudignore
+	rm -rf $(UPLOAD_DIR) .gcloudignore Dockerfile

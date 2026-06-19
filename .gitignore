@@ -1,6 +1,7 @@
 # Byte-compiled / optimized / DLL files
 *.mk
 !orchestration_upload.mk
+!deploy_config.mk
 upload*
 plotly_charts
 *.html
@@ -39,9 +40,6 @@ pip-delete-this-directory.txt
 
 # Parquet files
 *.parquet
-
-# pyenv
-.python-version
 
 # dotenv
 .env*
