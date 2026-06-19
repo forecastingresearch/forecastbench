@@ -8,6 +8,7 @@ import pytest
 
 from _fb_types import NullifiedQuestion, SourceType
 from sources._base import BaseSource
+from sources._metadata import SOURCE_METADATA
 from tests.conftest import make_forecast_df, make_question_df
 
 # ---------------------------------------------------------------------------
@@ -20,6 +21,8 @@ class _StubSource(BaseSource):
 
     name = "stub"
     source_type = SourceType.DATASET
+    nullified_questions = []
+    _allow_missing_metadata = True
 
     def _resolve(self, df, dfq, dfr):
         df["resolved_to"] = 1.0
@@ -38,6 +41,7 @@ class _StubSourceWithNullified(BaseSource):
 
     name = "stub_null"
     source_type = SourceType.DATASET
+    _allow_missing_metadata = True
     nullified_questions = [
         NullifiedQuestion(id="null_q1", nullification_start_date=date(2024, 6, 1)),
         NullifiedQuestion(id="null_q2", nullification_start_date=date(2025, 1, 1)),
@@ -72,7 +76,18 @@ class TestInitSubclass:
                 def _resolve(self, df, dfq, dfr):
                     return df
 
-    def test_valid_concrete_source_ok(self):
+    def test_valid_concrete_source_ok(self, monkeypatch):
+        monkeypatch.setitem(
+            SOURCE_METADATA,
+            "good",
+            {
+                "source_type": SourceType.MARKET,
+                "source_intro": "intro",
+                "resolution_criteria": "criteria",
+                "nullified_questions": [],
+            },
+        )
+
         # Should not raise
         class _GoodSource(BaseSource):
             name = "good"
@@ -80,6 +95,88 @@ class TestInitSubclass:
 
             def _resolve(self, df, dfq, dfr):
                 return df
+
+    def test_missing_metadata_entry_raises(self):
+        # A concrete source whose name has no SOURCE_METADATA entry (e.g. a typo) must fail at
+        # class-definition time rather than later at runtime.
+        with pytest.raises(TypeError, match="no entry in SOURCE_METADATA"):
+
+            class _NoMetadataSource(BaseSource):
+                name = "definitely_not_a_real_source"
+                source_type = SourceType.DATASET
+
+                def _resolve(self, df, dfq, dfr):
+                    return df
+
+    def test_missing_required_nullified_questions_raises(self, monkeypatch):
+        # nullified_questions is globally required; a source whose metadata omits it must fail at
+        # class-definition time, not silently default to "nothing nullified".
+        monkeypatch.setitem(
+            SOURCE_METADATA,
+            "fake_no_nullified",
+            {
+                "source_type": SourceType.DATASET,
+                "source_intro": "intro",
+                "resolution_criteria": "criteria",
+            },
+        )
+        with pytest.raises(TypeError, match="nullified_questions"):
+
+            class _BadNullified(BaseSource):
+                name = "fake_no_nullified"
+                source_type = SourceType.DATASET
+
+                def _resolve(self, df, dfq, dfr):
+                    return df
+
+    def test_missing_source_specific_required_key_raises(self, monkeypatch):
+        # A source-specific key declared via additional_required_metadata_keys but absent from SOURCE_METADATA
+        # must fail loudly at class-definition time.
+        monkeypatch.setitem(
+            SOURCE_METADATA,
+            "fake_missing_specific",
+            {
+                "source_type": SourceType.DATASET,
+                "source_intro": "intro",
+                "resolution_criteria": "criteria",
+                "nullified_questions": [],
+            },
+        )
+        with pytest.raises(TypeError, match="ticker_renames"):
+
+            class _BadSpecific(BaseSource):
+                name = "fake_missing_specific"
+                source_type = SourceType.DATASET
+                additional_required_metadata_keys = {"ticker_renames"}
+
+                def _resolve(self, df, dfq, dfr):
+                    return df
+
+    def test_additional_required_metadata_keys_satisfied_populates(self, monkeypatch):
+        # When a declared source-specific key is present, no raise and it's set on the class.
+        renames = [{"original_ticker": "FI", "replacement_ticker": "FISV"}]
+        monkeypatch.setitem(
+            SOURCE_METADATA,
+            "fake_with_specific",
+            {
+                "source_type": SourceType.DATASET,
+                "source_intro": "intro",
+                "resolution_criteria": "criteria",
+                "nullified_questions": [],
+                "ticker_renames": renames,
+            },
+        )
+
+        class _GoodSpecific(BaseSource):
+            name = "fake_with_specific"
+            source_type = SourceType.DATASET
+            additional_required_metadata_keys = {"ticker_renames"}
+
+            def _resolve(self, df, dfq, dfr):
+                return df
+
+        assert _GoodSpecific.ticker_renames == renames
+        assert _GoodSpecific.nullified_questions == []
 
 
 # ---------------------------------------------------------------------------
