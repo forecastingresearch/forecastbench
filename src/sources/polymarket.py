@@ -50,8 +50,7 @@ class FailedConditionIdsError(ValueError):
         """Initialize the error with the complete failed condition ID list."""
         self.condition_ids = list(condition_ids)
         super().__init__(
-            "Problem getting markets for condition ids: "
-            f"{json.dumps(self.condition_ids, indent=2)}"
+            f"Problem getting markets for condition ids: {json.dumps(self.condition_ids, indent=2)}"
         )
 
 

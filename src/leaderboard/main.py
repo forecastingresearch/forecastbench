@@ -213,11 +213,10 @@ TOOLTIP_COLUMN_DESCRIPTIONS = {
         f"Percentage of {N_REPLICATES:,} simulations in which this model ranked in the top 5%."
     ),
     "Peer": (
-        "Peer score relative to the average Brier score on each question. "
-        "Higher scores are better."
+        "Peer score relative to the average Brier score on each question. Higher scores are better."
     ),
     "BSS": (
-        "Brier Skill Score using the ForecastBench Naive Forecaster. " "Higher scores are better."
+        "Brier Skill Score using the ForecastBench Naive Forecaster. Higher scores are better."
     ),
 }
 
@@ -1891,10 +1890,10 @@ def write_leaderboard(
         col_name = get_comparison_p_val_col(comparison)
         col_name_simple = col_name + "_simple"
         df[col_name_simple] = df[col_name].apply(
-            lambda p: ("Yes" if p < 0.01 else "Likely" if p < 0.1 else "No")
+            lambda p: "Yes" if p < 0.01 else "Likely" if p < 0.1 else "No"
         )
         df[col_name] = df[col_name].apply(
-            lambda p: ("<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}")
+            lambda p: "<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}"
         )
         # Set the p-value for the best to N/A
         comparison_idx = get_comparison_model_index(df=df, comparison=comparison)
@@ -2061,10 +2060,10 @@ def write_preliminary_leaderboard(
         col_name = get_comparison_p_val_col(comparison)
         col_name_simple = col_name + "_simple"
         df[col_name_simple] = df[col_name].apply(
-            lambda p: ("Yes" if p < 0.01 else "Likely" if p < 0.1 else "No")
+            lambda p: "Yes" if p < 0.01 else "Likely" if p < 0.1 else "No"
         )
         df[col_name] = df[col_name].apply(
-            lambda p: ("<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}")
+            lambda p: "<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}"
         )
         # Set the p-value for the best to N/A
         comparison_idx = get_comparison_model_index(df=df, comparison=comparison)
@@ -2378,9 +2377,9 @@ def brier_skill_score(df: pd.DataFrame) -> pd.DataFrame:
     ref_brier_by_question = ref_data.set_index("question_pk")["brier_score"].to_dict()
 
     # Ensure the naive forecaster has forecast on all questions across all question sets
-    assert (
-        df["question_pk"].isin(ref_brier_by_question).all()
-    ), "Reference model must predict all questions across all question sets"
+    assert df["question_pk"].isin(ref_brier_by_question).all(), (
+        "Reference model must predict all questions across all question sets"
+    )
 
     # Calculate Brier skill score per question
     df["ref_brier"] = df["question_pk"].map(ref_brier_by_question)
@@ -2561,7 +2560,7 @@ def generate_simulated_leaderboards(
         return retval.drop(columns=["draw"])
 
     def bootstrap_and_score(idx):
-        logger.info(f"[replicate {idx+1}/{N}] starting...")
+        logger.info(f"[replicate {idx + 1}/{N}] starting...")
         df_bs = (
             df.groupby(["forecast_due_date", "source"])
             .apply(question_level_bootstrap, include_groups=False)

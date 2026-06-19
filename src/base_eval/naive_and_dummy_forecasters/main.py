@@ -358,7 +358,7 @@ def prepare_df_and_set_null_values(df, forecast_due_date, last_date_for_data):
 
     # Expand resolution dates
     df["resolution_dates"] = df.apply(
-        lambda x: ([] if x["source"] in resolution.MARKET_SOURCES else x["resolution_dates"]),
+        lambda x: [] if x["source"] in resolution.MARKET_SOURCES else x["resolution_dates"],
         axis=1,
     )
     df = df.explode("resolution_dates", ignore_index=True)

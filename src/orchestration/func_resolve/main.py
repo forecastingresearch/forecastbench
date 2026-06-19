@@ -123,8 +123,7 @@ def _print_question_set_breakdown(human_or_llm, forecast_due_date, df, df_orig_q
                     "." if n_combo == 0 else f", No. Combo Q's {n_combo:,}/{n_orig:,} Orig No. Q's."
                 )
                 logger.info(
-                    f" * {source} No. Single Q's: {n_single:,}/{n_orig:,} "
-                    f"Orig No. Q's{combo_info}"
+                    f" * {source} No. Single Q's: {n_single:,}/{n_orig:,} Orig No. Q's{combo_info}"
                 )
         n_single = get_df_len(df=df, single=True, sources=sources)
         n_combo = get_df_len(df=df, single=False, sources=sources)

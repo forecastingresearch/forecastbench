@@ -339,8 +339,7 @@ class InferSource(MarketSource):
         # --- Nullification ---
         if question["nullify_question"]:
             logger.warning(
-                f"Nullifying question {question['id']}. "
-                "Pushing np.nan values to resolution file."
+                f"Nullifying question {question['id']}. Pushing np.nan values to resolution file."
             )
             if existing_df is None or existing_df.empty:
                 return pd.DataFrame(

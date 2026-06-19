@@ -588,7 +588,8 @@ class TestFetch:
         mock_search.side_effect = [
             {"100", "200"},  # base search
         ] + [
-            {"100", "300"} if i == 0 else set() for i in range(14)  # 14 categories
+            {"100", "300"} if i == 0 else set()
+            for i in range(14)  # 14 categories
         ]
 
         dff = metaculus_source.fetch()
