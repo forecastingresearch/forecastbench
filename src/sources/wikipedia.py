@@ -207,7 +207,6 @@ class WikipediaSource(DatasetSource):
         raise NotImplementedError
 
 
-# flake8: noqa: B950
 _TRANSFORM_ID_MAPPING = {
     # Below is a list of IDs that have changed since question sets were released for reasons
     # explained below.

@@ -12,8 +12,6 @@ SOURCE_INTRO = _META["source_intro"]
 RESOLUTION_CRITERIA = _META["resolution_criteria"]
 NULLIFIED_IDS = [nq.id for nq in _META["nullified_questions"]]
 
-# flake8: noqa: B950
-
 fred_questions = [
     {
         "id": "AAA10Y",
