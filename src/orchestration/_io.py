@@ -223,9 +223,13 @@ def upload_hash_mapping(raw_json: str, source_name: str) -> None:
 
 
 def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set_filename: str):
-    """Upload resolution set to GCS and push to git."""
-    from helpers import git  # noqa: E402
+    """Upload resolution set to GCS.
 
+    The resolution set is only uploaded to the bucket here. Pushing the resolution sets to git
+    happens later in a single commit via `push_all_resolution_sets`, run as its own Cloud Run job
+    once all (parallel) resolution tasks have finished. This avoids the race condition that
+    occurred when each parallel task cloned and pushed to the git repository independently.
+    """
     basename = f"{forecast_due_date}_resolution_set.json"
     local_filename = f"/tmp/{basename}"
     df = df[["id", "source", "direction", "resolution_date", "resolved_to", "resolved"]]
@@ -248,14 +252,53 @@ def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set
     )
     logger.info(f"Uploaded Resolution File {local_filename} to {upload_folder}.")
 
+
+def push_all_resolution_sets() -> None:
+    """Push every resolution set in the bucket to the git dataset repo in a single commit.
+
+    The parallel resolution tasks each upload their resolution set to `PUBLIC_RELEASE_BUCKET`
+    (see `upload_resolution_set`). This function gathers all of those files and pushes them to
+    git in one commit, so only a single process ever clones and pushes to the repository. This
+    removes the race condition that arose when each parallel task pushed independently.
+    """
+    from helpers import git  # noqa: E402
+
+    if env.RUNNING_LOCALLY:
+        logger.info("Running locally; not pushing resolution sets to git.")
+        return
+
+    folder = "datasets/resolution_sets"
+    blob_names = gcp.storage.list_with_prefix(
+        bucket_name=env.PUBLIC_RELEASE_BUCKET,
+        prefix=folder,
+    )
+
+    files = {}
+    for blob_name in blob_names:
+        basename = os.path.basename(blob_name)
+        if not basename.endswith("_resolution_set.json"):
+            continue
+        local_filename = f"/tmp/{basename}"
+        gcp.storage.download(
+            bucket_name=env.PUBLIC_RELEASE_BUCKET,
+            filename=blob_name,
+            local_filename=local_filename,
+        )
+        files[local_filename] = f"{folder}/{basename}"
+
+    if not files:
+        logger.warning(f"No resolution sets found under {folder}; nothing to push.")
+        return
+
     mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
     mirrors = [mirrors] if mirrors else []
     git.clone_and_push_files(
         repo_url=keys.API_GITHUB_DATASET_REPO_URL,
-        files={local_filename: f"{upload_folder}/{basename}"},
-        commit_message=f"resolution set: automatic update for {question_set_filename}.",
+        files=files,
+        commit_message="resolution sets: automatic update.",
         mirrors=mirrors,
     )
+    logger.info(f"Pushed {len(files)} resolution sets to git in a single commit.")
 
 
 def upload_processed_forecast_file(data: dict, forecast_due_date: str, filename: str):

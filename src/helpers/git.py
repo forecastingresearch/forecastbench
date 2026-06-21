@@ -84,6 +84,15 @@ def clone_and_push_files(
         shutil.copy(source, full_destination_path, follow_symlinks=False)
         repo.index.add([destination])
 
+    # Skip the commit/push if none of the staged files differ from what's already in the repo.
+    # This avoids empty commits: the resolution-set push job re-adds every resolution set every
+    # night, but on nights where nothing changed there is nothing to commit.
+    if not repo.index.diff(repo.head.commit):
+        logger.info(f"No changes to push to {repo_url}; skipping commit.")
+        os.remove(tmp_key_file_path)
+        shutil.rmtree(local_repo_dir, ignore_errors=True)
+        return
+
     error_encountered = False
     author = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
     committer = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
