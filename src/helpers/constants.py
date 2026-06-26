@@ -152,6 +152,7 @@ EXTERNAL_TOURNAMENT_MODELS_TO_LOGO = {
     "limeforecast": "limeforecast.png",
     "Voicetree": "voicetree.png",
     "Artificial Judgement": "artificial-judgement.png",
+    "TorchcastAI": "torchcastai.svg",
 }
 
 ORG_TO_LOGO = {
