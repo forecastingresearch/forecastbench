@@ -140,6 +140,7 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Voicetree": "voicetree.png",
     "Artificial Judgement": "artificial-judgement.png",
     "FutureSearch": "futuresearch.svg",
+    "Torchcast AI": "torchcastai.svg",
 }
 
 ORG_TO_LOGO = {
