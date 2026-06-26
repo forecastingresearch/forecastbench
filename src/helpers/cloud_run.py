@@ -103,6 +103,9 @@ def block_and_check_job_result(
         logger.info("Succeeded!" if succeeded else "Failed.")
         logger.info(f"Elapsed job time: {minutes}m{seconds}s.\n")
 
+        if not succeeded:
+            raise RuntimeError(f"Job `{name}` completed without a successful Completed condition.")
+
     except Exception as e:
         message = f"Job `{name}` failed with exception:\n\n{e}"
         logger.error(message)

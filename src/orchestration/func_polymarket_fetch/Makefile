@@ -5,6 +5,8 @@ all :
 .PHONY : all clean deploy
 
 UPLOAD_DIR = upload
+ROOT_DIR ?= $(abspath ../../..)/
+include $(ROOT_DIR)orchestration_upload.mk
 
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
@@ -17,16 +19,7 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 		$< > Dockerfile
 
 deploy : main.py .gcloudignore requirements.txt Dockerfile
-	mkdir -p $(UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/helpers
-	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/sources
-	mkdir -p $(UPLOAD_DIR)/orchestration
-	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/orchestration/_source_io.py $(UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_schemas.py $(UPLOAD_DIR)/
-	cp $^ $(UPLOAD_DIR)/
+	$(stage-orchestration-upload)
 	gcloud run jobs deploy \
 		func-data-polymarket-fetch \
 		--project $(CLOUD_PROJECT) \

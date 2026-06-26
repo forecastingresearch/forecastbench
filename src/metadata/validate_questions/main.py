@@ -8,6 +8,7 @@ import time
 
 import pandas as pd
 from tqdm.asyncio import tqdm_asyncio
+from utils import gcp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import (  # noqa: E402
@@ -15,14 +16,9 @@ from helpers import (  # noqa: E402
     data_utils,
     decorator,
     env,
-    llm_prompts,
-    model_eval,
-    question_curation,
-    wikipedia,
+    metadata_llm,
+    metadata_prompts,
 )
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))  # noqa: E402
-from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,13 +27,12 @@ logger = logging.getLogger(__name__)
 async def _validate_single_question(index, question, semaphore):
     """Validate a single question asynchronously."""
     async with semaphore:
-        prompt = llm_prompts.VALIDATE_QUESTION_PROMPT.format(question=question)
+        prompt = metadata_prompts.VALIDATE_QUESTION_PROMPT.format(question=question)
         try:
             response = await asyncio.to_thread(
-                model_eval.get_response_from_model,
-                model_name=question_curation.METADATA_MODEL_NAME,
+                metadata_llm.get_metadata_model_response,
                 prompt=prompt,
-                max_tokens=500,
+                max_output_tokens=500,
             )
             if "Classification:" not in response:
                 logger.error(f"'Classification:' not in response for: {question}")
@@ -95,6 +90,8 @@ def validate_questions(dfq):
 @decorator.log_runtime
 def driver(_):
     """Pull in fetched data and update question metadata in question bank."""
+    from helpers import question_curation, wikipedia
+
     local_filename = f"/tmp/{constants.META_DATA_FILENAME}"
     dfmeta = data_utils.download_and_read(
         filename=constants.META_DATA_FILENAME,

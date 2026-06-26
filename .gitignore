@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 *.mk
+!orchestration_upload.mk
 upload*
 plotly_charts
 *.html

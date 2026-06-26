@@ -8,9 +8,9 @@ import os
 from typing import Iterable
 
 import pandas as pd
+from utils import gcp
 
 from helpers import constants, data_utils, env
-from utils import gcp
 
 logger = logging.getLogger(__name__)
 

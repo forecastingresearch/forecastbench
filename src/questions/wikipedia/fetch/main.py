@@ -16,12 +16,10 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from urllib3.util.retry import Retry
+from utils import gcp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
 from helpers import data_utils, decorator, env, wikipedia  # noqa: E402
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
-from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

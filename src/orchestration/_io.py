@@ -8,24 +8,34 @@ from __future__ import annotations
 import json
 import logging
 import os
+import posixpath
 import re
-import tempfile
 from datetime import datetime
-from typing import TextIO
+from pathlib import Path
+from typing import Any, TextIO
+from urllib.parse import quote
+from urllib.request import urlopen
 
 import pandas as pd
 import pandera.pandas as pa
 from termcolor import colored
+from utils import gcp
 
 from _fb_types import QuestionBank, SourceQuestionBank
 from _schemas import AcledResolutionFrame, QuestionFrame, ResolutionFrame
-from helpers import constants, data_utils, dates, env, keys
+from helpers import data_utils, dates, env
+from helpers.run_mode import RunMode
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource
-from utils import gcp
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+DATASETS_QUESTION_SETS_RAW_BASE_URL = (
+    "https://raw.githubusercontent.com/forecastingresearch/forecastbench-datasets"
+    "/refs/heads/main/datasets/question_sets"
+)
+QUESTION_SET_READ_TIMEOUT_SECONDS = 30
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +235,7 @@ def upload_hash_mapping(raw_json: str, source_name: str) -> None:
 def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set_filename: str):
     """Upload resolution set to GCS and push to git."""
     from helpers import git  # noqa: E402
+    from helpers import keys  # noqa: E402
 
     basename = f"{forecast_due_date}_resolution_set.json"
     local_filename = f"/tmp/{basename}"
@@ -271,38 +282,132 @@ def upload_processed_forecast_file(data: dict, forecast_due_date: str, filename:
     )
 
 
+def write_json_file(local_filename: str | os.PathLike, data: Any) -> None:
+    """Write JSON data to a local file."""
+    path = Path(local_filename)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{json.dumps(data, indent=4)}\n", encoding="utf-8")
+
+
+def write_text_file(local_filename: str | os.PathLike, text: str) -> None:
+    """Write text to a local file."""
+    path = Path(local_filename)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def append_text_file(local_filename: str | os.PathLike, text: str) -> None:
+    """Append text to a local file."""
+    path = Path(local_filename)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(text)
+
+
+def write_forecast_file(local_filename: str | os.PathLike, data: dict) -> None:
+    """Write a forecast JSON file."""
+    write_json_file(local_filename, data)
+
+
+def forecast_file_exists(filename: str) -> bool:
+    """Return whether a forecast file already exists in the forecast-sets bucket."""
+    return gcp.storage.file_exists(
+        bucket_name=env.FORECAST_SETS_BUCKET,
+        filename=filename,
+    )
+
+
+def upload_forecast_file(local_filename: str | os.PathLike, filename: str) -> None:
+    """Upload a local forecast file to the forecast-sets bucket."""
+    gcp.storage.upload(
+        bucket_name=env.FORECAST_SETS_BUCKET,
+        local_filename=str(local_filename),
+        filename=filename,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Question set download
 # ---------------------------------------------------------------------------
 
 
-def download_and_read_question_set_file(filename: str, run_locally: bool = False) -> pd.DataFrame:
-    """Download question set JSON from GCS and return questions as DataFrame.
+def _normalize_question_set_filename(filename: str) -> str:
+    """Return a safe relative question-set filename for the datasets repo raw URL."""
+    normalized_filename = posixpath.normpath(filename)
+    if (
+        filename.startswith("/")
+        or normalized_filename in {".", ".."}
+        or normalized_filename.startswith("../")
+    ):
+        raise ValueError(f"Question set filename must be relative: {filename}")
+
+    return normalized_filename
+
+
+def _question_set_raw_url(filename: str) -> str:
+    """Return the raw GitHub URL for a published question-set file."""
+    normalized_filename = _normalize_question_set_filename(filename)
+    return f"{DATASETS_QUESTION_SETS_RAW_BASE_URL}/{quote(normalized_filename, safe='/')}"
+
+
+def _read_published_question_set_json(filename: str) -> dict:
+    """Read a question-set JSON object from the published datasets repo."""
+    with urlopen(
+        _question_set_raw_url(filename),
+        timeout=QUESTION_SET_READ_TIMEOUT_SECONDS,
+    ) as f:
+        content = f.read()
+
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pointer = content.decode("utf-8").strip()
+        if filename == "latest-llm.json" and pointer.endswith(".json"):
+            return _read_published_question_set_json(pointer)
+        raise
+
+
+def read_question_set_json(filename: str, run_locally: bool = False) -> dict:
+    """Download/read question set JSON and return the raw parsed object.
 
     Args:
-        filename: GCS path or local path to the question set JSON.
+        filename: Published dataset repo question-set filename or local path to the JSON.
         run_locally: If True, read from local path instead of downloading.
     """
-    local_filename = filename
-    if not run_locally:
-        with tempfile.NamedTemporaryFile(dir="/tmp/", delete=False) as tmp:
-            local_filename = tmp.name
-        gcp.storage.download(
-            bucket_name=env.QUESTION_SETS_BUCKET,
-            filename=filename,
-            local_filename=local_filename,
-        )
+    if run_locally:
+        with open(filename, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = _read_published_question_set_json(filename)
 
-    with open(local_filename, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        questions = data.get("questions")
-
-    if not run_locally:
-        os.remove(local_filename)
-
-    if questions is None:
+    if not isinstance(data, dict) or data.get("questions") is None:
         raise ValueError(f"Could not download/load question set {filename}")
 
+    return data
+
+
+def get_latest_llm_question_set_metadata(run_locally: bool = False) -> dict[str, str]:
+    """Return forecast due date and question set filename for the latest LLM set."""
+    data = read_question_set_json("latest-llm.json", run_locally=run_locally)
+    forecast_due_date = data.get("forecast_due_date")
+    question_set = data.get("question_set")
+    if not forecast_due_date or not question_set:
+        raise ValueError("Latest LLM question set metadata is missing required fields")
+    return {
+        "forecast_due_date": forecast_due_date,
+        "question_set": question_set,
+    }
+
+
+def download_and_read_question_set_file(filename: str, run_locally: bool = False) -> pd.DataFrame:
+    """Read question set JSON and return questions as DataFrame.
+
+    Args:
+        filename: Published dataset repo question-set filename or local path to the JSON.
+        run_locally: If True, read from local path instead of the published dataset repo.
+    """
+    data = read_question_set_json(filename, run_locally=run_locally)
+    questions = data.get("questions")
     df = pd.DataFrame(questions)
     df = BaseSource._make_columns_hashable(df)
     return df
@@ -327,7 +432,8 @@ def get_valid_forecast_files_and_dates(
     files = [
         f
         for f in files
-        if f.endswith(".json") and not f.startswith(constants.TEST_FORECAST_FILE_PREFIX)
+        if f.endswith(".json")
+        and not posixpath.basename(f).startswith(RunMode.TEST.output_file_prefix)
     ]
     if only_keep_date:
         return [f for f in files if f.startswith(only_keep_date)]

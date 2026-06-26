@@ -22,22 +22,24 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 		$< > Dockerfile
 
 NUM_CPUS = 8
+LEADERBOARD_DEPENDENCIES = main.py llm_identities.py requirements.txt Dockerfile .gcloudignore
 
 define PREPARE_UPLOAD_DIR
 	rm -rf $1
 	mkdir -p $1
-	cp -r $(ROOT_DIR)utils $1/
 	cp -r $(ROOT_DIR)src/helpers $1/
+	cp -r $(ROOT_DIR)src/llm_forecaster $1/
 	cp -r $(ROOT_DIR)src/sources $1/
 	cp $(ROOT_DIR)src/_fb_types.py $1/
 	cp $(ROOT_DIR)src/_schemas.py $1/
 	mkdir -p $1/orchestration
 	cp $(ROOT_DIR)src/orchestration/__init__.py $1/orchestration/
 	cp $(ROOT_DIR)src/orchestration/_io.py $1/orchestration/
-	cp main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore $1/
+	cp $(LEADERBOARD_DEPENDENCIES) $1/
+	cat $(ROOT_DIR)requirements.runtime.txt requirements.txt > $1/requirements.txt
 endef
 
-deploy-tournament : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
+deploy-tournament : $(LEADERBOARD_DEPENDENCIES)
 	$(call PREPARE_UPLOAD_DIR,$(TOURNAMENT_UPLOAD_DIR))
 	gcloud run jobs deploy \
 		func-leaderboard-tournament \
@@ -59,7 +61,7 @@ deploy-tournament : main.py requirements.txt Dockerfile model_release_dates.csv 
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_TYPE=tournament \
 		--source $(TOURNAMENT_UPLOAD_DIR)
 
-deploy-baseline : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
+deploy-baseline : $(LEADERBOARD_DEPENDENCIES)
 	$(call PREPARE_UPLOAD_DIR,$(BASELINE_UPLOAD_DIR))
 	gcloud run jobs deploy \
 		func-leaderboard-baseline \
@@ -81,7 +83,7 @@ deploy-baseline : main.py requirements.txt Dockerfile model_release_dates.csv .g
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_TYPE=baseline \
 		--source $(BASELINE_UPLOAD_DIR)
 
-deploy-preliminary : main.py requirements.txt Dockerfile model_release_dates.csv .gcloudignore
+deploy-preliminary : $(LEADERBOARD_DEPENDENCIES)
 	$(call PREPARE_UPLOAD_DIR,$(PRELIMINARY_UPLOAD_DIR))
 	gcloud run jobs deploy \
 		func-leaderboard-preliminary \

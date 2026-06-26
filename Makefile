@@ -18,6 +18,7 @@ export QUESTION_SETS_BUCKET
 export WORKFLOW_SERVICE_ACCOUNT
 export LLM_BASELINE_SERVICE_ACCOUNT
 export FORECAST_SETS_BUCKET
+export FORECAST_SETS_TRANSCRIPTS_BUCKET
 export PROCESSED_FORECAST_SETS_BUCKET
 export PUBLIC_RELEASE_BUCKET
 export WEBSITE_BUCKET
@@ -35,13 +36,18 @@ export LLM_BASELINE_PUB_SUB_TOPIC_NAME := run-llm-baselines
 
 export BUCKET_MOUNT_POINT := /mnt
 
-export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET),WEBSITE_BUCKET=$(WEBSITE_BUCKET),WEBSITE_STAGING_ASSETS_BUCKET=$(WEBSITE_STAGING_ASSETS_BUCKET),CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION),LLM_BASELINE_DOCKER_IMAGE_NAME=$(LLM_BASELINE_DOCKER_IMAGE_NAME),LLM_BASELINE_DOCKER_REPO_NAME=$(LLM_BASELINE_DOCKER_REPO_NAME),LLM_BASELINE_STAGING_BUCKET=$(LLM_BASELINE_STAGING_BUCKET),LLM_BASELINE_SERVICE_ACCOUNT=$(LLM_BASELINE_SERVICE_ACCOUNT),LLM_BASELINE_PUB_SUB_TOPIC_NAME=$(LLM_BASELINE_PUB_SUB_TOPIC_NAME),RUNNING_LOCALLY=0,BUCKET_MOUNT_POINT=$(BUCKET_MOUNT_POINT),WORKSPACE_BUCKET=$(WORKSPACE_BUCKET)
+export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),GOOGLE_CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),FORECAST_SETS_TRANSCRIPTS_BUCKET=$(FORECAST_SETS_TRANSCRIPTS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET),WEBSITE_BUCKET=$(WEBSITE_BUCKET),WEBSITE_STAGING_ASSETS_BUCKET=$(WEBSITE_STAGING_ASSETS_BUCKET),CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION),LLM_BASELINE_DOCKER_IMAGE_NAME=$(LLM_BASELINE_DOCKER_IMAGE_NAME),LLM_BASELINE_DOCKER_REPO_NAME=$(LLM_BASELINE_DOCKER_REPO_NAME),LLM_BASELINE_STAGING_BUCKET=$(LLM_BASELINE_STAGING_BUCKET),LLM_BASELINE_SERVICE_ACCOUNT=$(LLM_BASELINE_SERVICE_ACCOUNT),LLM_BASELINE_PUB_SUB_TOPIC_NAME=$(LLM_BASELINE_PUB_SUB_TOPIC_NAME),RUNNING_LOCALLY=0,BUCKET_MOUNT_POINT=$(BUCKET_MOUNT_POINT),WORKSPACE_BUCKET=$(WORKSPACE_BUCKET)
 
-.PHONY: all clean lint test deploy
+.PHONY: all clean lint test deploy install-requirements setup-python-env
 
 MAKE_LINT_ERROR_OUT ?= 0
 ISORT_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check-only,)
 BLACK_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check,)
+VENV_PYTHON := .venv/bin/python
+ROOT_REQUIREMENTS_STAMP := .venv/.root-requirements-installed
+ALL_REQUIREMENTS_STAMP := .venv/.all-requirements-installed
+ROOT_REQUIREMENTS_NO_RUNTIME := .venv/.root-requirements-no-runtime.txt
+SRC_REQUIREMENTS := $(shell find src -type f -name requirements.txt ! -path '*/upload/*')
 
 lint:
 	isort $(ISORT_FLAGS) .
@@ -49,7 +55,7 @@ lint:
 	flake8 .
 	pydocstyle .
 
-test: .venv
+test: setup-python-env
 	@. ${ROOT_DIR}.venv/bin/activate && python -m pytest src/tests/ $(ARGS)
 
 clean:
@@ -61,20 +67,31 @@ clean:
 		fi ; \
 	done
 
-.venv:
+$(VENV_PYTHON):
+	rm -rf .venv
 	python3 -m venv .venv
 
-install-requirements: .venv
-	@. ${ROOT_DIR}.venv/bin/activate && ${ROOT_DIR}/.venv/bin/python3 -m pip install -r requirements.txt
+.venv: $(VENV_PYTHON)
+
+$(ROOT_REQUIREMENTS_STAMP): Makefile requirements.txt requirements.runtime.txt | $(VENV_PYTHON)
+	@grep -v -x -- "-r requirements.runtime.txt" requirements.txt > $(ROOT_REQUIREMENTS_NO_RUNTIME)
+	@. ${ROOT_DIR}.venv/bin/activate && python -m pip install -r requirements.runtime.txt
+	@. ${ROOT_DIR}.venv/bin/activate && python -m pip install -r $(ROOT_REQUIREMENTS_NO_RUNTIME)
+	@touch $@
+
+$(ALL_REQUIREMENTS_STAMP): Makefile $(ROOT_REQUIREMENTS_STAMP) $(SRC_REQUIREMENTS)
 	@find src -type d | while read dir; do \
 		if [ -f "$$dir/Makefile" ] && [ -f "$$dir/requirements.txt" ]; then \
 			echo "\nInstalling requirements in $$dir"; \
-			(cd $$dir && . ${ROOT_DIR}/.venv/bin/activate && python3 -m pip install -r requirements.txt); \
+			(cd $$dir && . ${ROOT_DIR}/.venv/bin/activate && python -m pip install -r requirements.txt) || exit $$?; \
 			echo "Installation complete in $$dir\n"; \
 		fi; \
 	done
+	@touch $@
 
-setup-python-env: .venv install-requirements
+install-requirements: $(ALL_REQUIREMENTS_STAMP)
+
+setup-python-env: install-requirements
 	@:
 
 check-failures:
@@ -122,7 +139,7 @@ create-question-set:
 publish-question-set:
 	$(MAKE) -C src/curate_questions/publish_question_set || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
-baselines: llm-baselines naive-and-dummy-forecasters
+baselines: llm-forecaster naive-and-dummy-forecasters
 
 manifold: manifold-fetch manifold-update-questions
 
@@ -226,13 +243,13 @@ nightly-worker-job:
 nightly-manager-job:
 	$(MAKE) -C src/nightly_update_workflow/manager || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
-llm-baselines: llm-baseline-manager llm-baseline-worker
+llm-forecaster: llm-forecaster-manager llm-forecaster-worker
 
-llm-baseline-manager:
-	$(MAKE) -C src/base_eval/llm_baselines/manager || echo "* $@" >> $(MAKE_FAILURE_LOG)
+llm-forecaster-manager:
+	$(MAKE) -C src/orchestration/func_llm_forecaster_manager || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
-llm-baseline-worker:
-	$(MAKE) -C src/base_eval/llm_baselines/worker || echo "* $@" >> $(MAKE_FAILURE_LOG)
+llm-forecaster-worker:
+	$(MAKE) -C src/orchestration/func_llm_forecaster_worker || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 compress_buckets:
 	$(MAKE) -C src/nightly_update_workflow/compress_buckets || echo "* $@" >> $(MAKE_FAILURE_LOG)

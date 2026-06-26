@@ -5,6 +5,10 @@ all:
 .PHONY: all clean deploy
 
 UPLOAD_DIR = upload
+ROOT_DIR ?= $(abspath ../../..)/
+include $(ROOT_DIR)orchestration_upload.mk
+
+ORCHESTRATION_EXTRA_PACKAGES = llm_forecaster
 
 .gcloudignore:
 	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
@@ -16,28 +20,21 @@ Dockerfile: $(ROOT_DIR)src/helpers/Dockerfile.template
 		-e 's/PYTHON_VERSION/python312/g' \
 		$< > Dockerfile
 
-NUM_CPUS = 8
+NUM_CPUS = 4
 
 deploy : main.py .gcloudignore requirements.txt Dockerfile
-	mkdir -p $(UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
-	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
-	cp $(ROOT_DIR)src/_schemas.py $(UPLOAD_DIR)/
-	mkdir -p $(UPLOAD_DIR)/orchestration
-	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
-	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
-	cp $^ $(UPLOAD_DIR)/
+	$(stage-orchestration-upload)
 	gcloud run jobs deploy \
-		func-baseline-llm-forecasts-worker \
+		func-llm-forecaster-worker \
 		--project $(CLOUD_PROJECT) \
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
-		--task-timeout 1m \
-		--memory 8Gi \
+		--task-timeout 24h \
+		--memory 16Gi \
 		--cpu $(NUM_CPUS) \
 		--max-retries 0 \
+		--add-volume name=$(FORECAST_SETS_BUCKET),type=cloud-storage,bucket=$(FORECAST_SETS_BUCKET) \
+		--add-volume-mount volume=$(FORECAST_SETS_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(FORECAST_SETS_BUCKET) \
 		--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT) \
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),FORECAST_DUE_DATE=,TEST_OR_PROD=TEST \
 		--source $(UPLOAD_DIR)

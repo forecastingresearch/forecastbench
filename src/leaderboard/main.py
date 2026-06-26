@@ -19,8 +19,14 @@ from pandas._libs.tslibs.nattype import NaTType
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 from termcolor import colored
+from utils.llm import model_runs
+from utils.llm.lab_registry import LABS
+from utils.llm.provider_registry import PROVIDERS
 
+sys.path.append(os.path.dirname(__file__))
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+import llm_identities  # noqa: E402
+
 from helpers import (  # noqa: E402
     constants,
     data_utils,
@@ -31,6 +37,10 @@ from helpers import (  # noqa: E402
     question_curation,
     resolution,
     slack,
+)
+from llm_forecaster.forecast_variants import (  # noqa: E402
+    ALL_FORECAST_VARIANT_KEYS_WITH_CONTEXT,
+    ALL_FORECAST_VARIANT_KEYS_WITHOUT_CONTEXT,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -85,7 +95,6 @@ HUMAN_PUBLIC = {
 
 HUMAN_MODELS = [HUMAN_SUPERFORECASTER, HUMAN_PUBLIC]
 HUMAN_MODELS_TO_HIGHLIGHT = [m["model"] for m in HUMAN_MODELS]
-
 LEADERBOARD_DECIMAL_PLACES = 1
 
 IMPUTED_CUTOFF_PCT = 5
@@ -95,6 +104,50 @@ MIN_NUM_DATASET_QUESTIONS = 225
 MODEL_RELEASE_DAYS_CUTOFF = 365
 
 BRIER_INDEX_COL_PREFIX = "brier_index"
+
+LLM_LAB_ORG_TO_LOGO = {
+    LABS["Anthropic"].name: "anthropic.svg",
+    LABS["DeepSeek"].name: "deepseek.svg",
+    LABS["Moonshot"].name: "moonshot.svg",
+    LABS["MiniMax"].name: "minimax.svg",
+    LABS["Google DeepMind"].name: "deepmind.svg",
+    LABS["Meta"].name: "meta.svg",
+    LABS["Mistral AI"].name: "mistral.svg",
+    LABS["OpenAI"].name: "openai.svg",
+    LABS["Qwen"].name: "qwen.svg",
+    LABS["xAI"].name: "xai.svg",
+    LABS["Z.ai"].name: "zai.svg",
+}
+
+LLM_PROVIDER_ORG_TO_LOGO = {
+    PROVIDERS["Google"].name: "deepmind.svg",
+}
+
+LEGACY_ORG_TO_LOGO = {
+    "Moonshot": "moonshot.svg",
+    "Minimax": "minimax.svg",
+    "Mistral": "mistral.svg",
+}
+
+EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
+    "Cassi-AI": "cassi-ai.png",
+    "FractalAIResearch": "fractal-ai.png",
+    "Lightning Rod Labs": "lightningrod.jpg",
+    "LightningRodLabs": "lightningrod.jpg",
+    "Mantic": "mantic.jpg",
+    "Stochastic Radiant": "stochastic-radiant.svg",
+    "limeforecast": "limeforecast.png",
+    "Voicetree": "voicetree.png",
+    "Artificial Judgement": "artificial-judgement.png",
+}
+
+ORG_TO_LOGO = {
+    constants.BENCHMARK_NAME: "fri.svg",
+    **LLM_LAB_ORG_TO_LOGO,
+    **LLM_PROVIDER_ORG_TO_LOGO,
+    **LEGACY_ORG_TO_LOGO,
+    **EXTERNAL_TOURNAMENT_ORG_TO_LOGO,
+}
 
 _ANON_TEAM_RE = re.compile(r"^anonymous\s+(\d+)$", re.IGNORECASE)
 _ANON_LOGO_DESTINATION = "anonymous_logos"
@@ -145,26 +198,43 @@ _ANON_LOGO_TEMPLATE = """<svg
 """
 
 
+def get_org_logo(org: str) -> str:
+    """Return the logo filename for a leaderboard organization or team."""
+    logo = ORG_TO_LOGO.get(org)
+    if logo is not None:
+        return logo
+
+    match = _ANON_TEAM_RE.match(org.strip())
+    if match:
+        num = int(match.group(1))
+        if num >= 1:
+            return f"anonymous_{num}.svg"
+
+    return "default.svg"
+
+
 SIM_BOOTSTRAP_COL_PREFIX = "bootstrap"
 
 N_REPLICATES = 1999 if not env.RUNNING_LOCALLY else 5
-
-df_release_dates = pd.read_csv("model_release_dates.csv")
-df_release_dates["model_release_date"] = pd.to_datetime(
-    df_release_dates["model_release_date"], errors="coerce"
-)
 
 ALWAYS_05_MODEL = {
     "organization": "ForecastBench",
     "model": "Always 0.5",
 }
 
-FORECASTBENCH_CREATED_DUMMY_MODEL_NAMES = {
+ENSEMBLE_COMPARISON_MODELS = (
+    "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean log odds with news",
+    "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean with news",
+    "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) median with news",
+)
+
+FORECASTBENCH_COMPARISON_MODEL_NAMES = {
     "Always 0",
     "Always 1",
     "Always 0.5",
     "Random Uniform",
     "Imputed Forecaster",
+    *ENSEMBLE_COMPARISON_MODELS,
     BASELINE_ORG_NAIVE_MODEL["model"],
     HUMAN_PUBLIC["model"],
     HUMAN_SUPERFORECASTER["model"],
@@ -360,6 +430,22 @@ def set_model_pk(df: pd.DataFrame) -> pd.DataFrame:
         df (pd.DataFrame): Forecast set with `model_pk` field.
     """
     df["model_pk"] = df["organization"] + "_" + df["model_organization"] + "_" + df["model"]
+    if not df["forecastbench_llm"].any():
+        return df
+
+    for identity_col in ("model_run_key", "forecast_variant_key"):
+        if df[identity_col].isna().any():
+            raise ValueError(f"Missing {identity_col} for ForecastBench LLM models.")
+
+    df["model_pk"] = (
+        df["organization"]
+        + "_"
+        + df["model_organization"]
+        + "_"
+        + df["model_run_key"]
+        + "_"
+        + df["forecast_variant_key"]
+    )
     return df
 
 
@@ -426,13 +512,17 @@ def filter_forecast_files_by_min_resolved_questions(
         return forecast_files, valid_dates
 
     dates_to_keep = []
-    for date in valid_dates:
-        naive_filename = data_utils.get_forecast_filename(date, BASELINE_ORG_NAIVE_MODEL["model"])
+    for forecast_due_date in valid_dates:
+        naive_filename = data_utils.get_forecast_filename(
+            forecast_due_date, BASELINE_ORG_NAIVE_MODEL["model"]
+        )
         data = resolution.read_forecast_file(
-            filename=f"{local_forecast_set_dir}/{date}/{naive_filename}"
+            filename=f"{local_forecast_set_dir}/{forecast_due_date}/{naive_filename}"
         )
         if data is None:
-            logger.warning(f"Could not read Naive Forecaster file for {date}. Excluding date.")
+            logger.warning(
+                f"Could not read Naive Forecaster file for {forecast_due_date}. Excluding date."
+            )
             continue
 
         df = resolution.make_columns_hashable(data["df"])
@@ -443,13 +533,14 @@ def filter_forecast_files_by_min_resolved_questions(
             n_resolved = masks[mask_key].sum()
             if n_resolved < min_count:
                 logger.info(
-                    f"Excluding forecast due date {date}: {n_resolved} resolved {mask_key} "
-                    f"questions (minimum required: {min_count})."
+                    f"Excluding forecast due date {forecast_due_date}: "
+                    f"{n_resolved} resolved {mask_key} questions "
+                    f"(minimum required: {min_count})."
                 )
                 keep = False
                 break
         if keep:
-            dates_to_keep.append(date)
+            dates_to_keep.append(forecast_due_date)
 
     forecast_files = [f for f in forecast_files if f.split("/")[0] in dates_to_keep]
     return forecast_files, dates_to_keep
@@ -464,7 +555,8 @@ def get_df_info(
 
     Args:
         df (pd.DataFrame): Forecast set.
-        org_and_model (Dict[str, str]): The organization and model associated with the forecast set.
+        org_and_model (Dict[str, str]): Normalized organization/model identity associated with the
+            forecast set.
         forecast_due_date (str): Forecast due date in 'YYYY-MM-DD' format.
 
     Returns:
@@ -532,10 +624,45 @@ def get_df_info(
     if not df[df["question_pk"] == ""].empty:
         raise ValueError(f"Error assigning `question_pk` {org_and_model}.")
 
-    # Set team info
-    df["organization"] = org_and_model["organization"]
-    df["model"] = org_and_model["model"]
-    df["model_organization"] = org_and_model["model_organization"]
+    # Set team info. ForecastBench LLM identities were already normalized in
+    # `llm_identities.normalize_llm_identity`
+    for col, value in org_and_model.items():
+        df[col] = value
+
+    # Set info about the model
+    df["external_submission"] = df["organization"] != constants.BENCHMARK_NAME
+    df["forecastbench_llm"] = (df["organization"] == constants.BENCHMARK_NAME) & (
+        df["model_organization"] != constants.BENCHMARK_NAME
+    )
+    df["forecastbench_comparison_model"] = df["model"].isin(FORECASTBENCH_COMPARISON_MODEL_NAMES)
+    unclassified_forecastbench_model = (
+        ~df["external_submission"]
+        & ~df["forecastbench_llm"]
+        & ~df["forecastbench_comparison_model"]
+    )
+    if unclassified_forecastbench_model.any():
+        unclassified_models = "\n".join(
+            sorted(df.loc[unclassified_forecastbench_model, "model"].unique())
+        )
+        message = (
+            f"{constants.BENCHMARK_NAME} model is not classified as an external submission, "
+            "ForecastBench LLM, or comparison model:\n"
+            f"{unclassified_models}"
+        )
+        slack.send_message(message)
+        raise ValueError(message)
+    uses_tools = df.get("uses_tools", pd.Series(False, index=df.index))
+    forecast_variant_key = df.get("forecast_variant_key", pd.Series(pd.NA, index=df.index))
+    baseline_forecast_variant = forecast_variant_key.isin(ALL_FORECAST_VARIANT_KEYS_WITHOUT_CONTEXT)
+    tournament_forecast_variant = forecast_variant_key.isin(ALL_FORECAST_VARIANT_KEYS_WITH_CONTEXT)
+    df["baseline_model"] = df["forecastbench_comparison_model"] | (
+        df["forecastbench_llm"] & baseline_forecast_variant & ~uses_tools
+    )
+    df["tournament_model"] = (
+        df["external_submission"]
+        | df["forecastbench_comparison_model"]
+        | (df["forecastbench_llm"] & (tournament_forecast_variant | uses_tools))
+    )
     df = set_model_pk(df)
 
     return df.sort_values(by=["forecast_due_date", "source", "id"], ignore_index=True)
@@ -1766,8 +1893,8 @@ def write_leaderboard_js_files(
     df = df.copy()
     df["Team Name"] = df["Team"]
     write_anonymous_logos(df["Team Name"].tolist())
-    df["Model Organization Logo"] = df["Model Organization"].apply(constants.get_org_logo)
-    df["Team"] = df["Team"].apply(constants.get_org_logo)
+    df["Model Organization Logo"] = df["Model Organization"].apply(get_org_logo)
+    df["Team"] = df["Team"].apply(get_org_logo)
 
     leaderboards = [
         write_leaderboard_js_file_compact(df=df, leaderboard_type=leaderboard_type),
@@ -2137,8 +2264,8 @@ def write_preliminary_leaderboard(
     )
     df_js["Team Name"] = df_js["Team"]
     write_anonymous_logos(df_js["Team Name"].tolist())
-    df_js["Model Organization Logo"] = df_js["Model Organization"].apply(constants.get_org_logo)
-    df_js["Team"] = df_js["Team"].apply(constants.get_org_logo)
+    df_js["Model Organization Logo"] = df_js["Model Organization"].apply(get_org_logo)
+    df_js["Team"] = df_js["Team"].apply(get_org_logo)
 
     js_result = write_preliminary_leaderboard_js_file_full(df=df_js)
     data_utils.write_file_to_bucket(
@@ -2184,9 +2311,7 @@ def brier_score(df: pd.DataFrame) -> pd.DataFrame:
 def filter_to_baseline_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
     """Filter to models used for the baseline leaderboard.
 
-    Keeps: ForecastBench-created benchmark models and ForecastBench LLM models
-    that use the exact "(zero shot)" variant.
-    Drops external submissions and other ForecastBench LLM variants.
+    Keeps rows preclassified as baseline models.
 
     Args:
         df (pd.DataFrame): Combined forecast set.
@@ -2195,29 +2320,13 @@ def filter_to_baseline_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: Filtered dataframe with baseline leaderboard models.
     """
     df = df.copy()
-    is_forecastbench_submission = df["organization"] == constants.BENCHMARK_NAME
-    is_forecastbench_created_dummy_model = (
-        is_forecastbench_submission
-        & (df["model_organization"] == constants.BENCHMARK_NAME)
-        & df["model"].isin(FORECASTBENCH_CREATED_DUMMY_MODEL_NAMES)
-    )
-    is_forecastbench_llm_submission = is_forecastbench_submission & (
-        df["model_organization"] != constants.BENCHMARK_NAME
-    )
-    has_baseline_variant = df["model"].str.contains("(zero shot)", regex=False) | df[
-        "model"
-    ].str.contains("(scratchpad)", regex=False)
-    is_forecastbench_llm_baseline_variant = is_forecastbench_llm_submission & has_baseline_variant
-    keep_mask = is_forecastbench_created_dummy_model | is_forecastbench_llm_baseline_variant
-    return df[keep_mask].reset_index(drop=True)
+    return df[df["baseline_model"]].reset_index(drop=True)
 
 
 def filter_to_tournament_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
     """Filter to models used for the tournament leaderboard.
 
-    Keeps: external submissions, ForecastBench-created models (dummy baselines
-    and human forecasts), and ForecastBench LLM models that contain tournament
-    variant keywords (freeze values, news, web search).
+    Keeps rows preclassified as tournament models.
 
     Args:
         df (pd.DataFrame): Leaderboard or forecast data.
@@ -2226,27 +2335,7 @@ def filter_to_tournament_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: Filtered dataframe.
     """
     df = df.copy()
-    is_forecastbench_submission = df["organization"] == constants.BENCHMARK_NAME
-    is_external_submission = ~is_forecastbench_submission
-    is_forecastbench_created_dummy_model = (
-        is_forecastbench_submission
-        & (df["model_organization"] == constants.BENCHMARK_NAME)
-        & df["model"].isin(FORECASTBENCH_CREATED_DUMMY_MODEL_NAMES)
-    )
-    has_tournament_variant = df["model"].str.contains(
-        "with freeze values|with news|with SECOND news|with web search"
-    )
-    is_forecastbench_llm_tournament_variant = (
-        is_forecastbench_submission
-        & (df["model_organization"] != constants.BENCHMARK_NAME)
-        & has_tournament_variant
-    )
-    keep_mask = (
-        is_external_submission
-        | is_forecastbench_created_dummy_model
-        | is_forecastbench_llm_tournament_variant
-    )
-    return df[keep_mask].reset_index(drop=True)
+    return df[df["tournament_model"]].reset_index(drop=True)
 
 
 def two_way_fixed_effects(
@@ -2295,13 +2384,11 @@ def two_way_fixed_effects(
             #   value at t-1).
             # * consider its 0.5 forecast for dataset questions
             "Imputed Forecaster",
+            *ENSEMBLE_COMPARISON_MODELS,
         ]
         forecastbench_model_mask = ~df_fe["model"].isin(forecastbench_models_to_drop)
         df_fe = df_fe[forecastbench_model_mask]
-
-        # Remove external participants
-        forecastbench_submission_mask = df_fe["organization"] == constants.BENCHMARK_NAME
-        df_fe = df_fe[forecastbench_submission_mask]
+        df_fe = df_fe[~df_fe["external_submission"]]
 
         # Remove models with old release dates
         org_mask = df_fe["model_organization"] == constants.BENCHMARK_NAME
@@ -2425,6 +2512,31 @@ def score_models(
     # function in the list.
     col_to_count_to_calculate_n = scoring_funcs[0].__name__
 
+    forecastbench_llm_identity_cols = [
+        col for col in llm_identities.LLM_IDENTITY_COLUMNS if col in df.columns
+    ]
+    leaderboard_model_type_cols = [
+        col
+        for col in (
+            "external_submission",
+            "forecastbench_llm",
+            "forecastbench_comparison_model",
+        )
+        if col in df.columns
+    ]
+    leaderboard_identity_cols = [
+        "organization",
+        "model_organization",
+        "model",
+        "model_pk",
+        *leaderboard_model_type_cols,
+        *forecastbench_llm_identity_cols,
+    ]
+    leaderboard_merge_cols = [
+        *leaderboard_identity_cols,
+        "first_forecast_due_date",
+    ]
+
     results = []
     question_fixed_effects = {}
     for question_type in ["dataset", "market"]:
@@ -2453,16 +2565,13 @@ def score_models(
             ].drop_duplicates(ignore_index=True)
             df_qt = df_qt.drop(columns="question_fixed_effect")
 
-        # Calculate the mean score for the question type for each model
-        # Also count the N for the question type
+        # Calculate the mean score for each model identity while preserving display and
+        # ForecastBench LLM identity columns on the leaderboard row. Non-LLM reference models have
+        # null LLM identity fields, so keep null grouping keys instead of dropping those rows.
         question_type_result = (
             df_qt.groupby(
-                [
-                    "organization",
-                    "model_organization",
-                    "model",
-                    "model_pk",
-                ]
+                leaderboard_identity_cols,
+                dropna=False,
             )
             .agg(
                 **{
@@ -2475,7 +2584,7 @@ def score_models(
                         "count",
                     )
                 },
-                first_forecast_due_date=("first_forecast_due_date", "first"),
+                first_forecast_due_date=("first_forecast_due_date", "min"),
             )
             .reset_index()
         )
@@ -2485,13 +2594,7 @@ def score_models(
     df_leaderboard = pd.merge(
         results[0],
         results[1],
-        on=[
-            "organization",
-            "model_organization",
-            "model",
-            "model_pk",
-            "first_forecast_due_date",
-        ],
+        on=leaderboard_merge_cols,
         how="outer",
     )
 
@@ -2910,61 +3013,35 @@ def get_model_release_date_info(
     Returns:
         pd.DataFrame: The input DataFrame with additional columns 'model_age_at_due_date'
             (if `add_model_age_at_due_date` is True) and/or 'model_release_date' (if
-            `add_model_release_date` is True). Rows with missing release dates are excluded.
+            `add_model_release_date` is True). ForecastBench-created benchmark models are
+            retained with missing release dates. ForecastBench LLM release dates come from
+            `model_run_key`.
     """
+    df = df.copy()
     cols_to_return = df.columns.tolist()
-    df_forecastbench_models = df[df["organization"] == constants.BENCHMARK_NAME].copy()
-    df_external_submissions = df[df["organization"] != constants.BENCHMARK_NAME].copy()
 
-    # Set model release dates for external submissions to the forecast_due_date
-    df_external_submissions["model_release_date"] = df_external_submissions[
-        "first_forecast_due_date"
-    ]
-
-    df_with_release_dates = pd.merge(
-        df_forecastbench_models,
-        df_release_dates,
-        how="inner",
-        on="model",
+    df["model_release_date"] = pd.NaT
+    df.loc[df["external_submission"], "model_release_date"] = pd.to_datetime(
+        df.loc[df["external_submission"], "first_forecast_due_date"],
+        errors="raise",
     )
-
-    # Send a message to Slack if models were dropped from the df because their release date was
-    # missing in `df_release_dates`. Prefer this to stopping processing.
-    outer = pd.merge(
-        df_forecastbench_models,
-        df_release_dates,
-        how="outer",
-        on="model",
-        indicator=True,
-    )
-    dropped_models = sorted(outer.loc[outer["_merge"] == "left_only", "model"].unique())
-    if dropped_models:
-        slack.send_message(
-            f"\n*{constants.BENCHMARK_NAME} Models dropped from consideration in 2wfe "
-            + "estimation:*\n```"
-            + "\n".join(dropped_models)
-            + "```"
+    df.loc[df["forecastbench_llm"], "model_release_date"] = pd.to_datetime(
+        df.loc[df["forecastbench_llm"], "model_run_key"].map(
+            lambda model_run_key: model_runs.get_model_run(model_run_key).release_date
         )
-
-    df_with_release_dates = pd.concat(
-        [df_with_release_dates, df_external_submissions],
-        ignore_index=True,
     )
+    df["model_release_date"] = pd.to_datetime(df["model_release_date"]).dt.date
 
     if add_model_release_date:
         cols_to_return += ["model_release_date"]
 
     if add_model_age_at_due_date:
         cols_to_return += ["model_age_at_due_date"]
-        df_with_release_dates["model_age_at_due_date"] = (
-            pd.to_datetime(df_with_release_dates["forecast_due_date"])
-            - pd.to_datetime(df_with_release_dates["model_release_date"])
+        df["model_age_at_due_date"] = (
+            pd.to_datetime(df["forecast_due_date"]) - pd.to_datetime(df["model_release_date"])
         ).dt.days
 
-    df_with_release_dates["model_release_date"] = pd.to_datetime(
-        df_with_release_dates["model_release_date"]
-    ).dt.date
-    return df_with_release_dates[cols_to_return].reset_index(drop=True)
+    return df[cols_to_return]
 
 
 def find_sota_models(
@@ -3399,6 +3476,7 @@ def make_preliminary_leaderboard(
         add_model_age_at_due_date=True,
         add_model_release_date=False,
     )
+    df = filter_to_tournament_leaderboard_models(df=df)
 
     primary_scoring_func = two_way_fixed_effects
     scoring_funcs = [
@@ -3424,8 +3502,6 @@ def make_preliminary_leaderboard(
         N=N_REPLICATES,
     )
 
-    # Filter to tournament-eligible models for the preliminary leaderboard.
-    df_leaderboard = filter_to_tournament_leaderboard_models(df=df_leaderboard)
     kept_model_pks = set(df_leaderboard["model_pk"])
     df_simulated_scores_dataset = df_simulated_scores_dataset.loc[
         df_simulated_scores_dataset.index.isin(kept_model_pks)
@@ -3505,6 +3581,15 @@ def download_and_compile_processed_forecast_files(
         organization = data.get("organization")
         model = data.get("model")
         model_organization = data.get("model_organization")
+        org_and_model = llm_identities.normalize_llm_identity(
+            {
+                "organization": organization,
+                "model": model,
+                "model_organization": model_organization,
+                "model_run_key": data.get("model_run_key"),
+                "forecast_variant_key": data.get("forecast_variant_key"),
+            }
+        )
         leaderboard_eligible = data.get("leaderboard_eligible")
         forecast_due_date = data.get("forecast_due_date")
         df = data.get("df")
@@ -3512,11 +3597,7 @@ def download_and_compile_processed_forecast_files(
         if leaderboard_eligible:
             process_forecast_file(
                 leaderboard_entries=leaderboard_entries,
-                org_and_model={
-                    "organization": organization,
-                    "model": model,
-                    "model_organization": model_organization,
-                },
+                org_and_model=org_and_model,
                 df=df,
                 forecast_due_date=forecast_due_date,
             )

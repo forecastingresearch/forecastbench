@@ -84,6 +84,22 @@ class ResolveReadyFrame(ExplodedQuestionSetFrame):
     market_value_on_due_date: Series[float] = pa.Field(nullable=True)
 
 
+class ForecastFrame(pa.DataFrameModel):
+    """What forecasters submit."""
+
+    id: Series[object]
+    source: Series[str]
+    forecast: Series[float]
+    resolution_date: Series[str] = pa.Field(nullable=True)
+    reasoning: Series[str]
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = False
+
+
 class InferFetchFrame(QuestionFrame):
     """Output of InferSource.fetch(). QuestionFrame plus transient fields for update()."""
 

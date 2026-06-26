@@ -4,15 +4,12 @@ import json
 import logging
 import os
 import shutil
-import sys
 from typing import Tuple
 
 import pandas as pd
+from utils import archiving, gcp
 
 from . import constants, env
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))  # noqa: E402
-from utils import archiving, gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
