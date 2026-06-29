@@ -30,6 +30,7 @@ FB_MODEL_RUN_KEYS = [
     "claude-sonnet-4-5-20250929-run-variant-01",
     "claude-sonnet-4-6-run-variant-01",
     "claude-sonnet-4-6-run-variant-03",
+    "claude-sonnet-5-run-variant-01",
     "claude-opus-4-7-run-variant-01",
     "claude-opus-4-8-run-variant-01",
     "claude-opus-4-8-run-variant-03",
@@ -37,10 +38,11 @@ FB_MODEL_RUN_KEYS = [
     "grok-4.20-0309-reasoning-run-variant-01",
     "grok-4.20-0309-non-reasoning-run-variant-01",
     "grok-4.3-run-variant-01",
+    "grok-4.3-run-variant-02",
     "gemini-3.5-flash-run-variant-01",
-    "gemini-3.5-flash-run-variant-02",
     "gemini-3.1-pro-preview-run-variant-01",
     "gemini-3.1-pro-preview-run-variant-02",
+    "gemini-3.1-pro-preview-run-variant-03",
     "gemini-3.1-flash-lite-run-variant-01",
 ]
 

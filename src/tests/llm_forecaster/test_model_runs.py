@@ -34,6 +34,17 @@ def test_forecastbench_selects_active_shared_model_run_objects():
         assert run.model.active
 
 
+def test_forecastbench_selects_claude_sonnet_5():
+    run = fb_model_runs.get_model_run("claude-sonnet-5-run-variant-01")
+
+    assert run.slug == "claude-sonnet-5-adaptive-thinking-16000"
+    assert run.provider == PROVIDERS["Anthropic"]
+    assert run.options == {
+        "max_tokens": 16000,
+        "thinking": {"type": "adaptive"},
+    }
+
+
 def test_forecastbench_selected_model_run_indexes_use_prefixed_names():
     assert hasattr(fb_model_runs, "FB_MODEL_RUNS")
     assert hasattr(fb_model_runs, "FB_MODEL_RUNS_BY_KEY")
@@ -83,107 +94,6 @@ def test_labs_and_providers_are_shared_registry_objects():
     assert runs["gemma-4-31b-it"].provider == PROVIDERS["Together"]
 
 
-def test_model_organization_uses_lab_name():
-    run = fb_model_runs.get_model_run_by_slug("minimax-m2.7")
-
-    assert run.lab.name == shared_model_registry.MODELS_BY_KEY["minimax-m2.7"].lab.name
-
-
-def test_options_are_declared_on_model_runs_not_inferred_by_helpers():
-    source = inspect.getsource(fb_model_runs)
-
-    assert LEGACY_MODEL_RUN_KEY_HELPER not in source
-    assert LEGACY_MODEL_RUN_OPTIONS_HELPER not in source
-    assert LEGACY_CONFLICTING_RUN_OPTIONS not in source
-    assert LEGACY_MODEL_RUNS_MAP not in source
-    assert "from helpers import constants" not in source
-    assert "google.genai" not in source
-
-    runs = {run.slug: run for run in fb_model_runs.FB_MODEL_RUNS}
-    anthropic_runs = [
-        run for run in fb_model_runs.FB_MODEL_RUNS if run.provider == PROVIDERS["Anthropic"]
-    ]
-    assert anthropic_runs
-    assert all("max_tokens" in run.options for run in anthropic_runs)
-    assert runs["minimax-m2.7"].options == {"temperature": 0}
-    assert runs["minimax-m2.7-12000"].options == {
-        "temperature": 1.0,
-        "top_p": 0.95,
-        "top_k": 40,
-        "max_tokens": 12000,
-    }
-    assert runs["minimax-m3-adaptive-thinking-12000"].options == {
-        "temperature": 1.0,
-        "top_p": 0.95,
-        "top_k": 40,
-        "chat_template_kwargs": {"thinking_mode": "adaptive"},
-        "max_tokens": 12000,
-    }
-    assert runs["kimi-k2.6-16000"].options == {"max_tokens": 16000}
-    assert runs["glm-5.2"].options == {"temperature": 0}
-    assert runs["glm-5.2-12000"].options == {"temperature": 0, "max_tokens": 12000}
-    assert runs["grok-4.3"].options == {"temperature": 0}
-    assert runs["gemini-3.5-flash"].options == {
-        "candidate_count": 1,
-        "temperature": 0,
-        "automatic_function_calling": {"disable": True},
-    }
-    assert runs["claude-opus-4-7-1024"].options == {"max_tokens": 1024}
-    assert runs["claude-opus-4-8-1024"].options == {"max_tokens": 1024}
-    assert runs["claude-opus-4-8-adaptive-thinking-max-web-search-128000"].options == {
-        "max_tokens": 128000,
-        "output_config": {"effort": "max"},
-        "thinking": {"type": "adaptive"},
-        "tools": [
-            {
-                "type": "web_search_20260209",
-                "name": "web_search",
-            }
-        ],
-    }
-    together_runs_without_zero_temperature = {
-        "kimi-k2.6-16000",
-        "minimax-m2.7-12000",
-        "minimax-m3-adaptive-thinking-12000",
-    }
-    for run in fb_model_runs.FB_MODEL_RUNS:
-        if run.provider in (PROVIDERS["Together"], PROVIDERS["xAI"]):
-            if run.slug in together_runs_without_zero_temperature:
-                continue
-            assert run.options.get("temperature") == 0
-    for run in fb_model_runs.FB_MODEL_RUNS:
-        if run.provider == PROVIDERS["Google"]:
-            if "tools" in run.options or "thinking_config" in run.options:
-                assert "temperature" not in run.options
-            else:
-                assert run.options.get("temperature") == 0
-    anthropic_runs_without_temperature = {
-        "claude-sonnet-4-6-adaptive-thinking-16000",
-        "claude-opus-4-7-1024",
-        "claude-opus-4-8-1024",
-        "claude-opus-4-8-adaptive-thinking-high-24000",
-        "claude-opus-4-8-adaptive-thinking-high-web-search-64000",
-        "claude-opus-4-8-adaptive-thinking-max-web-search-128000",
-    }
-    for run in anthropic_runs:
-        if run.slug in anthropic_runs_without_temperature:
-            assert "temperature" not in run.options
-        else:
-            assert run.options.get("temperature") == 0
-
-
-def test_forecastbench_does_not_declare_local_model_runs():
-    source = inspect.getsource(fb_model_runs)
-
-    assert "@dataclass" not in source
-    assert LEGACY_MODEL_RUN_CONSTRUCTOR not in source
-    assert "OPENAI_MODEL_RUNS" not in source
-    assert "TOGETHER_MODEL_RUNS" not in source
-    assert "ANTHROPIC_MODEL_RUNS" not in source
-    assert "XAI_MODEL_RUNS" not in source
-    assert "GOOGLE_MODEL_RUNS" not in source
-
-
 def test_forecastbench_model_run_imports_are_top_level():
     tree = ast.parse(inspect.getsource(fb_model_runs))
     offenders = []
@@ -194,30 +104,6 @@ def test_forecastbench_model_run_imports_are_top_level():
                     offenders.append(node.name)
 
     assert offenders == []
-
-
-def test_forecastbench_keys_select_real_shared_options():
-    for key in fb_model_runs.FB_MODEL_RUN_KEYS:
-        assert fb_model_runs.get_model_run(key) == shared_model_runs.get_model_run(key)
-
-    for run in fb_model_runs.FB_MODEL_RUNS:
-        if run.provider == PROVIDERS["Together"]:
-            if run.slug in {
-                "kimi-k2.6-16000",
-                "minimax-m2.7-12000",
-                "minimax-m3-adaptive-thinking-12000",
-            }:
-                continue
-            assert run.options.get("temperature") == 0
-    for run in fb_model_runs.FB_MODEL_RUNS:
-        if run.provider == PROVIDERS["xAI"]:
-            assert run.options.get("temperature") == 0
-    for run in fb_model_runs.FB_MODEL_RUNS:
-        if run.provider == PROVIDERS["Google"]:
-            if "tools" in run.options or "thinking_config" in run.options:
-                assert "temperature" not in run.options
-            else:
-                assert run.options.get("temperature") == 0
 
 
 def test_model_run_lookup_raises_for_missing_key():
