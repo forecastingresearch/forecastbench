@@ -179,19 +179,24 @@ def process_questions(
     return processed_questions
 
 
-def human_sample_questions(values: dict, n_single: int) -> pd.DataFrame:
+def human_sample_questions(
+    values: dict, n_single: int, rng: random.Random | None = None
+) -> pd.DataFrame:
     """Get questions for the human question set by sampling from LLM questions.
 
     Args:
         values (dict): Source data dict containing "dfq" DataFrame
         n_single (int): Number of questions to sample
+        rng (random.Random | None): Seeded RNG for reproducible sampling. ``None`` (the default)
+            uses the module-global ``random``.
 
     Returns
         dfq (pd.DataFrame): Randomly sampled questions
     """
     dfq = values["dfq"].copy()
     indices_to_sample_from = dfq.index.tolist()
-    indices = random.sample(indices_to_sample_from, min(n_single, len(indices_to_sample_from)))
+    sampler = rng or random
+    indices = sampler.sample(indices_to_sample_from, min(n_single, len(indices_to_sample_from)))
     return dfq.loc[indices]
 
 
