@@ -299,7 +299,7 @@ class TestSourceFetch:
         row = dff[dff["id"] == "AAPL"].iloc[0]
         assert bool(row["resolved"]) is False
         assert row["url"] == "https://finance.yahoo.com/quote/AAPL"
-        assert float(row["probability"]) == 254.23
+        assert float(row["freeze_datetime_value"]) == 254.23
 
     @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=[])
@@ -316,7 +316,6 @@ class TestSourceFetch:
         row = dff[dff["id"] == "OLDCO"].iloc[0]
         assert bool(row["resolved"]) is True
         assert row["freeze_datetime_value"] == "N/A"
-        assert pd.isna(row["probability"])
         assert row["question"] == "legacy question"  # original question text preserved
 
     @patch("sources.yfinance.yf.Ticker")
@@ -539,7 +538,6 @@ class TestSourceUpdate:
                     "background": "Hess Corporation.",
                     "resolved": True,
                     "freeze_datetime_value": "N/A",
-                    "probability": float("nan"),
                 }
             ]
         )
