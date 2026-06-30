@@ -564,15 +564,22 @@ class TestGetMarket:
         with pytest.raises(ConditionIdMarketNotFoundError):
             polymarket_source._get_market("0x001")
 
+    @patch("sources.polymarket.time.sleep")
     @patch("sources.polymarket.requests.get")
-    def test_http_error_propagates(self, mock_get, polymarket_source):
-        """An HTTP error is not swallowed — it propagates."""
-        resp = Mock()
-        resp.raise_for_status.side_effect = requests.exceptions.HTTPError("500")
-        mock_get.return_value = resp
+    def test_transient_error_then_success(self, mock_get, _mock_sleep, polymarket_source):
+        """A transient HTTP error (e.g. a 500 blip) is retried via backoff and then succeeds."""
+        market = make_polymarket_api_market()
+        err_resp = Mock()
+        err_resp.raise_for_status.side_effect = requests.exceptions.HTTPError("500")
+        mock_get.side_effect = [
+            err_resp,  # first attempt: transient 500
+            self._mock_response([market]),  # retry: open-market match
+        ]
 
-        with pytest.raises(requests.exceptions.HTTPError):
-            polymarket_source._get_market("0xabc123")
+        result = polymarket_source._get_market("0xabc123")
+
+        assert result == market
+        assert mock_get.call_count == 2
 
 
 # ---------------------------------------------------------------------------
