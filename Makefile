@@ -30,6 +30,9 @@ export WORKSPACE_BUCKET
 
 export CLOUD_DEPLOY_REGION := us-central1
 
+export RUNTIME_STACK := google-24-full
+export PYTHON_RUNTIME := python314
+
 export LLM_BASELINE_DOCKER_IMAGE_NAME := llm-baselines
 export LLM_BASELINE_DOCKER_REPO_NAME := llm-baselines
 export LLM_BASELINE_PUB_SUB_TOPIC_NAME := run-llm-baselines

@@ -1,4 +1,4 @@
-FROM REGION-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/python312
+FROM REGION-docker.pkg.dev/serverless-runtimes/STACK/runtimes/PYTHON_VERSION
 
 RUN whoami || echo "whoami not found"
 
