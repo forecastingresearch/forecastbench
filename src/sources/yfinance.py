@@ -53,9 +53,13 @@ class YfinanceSource(DatasetSource):
         """Fetch S&P 500 stock data from Yahoo Finance.
 
         The ticker universe is the union of the current S&P 500 constituents and any tickers
-        already in the question bank. Tickers that are still in the question pool but have dropped
-        out of the S&P 500 and can no longer be fetched are marked resolved (delisted) using their
-        existing question row.
+        already in the question bank, minus the tickers that are known to 404 on every run:
+        curated nullified (known-delisted) tickers and renamed originals (whose data is served
+        under their replacement symbol). Those are never fetched; the noise would only hide
+        genuinely-new delistings. Any of them still in the pool are carried forward as resolved
+        using their existing question row. Tickers that are still in the pool, have dropped out of
+        the S&P 500, and can no longer be fetched (but are not yet curated) are likewise marked
+        resolved.
 
         Args:
             dfq (DataFrame[QuestionFrame] | None): Existing question bank.
@@ -63,17 +67,49 @@ class YfinanceSource(DatasetSource):
         top_500 = self._get_sp500_tickers()
         set_top_500 = set(top_500)
         set_current = set(dfq["id"].unique()) if dfq is not None and "id" in dfq.columns else set()
-        all_tickers = list(set_top_500 | set_current)
+
+        # Tickers we never fetch because they 404 on every run and only add log noise that masks
+        # genuinely-new delistings: curated nullified (known-delisted) tickers, and renamed
+        # originals (their price data is served under the replacement symbol; update() rebuilds
+        # their resolution file from it). Drop both from the universe up front and carry their
+        # existing question rows forward as resolved.
+        nullified_ids = self.get_nullified_ids()
+        renamed_original_ids = {entry["original_ticker"] for entry in self.ticker_renames}
+        skip_fetch_ids = nullified_ids | renamed_original_ids
+        all_tickers = list((set_top_500 | set_current) - skip_fetch_ids)
+
+        nullified_in_pool = sorted(set_current & nullified_ids)
+        renamed_in_pool = sorted(set_current & renamed_original_ids)
+        carry_forward_ids = sorted(set_current & skip_fetch_ids)
 
         logger.info(
-            f"Stock tickers not in top 500 but in current stocks: {set_current - set_top_500}"
+            "Stock tickers not in top 500 but in current stocks (excluding known-unfetchable): "
+            f"{set_current - set_top_500 - skip_fetch_ids}"
         )
+        if nullified_in_pool:
+            logger.info(
+                f"Skipping fetch for {len(nullified_in_pool)} known-delisted (nullified) tickers; "
+                f"carrying them forward as resolved: {nullified_in_pool}"
+            )
+        if renamed_in_pool:
+            logger.info(
+                f"Skipping fetch for {len(renamed_in_pool)} renamed-original tickers (data comes "
+                f"via their replacement); carrying them forward as resolved: {renamed_in_pool}"
+            )
 
         # Pin 'today' once for this run so all downstream date logic is consistent.
         self._today = dates.get_date_today()
         current_time = dates.get_datetime_now()
 
         rows = []
+        # Pooled tickers that 404 this run but aren't curated (neither nullified nor renamed).
+        # Recorded so the driver can surface them (e.g. via Slack) for triage into the right list.
+        self.uncurated_delisted_tickers: list[str] = []
+
+        # Carry forward known-unfetchable tickers (nullified + renamed originals) without the API.
+        for ticker_symbol in carry_forward_ids:
+            rows.append(self._carry_forward_resolved(ticker_symbol, dfq, current_time))
+
         for ticker_symbol in all_tickers:
             time.sleep(1)  # Avoid YFRateLimitError
             company_name, hist = self._fetch_one_stock(ticker_symbol)
@@ -101,7 +137,6 @@ class YfinanceSource(DatasetSource):
                         "resolved": False,
                         "market_info_resolution_datetime": "N/A",
                         "fetch_datetime": current_time,
-                        "probability": current_price,
                         "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
                         "freeze_datetime_value": current_price,
                         "freeze_datetime_value_explanation": (
@@ -115,23 +150,40 @@ class YfinanceSource(DatasetSource):
                 and ticker_symbol in set_current
                 and ticker_symbol not in set_top_500
             ):
-                # Delisted: still in the question pool but no longer fetchable and out of the
-                # S&P 500. Carry forward the existing question row, marked resolved.
-                existing = dfq[dfq["id"] == ticker_symbol].iloc[0].to_dict()
-                existing.update(
-                    {
-                        "resolved": True,
-                        "fetch_datetime": current_time,
-                        "probability": float("nan"),
-                        "freeze_datetime_value": "N/A",
-                    }
-                )
-                rows.append(existing)
+                # In the question pool, no longer fetchable, and out of the S&P 500, but not in any
+                # curated list: either newly delisted or newly renamed. Carry the existing row
+                # forward as resolved and record it so the driver can flag it for triage.
+                rows.append(self._carry_forward_resolved(ticker_symbol, dfq, current_time))
+                self.uncurated_delisted_tickers.append(ticker_symbol)
                 logger.warning(
-                    f"{ticker_symbol} detected as delisted (not in S&P 500 and fetch failed)"
+                    f"{ticker_symbol} failed to fetch and is no longer in the S&P 500 (likely "
+                    "delisted or renamed). If delisted, add it to nullified_questions; if renamed, "
+                    "add it to ticker_renames (mapping it to its replacement symbol)."
                 )
 
         return pd.DataFrame(rows)
+
+    @staticmethod
+    def _carry_forward_resolved(ticker_symbol: str, dfq: pd.DataFrame, current_time: str) -> dict:
+        """Return a delisted ticker's existing question row, marked resolved.
+
+        Shared by the curated-nullified skip (before fetch) and the runtime delisted heuristic
+        (fetch returned nothing). freeze_datetime_value gets the delisted marker.
+
+        Args:
+            ticker_symbol (str): Ticker whose existing question row to carry forward.
+            dfq (pd.DataFrame): Existing question bank (must contain ``ticker_symbol``).
+            current_time (str): Fetch timestamp to stamp on the carried-forward row.
+        """
+        existing = dfq[dfq["id"] == ticker_symbol].iloc[0].to_dict()
+        existing.update(
+            {
+                "resolved": True,
+                "fetch_datetime": current_time,
+                "freeze_datetime_value": "N/A",
+            }
+        )
+        return existing
 
     # ------------------------------------------------------------------
     # Public: update
@@ -147,6 +199,10 @@ class YfinanceSource(DatasetSource):
         overwrite_price_history: bool = False,
     ) -> UpdateResult:
         """Process fetched stock data into updated questions and resolution files.
+
+        Curated nullified (known-delisted) tickers are never sent to the API here either — they
+        404 forever and their final close is fixed — so their resolution files are forward-filled
+        from existing data instead of re-fetched.
 
         Args:
             dfq (DataFrame[QuestionFrame]): Existing questions.
@@ -166,6 +222,7 @@ class YfinanceSource(DatasetSource):
         )
 
         renamed_tickers = {entry["original_ticker"] for entry in self.ticker_renames}
+        nullified_ids = self.get_nullified_ids()
 
         for question in dff.to_dict("records"):
             question_id = str(question["id"])
@@ -173,6 +230,13 @@ class YfinanceSource(DatasetSource):
             if question_id in renamed_tickers:
                 # Resolution file is rebuilt from the replacement ticker below.
                 logger.info(f"Skipping {question_id} (renamed ticker, handled separately)")
+            elif question_id in nullified_ids:
+                # Known-delisted (nullified): never hit the API (it 404s). The final close is
+                # fixed, so just forward-fill the existing resolution file to yesterday so that
+                # newly-arriving resolution dates still find an exact-date row.
+                df_res = self._forward_fill_existing(existing_resolution_files.get(question_id))
+                if df_res is not None:
+                    resolution_files[question_id] = df_res
             else:
                 df_res = self._build_resolution_df(
                     question=question,
@@ -185,7 +249,6 @@ class YfinanceSource(DatasetSource):
 
             # Strip transient fetch-only fields (not part of QuestionFrame)
             del question["fetch_datetime"]
-            del question["probability"]
 
             # Upsert into dfq
             if question["id"] in dfq["id"].values:
@@ -197,9 +260,12 @@ class YfinanceSource(DatasetSource):
                 new_q_row = new_q_row.astype(constants.QUESTION_FILE_COLUMN_DTYPE)
                 dfq = pd.concat([dfq, new_q_row], ignore_index=True)
 
-        # Renamed tickers: fetch under the replacement, write under the original ticker.
+        # Renamed tickers: write the original ticker's file as a copy of the replacement's
+        # already-built (or existing) series so the two files are identical by construction.
         resolution_files.update(
-            self._build_renamed_ticker_resolution_files(period, existing_resolution_files)
+            self._build_renamed_ticker_resolution_files(
+                period, existing_resolution_files, resolution_files
+            )
         )
 
         return UpdateResult(
@@ -370,6 +436,25 @@ class YfinanceSource(DatasetSource):
 
         return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
+    def _forward_fill_existing(self, existing_df: pd.DataFrame | None) -> pd.DataFrame | None:
+        """Forward-fill an existing resolution file to yesterday without fetching.
+
+        For curated nullified (known-delisted) tickers, whose price is fixed and which 404 on the
+        API. Mirrors the resolved path of ``_build_resolution_df`` minus the doomed request.
+
+        Args:
+            existing_df (pd.DataFrame | None): Existing resolution data, or None.
+
+        Returns:
+            The forward-filled DataFrame, or None when there is no existing file or nothing changed.
+        """
+        if existing_df is None or existing_df.empty:
+            return None
+        df_new = self._finalize_resolution_file(existing_df)
+        if existing_df.equals(df_new):
+            return None
+        return df_new
+
     def _build_resolution_df(
         self,
         question: dict,
@@ -421,16 +506,24 @@ class YfinanceSource(DatasetSource):
         self,
         period: str,
         existing_resolution_files: dict[str, pd.DataFrame],
+        built_resolution_files: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
-        """Build resolution files for renamed tickers using their replacement symbols.
+        """Build resolution files for renamed tickers as a copy of their replacement's series.
 
-        For each entry in ``self.ticker_renames``, fetch price history under the replacement
-        ticker and write it to a resolution file keyed by the original ticker.
+        For each entry in ``self.ticker_renames``, the original ticker's resolution file is written
+        as a relabelled copy of the **replacement's** series, so the two files are identical by
+        construction (no second fetch that could diverge). The authoritative replacement series is
+        "what ``<replacement>.jsonl`` will be after this run": the freshly-built frame if the
+        replacement was built in this run's main loop, else the existing on-disk file. Only when the
+        replacement isn't in this run's pool at all do we fetch it directly (there is then no
+        ``<replacement>.jsonl`` to diverge from).
 
         Args:
             period (str): yfinance period string.
             existing_resolution_files (dict): Existing resolution data, keyed by question id; must
-                include the original tickers.
+                include the original tickers (and the replacements, when known).
+            built_resolution_files (dict): Resolution frames already built this run (the main
+                loop's output), keyed by question id.
 
         Returns:
             Mapping of original ticker -> resolution DataFrame, only for files that changed.
@@ -442,22 +535,28 @@ class YfinanceSource(DatasetSource):
 
             existing_df = existing_resolution_files.get(original)
 
-            df_new = self._get_historical_prices(existing_df, replacement, period)
-            if df_new is None:
+            # Authoritative replacement series: freshly built this run, else the on-disk file,
+            # else fetch directly (replacement not in this run's pool, so nothing to diverge from).
+            repl_series = built_resolution_files.get(replacement)
+            if repl_series is None:
+                repl_series = existing_resolution_files.get(replacement)
+            if repl_series is None:
+                repl_series = self._get_historical_prices(existing_df, replacement, period)
+
+            if repl_series is None or repl_series.empty:
                 logger.warning(
                     f"No data for replacement ticker {replacement} (original: {original})"
                 )
                 continue
 
-            # df_new may be `existing_df` (fetch returned nothing); copy before relabelling so the
-            # caller's resolution file is never mutated in place.
-            df_new = df_new.copy()
+            # Copy before relabelling so neither the built map nor the caller's file is mutated.
+            df_new = repl_series.copy()
             df_new["id"] = original
 
             if existing_df is not None and not existing_df.empty and existing_df.equals(df_new):
                 continue
 
-            logger.info(f"Built resolution file for {original} (via {replacement})")
+            logger.info(f"Built resolution file for {original} as a copy of {replacement}")
             resolution_files[original] = df_new
 
         return resolution_files
