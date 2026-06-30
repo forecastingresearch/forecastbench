@@ -292,13 +292,14 @@ def push_all_resolution_sets() -> None:
 
     mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
     mirrors = [mirrors] if mirrors else []
-    git.clone_and_push_files(
+    pushed = git.clone_and_push_files(
         repo_url=keys.API_GITHUB_DATASET_REPO_URL,
         files=files,
         commit_message="resolution sets: automatic update.",
         mirrors=mirrors,
     )
-    logger.info(f"Pushed {len(files)} resolution sets to git in a single commit.")
+    if pushed:
+        logger.info(f"Pushed {len(files)} resolution sets to git in a single commit.")
 
 
 def upload_processed_forecast_file(data: dict, forecast_due_date: str, filename: str):
