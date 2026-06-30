@@ -147,6 +147,14 @@ class MetaculusFetchFrame(pa.DataFrameModel):
         coerce = True
 
 
+class FredFetchFrame(QuestionFrame):
+    """Output of FredSource.fetch(). QuestionFrame plus transient fields for update()."""
+
+    fetch_datetime: Series[str]
+    probability: Series[object] = pa.Field(nullable=True)
+    resolutions: Series[object]  # list[dict] per row: [{id, date, value}, ...]
+
+
 class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 
