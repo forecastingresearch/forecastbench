@@ -1,10 +1,6 @@
-"""Push all resolution sets to the git dataset repo in a single commit.
+"""Cloud Run job: push all resolution sets to the git dataset repo in a single commit.
 
-This runs as its own Cloud Run job after the (parallel) resolve-forecasts tasks have finished.
-Each resolve task uploads its resolution set to the bucket only; this job gathers all of them
-and pushes them to git in a single commit, so that only one process ever clones and pushes to
-the dataset repository. This removes the race condition that occurred when each parallel task
-pushed independently. See `orchestration._io.push_all_resolution_sets`.
+See `orchestration._io.push_all_resolution_sets`.
 """
 
 import logging

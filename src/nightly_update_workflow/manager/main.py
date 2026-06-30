@@ -189,9 +189,8 @@ def main():
         timeout=timeout_resolve_forecasts,
     )
 
-    # Push all resolution sets to git in a single commit, now that every (parallel) resolve task
-    # has finished uploading its resolution set to the bucket. Done as its own job so that only
-    # one process clones and pushes to the dataset repo, avoiding a race condition.
+    # Push all resolution sets in a single dedicated job now that the parallel resolve tasks have
+    # finished, so only one process pushes to the dataset repo (avoids a race condition).
     dict_to_use_push_resolution_sets = "push_resolution_sets"
     operation_push_resolution_sets = call_worker(
         dict_to_use=dict_to_use_push_resolution_sets,

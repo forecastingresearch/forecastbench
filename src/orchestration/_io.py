@@ -225,10 +225,8 @@ def upload_hash_mapping(raw_json: str, source_name: str) -> None:
 def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set_filename: str):
     """Upload resolution set to GCS.
 
-    The resolution set is only uploaded to the bucket here. Pushing the resolution sets to git
-    happens later in a single commit via `push_all_resolution_sets`, run as its own Cloud Run job
-    once all (parallel) resolution tasks have finished. This avoids the race condition that
-    occurred when each parallel task cloned and pushed to the git repository independently.
+    Only uploads to the bucket; resolution sets are pushed to git later by
+    `push_all_resolution_sets`.
     """
     basename = f"{forecast_due_date}_resolution_set.json"
     local_filename = f"/tmp/{basename}"
@@ -256,10 +254,8 @@ def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set
 def push_all_resolution_sets() -> None:
     """Push every resolution set in the bucket to the git dataset repo in a single commit.
 
-    The parallel resolution tasks each upload their resolution set to `PUBLIC_RELEASE_BUCKET`
-    (see `upload_resolution_set`). This function gathers all of those files and pushes them to
-    git in one commit, so only a single process ever clones and pushes to the repository. This
-    removes the race condition that arose when each parallel task pushed independently.
+    Run as one job rather than having each parallel resolve task push its own set, which
+    avoids the race condition of concurrent pushes to the repository.
     """
     from helpers import git  # noqa: E402
 
