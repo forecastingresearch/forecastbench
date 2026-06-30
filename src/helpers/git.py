@@ -57,7 +57,7 @@ def clone_and_push_files(
     files: Dict[str, str],
     commit_message: str,
     mirrors: Optional[List[str]] = None,
-) -> None:
+) -> bool:
     """Clone a Git repository, add/update files, commit, and push to origin and optional mirrors.
 
     Args:
@@ -68,7 +68,8 @@ def clone_and_push_files(
                                        If None, attempts to load from secrets.
 
     Returns:
-        None. Exits with status 1 if an error is encountered while pushing.
+        bool: True if a commit was pushed, False if there was nothing to commit.
+              Exits with status 1 if an error is encountered while pushing.
     """
     if not mirrors:
         mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
@@ -83,6 +84,13 @@ def clone_and_push_files(
             os.remove(full_destination_path)
         shutil.copy(source, full_destination_path, follow_symlinks=False)
         repo.index.add([destination])
+
+    # Skip empty commits: nothing to push if the staged files match HEAD.
+    if not repo.index.diff(repo.head.commit):
+        logger.info(f"No changes to push to {repo_url}; skipping commit.")
+        os.remove(tmp_key_file_path)
+        shutil.rmtree(local_repo_dir, ignore_errors=True)
+        return False
 
     error_encountered = False
     author = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
@@ -109,6 +117,7 @@ def clone_and_push_files(
         sys.exit(1)
 
     logger.info(f"Pushed to {repo_url} with commit message: {commit_message}")
+    return True
 
 
 def clone_commit_and_push(
