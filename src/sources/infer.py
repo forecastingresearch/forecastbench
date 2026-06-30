@@ -40,16 +40,17 @@ class InferSource(MarketSource):
         self,
         *,
         dfq: DataFrame[QuestionFrame] | None = None,
-        files_in_storage: list[str] | None = None,
+        existing_resolution_ids: set[str] | None = None,
     ) -> DataFrame[InferFetchFrame]:
         """Fetch questions from the INFER API.
 
         Args:
             dfq (DataFrame[QuestionFrame] | None): Existing question bank.
-            files_in_storage (list[str] | None): Existing resolution file paths.
+            existing_resolution_ids (set[str] | None): Bare IDs that already have a resolution
+                file in storage.
         """
         self._require_api_key()
-        files_in_storage = files_in_storage or []
+        existing_resolution_ids = existing_resolution_ids or set()
 
         # Determine which existing questions need re-fetching
         resolved_ids: list[str] = []
@@ -62,7 +63,7 @@ class InferSource(MarketSource):
         logger.info(f"Number unresolved_ids: {len(unresolved_ids)}")
 
         resolved_ids_without_files = [
-            id for id in resolved_ids if f"{self.name}/{id}.jsonl" not in files_in_storage
+            id for id in resolved_ids if str(id) not in existing_resolution_ids
         ]
         logger.info(f"resolved_ids_without_resolution_files: {resolved_ids_without_files}")
 
@@ -128,7 +129,7 @@ class InferSource(MarketSource):
 
             # Build/update resolution file
             existing_df = existing_resolution_files.get(question_id)
-            df_res = self._build_resolution_file(
+            df_res = self._build_resolution_df(
                 question=question,
                 resolved=question["resolved"],
                 existing_df=existing_df,
@@ -319,7 +320,7 @@ class InferSource(MarketSource):
     # Private: resolution file building
     # ------------------------------------------------------------------
 
-    def _build_resolution_file(
+    def _build_resolution_df(
         self,
         question: dict,
         resolved: bool,
@@ -386,14 +387,14 @@ class InferSource(MarketSource):
 
     @staticmethod
     def _finalize_resolution_df(df: pd.DataFrame) -> DataFrame[ResolutionFrame]:
-        """Apply date filtering and return as validated ResolutionFrame.
+        """Apply date filtering and select resolution columns.
 
         Args:
             df (pd.DataFrame): Raw resolution data with id, date, value columns.
         """
         df["date"] = pd.to_datetime(df["date"])
         df = df[df["date"].dt.date >= constants.BENCHMARK_START_DATE_DATETIME_DATE]
-        return ResolutionFrame.validate(df[["id", "date", "value"]])
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
     # ------------------------------------------------------------------
     # Private: question transformation

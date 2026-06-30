@@ -201,7 +201,7 @@ class PolymarketSource(MarketSource):
             question_id = str(question["id"])
 
             # Build the resolution file from the embedded historical prices.
-            resolution_files[question_id] = self._build_resolution_file(question)
+            resolution_files[question_id] = self._build_resolution_df(question)
 
             # Strip transient fields (not part of QuestionFrame).
             del question["fetch_datetime"]
@@ -538,7 +538,7 @@ class PolymarketSource(MarketSource):
     # Private: resolution file building
     # ------------------------------------------------------------------
 
-    def _build_resolution_file(self, question: dict) -> DataFrame[ResolutionFrame]:
+    def _build_resolution_df(self, question: dict) -> DataFrame[ResolutionFrame]:
         """Build a resolution file from a fetched question's embedded historical prices.
 
         Args:
@@ -546,5 +546,4 @@ class PolymarketSource(MarketSource):
         """
         df = pd.DataFrame(question["historical_prices"])
         df["id"] = question["id"]
-        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
-        return ResolutionFrame.validate(df)
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)

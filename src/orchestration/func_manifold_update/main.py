@@ -5,10 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from helpers import data_utils, decorator, env
+from helpers import data_utils, decorator
 from orchestration import _source_io
 from sources.manifold import ManifoldSource
-from utils import gcp
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,15 +31,13 @@ def driver(_: Any) -> None:
     existing_resolution_files = _source_io.load_existing_resolution_files(SOURCE)
     logger.info(f"Loaded {len(existing_resolution_files)} resolution files")
 
-    files_in_storage = gcp.storage.list_with_prefix(
-        bucket_name=env.QUESTION_BANK_BUCKET, prefix=SOURCE
-    )
+    existing_resolution_ids = _source_io.list_existing_resolution_ids(SOURCE)
 
     result = source.update(
         dfq,
         dff,
         existing_resolution_files=existing_resolution_files,
-        files_in_storage=files_in_storage,
+        existing_resolution_ids=existing_resolution_ids,
     )
 
     logger.info("Uploading to GCP...")

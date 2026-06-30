@@ -84,6 +84,22 @@ class ResolveReadyFrame(ExplodedQuestionSetFrame):
     market_value_on_due_date: Series[float] = pa.Field(nullable=True)
 
 
+class ForecastFrame(pa.DataFrameModel):
+    """What forecasters submit."""
+
+    id: Series[object]
+    source: Series[str]
+    forecast: Series[float]
+    resolution_date: Series[str] = pa.Field(nullable=True)
+    reasoning: Series[str]
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = False
+
+
 class InferFetchFrame(QuestionFrame):
     """Output of InferSource.fetch(). QuestionFrame plus transient fields for update()."""
 
@@ -98,6 +114,13 @@ class PolymarketFetchFrame(QuestionFrame):
     fetch_datetime: Series[str]
     probability: Series[object] = pa.Field(nullable=True)
     historical_prices: Series[object]  # list[dict] with {date, value} per question
+
+
+class YfinanceFetchFrame(QuestionFrame):
+    """Output of YfinanceSource.fetch(). QuestionFrame plus transient fields for update()."""
+
+    fetch_datetime: Series[str]
+    probability: Series[object] = pa.Field(nullable=True)
 
 
 class ManifoldFetchFrame(pa.DataFrameModel):

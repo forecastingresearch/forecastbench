@@ -4,11 +4,10 @@ import logging
 import os
 import sys
 
+from utils import gcp
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import dates, decorator, env, git, keys, question_curation  # noqa: E402
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
-from utils import gcp  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

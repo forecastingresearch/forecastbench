@@ -112,7 +112,7 @@ class ManifoldSource(MarketSource):
         dff: DataFrame[ManifoldFetchFrame],
         *,
         existing_resolution_files: dict[str, DataFrame[ResolutionFrame]] | None = None,
-        files_in_storage: list[str] | None = None,
+        existing_resolution_ids: set[str] | None = None,
     ) -> UpdateResult:
         """Process fetched IDs into updated questions and resolution files.
 
@@ -124,10 +124,11 @@ class ManifoldSource(MarketSource):
             dfq (DataFrame[QuestionFrame]): Existing questions.
             dff (DataFrame[ManifoldFetchFrame]): Freshly fetched market IDs.
             existing_resolution_files (dict | None): Per-question existing resolution data.
-            files_in_storage (list[str] | None): Existing resolution file paths in storage.
+            existing_resolution_ids (set[str] | None): Bare IDs that already have a resolution
+                file in storage.
         """
         existing_resolution_files = existing_resolution_files or {}
-        files_in_storage = files_in_storage or []
+        existing_resolution_ids = existing_resolution_ids or set()
         resolution_files: dict[str, pd.DataFrame] = {}
 
         # --- Append new IDs from dff to dfq ---
@@ -166,7 +167,7 @@ class ManifoldSource(MarketSource):
 
             # Build resolution file
             existing_df = existing_resolution_files.get(row["id"])
-            df_res = self._build_resolution_file(
+            df_res = self._build_resolution_df(
                 market=market,
                 market_info_resolution_datetime=dfq.at[index, "market_info_resolution_datetime"],
                 existing_df=existing_df,
@@ -182,10 +183,9 @@ class ManifoldSource(MarketSource):
 
         # --- Regenerate missing resolution files for resolved questions ---
         for _index, row in dfq[dfq["resolved"]].iterrows():
-            filename = f"{self.name}/{row['id']}.jsonl"
-            if filename not in files_in_storage and row["id"] not in resolution_files:
+            if str(row["id"]) not in existing_resolution_ids and row["id"] not in resolution_files:
                 market = self._get_market(row["id"])
-                df_res = self._build_resolution_file(
+                df_res = self._build_resolution_df(
                     market=market,
                     market_info_resolution_datetime=row["market_info_resolution_datetime"],
                     existing_df=None,
@@ -331,7 +331,7 @@ class ManifoldSource(MarketSource):
     # Private: resolution file building
     # ------------------------------------------------------------------
 
-    def _build_resolution_file(
+    def _build_resolution_df(
         self,
         market: dict,
         market_info_resolution_datetime: str,
@@ -403,15 +403,9 @@ class ManifoldSource(MarketSource):
             df = df.ffill()
 
         df["id"] = market_id
-        return self._finalize_resolution_df(df)
-
-    @staticmethod
-    def _finalize_resolution_df(df: pd.DataFrame) -> DataFrame[ResolutionFrame]:
-        """Filter to benchmark period and validate as ResolutionFrame."""
         df["date"] = pd.to_datetime(df["date"])
         df = df[df["date"].dt.date >= constants.BENCHMARK_START_DATE_DATETIME_DATE]
-        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
-        return ResolutionFrame.validate(df)
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
 
     @staticmethod
     def _get_resolved_market_value(market: dict) -> float:

@@ -11,3 +11,5 @@ pandera
 pytz
 python-dateutil
 backoff
+beautifulsoup4
+yfinance

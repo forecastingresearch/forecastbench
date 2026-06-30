@@ -8,9 +8,9 @@ import os
 from typing import Iterable
 
 import pandas as pd
+from utils import gcp
 
 from helpers import constants, data_utils, env
-from utils import gcp
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,24 @@ def write_fetch_output(source: str, dff: pd.DataFrame) -> None:
     )
 
 
+def list_existing_resolution_ids(source: str) -> set[str]:
+    """Return the set of bare question IDs that already have a resolution file.
+
+    Lists <source>/*.jsonl and strips to bare IDs. This is a pure existence
+    listing: it includes files whose contents are empty, mirroring the old
+    inline list_with_prefix check. Do NOT derive this from
+    load_existing_resolution_files, which drops empty frames.
+
+    Args:
+        source (str): Source name (e.g. "infer").
+
+    Returns:
+        set of bare question IDs present in storage for this source.
+    """
+    paths = gcp.storage.list_with_prefix(bucket_name=env.QUESTION_BANK_BUCKET, prefix=f"{source}/")
+    return {os.path.basename(p).removesuffix(".jsonl") for p in paths if p.endswith(".jsonl")}
+
+
 def load_existing_resolution_files(
     source: str,
     ids: Iterable[str] | None = None,
@@ -52,12 +70,7 @@ def load_existing_resolution_files(
         dict mapping question_id to its resolution DataFrame.
     """
     if ids is None:
-        paths = gcp.storage.list_with_prefix(
-            bucket_name=env.QUESTION_BANK_BUCKET, prefix=f"{source}/"
-        )
-        question_ids = [
-            os.path.basename(p).removesuffix(".jsonl") for p in paths if p.endswith(".jsonl")
-        ]
+        question_ids = list(list_existing_resolution_ids(source))
     else:
         question_ids = [str(qid) for qid in ids]
 

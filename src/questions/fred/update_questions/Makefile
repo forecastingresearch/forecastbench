@@ -15,8 +15,8 @@ Procfile:
 NUM_CPUS=2
 
 deploy : main.py .gcloudignore requirements.txt Procfile
+	rm -rf $(UPLOAD_DIR)
 	mkdir -p $(UPLOAD_DIR)
-	cp -r $(ROOT_DIR)utils $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
 	cp -r $(ROOT_DIR)src/sources $(UPLOAD_DIR)/
 	cp $(ROOT_DIR)src/_fb_types.py $(UPLOAD_DIR)/
@@ -25,6 +25,7 @@ deploy : main.py .gcloudignore requirements.txt Procfile
 	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
 	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
 	cp $^ $(UPLOAD_DIR)/
+	cat $(ROOT_DIR)requirements.runtime.txt requirements.txt > $(UPLOAD_DIR)/requirements.txt
 	gcloud run jobs deploy \
 		func-data-fred-update-questions \
 		--project $(CLOUD_PROJECT) \

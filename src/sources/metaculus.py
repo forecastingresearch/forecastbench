@@ -93,7 +93,7 @@ class MetaculusSource(MarketSource):
         dfq: DataFrame[QuestionFrame],
         dff: DataFrame[MetaculusFetchFrame],
         *,
-        files_in_storage: list[str] | None = None,
+        existing_resolution_ids: set[str] | None = None,
     ) -> UpdateResult:
         """Fetch full question data and build resolution files.
 
@@ -106,8 +106,8 @@ class MetaculusSource(MarketSource):
         Args:
             dfq (DataFrame[QuestionFrame]): Existing questions.
             dff (DataFrame[MetaculusFetchFrame]): Discovered question IDs from fetch().
-            files_in_storage (list[str] | None): Existing resolution file paths in storage,
-                used to decide which resolved questions need regenerating.
+            existing_resolution_ids (set[str] | None): Bare IDs that already have a resolution
+                file in storage, used to decide which resolved questions need regenerating.
         """
         self._require_api_key()
         resolution_files: dict[str, pd.DataFrame] = {}
@@ -157,7 +157,7 @@ class MetaculusSource(MarketSource):
             dfq.at[index, "forecast_horizons"] = "N/A"
 
             # Build resolution file
-            df_res = self._create_resolution_file(dfq, index, market)
+            df_res = self._build_resolution_df(dfq, index, market)
             if df_res is not None:
                 resolution_files[str(row["id"])] = df_res
                 dfq.at[index, "freeze_datetime_value"] = (
@@ -167,13 +167,12 @@ class MetaculusSource(MarketSource):
                 dfq.at[index, "freeze_datetime_value"] = "N/A"
 
         # Regenerate missing resolution files for resolved questions
-        files_in_storage = files_in_storage or []
+        existing_resolution_ids = existing_resolution_ids or set()
         for index, row in dfq[dfq["resolved"]].iterrows():
             question_id = str(row["id"])
-            filename = f"{self.name}/{question_id}.jsonl"
-            if filename not in files_in_storage and question_id not in resolution_files:
+            if question_id not in existing_resolution_ids and question_id not in resolution_files:
                 market = self._get_market(row["id"])
-                df_res = self._create_resolution_file(dfq, index, market)
+                df_res = self._build_resolution_df(dfq, index, market)
                 if df_res is not None:
                     resolution_files[question_id] = df_res
 
@@ -325,12 +324,12 @@ class MetaculusSource(MarketSource):
             return 0
         return np.nan
 
-    def _create_resolution_file(
+    def _build_resolution_df(
         self,
         dfq: pd.DataFrame,
         index: int,
         market: dict,
-    ) -> pd.DataFrame | None:
+    ) -> DataFrame[ResolutionFrame] | None:
         """Build the resolution file for a market from its aggregation history.
 
         Overwrites the resolution file entirely on each run (Metaculus returns the
@@ -440,20 +439,5 @@ class MetaculusSource(MarketSource):
             }
 
         df["id"] = str(market["id"])
-        df = df[["id", "date", "value"]]
 
-        return self._finalize_resolution_df(df)
-
-    @staticmethod
-    def _finalize_resolution_df(df: pd.DataFrame) -> DataFrame[ResolutionFrame]:
-        """Cast types and return as a validated ResolutionFrame.
-
-        Unlike infer/manifold, Metaculus does not filter to the benchmark start date:
-        the aggregation history is already bounded by the question's open window, and
-        this preserves the legacy job's output exactly.
-
-        Args:
-            df (pd.DataFrame): Raw resolution data with id, date, value columns.
-        """
-        df = df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
-        return ResolutionFrame.validate(df)
+        return df[["id", "date", "value"]].astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)

@@ -37,6 +37,13 @@ QUESTION_SET_FIELDS = [
     "resolved",
 ]
 
+FORECAST_FILE_METADATA_FIELDS = [
+    "model_run_key",
+    "model_run_slug",
+    "forecast_variant_key",
+    "uses_freeze_values",
+]
+
 
 def _get_resolutions_for_llm_question_set(forecast_due_date, question_bank):
     """Resolve LLM question set.
@@ -192,7 +199,7 @@ def driver(_: Any) -> None:
         source.populate_hash_mapping(_io.load_hash_mapping(name))
 
     local_forecast_set_dir = data_utils.get_local_file_dir(bucket=env.FORECAST_SETS_BUCKET)
-    resolved_cache: dict[str, dict] = {}
+    resolved_cache: dict[str, dict[str, pd.DataFrame]] = {}
 
     for f in forecast_files:
         logger.info(f"Resolving {f}")
@@ -213,29 +220,39 @@ def driver(_: Any) -> None:
         is_human_question_set = "human" in question_set_filename
         human_llm_key = "human" if is_human_question_set else "llm"
 
-        # Cache resolved question sets per forecast_due_date
-        if forecast_due_date not in resolved_cache:
+        # Cache resolved question sets per forecast_due_date and question-set type.
+        resolved_cache.setdefault(forecast_due_date, {})
+        if "llm" not in resolved_cache[forecast_due_date]:
             logger.info(
                 f"Found new question source: {forecast_due_date}. "
-                "Downloading .json and resolving..."
+                "Downloading LLM .json and resolving..."
             )
             try:
                 llm_resolutions = _get_resolutions_for_llm_question_set(
                     forecast_due_date,
                     question_bank,
                 )
-                human_resolutions = _get_resolutions_for_human_question_set(
-                    forecast_due_date,
-                    llm_resolutions,
-                )
-                resolved_cache[forecast_due_date] = {
-                    "llm": llm_resolutions,
-                    "human": human_resolutions,
-                }
+                resolved_cache[forecast_due_date]["llm"] = llm_resolutions
                 _io.upload_resolution_set(
                     df=llm_resolutions.copy(),
                     forecast_due_date=forecast_due_date,
-                    question_set_filename=question_set_filename,
+                    question_set_filename=f"{forecast_due_date}-llm.json",
+                )
+            except ValueError as e:
+                logger.exception(f"EXCEPTION caught {e}")
+                return f"Error: {str(e)}", 400
+
+        if human_llm_key == "human" and "human" not in resolved_cache[forecast_due_date]:
+            logger.info(
+                f"Found human forecast source for {forecast_due_date}. "
+                "Downloading HUMAN .json and resolving..."
+            )
+            try:
+                resolved_cache[forecast_due_date]["human"] = (
+                    _get_resolutions_for_human_question_set(
+                        forecast_due_date,
+                        resolved_cache[forecast_due_date]["llm"],
+                    )
                 )
             except ValueError as e:
                 logger.exception(f"EXCEPTION caught {e}")
@@ -270,6 +287,9 @@ def driver(_: Any) -> None:
             "leaderboard_eligible": leaderboard_eligible,
             "forecasts": json.loads(df.to_json(orient="records", date_format="iso")),
         }
+        for field in FORECAST_FILE_METADATA_FIELDS:
+            if field in file_data:
+                team_forecast[field] = file_data[field]
         _io.upload_processed_forecast_file(
             data=team_forecast,
             forecast_due_date=forecast_due_date,

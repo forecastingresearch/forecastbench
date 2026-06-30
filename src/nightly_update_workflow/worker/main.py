@@ -87,7 +87,7 @@ def get_publish_question_set_make_llm_baseline():
         [
             [
                 ("func-question-set-publish", True, cloud_run.timeout_1h, 1),
-                ("func-baseline-llm-forecasts-manager", True, cloud_run.timeout_1h * 24, 1),
+                ("func-llm-forecaster-manager", True, cloud_run.timeout_1h * 24, 1),
             ],
         ]
         if question_curation.is_today_question_set_publication_date()
