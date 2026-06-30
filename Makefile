@@ -200,10 +200,10 @@ wikipedia-update-questions:
 fred: fred-fetch fred-update-questions
 
 fred-fetch:
-	$(MAKE) -C src/questions/fred/fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_fred_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 fred-update-questions:
-	$(MAKE) -C src/questions/fred/update_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_fred_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 dbnomics: dbnomics-fetch dbnomics-update-questions
 

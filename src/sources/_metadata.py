@@ -9,6 +9,8 @@ from datetime import date
 from _fb_types import NullifiedQuestion, SourceType
 from helpers.constants import BENCHMARK_START_DATE_DATETIME_DATE
 
+from .fred_questions import FRED_QUESTIONS
+
 SOURCE_METADATA = {
     "acled": {
         "source_type": SourceType.DATASET,
@@ -51,6 +53,9 @@ SOURCE_METADATA = {
                 nullification_start_date=date(2025, 11, 1),
             ),
         ],
+        # Predefined FRED series the fetch job pulls each run (data lives in the
+        # lightweight _fred_questions module so consumers needn't import sources.fred).
+        "questions": FRED_QUESTIONS,
     },
     "infer": {
         "source_type": SourceType.MARKET,
