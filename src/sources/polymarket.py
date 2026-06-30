@@ -25,7 +25,7 @@ from ._market import MarketSource
 
 logger = logging.getLogger(__name__)
 
-_GAMMA_API_URL = "https://gamma-api.polymarket.com/markets"
+_GAMMA_API_URL = "https://gamma-api.polymarket.com/markets/keyset"
 _CLOB_API_URL = "https://clob.polymarket.com/prices-history"
 _MIN_MARKET_LIQUIDITY = 25000
 
@@ -228,40 +228,49 @@ class PolymarketSource(MarketSource):
     def _fetch_active_markets_from_api(self) -> list[dict]:
         """Fetch active binary markets from the Gamma API with price history attached.
 
-        Paginates through all active, non-archived, non-closed markets ordered by liquidity,
-        keeps binary markets with sufficient liquidity that aren't catch-all ("other") markets,
+        Paginates through active, non-archived, non-closed markets above the liquidity floor,
+        keeps the binary ones that aren't catch-all ("other") markets,
         and attaches each qualifying market's price history.
         """
         all_markets: list[dict] = []
-        offset = 0
-        limit = 500  # max page size: 500
         n_markets_fetched = 0
+        after_cursor: str | None = None
+        seen_ids: set[str] = set()
 
+        # https://docs.polymarket.com/api-reference/markets/list-markets-keyset-pagination
+        # /markets/keyset uses opaque cursor pagination
+        # Note that docs for `order` param are wrong; they specify:
+        # "Comma-separated list of JSON field names to order by, e.g. volume_num,liquidity_num"
+        # but those snake_case fields are ignored; camelCase is correct
+        # Also, liquidity field == liquidityNum (latter is force to number)
         params: dict[str, Any] = {
-            "limit": limit,
+            "limit": 100,  # limit as per API docs
             "archived": False,
             "active": True,
             "closed": False,
             "order": "liquidity",
             "ascending": False,
+            "liquidity_num_min": _MIN_MARKET_LIQUIDITY,
         }
 
         while True:
-            params["offset"] = offset
+            if after_cursor:
+                params["after_cursor"] = after_cursor
             try:
-                logger.info(f"Fetching markets with offset {offset}.")
+                logger.info(f"Fetching markets (cursor={after_cursor}).")
                 response = requests.get(_GAMMA_API_URL, params=params)
                 response.raise_for_status()
-                markets = response.json()
-                if not markets:
-                    logger.info(
-                        f"Fetched total of {n_markets_fetched} markets, "
-                        f"{len(all_markets)} satisfy criteria."
-                    )
-                    break
+                payload = response.json()
+                markets = payload.get("markets", [])
 
                 n_markets_fetched += len(markets)
                 for market in markets:
+                    # Keyset orders by liquidity, which changes as trades land, so a market
+                    # can shift across the cursor and recur on a later page; dedupe by id.
+                    condition_id = market["conditionId"]
+                    if condition_id in seen_ids:
+                        continue
+                    seen_ids.add(condition_id)
                     binary_market = self._is_market_binary(market)
                     # Avoids questions like the following, which don't make sense without the other
                     # questions in the event:
@@ -282,12 +291,21 @@ class PolymarketSource(MarketSource):
                             market["price_history"] = price_history
                             all_markets.append(market)
 
+                next_cursor = payload.get("next_cursor")
             except requests.exceptions.RequestException as e:
                 logger.error(f"Error fetching markets: {e}")
                 break
 
-            time.sleep(1)
-            offset += limit
+            if not next_cursor:
+                logger.info(
+                    f"Fetched total of {n_markets_fetched} markets, "
+                    f"{len(all_markets)} satisfy criteria."
+                )
+                break
+            after_cursor = next_cursor
+            # cap at ~20 req/s, under the /arkets limit of 300 req/10s (30 req/s)
+            # https://docs.polymarket.com/api-reference/rate-limits
+            time.sleep(0.05)
 
         return all_markets
 
@@ -315,7 +333,7 @@ class PolymarketSource(MarketSource):
         ]:
             response = requests.get(_GAMMA_API_URL, params=params_market)
             response.raise_for_status()
-            markets = response.json()
+            markets = response.json().get("markets", [])
             if len(markets) == 1:
                 return markets[0]
         logger.error(f"Problem getting market for condition id {condition_id}.")

@@ -9,6 +9,7 @@ import requests
 
 from _schemas import PolymarketFetchFrame, QuestionFrame, ResolutionFrame
 from sources.polymarket import (
+    _MIN_MARKET_LIQUIDITY,
     ConditionIdMarketNotFoundError,
     FailedConditionIdsError,
     PolymarketSource,
@@ -327,10 +328,10 @@ class TestTransformQuestion:
 class TestFetchActiveMarketsFromApi:
     """Tests for PolymarketSource._fetch_active_markets_from_api."""
 
-    def _mock_response(self, data):
+    def _mock_response(self, data, next_cursor=None):
         resp = Mock()
         resp.ok = True
-        resp.json.return_value = data
+        resp.json.return_value = {"markets": data, "next_cursor": next_cursor}
         resp.raise_for_status = Mock()
         return resp
 
@@ -340,10 +341,7 @@ class TestFetchActiveMarketsFromApi:
     def test_basic_returns_qualifying(self, mock_get, mock_price, mock_sleep, polymarket_source):
         """Binary, liquid, non-catch-all markets are returned."""
         market = make_polymarket_api_market()
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),  # End pagination
-        ]
+        mock_get.return_value = self._mock_response([market])
         mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
 
         result = polymarket_source._fetch_active_markets_from_api()
@@ -358,10 +356,7 @@ class TestFetchActiveMarketsFromApi:
     def test_filters_non_binary(self, mock_get, mock_price, mock_sleep, polymarket_source):
         """Non-binary markets are excluded."""
         market = make_polymarket_api_market(outcomes='["Over", "Under"]')
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
 
         result = polymarket_source._fetch_active_markets_from_api()
 
@@ -374,10 +369,7 @@ class TestFetchActiveMarketsFromApi:
     def test_filters_low_liquidity(self, mock_get, mock_price, mock_sleep, polymarket_source):
         """Markets with liquidityNum below the threshold are excluded."""
         market = make_polymarket_api_market(liquidityNum=10000)
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
 
         result = polymarket_source._fetch_active_markets_from_api()
 
@@ -389,10 +381,7 @@ class TestFetchActiveMarketsFromApi:
     def test_filters_catch_all(self, mock_get, mock_price, mock_sleep, polymarket_source):
         """Markets with 'other' in the slug are excluded."""
         market = make_polymarket_api_market(slug="who-will-win-other-candidates")
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
 
         result = polymarket_source._fetch_active_markets_from_api()
 
@@ -406,15 +395,40 @@ class TestFetchActiveMarketsFromApi:
         m1 = make_polymarket_api_market(conditionId="0x001")
         m2 = make_polymarket_api_market(conditionId="0x002")
         mock_get.side_effect = [
-            self._mock_response([m1]),
+            self._mock_response([m1], next_cursor="cursor1"),
             self._mock_response([m2]),
-            self._mock_response([]),
         ]
         mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
 
         result = polymarket_source._fetch_active_markets_from_api()
 
         assert len(result) == 2
+        # The 2nd request must forward the cursor from the 1st response; offset is never sent.
+        assert mock_get.call_count == 2
+        second_params = mock_get.call_args_list[1].kwargs["params"]
+        assert second_params["after_cursor"] == "cursor1"
+        assert "offset" not in second_params
+        # Liquidity floor is pushed server-side (client-side check stays the authoritative cutoff).
+        assert second_params["liquidity_num_min"] == _MIN_MARKET_LIQUIDITY
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch("sources.polymarket.requests.get")
+    def test_dedupes_market_recurring_across_pages(
+        self, mock_get, mock_price, mock_sleep, polymarket_source
+    ):
+        """A market re-served on a later page (keyset orders by mutable liquidity) is kept once."""
+        market = make_polymarket_api_market(conditionId="0xdupe")
+        mock_get.side_effect = [
+            self._mock_response([market], next_cursor="cursor1"),
+            self._mock_response([market]),
+        ]
+        mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
+
+        result = polymarket_source._fetch_active_markets_from_api()
+
+        assert len(result) == 1
+        assert result[0]["conditionId"] == "0xdupe"
 
     @patch("sources.polymarket.time.sleep")
     @patch.object(PolymarketSource, "_fetch_price_history")
@@ -424,10 +438,7 @@ class TestFetchActiveMarketsFromApi:
     ):
         """Markets where _fetch_price_history returns None are excluded."""
         market = make_polymarket_api_market()
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
         mock_price.return_value = None
 
         result = polymarket_source._fetch_active_markets_from_api()
@@ -443,10 +454,7 @@ class TestFetchActiveMarketsFromApi:
         """Markets without a liquidityNum key are excluded."""
         market = make_polymarket_api_market()
         del market["liquidityNum"]
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
 
         result = polymarket_source._fetch_active_markets_from_api()
 
@@ -511,7 +519,7 @@ class TestGetMarket:
     def _mock_response(self, data):
         resp = Mock()
         resp.ok = True
-        resp.json.return_value = data
+        resp.json.return_value = {"markets": data}
         resp.raise_for_status = Mock()
         return resp
 
