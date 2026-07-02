@@ -34,7 +34,7 @@ async def _get_category_single(index, row, semaphore):
             response = await asyncio.to_thread(
                 metadata_llm.get_metadata_model_response,
                 prompt=prompt,
-                max_output_tokens=50,
+                max_output_tokens=512,
             )
             category = response.strip('"').strip("'").strip(" ").strip(".")
             logger.info(

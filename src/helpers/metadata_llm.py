@@ -32,5 +32,6 @@ def get_metadata_model_response(prompt: str, max_output_tokens: int) -> str:
     return _get_metadata_model_run().get_response(
         prompt=prompt,
         max_output_tokens=max_output_tokens,
+        reasoning={"effort": "minimal"},
         safety_identifier=get_openai_safety_identifier(),
     )
