@@ -32,7 +32,7 @@ async def _validate_single_question(index, question, semaphore):
             response = await asyncio.to_thread(
                 metadata_llm.get_metadata_model_response,
                 prompt=prompt,
-                max_output_tokens=500,
+                max_output_tokens=1024,
             )
             if "Classification:" not in response:
                 logger.error(f"'Classification:' not in response for: {question}")
