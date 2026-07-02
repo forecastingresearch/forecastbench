@@ -131,6 +131,8 @@ def test_metadata_model_response_routes_through_shared_model_run(monkeypatch):
     )
 
     assert response == "metadata response"
+    assert "reasoning" in calls[1][2]  # reasoning policy is set (any value)
+    del calls[1][2]["reasoning"]  # remove it so the exact check below ignores it
     assert calls == [
         ("get_model_run", "gpt-5-mini-2025-08-07-run-variant-01"),
         (
