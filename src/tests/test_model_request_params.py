@@ -138,6 +138,7 @@ def test_metadata_model_response_routes_through_shared_model_run(monkeypatch):
             "Classify this question.",
             {
                 "max_output_tokens": 123,
+                "reasoning": {"effort": "minimal"},
                 "safety_identifier": "forecastbench-safety-id",
             },
         ),
