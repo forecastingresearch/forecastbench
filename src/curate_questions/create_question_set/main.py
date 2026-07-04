@@ -15,7 +15,6 @@ Market question sampling aims to achieve balanced representation across:
 import json
 import logging
 import os
-import random
 import sys
 from collections.abc import Callable
 from copy import deepcopy
@@ -23,6 +22,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from fractions import Fraction
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from utils import gcp
@@ -94,15 +94,19 @@ def process_questions(
     single_generation_func: Callable,
     show_plots: bool,
     question_set_target: QuestionSetTarget,
+    random_state=None,
 ) -> dict:
     """Sample from `questions` to get the number of questions needed.
 
     Args:
         questions (dict): Source questions keyed by source name, each with a "dfq" DataFrame
         to_questions (dict): Allocation info keyed by source with "num_questions_to_sample"
-        single_generation_func (Callable): Sampling function taking (values, n) and returning DataFrame
+        single_generation_func (Callable): Sampling function taking (values, n, random_state) and
+            returning a DataFrame
         show_plots (bool): Whether to display distribution plots
         question_set_target (QuestionSetTarget): Target question set ("llm" or "human")
+        random_state: Seed/``np.random.RandomState`` threaded to ``single_generation_func`` for
+            reproducibility. ``None`` (default) samples without a fixed seed.
 
     Returns
         processed_questions (dict): Deep copy of questions with sampled DataFrames
@@ -118,7 +122,7 @@ def process_questions(
         df_available = values["dfq"].copy()
 
         # Sample questions for this source
-        values["dfq"] = single_generation_func(values, num_single)
+        values["dfq"] = single_generation_func(values, num_single, random_state)
         df_sampled = values["dfq"]
         num_found += len(df_sampled)
 
@@ -179,25 +183,21 @@ def process_questions(
     return processed_questions
 
 
-def human_sample_questions(
-    values: dict, n_single: int, rng: random.Random | None = None
-) -> pd.DataFrame:
+def human_sample_questions(values: dict, n_single: int, random_state=None) -> pd.DataFrame:
     """Get questions for the human question set by sampling from LLM questions.
 
     Args:
         values (dict): Source data dict containing "dfq" DataFrame
         n_single (int): Number of questions to sample
-        rng (random.Random | None): Seeded RNG for reproducible sampling. ``None`` (the default)
-            uses the module-global ``random``.
+        random_state: Seed/``np.random.RandomState`` for reproducible sampling (anything
+            ``DataFrame.sample`` accepts). ``None`` (default) samples without a fixed seed.
 
     Returns
         dfq (pd.DataFrame): Randomly sampled questions
     """
     dfq = values["dfq"].copy()
-    indices_to_sample_from = dfq.index.tolist()
-    sampler = rng or random
-    indices = sampler.sample(indices_to_sample_from, min(n_single, len(indices_to_sample_from)))
-    return dfq.loc[indices]
+    n = min(n_single, len(dfq))
+    return dfq.sample(n=n, random_state=random_state)
 
 
 def get_bin_label(bin_config: dict, bin_type: str) -> str:
@@ -748,7 +748,21 @@ def plot_sampling_distribution(
     fig.show()
 
 
-def stratified_sample_questions(dfq: pd.DataFrame, n_target: int) -> pd.DataFrame:
+def _as_random_state(random_state):
+    """Normalize a seed/RandomState/None to a RandomState (or None).
+
+    Returns ``None`` unchanged (preserving unseeded behavior) and a ``RandomState`` unchanged, but
+    promotes a bare int seed to a ``RandomState`` so successive ``.sample`` calls in a loop
+    *decorrelate* (advancing one shared generator) instead of reusing the same seed per iteration.
+    """
+    if random_state is None or isinstance(random_state, np.random.RandomState):
+        return random_state
+    return np.random.RandomState(random_state)
+
+
+def stratified_sample_questions(
+    dfq: pd.DataFrame, n_target: int, random_state=None
+) -> pd.DataFrame:
     """Sample questions using stratified sampling to achieve target distribution.
 
     This ensures we get the desired distribution regardless of source data skew.
@@ -756,10 +770,14 @@ def stratified_sample_questions(dfq: pd.DataFrame, n_target: int) -> pd.DataFram
     Args:
         dfq (pd.DataFrame): DataFrame with bin_weight column and composite bins
         n_target (int): Number of questions to sample
+        random_state: Seed/``np.random.RandomState`` for reproducible per-bin sampling (anything
+            ``DataFrame.sample`` accepts). ``None`` (default) samples without a fixed seed. Thread a
+            single ``RandomState`` instance through to decorrelate the successive per-bin draws.
 
     Returns
         result (pd.DataFrame): Sampled questions
     """
+    random_state = _as_random_state(random_state)
     if len(dfq) == 0 or n_target == 0:
         return pd.DataFrame()
 
@@ -816,7 +834,7 @@ def stratified_sample_questions(dfq: pd.DataFrame, n_target: int) -> pd.DataFram
     for bin_name, n_samples in bin_samples.items():
         if n_samples > 0:
             bin_df = dfq_weighted[dfq_weighted["composite_bin"] == bin_name]
-            sampled = bin_df.sample(n=n_samples, replace=False)
+            sampled = bin_df.sample(n=n_samples, replace=False, random_state=random_state)
             sampled_dfs.append(sampled)
 
     if not sampled_dfs:
@@ -824,7 +842,7 @@ def stratified_sample_questions(dfq: pd.DataFrame, n_target: int) -> pd.DataFram
     return pd.concat(sampled_dfs, ignore_index=True)
 
 
-def sample_market_questions(dfq: pd.DataFrame, n_target: int) -> pd.DataFrame:
+def sample_market_questions(dfq: pd.DataFrame, n_target: int, random_state=None) -> pd.DataFrame:
     """Sample market questions using multi-dimensional binning strategy.
 
     Ensures balanced sampling across market probability values and time horizons.
@@ -832,6 +850,8 @@ def sample_market_questions(dfq: pd.DataFrame, n_target: int) -> pd.DataFrame:
     Args:
         dfq (pd.DataFrame): Market questions
         n_target (int): Number of questions to sample
+        random_state: Seed/``np.random.RandomState`` threaded to ``stratified_sample_questions``
+            for reproducibility. ``None`` (default) samples without a fixed seed.
 
     Returns
         df_result (pd.DataFrame): Sampled questions
@@ -845,6 +865,7 @@ def sample_market_questions(dfq: pd.DataFrame, n_target: int) -> pd.DataFrame:
     df_result = stratified_sample_questions(
         dfq=dfq,
         n_target=n_target,
+        random_state=random_state,
     )
     df_result = df_result.drop(
         columns=[
@@ -857,7 +878,7 @@ def sample_market_questions(dfq: pd.DataFrame, n_target: int) -> pd.DataFrame:
     return df_result
 
 
-def llm_sample_questions(values: dict, n_single: int) -> pd.DataFrame:
+def llm_sample_questions(values: dict, n_single: int, random_state=None) -> pd.DataFrame:
     """Generate questions for the LLM question set.
 
     For market questions: Sample using binning strategy.
@@ -866,23 +887,26 @@ def llm_sample_questions(values: dict, n_single: int) -> pd.DataFrame:
     Args:
         values (dict): Source data dict containing "dfq" DataFrame
         n_single (int): Number of questions to sample
+        random_state: Seed/``np.random.RandomState`` threaded to the market/category samplers for
+            reproducibility. ``None`` (default) samples without a fixed seed.
 
     Returns
         df (pd.DataFrame): Sampled questions
     """
     dfq = values["dfq"].copy()
     source = dfq["source"].iloc[0]
+    random_state = _as_random_state(random_state)
 
     if source in question_curation.MARKET_SOURCES:
         # Use binning-based sampling for market questions
-        return sample_market_questions(dfq, n_single)
+        return sample_market_questions(dfq, n_single, random_state=random_state)
     else:
         # Use existing category-based sampling for data sources
         allocation = allocate_across_categories(num_questions=n_single, dfq=dfq)
 
         dfs = []
         for key, value in allocation.items():
-            dfs.append(dfq[dfq["category"] == key].sample(value))
+            dfs.append(dfq[dfq["category"] == key].sample(value, random_state=random_state))
         return pd.concat(dfs, ignore_index=True)
 
 
@@ -1211,6 +1235,12 @@ def driver(_: None) -> None:
         )
         HUMAN_QUESTIONS.update(human_questions_of_question_type)
 
+    # Optional reproducibility: when QUESTION_SET_SEED is set, thread a single RandomState through
+    # both sampling passes so the published set is deterministic. Unset (the default) preserves the
+    # historical unseeded behaviour.
+    seed_env = os.getenv("QUESTION_SET_SEED")
+    random_state = np.random.RandomState(int(seed_env)) if seed_env not in (None, "") else None
+
     # Sample questions
     logger.info("LLM SET")
     LLM_QUESTIONS = process_questions(
@@ -1219,6 +1249,7 @@ def driver(_: None) -> None:
         single_generation_func=llm_sample_questions,
         show_plots=env.RUNNING_LOCALLY,
         question_set_target=QuestionSetTarget.LLM,
+        random_state=random_state,
     )
 
     logger.info("HUMAN SET")
@@ -1228,6 +1259,7 @@ def driver(_: None) -> None:
         single_generation_func=human_sample_questions,
         show_plots=False,
         question_set_target=QuestionSetTarget.HUMAN,
+        random_state=random_state,
     )
 
     write_questions(LLM_QUESTIONS, question_set_target=QuestionSetTarget.LLM)
