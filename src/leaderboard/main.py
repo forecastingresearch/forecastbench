@@ -130,6 +130,7 @@ LEGACY_ORG_TO_LOGO = {
 }
 
 EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
+    "Anthral Labs": "anthral.svg",
     "Cassi-AI": "cassi-ai.png",
     "FractalAIResearch": "fractal-ai.png",
     "Lightning Rod Labs": "lightningrod.jpg",

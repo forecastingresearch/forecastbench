@@ -142,6 +142,7 @@ def test_leaderboard_org_logo_lookup_keeps_legacy_and_external_names():
     assert main.get_org_logo("Minimax") == "minimax.svg"
     assert main.get_org_logo("Mistral") == "mistral.svg"
     assert main.get_org_logo("Cassi-AI") == "cassi-ai.png"
+    assert main.get_org_logo("Anthral Labs") == "anthral.svg"
     assert main.get_org_logo("anonymous 4") == "anonymous_4.svg"
     assert main.get_org_logo("Unknown Org") == "default.svg"
 
