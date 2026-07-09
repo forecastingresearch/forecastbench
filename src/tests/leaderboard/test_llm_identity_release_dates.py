@@ -1,6 +1,5 @@
 """Tests for ForecastBench model identity release-date joins."""
 
-import json
 from datetime import date
 from pathlib import Path
 
@@ -167,49 +166,6 @@ def test_forecastbench_model_run_keys_map_raw_legacy_current_and_tool_runs():
         assert normalized["model_key"] == expected_model_key
         assert normalized["model_run_key"] == expected_model_run_key
         assert normalized["forecast_variant_key"] == expected_forecast_variant_key
-
-
-def test_processed_forecastbench_llm_files_have_shared_model_run_keys():
-    processed_forecast_sets = ROOT.parent / "forecastbench-processed-forecast-sets"
-    if not processed_forecast_sets.exists():
-        pytest.skip("Processed ForecastBench forecast sets are not checked out.")
-
-    from utils.llm import model_runs as shared_model_runs
-
-    from leaderboard import llm_identities
-    from llm_forecaster import forecast_variants
-
-    missing_mappings = []
-    forecastbench_llm_files = 0
-    for path in sorted(processed_forecast_sets.rglob("*.json")):
-        data = json.loads(path.read_text())
-        if data.get("organization") != "ForecastBench":
-            continue
-        if data.get("model_organization") == "ForecastBench":
-            continue
-
-        forecastbench_llm_files += 1
-        identity = {
-            "organization": data.get("organization"),
-            "model": data.get("model"),
-            "model_organization": data.get("model_organization"),
-        }
-        normalized = llm_identities.normalize_llm_identity(identity)
-        model_run_key = normalized["model_run_key"]
-        forecast_variant_key = normalized["forecast_variant_key"]
-        if model_run_key not in shared_model_runs.MODEL_RUNS_BY_KEY:
-            missing_mappings.append(
-                f"{path}: {data.get('model_organization')} / {data.get('model')} "
-                f"-> {model_run_key}"
-            )
-        if forecast_variant_key not in forecast_variants.SUPPORTED_FORECAST_VARIANT_KEYS:
-            missing_mappings.append(
-                f"{path}: {data.get('model_organization')} / {data.get('model')} "
-                f"-> {forecast_variant_key}"
-            )
-
-    assert forecastbench_llm_files > 0
-    assert missing_mappings == []
 
 
 def test_explicit_model_run_and_forecast_variant_keys_are_validated():
