@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 import subprocess
 import sys
 from typing import Any
@@ -15,17 +16,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_bucket_mount_dir(bucket: str) -> str:
-    """Return the mounted filesystem path for a bucket available to this job."""
-    mount_root = env.BUCKET_MOUNT_POINT or "/mnt"
-    return f"{mount_root}/{bucket}"
-
-
 @decorator.log_runtime
 def compress_bucket_and_upload_tarball(bucket: str, compression: str = "gz") -> None:
     """Compress files in bucket and upload to same bucket as `<bucket>.tar.gz`.
 
-    Create a tarball from the mounted bucket path and upload it.
+    Download the bucket to local disk in parallel, create a tarball from the
+    local copy, and upload it. A parallel download reads the objects far faster
+    than streaming them one-by-one through a Cloud Storage FUSE mount, where
+    every file access is a separate network round-trip.
 
     Args:
         bucket (str): Name of the GCP Storage bucket to process.
@@ -36,11 +34,27 @@ def compress_bucket_and_upload_tarball(bucket: str, compression: str = "gz") -> 
     """
     assert compression in ["gz", "xz"]
     ext = f".tar.{compression}"
+    local_dir = f"/tmp/{bucket}"
     local_tarball = f"/tmp/{bucket}{ext}"
-    source_dir = get_bucket_mount_dir(bucket=bucket)
-    source_parent, source_leaf = os.path.split(source_dir)
+    shutil.rmtree(local_dir, ignore_errors=True)
+    os.makedirs(local_dir)
 
-    logger.info(f"Creating tarball {local_tarball} from mounted path {source_dir}.")
+    logger.info(f"Downloading gs://{bucket} to {local_dir}.")
+    subprocess.run(
+        [
+            "gsutil",
+            "-m",
+            "rsync",
+            "-r",
+            "-x",
+            r".*\.(gz|xz)$",
+            f"gs://{bucket}",
+            local_dir,
+        ],
+        check=True,
+    )
+
+    logger.info(f"Creating tarball {local_tarball} from {local_dir}.")
     subprocess.run(
         [
             "tar",
@@ -49,8 +63,8 @@ def compress_bucket_and_upload_tarball(bucket: str, compression: str = "gz") -> 
             "--exclude=*.gz",
             "--exclude=*.xz",
             "-C",
-            source_parent,
-            source_leaf,
+            "/tmp",
+            bucket,
         ],
         check=True,
     )
