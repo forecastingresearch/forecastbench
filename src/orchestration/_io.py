@@ -276,7 +276,7 @@ def push_all_resolution_sets() -> None:
     folder = "datasets/resolution_sets"
     blob_names = gcp.storage.list_with_prefix(
         bucket_name=env.PUBLIC_RELEASE_BUCKET,
-        prefix=folder,
+        prefix=f"{folder}/",
     )
 
     files = {}
@@ -298,13 +298,13 @@ def push_all_resolution_sets() -> None:
 
     mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
     mirrors = [mirrors] if mirrors else []
-    pushed = git.clone_and_push_files(
+    committed = git.clone_and_push_files(
         repo_url=keys.API_GITHUB_DATASET_REPO_URL,
         files=files,
         commit_message="resolution sets: automatic update.",
         mirrors=mirrors,
     )
-    if pushed:
+    if committed:
         logger.info(f"Pushed {len(files)} resolution sets to git in a single commit.")
 
 
