@@ -370,6 +370,7 @@ SOURCE_METADATA = {
         "ticker_renames": [
             {"original_ticker": "FI", "replacement_ticker": "FISV"},
             {"original_ticker": "MMC", "replacement_ticker": "MRSH"},
+            {"original_ticker": "BK", "replacement_ticker": "BNY"},
         ],
     },
 }

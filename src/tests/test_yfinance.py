@@ -35,6 +35,7 @@ class TestTickerRenamesDefinition:
         renames = {e["original_ticker"]: e["replacement_ticker"] for e in TICKER_RENAMES}
         assert renames["FI"] == "FISV"
         assert renames["MMC"] == "MRSH"
+        assert renames["BK"] == "BNY"
 
 
 class TestDelistedStocksDefinition:
