@@ -320,6 +320,14 @@ SOURCE_METADATA = {
                 id="c6ee39b4504603aa5ddbe73f378d48d94ab128406e5dd1bbb70ead0207a43840",
                 nullification_start_date=date(2025, 7, 30),
             ),  # noqa: B950
+            # Non-existent swimmer "Jonny Liette" — fabricated 50m backstroke WR question. The name
+            # is not a real record holder (the men's 50m backstroke WR is held by Kliment
+            # Kolesnikov, 23.55) and never appeared in the source article's revision history.
+            # Nullify from the benchmark start so it is never sampled and resolves to null.
+            NullifiedQuestion(
+                id="135a1523e67a012ce700a810c8c0c152a5bc6f0f01303ffe7ae28daf9ba4aa7c",
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+            ),  # noqa: B950
         ],
     },
     "yfinance": {
