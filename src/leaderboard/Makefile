@@ -70,7 +70,7 @@ deploy-baseline : $(LEADERBOARD_DEPENDENCIES)
 		--tasks 1 \
 		--parallelism 1 \
 		--task-timeout 4h \
-		--memory 16Gi \
+		--memory 32Gi \
 		--cpu $(NUM_CPUS) \
 		--max-retries 0 \
 		--add-volume name=$(PROCESSED_FORECAST_SETS_BUCKET),type=cloud-storage,bucket=$(PROCESSED_FORECAST_SETS_BUCKET),readonly=true \
