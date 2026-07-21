@@ -59,14 +59,14 @@ def test_forecastbench_selected_model_run_indexes_use_prefixed_names():
 
 
 def test_model_run_calls_utils_with_provider_model_id_and_options():
-    run = fb_model_runs.get_model_run_by_slug("minimax-m2.7")
+    run = fb_model_runs.get_model_run_by_slug("gemma-4-31b-it")
 
     with patch("utils.llm.model_registry.get_response", return_value="0.61") as mock_call:
         assert run.get_response("prompt", max_tokens=128) == "0.61"
 
     mock_call.assert_called_once_with(
         provider=PROVIDERS["Together"],
-        model_id="MiniMaxAI/MiniMax-M2.7",
+        model_id="google/gemma-4-31B-it",
         prompt="prompt",
         options={"temperature": 0, "max_tokens": 128},
     )
@@ -85,11 +85,13 @@ def test_labs_and_providers_are_shared_registry_objects():
     runs = {run.slug: run for run in fb_model_runs.FB_MODEL_RUNS}
 
     assert "kimi-k2.6" not in runs
-    assert runs["minimax-m2.7"].lab == shared_model_registry.MODELS_BY_KEY["minimax-m2.7"].lab
-    assert runs["minimax-m2.7"].provider == PROVIDERS["Together"]
-    assert runs["minimax-m2.7-12000"].lab == shared_model_registry.MODELS_BY_KEY["minimax-m2.7"].lab
-    assert runs["minimax-m2.7-12000"].provider == PROVIDERS["Together"]
-    assert runs["kimi-k2.6-16000"].lab == shared_model_registry.MODELS_BY_KEY["kimi-k2.6"].lab
+    assert (
+        runs["minimax-m3-adaptive-thinking-12000"].lab
+        == shared_model_registry.MODELS_BY_KEY["minimax-m3"].lab
+    )
+    assert runs["minimax-m3-adaptive-thinking-12000"].provider == PROVIDERS["Together"]
+    assert runs["kimi-k3-max-128k"].lab == shared_model_registry.MODELS_BY_KEY["kimi-k3"].lab
+    assert runs["kimi-k3-max-128k"].provider == PROVIDERS["Moonshot AI"]
     assert runs["gemma-4-31b-it"].lab == shared_model_registry.MODELS_BY_KEY["gemma-4-31b-it"].lab
     assert runs["gemma-4-31b-it"].provider == PROVIDERS["Together"]
 
@@ -242,6 +244,7 @@ def test_provider_max_workers_matches_plan_exactly():
         PROVIDERS["Anthropic"]: 50,
         PROVIDERS["Google"]: 50,
         PROVIDERS["xAI"]: 50,
+        PROVIDERS["Moonshot AI"]: 50,
         PROVIDERS["Together"]: 4,
     }
 
