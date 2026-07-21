@@ -518,3 +518,111 @@ def make_polymarket_fetch_df(rows):
         if col not in df.columns:
             df[col] = default
     return df
+
+
+# ---------------------------------------------------------------------------
+# FRED-specific fixtures and factories
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def fred_source():
+    """Return a FredSource instance with a fake API key."""
+    src = FredSource()
+    src.api_key = "test-key"
+    return src
+
+
+def make_fred_api_release(**overrides):
+    """Build a realistic FRED release API response dict."""
+    base = {
+        "id": 18,
+        "realtime_start": "2026-03-18",
+        "realtime_end": "2026-03-18",
+        "name": "H.15 Selected Interest Rates",
+        "press_release": True,
+        "link": "http://www.federalreserve.gov/releases/h15/",
+        "notes": "For questions on the data, please contact the data source.",
+    }
+    base.update(overrides)
+    return base
+
+
+def make_fred_api_series(**overrides):
+    """Build a realistic FRED series API response dict."""
+    base = {
+        "id": "DGS10",
+        "title": "Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity",
+        "observation_start": "1962-01-02",
+        "observation_end": "2026-03-16",
+        "frequency": "Daily",
+        "frequency_short": "D",
+        "units": "Percent",
+        "units_short": "%",
+        "seasonal_adjustment": "Not Seasonally Adjusted",
+        "seasonal_adjustment_short": "NSA",
+        "last_updated": "2026-03-17 15:16:44-05",
+        "popularity": 98,
+        "notes": "H.15 Statistical Release.",
+    }
+    base.update(overrides)
+    return base
+
+
+def make_fred_api_observations(series_id="DGS10", date_values=None):
+    """Build a list of FRED observation dicts.
+
+    Args:
+        series_id (str): The series ID for the id field.
+        date_values (list): List of (date_str, value_str) tuples.
+    """
+    if date_values is None:
+        date_values = [
+            ("2026-03-14", "4.25"),
+            ("2026-03-15", "."),
+            ("2026-03-16", "4.30"),
+        ]
+    return [
+        {
+            "realtime_start": "2026-03-18",
+            "realtime_end": "2026-03-18",
+            "date": d,
+            "value": v,
+        }
+        for d, v in date_values
+    ]
+
+
+def make_fred_fetch_df(rows):
+    """Build a DataFrame matching FredFetchFrame schema.
+
+    Each row should have at least 'id'. Missing columns get defaults.
+    """
+    defaults = {
+        "question": (
+            "Will X have increased by {resolution_date} as compared to "
+            "its value on {forecast_due_date}?"
+        ),
+        "background": "N/A",
+        "url": "https://fred.stlouisfed.org/series/DGS10",
+        "resolved": False,
+        "forecast_horizons": [7, 30, 90, 180, 365, 1095, 1825, 3650],
+        "freeze_datetime_value": 4.30,
+        "freeze_datetime_value_explanation": "The latest value released in X from the release Y.",
+        "market_info_resolution_criteria": "N/A",
+        "market_info_open_datetime": "N/A",
+        "market_info_close_datetime": "N/A",
+        "market_info_resolution_datetime": "N/A",
+        "fetch_datetime": "2026-03-18T00:00:00+00:00",
+        "probability": 4.30,
+        "resolutions": [
+            {"id": "DGS10", "date": "2026-03-14", "value": 4.25},
+            {"id": "DGS10", "date": "2026-03-15", "value": 4.25},
+            {"id": "DGS10", "date": "2026-03-16", "value": 4.30},
+        ],
+    }
+    df = pd.DataFrame(rows)
+    for col, default in defaults.items():
+        if col not in df.columns:
+            df[col] = [default] * len(df) if isinstance(default, list) else default
+    return df
