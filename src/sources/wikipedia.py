@@ -93,7 +93,7 @@ class WikipediaSource(DatasetSource):
         resolution_date_value = get_value(dfr, mid, resolution_date)
 
         if pd.isna(forecast_due_date_value):
-            logger.info(
+            logger.debug(
                 f"Nullifying Wikipedia market {mid}. "
                 "The forecast question resolved between the freeze date and the forecast due date."
             )
@@ -163,7 +163,7 @@ class WikipediaSource(DatasetSource):
         """Map deprecated question IDs to their replacement IDs."""
         new_id = _TRANSFORM_ID_MAPPING.get(wid)
         if new_id is not None:
-            logger.info(f"In wikipedia._transform_id(): Transforming {wid} --> {new_id}.")
+            logger.debug(f"In wikipedia._transform_id(): Transforming {wid} --> {new_id}.")
             return new_id
         return wid
 
