@@ -1,0 +1,3 @@
+dnspython
+google-cloud-firestore
+google-cloud-storage
