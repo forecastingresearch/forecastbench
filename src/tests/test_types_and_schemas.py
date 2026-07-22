@@ -115,6 +115,7 @@ _EXPECTED_SOURCES = {
     "dbnomics": SourceType.DATASET,
     "fred": SourceType.DATASET,
     "infer": SourceType.MARKET,
+    "kalshi": SourceType.MARKET,
     "manifold": SourceType.MARKET,
     "metaculus": SourceType.MARKET,
     "polymarket": SourceType.MARKET,

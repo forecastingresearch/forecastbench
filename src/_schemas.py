@@ -155,6 +155,22 @@ class DbnomicsFetchFrame(pa.DataFrameModel):
         coerce = True
 
 
+class KalshiFetchFrame(pa.DataFrameModel):
+    """Output of KalshiSource.fetch(). Market display and parent routing metadata."""
+
+    id: Series[str]
+    event_ticker: Series[str]
+    needs_yes_label: Series[bool]
+    series_ticker: Series[str]
+    settlement_sources: Series[object]
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = True
+
+
 class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 
