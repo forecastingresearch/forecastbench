@@ -146,6 +146,18 @@ class MetaculusFetchFrame(pa.DataFrameModel):
         coerce = True
 
 
+class KalshiFetchFrame(pa.DataFrameModel):
+    """Output of KalshiSource.fetch(). Just market tickers from the events endpoint."""
+
+    id: Series[str]
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = True
+
+
 class AcledResolutionFrame(pa.DataFrameModel):
     """ACLED-specific: aggregated events by country and date.
 

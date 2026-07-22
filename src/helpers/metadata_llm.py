@@ -3,10 +3,7 @@
 from functools import cache
 
 from utils.llm import model_runs
-from utils.llm.model_registry import (
-    configure_api_keys,
-    validate_provider_keys,
-)
+from utils.llm.model_registry import configure_api_keys, validate_provider_keys
 
 from .openai_safety import get_openai_safety_identifier
 
