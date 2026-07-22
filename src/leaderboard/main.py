@@ -2621,12 +2621,38 @@ def score_models(
     return df_leaderboard, question_fixed_effects
 
 
+def _question_level_bootstrap(df: pd.DataFrame, random_state=None) -> pd.DataFrame:
+    """Resample question_pks with replacement for one bootstrap replicate of a group.
+
+    Args:
+        df (pd.DataFrame): Rows for one ``(forecast_due_date, source)`` group.
+        random_state: Seed / ``RandomState`` for reproducible resampling. ``None`` (the default)
+            draws from fresh entropy, matching the historical non-deterministic behavior.
+
+    Returns:
+        pd.DataFrame: Rows for the resampled questions, with ``question_pk`` made unique per draw.
+    """
+    questions = df["question_pk"].drop_duplicates()
+    questions_bs = questions.sample(frac=1, replace=True, random_state=random_state)
+    sample = questions_bs.to_frame(name="question_pk")
+    sample["draw"] = sample.groupby("question_pk").cumcount()
+    retval = pd.merge(sample, df, on="question_pk", how="left")
+    # `question_pk` must be overwritten with a unique id in case it was sampled more than once.
+    # This ensures that `two_way_fixed_effects()` treats each drawn question separately (instead
+    # of treating multiple draws as one question).
+    retval["question_pk"] = (
+        retval["question_pk"].astype(str) + "_sim_id_" + retval["draw"].astype(str)
+    )
+    return retval.drop(columns=["draw"])
+
+
 @decorator.log_runtime
 def generate_simulated_leaderboards(
     df: pd.DataFrame,
     primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
     market_question_adjustment: MarketQuestionAdjustment,
     N: int = N_REPLICATES,
+    seed: int | None = None,
 ) -> pd.DataFrame:
     """Generate simulated leaderboards by bootstrap sampling.
 
@@ -2637,6 +2663,9 @@ def generate_simulated_leaderboards(
         market_question_adjustment (MarketQuestionAdjustment): How to estimate market question
             effects.
         N (int): Number of bootstrap replicates to generate.
+        seed (int | None): Base seed for reproducible bootstrap draws. When set, replicate ``i``
+            uses ``seed + i`` so each loky child process is deterministic independent of process
+            RNG state; ``None`` (the default) preserves the historical non-deterministic behavior.
 
     Returns:
         pd.DataFrame: Simulated scores with each column representing a replicate.
@@ -2647,30 +2676,16 @@ def generate_simulated_leaderboards(
 
     df = df.copy()
 
-    def question_level_bootstrap(df: pd.DataFrame) -> pd.DataFrame:
-        questions = df["question_pk"].drop_duplicates()
-        questions_bs = questions.sample(frac=1, replace=True)
-        sample = questions_bs.to_frame(name="question_pk")
-        sample["draw"] = sample.groupby("question_pk").cumcount()
-        retval = pd.merge(
-            sample,
-            df,
-            on="question_pk",
-            how="left",
-        )
-        # `question_pk` must be overwritten with a unique id in case it was sampled more than once.
-        # This ensures that `two_way_fixed_effects()` treats each drawn question separately (instead
-        # of treating multiple draws as one question).
-        retval["question_pk"] = (
-            retval["question_pk"].astype(str) + "_sim_id_" + retval["draw"].astype(str)
-        )
-        return retval.drop(columns=["draw"])
-
     def bootstrap_and_score(idx):
         logger.info(f"[replicate {idx+1}/{N}] starting...")
+        # Per-replicate RandomState so each loky child is deterministic when `seed` is set.
+        random_state = None if seed is None else np.random.RandomState(seed + idx)
         df_bs = (
             df.groupby(["forecast_due_date", "source"])
-            .apply(question_level_bootstrap, include_groups=False)
+            .apply(
+                lambda group: _question_level_bootstrap(group, random_state=random_state),
+                include_groups=False,
+            )
             .reset_index()
         )
         try:

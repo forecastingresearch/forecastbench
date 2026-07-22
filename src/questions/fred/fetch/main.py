@@ -29,10 +29,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SOURCE = "fred"
-PARAMS = {
-    "api_key": keys.API_KEY_FRED,
-    "file_type": "json",
-}
+
+
+def _fred_params() -> dict:
+    """Build the FRED API params at call time.
+
+    Reading ``keys.API_KEY_FRED`` here rather than at module scope keeps importing this job free of
+    any Secret Manager access (the offline-import contract).
+    """
+    return {
+        "api_key": keys.API_KEY_FRED,
+        "file_type": "json",
+    }
+
 
 # FRED throttles each API key at ~2 requests/second (120/minute); exceeding it
 # returns HTTP 429. Space requests out to stay safely under that limit.
@@ -295,14 +304,15 @@ def fetch_all(dfq, FRED_QUESTIONS_NAMES):
 
     logger.info(f"# of combined questions: {len(combined_questions.keys())}")
     ids_to_delete = []
+    params = _fred_params()
     # fetch release, series, and background
     for series_id in combined_questions:
         combined_questions[series_id]["release"] = fetch_all_releases(
-            PARAMS, series_id=series_id, single=True
+            params, series_id=series_id, single=True
         )[0]
-        combined_questions[series_id]["series"] = fetch_all_series(PARAMS, series_id=series_id)
+        combined_questions[series_id]["series"] = fetch_all_series(params, series_id=series_id)
         combined_questions[series_id]["observations"] = fetch_all_observations(
-            PARAMS, series_id=series_id
+            params, series_id=series_id
         )
         if not combined_questions[series_id]["observations"]:
             ids_to_delete.append(series_id)
