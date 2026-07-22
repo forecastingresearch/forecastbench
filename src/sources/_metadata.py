@@ -120,6 +120,19 @@ SOURCE_METADATA = {
         # implemented in a second pass.
         "run_fetch": False,
     },
+    "kalshi": {
+        "source_type": SourceType.MARKET,
+        "source_intro": (
+            "We would like you to predict the outcome of a prediction market. A prediction "
+            "market, in this context, is the aggregate of predictions submitted by users on the "
+            "website Kalshi. You're going to predict the probability that the market will "
+            "resolve as 'Yes'."
+        ),
+        "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
+        # Add a ticker only after confirming that it remains absent from both Kalshi's live and
+        # historical APIs. A live 404 alone usually means the market has been archived.
+        "nullified_questions": [],
+    },
     "manifold": {
         "source_type": SourceType.MARKET,
         "source_intro": (

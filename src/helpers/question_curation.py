@@ -9,6 +9,7 @@ from . import (
     dates,
     dbnomics,
     fred,
+    kalshi,
     manifold,
     metaculus,
     polymarket,
@@ -39,6 +40,11 @@ FREEZE_QUESTION_MARKET_SOURCES = {
         "name": "Metaculus",
         "source_intro": metaculus.SOURCE_INTRO,
         "resolution_criteria": metaculus.RESOLUTION_CRITERIA,
+    },
+    "kalshi": {
+        "name": "Kalshi",
+        "source_intro": kalshi.SOURCE_INTRO,
+        "resolution_criteria": kalshi.RESOLUTION_CRITERIA,
     },
     "polymarket": {
         "name": "Polymarket",
