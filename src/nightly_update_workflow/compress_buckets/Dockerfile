@@ -1,4 +1,4 @@
-FROM us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/python312
+FROM us-central1-docker.pkg.dev/serverless-runtimes/google-24-full/runtimes/python314
 
 RUN whoami || echo "whoami not found"
 
