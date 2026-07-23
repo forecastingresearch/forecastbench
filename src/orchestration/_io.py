@@ -37,6 +37,14 @@ DATASETS_QUESTION_SETS_RAW_BASE_URL = (
 )
 QUESTION_SET_READ_TIMEOUT_SECONDS = 30
 
+# Submissions with a forecast due date on or after this date must provide a `url`
+# field with the submitting organization's website, unless the submission is
+# anonymous. Forecast sets due before this date predate the requirement and are
+# still processed without one.
+URL_REQUIRED_AS_OF_DUE_DATE = "2026-08-01"
+
+ANONYMOUS_ORGANIZATION_RE = re.compile(r"^anonymous(\s+\d+)?$", re.IGNORECASE)
+
 
 # ---------------------------------------------------------------------------
 # Question bank loading
@@ -457,6 +465,10 @@ def get_valid_forecast_files_and_dates(
 def read_forecast_file(filename: str, f: TextIO | None = None) -> dict | None:
     """Read a forecast JSON file and validate its content.
 
+    The optional `url` field, when present, must be an http(s) URL. It is required
+    for non-anonymous submissions with a forecast due date on or after
+    URL_REQUIRED_AS_OF_DUE_DATE.
+
     Args:
         filename: Path to the forecast JSON file.
         f: Open file handle. If None, filename will be opened.
@@ -488,6 +500,32 @@ def read_forecast_file(filename: str, f: TextIO | None = None) -> dict | None:
         logger.error(
             colored(
                 f"Problem processing {filename}. Issue with question set filename: {question_set}",
+                "yellow",
+            )
+        )
+        return None
+
+    url = data.get("url")
+    if url is not None and (
+        not isinstance(url, str) or not url.startswith(("http://", "https://"))
+    ):
+        logger.error(
+            colored(
+                f"Problem processing {filename}. `url` must be an http(s) URL, got: {url}.",
+                "yellow",
+            )
+        )
+        return None
+
+    if (
+        not url
+        and forecast_due_date >= URL_REQUIRED_AS_OF_DUE_DATE
+        and not ANONYMOUS_ORGANIZATION_RE.match(organization.strip())
+    ):
+        logger.error(
+            colored(
+                f"Problem processing {filename}. Missing required field `url`; it is "
+                "required for non-anonymous submissions.",
                 "yellow",
             )
         )
