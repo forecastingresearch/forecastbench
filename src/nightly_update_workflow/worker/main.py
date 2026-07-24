@@ -92,6 +92,7 @@ def get_fetch_and_update():
         "dbnomics",
         "fred",
         "infer",
+        "kalshi",
         "manifold",
         "metaculus",
         "polymarket",

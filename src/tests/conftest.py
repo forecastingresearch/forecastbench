@@ -10,6 +10,7 @@ import pytest
 from sources.acled import AcledSource
 from sources.fred import FredSource
 from sources.infer import InferSource
+from sources.kalshi import KalshiSource
 from sources.manifold import ManifoldSource
 from sources.metaculus import MetaculusSource
 from sources.polymarket import PolymarketSource
@@ -92,6 +93,12 @@ def metaculus_source():
     src = MetaculusSource()
     src.api_key = "test-key"
     return src
+
+
+@pytest.fixture()
+def kalshi_source():
+    """Return a KalshiSource instance."""
+    return KalshiSource()
 
 
 @pytest.fixture()
@@ -451,6 +458,69 @@ def make_metaculus_search_result(**overrides):
 def make_metaculus_fetch_df(ids):
     """Build a DataFrame matching MetaculusFetchFrame schema."""
     return pd.DataFrame({"id": [str(i) for i in ids]})
+
+
+# ---------------------------------------------------------------------------
+# Kalshi-specific factories
+# ---------------------------------------------------------------------------
+
+
+def make_kalshi_api_market(**overrides):
+    """Build a realistic Kalshi market dict as returned by /markets/{ticker}."""
+    base = {
+        "ticker": "KXTEST-001",
+        "event_ticker": "KXTEST",
+        "title": "Will X happen by 2026?",
+        "yes_sub_title": "X happens",
+        "market_type": "binary",
+        "open_time": "2025-06-01T00:00:00Z",
+        "close_time": "2026-12-01T00:00:00Z",
+        "status": "active",
+        "result": "",
+        "volume_fp": "10000.00",
+        "volume_24h_fp": "500.00",
+        "open_interest_fp": "2000.00",
+        "rules_primary": "Resolves Yes if X happens.",
+        "rules_secondary": "",
+        "settlement_ts": None,
+        "expected_expiration_time": "2026-12-01T00:00:00Z",
+    }
+    base.update(overrides)
+    return base
+
+
+def make_kalshi_event(markets=None, category="Economics", **overrides):
+    """Build a Kalshi event dict with nested markets as returned by /events."""
+    base = {
+        "event_ticker": "KXTEST",
+        "series_ticker": "KXTEST",
+        "category": category,
+        "title": "Test event",
+        "markets": markets if markets is not None else [make_kalshi_api_market()],
+    }
+    base.update(overrides)
+    return base
+
+
+def make_kalshi_candlestick(end_period_ts, close_dollars=None, **overrides):
+    """Build a single daily candlestick dict as returned by the candlesticks endpoint.
+
+    ``price`` is empty ({}) when no trade occurred during the period, matching the API.
+    """
+    price = {} if close_dollars is None else {"close_dollars": str(close_dollars)}
+    base = {
+        "end_period_ts": end_period_ts,
+        "price": price,
+        "volume_fp": "100.00",
+        "open_interest_fp": "500.00",
+    }
+    base.update(overrides)
+    return base
+
+
+def make_kalshi_fetch_df(rows):
+    """Build a DataFrame matching KalshiFetchFrame schema (just id column)."""
+    return pd.DataFrame(rows)
 
 
 # ---------------------------------------------------------------------------

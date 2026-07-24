@@ -65,6 +65,17 @@ SOURCE_METADATA = {
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
         "nullified_questions": [],
     },
+    "kalshi": {
+        "source_type": SourceType.MARKET,
+        "source_intro": (
+            "We would like you to predict the outcome of a prediction market. A prediction "
+            "market, in this context, is the aggregate of predictions submitted by users on the "
+            "website Kalshi. You're going to predict the probability that the market will "
+            "resolve as 'Yes'."
+        ),
+        "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
+        "nullified_questions": [],
+    },
     "manifold": {
         "source_type": SourceType.MARKET,
         "source_intro": (

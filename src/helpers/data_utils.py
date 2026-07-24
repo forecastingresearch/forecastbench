@@ -54,6 +54,13 @@ def download_and_read(filename, local_filename, df_tmp, dtype):
         filename=filename,
         local_filename=local_filename,
     )
+    # On a 404, download_no_error_message_on_404 swallows the error and leaves no local file. We
+    # must not fall through to pd.read_json in that case: given a path that doesn't exist, modern
+    # pandas treats the string as literal JSON and raises "ValueError: Expected object or value"
+    # rather than yielding an empty frame. This bites the first run of every brand-new source
+    # (before its <source>_questions.jsonl exists), so return the empty default instead.
+    if not os.path.exists(local_filename):
+        return df_tmp
     df = pd.read_json(local_filename, lines=True, dtype=dtype, convert_dates=False)
     if df.empty:
         return df_tmp

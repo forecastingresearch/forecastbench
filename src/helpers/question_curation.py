@@ -10,6 +10,7 @@ from . import (
     dbnomics,
     fred,
     infer,
+    kalshi,
     manifold,
     metaculus,
     polymarket,
@@ -44,6 +45,11 @@ FREEZE_QUESTION_MARKET_SOURCES = {
         "name": "INFER",
         "source_intro": infer.SOURCE_INTRO,
         "resolution_criteria": infer.RESOLUTION_CRITERIA,
+    },
+    "kalshi": {
+        "name": "Kalshi",
+        "source_intro": kalshi.SOURCE_INTRO,
+        "resolution_criteria": kalshi.RESOLUTION_CRITERIA,
     },
     "polymarket": {
         "name": "Polymarket",

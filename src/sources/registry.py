@@ -11,6 +11,7 @@ from .acled import AcledSource
 from .dbnomics import DbnomicsSource
 from .fred import FredSource
 from .infer import InferSource
+from .kalshi import KalshiSource
 from .manifold import ManifoldSource
 from .metaculus import MetaculusSource
 from .polymarket import PolymarketSource
@@ -22,6 +23,7 @@ _acled = AcledSource()
 _dbnomics = DbnomicsSource()
 _fred = FredSource()
 _infer = InferSource()
+_kalshi = KalshiSource()
 _manifold = ManifoldSource()
 _metaculus = MetaculusSource()
 _polymarket = PolymarketSource()
@@ -35,6 +37,7 @@ SOURCES = {
         _dbnomics,
         _fred,
         _infer,
+        _kalshi,
         _manifold,
         _metaculus,
         _polymarket,
