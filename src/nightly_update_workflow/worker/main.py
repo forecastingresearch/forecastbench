@@ -17,6 +17,15 @@ resolve_forecasts = [
         ("func-resolve-forecasts", True, cloud_run.timeout_1h * 3, 50),
     ]
 ]
+
+
+push_resolution_sets = [
+    [
+        ("func-push-resolution-sets", True, cloud_run.timeout_1h, 1),
+    ]
+]
+
+
 leaderboards = [
     [
         ("func-leaderboard-tournament", True, cloud_run.timeout_1h * 4, 1),
@@ -139,7 +148,8 @@ def main():
 
     Env variables:
     CLOUD_RUN_TASK_INDEX: automatically set by Cloud Run Jobs
-    DICT_TO_USE: one of `fetch_and_update`, `metadata`, `resolve_forecasts`, `leaderboards`.
+    DICT_TO_USE: one of `fetch_and_update`, `metadata`, `resolve_forecasts`,
+                 `push_resolution_sets`, `leaderboards`.
     """
     dict_mapping = {
         "fetch_and_update": get_fetch_and_update(),
@@ -147,6 +157,7 @@ def main():
         "create_question_set": get_create_question_set(),
         "publish_question_set_make_llm_baseline": get_publish_question_set_make_llm_baseline(),
         "resolve_forecasts": resolve_forecasts,
+        "push_resolution_sets": push_resolution_sets,
         "leaderboards": leaderboards,
         "naive_and_dummy_forecasters": get_naive_and_dummy_forecasters(),
         "website": website,

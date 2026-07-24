@@ -57,7 +57,7 @@ def clone_and_push_files(
     files: Dict[str, str],
     commit_message: str,
     mirrors: Optional[List[str]] = None,
-) -> None:
+) -> bool:
     """Clone a Git repository, add/update files, commit, and push to origin and optional mirrors.
 
     Args:
@@ -68,7 +68,9 @@ def clone_and_push_files(
                                        If None, attempts to load from secrets.
 
     Returns:
-        None. Exits with status 1 if an error is encountered while pushing.
+        bool: True if a new commit was created, False if HEAD was unchanged.
+              Origin and mirrors are pushed either way. Exits with status 1 if an
+              error is encountered while pushing.
     """
     if not mirrors:
         mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
@@ -84,19 +86,26 @@ def clone_and_push_files(
         shutil.copy(source, full_destination_path, follow_symlinks=False)
         repo.index.add([destination])
 
+    # Skip empty commits, but always push so a lagging mirror catches up.
+    has_changes = bool(repo.index.diff(repo.head.commit))
+    if not has_changes:
+        logger.info(f"No new commit for {repo_url}; syncing remotes to HEAD.")
+
     error_encountered = False
     author = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
     committer = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
     ssh_env = {"GIT_SSH_COMMAND": f"ssh -i {tmp_key_file_path} -o StrictHostKeyChecking=no"}
     try:
-        repo.index.commit(commit_message, author=author, committer=committer)
+        if has_changes:
+            repo.index.commit(commit_message, author=author, committer=committer)
         origin = repo.remote(name="origin")
-        origin.push(env=ssh_env)
+        # A rejected push does not raise in GitPython; surface it explicitly.
+        origin.push(env=ssh_env).raise_if_error()
         for index, mirror_url in enumerate(mirrors):
             mirror = repo.create_remote(f"mirror_{index}", url=mirror_url)
-            mirror.push(env=ssh_env)
+            mirror.push(env=ssh_env).raise_if_error()
             repo.delete_remote(mirror.name)
-            logger.info(f"Pushed to {mirror_url} (mirror) with commit message: {commit_message}")
+            logger.info(f"Pushed to {mirror_url} (mirror)")
     except Exception as e:
         error_encountered = True
         message = e.message if hasattr(e, "message") else str(e)
@@ -108,14 +117,16 @@ def clone_and_push_files(
     if error_encountered:
         sys.exit(1)
 
-    logger.info(f"Pushed to {repo_url} with commit message: {commit_message}")
+    if has_changes:
+        logger.info(f"Pushed to {repo_url} with commit message: {commit_message}")
+    return has_changes
 
 
 def clone_commit_and_push(
     files: Dict[str, str],
     commit_message: str,
 ) -> None:
-    """Upload files files to Cloud Storage and push updates to Git.
+    """Push files to the git dataset repository.
 
     Args:
         files (Dict[str, str]): Mapping of local file paths to their git location.

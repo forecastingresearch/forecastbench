@@ -124,7 +124,7 @@ orchestration: nightly-worker-job nightly-manager-job compress_buckets
 
 metadata: tag-questions validate-questions
 
-resolve: resolve-forecasts
+resolve: resolve-forecasts push-resolution-sets
 
 leaderboards: leaderboard-tournament leaderboard-baseline leaderboard-preliminary
 
@@ -221,6 +221,9 @@ validate-questions:
 
 resolve-forecasts:
 	$(MAKE) -C src/orchestration/func_resolve || echo "* $@" >> $(MAKE_FAILURE_LOG)
+
+push-resolution-sets:
+	$(MAKE) -C src/orchestration/func_push_resolution_sets || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 naive-and-dummy-forecasters:
 	$(MAKE) -C src/base_eval/naive_and_dummy_forecasters || echo "* $@" >> $(MAKE_FAILURE_LOG)

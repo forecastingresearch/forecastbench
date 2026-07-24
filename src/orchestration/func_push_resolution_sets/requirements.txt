@@ -1,0 +1,10 @@
+google-cloud-storage
+google-cloud-secret-manager
+pandas>=2.2.2,<3.0
+GitPython
+termcolor
+slack_sdk
+pandera
+pytz
+python-dateutil
+backoff
