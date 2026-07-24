@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, ClassVar
 
 import backoff
@@ -19,7 +19,7 @@ from pandera.typing import DataFrame
 
 from _fb_types import UpdateResult
 from _schemas import PolymarketFetchFrame, QuestionFrame, ResolutionFrame
-from helpers import constants, data_utils, dates
+from helpers import constants, data_utils, dates, question_curation
 
 from ._market import MarketSource
 
@@ -245,6 +245,12 @@ class PolymarketSource(MarketSource):
         after_cursor: str | None = None
         seen_ids: set[str] = set()
 
+        # Markets that resolve within the freeze window can never appear on a question set (it's
+        # published FREEZE_WINDOW_IN_DAYS before forecasts are due), so drop them at fetch time.
+        min_resolution_date = dates.get_date_today() + timedelta(
+            days=question_curation.FREEZE_WINDOW_IN_DAYS
+        )
+
         # https://docs.polymarket.com/api-reference/markets/list-markets-keyset-pagination
         # /markets/keyset uses opaque cursor pagination
         # Note that docs for `order` param are wrong; they specify:
@@ -288,7 +294,15 @@ class PolymarketSource(MarketSource):
                     "liquidityNum" in market.keys()
                     and market["liquidityNum"] > _MIN_MARKET_LIQUIDITY
                 )
-                if binary_market and liquid_market and not catch_all_market:
+                resolves_too_soon = self._resolves_before_forecast_window(
+                    market, min_resolution_date
+                )
+                if (
+                    binary_market
+                    and liquid_market
+                    and not catch_all_market
+                    and not resolves_too_soon
+                ):
                     price_history = self._fetch_price_history(self._get_yes_token(market))
                     if price_history is not None:
                         logger.info(
@@ -410,6 +424,54 @@ class PolymarketSource(MarketSource):
         yes_token_index = PolymarketSource._get_yes_index(market)
         return json.loads(market["clobTokenIds"])[yes_token_index]
 
+    @staticmethod
+    def _get_market_end_date_str(market: dict) -> str | None:
+        """Return the market's raw Zulu close-date string, or ``None`` if unavailable.
+
+        Prefers the market's own ``endDate`` and falls back to its first event's ``endDate``. The
+        Gamma API omits the market-level ``endDate`` on some markets (e.g. season/futures markets
+        grouped only under an event), hence the event fallback.
+
+        Args:
+            market (dict): Raw Gamma API market.
+        """
+        end_date = market.get("endDate")
+        if not end_date:
+            events = market.get("events") or []
+            end_date = events[0].get("endDate") if events else None
+        return end_date or None
+
+    @staticmethod
+    def _get_market_close_date(market: dict) -> date | None:
+        """Return the market's scheduled close date, or ``None`` if it can't be determined.
+
+        Args:
+            market (dict): Raw Gamma API market.
+        """
+        end_date = PolymarketSource._get_market_end_date_str(market)
+        if end_date is None:
+            return None
+        close_datetime_str = dates.convert_zulu_to_iso(end_date)
+        return datetime.fromisoformat(close_datetime_str).replace(tzinfo=None).date()
+
+    @staticmethod
+    def _resolves_before_forecast_window(market: dict, min_resolution_date: date) -> bool:
+        """Return True if the market resolves too soon to appear on a question set.
+
+        A question set is published ``FREEZE_WINDOW_IN_DAYS`` before forecasts are due, so any
+        market closing on or before ``min_resolution_date`` (``today + FREEZE_WINDOW_IN_DAYS``) can
+        never be forecast and is dropped at fetch time. Markets with no discoverable close date are
+        kept here and left for ``_transform_question`` to drop.
+
+        Args:
+            market (dict): Raw Gamma API market.
+            min_resolution_date (date): Earliest close date a market may have and still be usable.
+        """
+        close_date = PolymarketSource._get_market_close_date(market)
+        if close_date is None:
+            return False
+        return close_date <= min_resolution_date
+
     # ------------------------------------------------------------------
     # Private: price history helpers
     # ------------------------------------------------------------------
@@ -485,9 +547,8 @@ class PolymarketSource(MarketSource):
         current_prob = price_history[-1]["p"] if len(price_history) > 1 else np.nan
         resolved_datetime = resolved_datetime_str = "N/A"
 
-        try:
-            end_date = market["endDate"] if "endDate" in market else market["events"][0]["endDate"]
-        except KeyError:
+        end_date = PolymarketSource._get_market_end_date_str(market)
+        if end_date is None:
             # endDate unexpectedly missing from:
             # https://polymarket.com/event/will-trump-meet-with-khamenei-before-august
             return None
