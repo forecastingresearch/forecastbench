@@ -1,14 +1,16 @@
 """Tests for PolymarketSource fetch/update logic."""
 
 import os
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytest
 import requests
 
 from _schemas import PolymarketFetchFrame, QuestionFrame, ResolutionFrame
+from helpers import question_curation
 from sources.polymarket import (
+    _MIN_MARKET_LIQUIDITY,
     ConditionIdMarketNotFoundError,
     FailedConditionIdsError,
     PolymarketSource,
@@ -283,6 +285,19 @@ class TestTransformQuestion:
         result = PolymarketSource._transform_question(market, self.FETCH_DT, set())
         assert result is None
 
+    def test_falls_back_to_event_end_date_when_market_end_date_missing(self):
+        """With no market-level endDate, the event's endDate drives the close datetime."""
+        market = make_polymarket_api_market(
+            events=[{"endDate": "2026-06-15T00:00:00Z"}],
+            price_history=make_polymarket_price_history([(1736380800, 0.5)]),
+        )
+        del market["endDate"]
+
+        result = PolymarketSource._transform_question(market, self.FETCH_DT, set())
+
+        assert result is not None
+        assert result["market_info_close_datetime"].startswith("2026-06-15")
+
     def test_single_price_history_entry(self):
         """Single price history entry: probability and freeze value are N/A."""
         market = make_polymarket_api_market(
@@ -327,10 +342,30 @@ class TestTransformQuestion:
 class TestFetchActiveMarketsFromApi:
     """Tests for PolymarketSource._fetch_active_markets_from_api."""
 
-    def _mock_response(self, data):
+    _FROZEN_TODAY = date(2026, 1, 15)
+
+    @pytest.fixture(autouse=True)
+    def _freeze_today_for_window(self, freeze_today):
+        """Freeze 'today' so the resolution-window filter is deterministic across wall-clock time.
+
+        The default market fixture closes 2026-06-01, comfortably after the frozen window cutoff, so
+        the existing (non-date) tests are unaffected.
+        """
+        freeze_today(self._FROZEN_TODAY)
+
+    def _end_date(self, days_from_cutoff: int) -> str:
+        """Return an endDate string offset by ``days_from_cutoff`` days from the window cutoff.
+
+        The cutoff is ``today + FREEZE_WINDOW_IN_DAYS``; deriving from the constant keeps these
+        tests correct if the freeze window changes.
+        """
+        cutoff = self._FROZEN_TODAY + timedelta(days=question_curation.FREEZE_WINDOW_IN_DAYS)
+        return (cutoff + timedelta(days=days_from_cutoff)).strftime("%Y-%m-%dT00:00:00Z")
+
+    def _mock_response(self, data, next_cursor=None):
         resp = Mock()
         resp.ok = True
-        resp.json.return_value = data
+        resp.json.return_value = {"markets": data, "next_cursor": next_cursor}
         resp.raise_for_status = Mock()
         return resp
 
@@ -340,10 +375,7 @@ class TestFetchActiveMarketsFromApi:
     def test_basic_returns_qualifying(self, mock_get, mock_price, mock_sleep, polymarket_source):
         """Binary, liquid, non-catch-all markets are returned."""
         market = make_polymarket_api_market()
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),  # End pagination
-        ]
+        mock_get.return_value = self._mock_response([market])
         mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
 
         result = polymarket_source._fetch_active_markets_from_api()
@@ -358,10 +390,7 @@ class TestFetchActiveMarketsFromApi:
     def test_filters_non_binary(self, mock_get, mock_price, mock_sleep, polymarket_source):
         """Non-binary markets are excluded."""
         market = make_polymarket_api_market(outcomes='["Over", "Under"]')
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
 
         result = polymarket_source._fetch_active_markets_from_api()
 
@@ -374,10 +403,7 @@ class TestFetchActiveMarketsFromApi:
     def test_filters_low_liquidity(self, mock_get, mock_price, mock_sleep, polymarket_source):
         """Markets with liquidityNum below the threshold are excluded."""
         market = make_polymarket_api_market(liquidityNum=10000)
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
 
         result = polymarket_source._fetch_active_markets_from_api()
 
@@ -389,10 +415,7 @@ class TestFetchActiveMarketsFromApi:
     def test_filters_catch_all(self, mock_get, mock_price, mock_sleep, polymarket_source):
         """Markets with 'other' in the slug are excluded."""
         market = make_polymarket_api_market(slug="who-will-win-other-candidates")
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
 
         result = polymarket_source._fetch_active_markets_from_api()
 
@@ -406,15 +429,40 @@ class TestFetchActiveMarketsFromApi:
         m1 = make_polymarket_api_market(conditionId="0x001")
         m2 = make_polymarket_api_market(conditionId="0x002")
         mock_get.side_effect = [
-            self._mock_response([m1]),
+            self._mock_response([m1], next_cursor="cursor1"),
             self._mock_response([m2]),
-            self._mock_response([]),
         ]
         mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
 
         result = polymarket_source._fetch_active_markets_from_api()
 
         assert len(result) == 2
+        # The 2nd request must forward the cursor from the 1st response; offset is never sent.
+        assert mock_get.call_count == 2
+        second_params = mock_get.call_args_list[1].kwargs["params"]
+        assert second_params["after_cursor"] == "cursor1"
+        assert "offset" not in second_params
+        # Liquidity floor is pushed server-side (client-side check stays the authoritative cutoff).
+        assert second_params["liquidity_num_min"] == _MIN_MARKET_LIQUIDITY
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch("sources.polymarket.requests.get")
+    def test_dedupes_market_recurring_across_pages(
+        self, mock_get, mock_price, mock_sleep, polymarket_source
+    ):
+        """A market re-served on a later page (keyset orders by mutable liquidity) is kept once."""
+        market = make_polymarket_api_market(conditionId="0xdupe")
+        mock_get.side_effect = [
+            self._mock_response([market], next_cursor="cursor1"),
+            self._mock_response([market]),
+        ]
+        mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
+
+        result = polymarket_source._fetch_active_markets_from_api()
+
+        assert len(result) == 1
+        assert result[0]["conditionId"] == "0xdupe"
 
     @patch("sources.polymarket.time.sleep")
     @patch.object(PolymarketSource, "_fetch_price_history")
@@ -424,15 +472,32 @@ class TestFetchActiveMarketsFromApi:
     ):
         """Markets where _fetch_price_history returns None are excluded."""
         market = make_polymarket_api_market()
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
         mock_price.return_value = None
 
         result = polymarket_source._fetch_active_markets_from_api()
 
         assert len(result) == 0
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch("sources.polymarket.requests.get")
+    def test_transient_error_retried(self, mock_get, mock_price, mock_sleep, polymarket_source):
+        """A transient HTTP error retries the whole fetch via backoff instead of truncating."""
+        market = make_polymarket_api_market()
+        err_resp = Mock()
+        err_resp.raise_for_status.side_effect = requests.exceptions.HTTPError("500")
+        mock_get.side_effect = [
+            err_resp,  # first attempt: transient 500
+            self._mock_response([market]),  # retry: success
+        ]
+        mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
+
+        result = polymarket_source._fetch_active_markets_from_api()
+
+        assert len(result) == 1
+        assert result[0]["conditionId"] == "0xabc123"
+        assert mock_get.call_count == 2
 
     @patch("sources.polymarket.time.sleep")
     @patch.object(PolymarketSource, "_fetch_price_history")
@@ -443,14 +508,89 @@ class TestFetchActiveMarketsFromApi:
         """Markets without a liquidityNum key are excluded."""
         market = make_polymarket_api_market()
         del market["liquidityNum"]
-        mock_get.side_effect = [
-            self._mock_response([market]),
-            self._mock_response([]),
-        ]
+        mock_get.return_value = self._mock_response([market])
 
         result = polymarket_source._fetch_active_markets_from_api()
 
         assert len(result) == 0
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch("sources.polymarket.requests.get")
+    def test_filters_market_resolving_within_freeze_window(
+        self, mock_get, mock_price, mock_sleep, polymarket_source
+    ):
+        """Markets closing within the freeze window are excluded (they can't be forecast)."""
+        market = make_polymarket_api_market(endDate=self._end_date(-1))
+        mock_get.return_value = self._mock_response([market])
+
+        result = polymarket_source._fetch_active_markets_from_api()
+
+        assert len(result) == 0
+        # The expensive price-history call is skipped for markets that resolve too soon.
+        mock_price.assert_not_called()
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch("sources.polymarket.requests.get")
+    def test_filters_market_resolving_on_freeze_window_boundary(
+        self, mock_get, mock_price, mock_sleep, polymarket_source
+    ):
+        """A market closing exactly on the cutoff date is excluded (boundary is inclusive)."""
+        market = make_polymarket_api_market(endDate=self._end_date(0))
+        mock_get.return_value = self._mock_response([market])
+
+        result = polymarket_source._fetch_active_markets_from_api()
+
+        assert len(result) == 0
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch("sources.polymarket.requests.get")
+    def test_keeps_market_resolving_after_freeze_window(
+        self, mock_get, mock_price, mock_sleep, polymarket_source
+    ):
+        """Markets closing after the window cutoff are kept."""
+        market = make_polymarket_api_market(endDate=self._end_date(1))
+        mock_get.return_value = self._mock_response([market])
+        mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
+
+        result = polymarket_source._fetch_active_markets_from_api()
+
+        assert len(result) == 1
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch("sources.polymarket.requests.get")
+    def test_window_filter_falls_back_to_event_end_date(
+        self, mock_get, mock_price, mock_sleep, polymarket_source
+    ):
+        """With no top-level endDate, the event's endDate drives the window filter."""
+        market = make_polymarket_api_market(events=[{"endDate": self._end_date(-1)}])
+        del market["endDate"]
+        mock_get.return_value = self._mock_response([market])
+
+        result = polymarket_source._fetch_active_markets_from_api()
+
+        assert len(result) == 0
+        mock_price.assert_not_called()
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch("sources.polymarket.requests.get")
+    def test_keeps_market_when_close_date_undeterminable(
+        self, mock_get, mock_price, mock_sleep, polymarket_source
+    ):
+        """A market with an undeterminable close date is kept here (left for _transform_question)."""
+        market = make_polymarket_api_market()
+        del market["endDate"]
+        del market["events"]
+        mock_get.return_value = self._mock_response([market])
+        mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
+
+        result = polymarket_source._fetch_active_markets_from_api()
+
+        assert len(result) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -511,7 +651,7 @@ class TestGetMarket:
     def _mock_response(self, data):
         resp = Mock()
         resp.ok = True
-        resp.json.return_value = data
+        resp.json.return_value = {"markets": data}
         resp.raise_for_status = Mock()
         return resp
 

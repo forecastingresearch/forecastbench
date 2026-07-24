@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, ClassVar
 
 import backoff
@@ -19,15 +19,16 @@ from pandera.typing import DataFrame
 
 from _fb_types import UpdateResult
 from _schemas import PolymarketFetchFrame, QuestionFrame, ResolutionFrame
-from helpers import constants, data_utils, dates
+from helpers import constants, data_utils, dates, question_curation
 
 from ._market import MarketSource
 
 logger = logging.getLogger(__name__)
 
-_GAMMA_API_URL = "https://gamma-api.polymarket.com/markets"
+_GAMMA_API_URL = "https://gamma-api.polymarket.com/markets/keyset"
 _CLOB_API_URL = "https://clob.polymarket.com/prices-history"
 _MIN_MARKET_LIQUIDITY = 25000
+_REQUEST_TIMEOUT_SECONDS = 30
 
 # Set CHECK_AND_FIX_RESOLVED_DATA=1 to re-fetch resolved questions whose resolution files are
 # missing or have non-contiguous dates. This needs every resolved file downloaded, so it's costly
@@ -225,69 +226,104 @@ class PolymarketSource(MarketSource):
     # Private: API calls
     # ------------------------------------------------------------------
 
+    @backoff.on_exception(
+        backoff.expo,
+        requests.exceptions.RequestException,
+        max_time=20,
+        on_backoff=data_utils.print_error_info_handler,
+    )
     def _fetch_active_markets_from_api(self) -> list[dict]:
         """Fetch active binary markets from the Gamma API with price history attached.
 
-        Paginates through all active, non-archived, non-closed markets ordered by liquidity,
-        keeps binary markets with sufficient liquidity that aren't catch-all ("other") markets,
-        and attaches each qualifying market's price history.
+        Paginates through active, non-archived, non-closed markets above the liquidity floor,
+        keeps the binary ones that aren't catch-all ("other") markets,
+        and attaches each qualifying market's price history. A transient request failure retries
+        the whole paginated fetch via backoff rather than returning a truncated result.
         """
         all_markets: list[dict] = []
-        offset = 0
-        limit = 500  # max page size: 500
         n_markets_fetched = 0
+        after_cursor: str | None = None
+        seen_ids: set[str] = set()
 
+        # Markets that resolve within the freeze window can never appear on a question set (it's
+        # published FREEZE_WINDOW_IN_DAYS before forecasts are due), so drop them at fetch time.
+        min_resolution_date = dates.get_date_today() + timedelta(
+            days=question_curation.FREEZE_WINDOW_IN_DAYS
+        )
+
+        # https://docs.polymarket.com/api-reference/markets/list-markets-keyset-pagination
+        # /markets/keyset uses opaque cursor pagination
+        # Note that docs for `order` param are wrong; they specify:
+        # "Comma-separated list of JSON field names to order by, e.g. volume_num,liquidity_num"
+        # but those snake_case fields are ignored; camelCase is correct
+        # Also, liquidity field == liquidityNum (former is forced to a number)
         params: dict[str, Any] = {
-            "limit": limit,
+            "limit": 100,  # limit as per API docs
             "archived": False,
             "active": True,
             "closed": False,
-            "order": "liquidity",
+            "order": "liquidityNum",
             "ascending": False,
+            "liquidity_num_min": _MIN_MARKET_LIQUIDITY,
         }
 
         while True:
-            params["offset"] = offset
-            try:
-                logger.info(f"Fetching markets with offset {offset}.")
-                response = requests.get(_GAMMA_API_URL, params=params)
-                response.raise_for_status()
-                markets = response.json()
-                if not markets:
-                    logger.info(
-                        f"Fetched total of {n_markets_fetched} markets, "
-                        f"{len(all_markets)} satisfy criteria."
-                    )
-                    break
+            if after_cursor:
+                params["after_cursor"] = after_cursor
+            logger.info(f"Fetching markets (cursor={after_cursor}).")
+            response = requests.get(_GAMMA_API_URL, params=params, timeout=_REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            payload = response.json()
+            markets = payload.get("markets", [])
 
-                n_markets_fetched += len(markets)
-                for market in markets:
-                    binary_market = self._is_market_binary(market)
-                    # Avoids questions like the following, which don't make sense without the other
-                    # questions in the event:
-                    # * Will any other Republican Politician win the popular vote in the 2024
-                    #   Presidential Election?
-                    catch_all_market = "other" in market["slug"]  # no need to test "another" also
-                    liquid_market = (
-                        "liquidityNum" in market.keys()
-                        and market["liquidityNum"] > _MIN_MARKET_LIQUIDITY
-                    )
-                    if binary_market and liquid_market and not catch_all_market:
-                        price_history = self._fetch_price_history(self._get_yes_token(market))
-                        if price_history is not None:
-                            logger.info(
-                                "Binary question satisfying criteria: "
-                                f"https://polymarket.com/market/{market['slug']}"
-                            )
-                            market["price_history"] = price_history
-                            all_markets.append(market)
+            n_markets_fetched += len(markets)
+            for market in markets:
+                # Keyset orders by liquidity, which changes as trades land, so a market
+                # can shift across the cursor and recur on a later page; dedupe by id.
+                condition_id = market["conditionId"]
+                if condition_id in seen_ids:
+                    continue
+                seen_ids.add(condition_id)
+                binary_market = self._is_market_binary(market)
+                # Avoids questions like the following, which don't make sense without the other
+                # questions in the event:
+                # * Will any other Republican Politician win the popular vote in the 2024
+                #   Presidential Election?
+                catch_all_market = "other" in market["slug"]  # no need to test "another" also
+                liquid_market = (
+                    "liquidityNum" in market.keys()
+                    and market["liquidityNum"] > _MIN_MARKET_LIQUIDITY
+                )
+                resolves_too_soon = self._resolves_before_forecast_window(
+                    market, min_resolution_date
+                )
+                if (
+                    binary_market
+                    and liquid_market
+                    and not catch_all_market
+                    and not resolves_too_soon
+                ):
+                    price_history = self._fetch_price_history(self._get_yes_token(market))
+                    if price_history is not None:
+                        logger.info(
+                            "Binary question satisfying criteria: "
+                            f"https://polymarket.com/market/{market['slug']}"
+                        )
+                        market["price_history"] = price_history
+                        all_markets.append(market)
 
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Error fetching markets: {e}")
+            next_cursor = payload.get("next_cursor")
+
+            if not next_cursor:
+                logger.info(
+                    f"Fetched total of {n_markets_fetched} markets, "
+                    f"{len(all_markets)} satisfy criteria."
+                )
                 break
-
-            time.sleep(1)
-            offset += limit
+            after_cursor = next_cursor
+            # cap at ~20 req/s, under the /markets limit of 300 req/10s (30 req/s)
+            # https://docs.polymarket.com/api-reference/rate-limits
+            time.sleep(0.05)
 
         return all_markets
 
@@ -313,9 +349,11 @@ class PolymarketSource(MarketSource):
             {"condition_ids": condition_id, "closed": False},
             {"condition_ids": condition_id, "closed": True},
         ]:
-            response = requests.get(_GAMMA_API_URL, params=params_market)
+            response = requests.get(
+                _GAMMA_API_URL, params=params_market, timeout=_REQUEST_TIMEOUT_SECONDS
+            )
             response.raise_for_status()
-            markets = response.json()
+            markets = response.json().get("markets", [])
             if len(markets) == 1:
                 return markets[0]
         logger.error(f"Problem getting market for condition id {condition_id}.")
@@ -346,7 +384,12 @@ class PolymarketSource(MarketSource):
         }
 
         try:
-            response = requests.get(_CLOB_API_URL, params=params, verify=certifi.where())
+            response = requests.get(
+                _CLOB_API_URL,
+                params=params,
+                verify=certifi.where(),
+                timeout=_REQUEST_TIMEOUT_SECONDS,
+            )
             if not response.ok:
                 logger.error(
                     f"Request to endpoint failed for {_CLOB_API_URL}: "
@@ -380,6 +423,54 @@ class PolymarketSource(MarketSource):
         """Return the CLOB token ID for the 'Yes' outcome."""
         yes_token_index = PolymarketSource._get_yes_index(market)
         return json.loads(market["clobTokenIds"])[yes_token_index]
+
+    @staticmethod
+    def _get_market_end_date_str(market: dict) -> str | None:
+        """Return the market's raw Zulu close-date string, or ``None`` if unavailable.
+
+        Prefers the market's own ``endDate`` and falls back to its first event's ``endDate``. The
+        Gamma API omits the market-level ``endDate`` on some markets (e.g. season/futures markets
+        grouped only under an event), hence the event fallback.
+
+        Args:
+            market (dict): Raw Gamma API market.
+        """
+        end_date = market.get("endDate")
+        if not end_date:
+            events = market.get("events") or []
+            end_date = events[0].get("endDate") if events else None
+        return end_date or None
+
+    @staticmethod
+    def _get_market_close_date(market: dict) -> date | None:
+        """Return the market's scheduled close date, or ``None`` if it can't be determined.
+
+        Args:
+            market (dict): Raw Gamma API market.
+        """
+        end_date = PolymarketSource._get_market_end_date_str(market)
+        if end_date is None:
+            return None
+        close_datetime_str = dates.convert_zulu_to_iso(end_date)
+        return datetime.fromisoformat(close_datetime_str).replace(tzinfo=None).date()
+
+    @staticmethod
+    def _resolves_before_forecast_window(market: dict, min_resolution_date: date) -> bool:
+        """Return True if the market resolves too soon to appear on a question set.
+
+        A question set is published ``FREEZE_WINDOW_IN_DAYS`` before forecasts are due, so any
+        market closing on or before ``min_resolution_date`` (``today + FREEZE_WINDOW_IN_DAYS``) can
+        never be forecast and is dropped at fetch time. Markets with no discoverable close date are
+        kept here and left for ``_transform_question`` to drop.
+
+        Args:
+            market (dict): Raw Gamma API market.
+            min_resolution_date (date): Earliest close date a market may have and still be usable.
+        """
+        close_date = PolymarketSource._get_market_close_date(market)
+        if close_date is None:
+            return False
+        return close_date <= min_resolution_date
 
     # ------------------------------------------------------------------
     # Private: price history helpers
@@ -456,9 +547,8 @@ class PolymarketSource(MarketSource):
         current_prob = price_history[-1]["p"] if len(price_history) > 1 else np.nan
         resolved_datetime = resolved_datetime_str = "N/A"
 
-        try:
-            end_date = market["endDate"] if "endDate" in market else market["events"][0]["endDate"]
-        except KeyError:
+        end_date = PolymarketSource._get_market_end_date_str(market)
+        if end_date is None:
             # endDate unexpectedly missing from:
             # https://polymarket.com/event/will-trump-meet-with-khamenei-before-august
             return None
