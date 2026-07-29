@@ -146,6 +146,7 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Hunchfox": "hunchfox.svg",
     "Knowable": "knowable.svg",
     "Outbound OS": "outbound-os.svg",
+    "Cenva Intelligence": "cenva-intelligence.svg",
 }
 
 ORG_TO_LOGO = {

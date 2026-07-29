@@ -147,6 +147,7 @@ def test_leaderboard_org_logo_lookup_keeps_legacy_and_external_names():
     assert main.get_org_logo("Hunchfox") == "hunchfox.svg"
     assert main.get_org_logo("Knowable") == "knowable.svg"
     assert main.get_org_logo("Outbound OS") == "outbound-os.svg"
+    assert main.get_org_logo("Cenva Intelligence") == "cenva-intelligence.svg"
     assert main.get_org_logo("anonymous 4") == "anonymous_4.svg"
     assert main.get_org_logo("Unknown Org") == "default.svg"
 
