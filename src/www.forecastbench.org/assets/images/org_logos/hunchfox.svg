@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <rect width="800" height="800" fill="#fbfaf5" />
+  <text
+    x="400"
+    y="400"
+    text-anchor="middle"
+    dominant-baseline="central"
+    font-family="'PP Mondwest', 'Iowan Old Style', Georgia, serif"
+    font-size="520"
+    fill="#14130f"
+  >H</text>
+</svg>
