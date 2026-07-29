@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="OutboundOS">
+  <rect width="512" height="512" fill="#0A5FB2"/>
+  <path d="M 171.7 185.3 A 110 110 0 1 1 152.6 293.6"
+        fill="none" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round"/>
+  <polygon points="256,172 204,322 256,290 308,322" fill="#FFFFFF" transform="rotate(45 256 256)"/>
+</svg>

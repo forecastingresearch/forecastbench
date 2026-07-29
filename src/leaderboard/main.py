@@ -145,6 +145,7 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Vaticinus": "vaticinus.svg",
     "Hunchfox": "hunchfox.svg",
     "Knowable": "knowable.svg",
+    "Outbound OS": "outbound-os.svg",
 }
 
 ORG_TO_LOGO = {
