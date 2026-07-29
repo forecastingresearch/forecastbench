@@ -144,6 +144,7 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Torchcast AI": "torchcastai.svg",
     "Vaticinus": "vaticinus.svg",
     "Hunchfox": "hunchfox.svg",
+    "Knowable": "knowable.svg",
 }
 
 ORG_TO_LOGO = {
