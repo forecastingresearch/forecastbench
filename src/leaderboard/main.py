@@ -143,6 +143,7 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "FutureSearch": "futuresearch.svg",
     "Torchcast AI": "torchcastai.svg",
     "Vaticinus": "vaticinus.svg",
+    "Hunchfox": "hunchfox.svg",
 }
 
 ORG_TO_LOGO = {
