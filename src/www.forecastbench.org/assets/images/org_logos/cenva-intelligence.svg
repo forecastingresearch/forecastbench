@@ -1,0 +1,54 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1024"
+  height="1024"
+  viewBox="0 0 512 512"
+  role="img"
+  aria-labelledby="title desc"
+>
+  <title id="title">Cenva Staged Resolution signature mark</title>
+  <desc id="desc">
+    Four precise observations aggregate into two larger synthesis nodes, then
+    become one continuous forward caret with a gold resolved apex.
+  </desc>
+
+  <g
+    fill="none"
+    stroke="#111114"
+    stroke-width="16"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+  >
+    <path d="M110 124L224 181"/>
+    <path d="M110 212L224 189"/>
+    <path d="M110 300L224 323"/>
+    <path d="M110 388L224 331"/>
+  </g>
+
+  <path
+    d="M268 185L430 256L268 327"
+    fill="none"
+    stroke="#111114"
+    stroke-width="20"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+  />
+
+  <path
+    d="M346 219.2L430 256L346 292.8"
+    fill="none"
+    stroke="#D2A64B"
+    stroke-width="28"
+    stroke-linecap="butt"
+    stroke-linejoin="miter"
+  />
+
+  <g fill="#111114">
+    <rect x="82" y="110" width="28" height="28" rx="3"/>
+    <rect x="82" y="198" width="28" height="28" rx="3"/>
+    <rect x="82" y="286" width="28" height="28" rx="3"/>
+    <rect x="82" y="374" width="28" height="28" rx="3"/>
+    <rect x="224" y="163" width="44" height="44" rx="5"/>
+    <rect x="224" y="305" width="44" height="44" rx="5"/>
+  </g>
+</svg>
