@@ -147,6 +147,8 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Knowable": "knowable.svg",
     "Outbound OS": "outbound-os.svg",
     "Cenva Intelligence": "cenva-intelligence.svg",
+    "Quotient": "quotient.svg",
+    "Thinking Machines Lab": "thinking-machines-lab.png",
 }
 
 ORG_TO_LOGO = {
