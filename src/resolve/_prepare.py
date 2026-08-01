@@ -119,7 +119,7 @@ def check_and_prepare_forecast_file(
             .query('_merge == "left_only"')
             .drop("_merge", axis=1)
         )
-        print(dropped_rows)
+        logger.debug(f"Dropped duplicate rows:\n{dropped_rows}")
         msg = f"Duplicate Rows encountered in {organization} forecast file."
         logger.error(msg)
         raise ValueError(msg)

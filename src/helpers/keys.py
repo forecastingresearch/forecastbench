@@ -1,8 +1,38 @@
-"""utils for key-related tasks in llm-benchmark."""
+"""utils for key-related tasks in llm-benchmark.
+
+Secrets are resolved lazily on first attribute access (PEP 562 module ``__getattr__``)
+and memoized. This ensures that merely *importing* this module performs no network/Secret Manager call.
+"""
 
 from google.cloud import secretmanager
 
 from . import env
+
+# Public attribute name -> Secret Manager secret name. The two differ only for GOOGLE/GEMINI.
+_SECRET_NAMES = {
+    # LLM
+    "API_KEY_ANTHROPIC": "API_KEY_ANTHROPIC",
+    "API_KEY_OPENAI": "API_KEY_OPENAI",
+    "API_KEY_TOGETHERAI": "API_KEY_TOGETHERAI",
+    "API_KEY_GOOGLE": "API_KEY_GEMINI",
+    "API_KEY_MISTRAL": "API_KEY_MISTRAL",
+    "API_KEY_XAI": "API_KEY_XAI",
+    # QUESTION DATASET SOURCES
+    "API_EMAIL_ACLED": "API_EMAIL_ACLED",
+    "API_PASSWORD_ACLED": "API_PASSWORD_ACLED",
+    "API_KEY_FRED": "API_KEY_FRED",
+    # QUESTION MARKET SOURCES
+    "API_KEY_METACULUS": "API_KEY_METACULUS",
+    "API_KEY_POLYMARKET": "API_KEY_POLYMARKET",
+    "API_KEY_INFER": "API_KEY_INFER",
+    # WORKFLOW BOT
+    "API_SLACK_BOT_NOTIFICATION": "API_SLACK_BOT_NOTIFICATION",
+    "API_SLACK_BOT_CHANNEL": "API_SLACK_BOT_CHANNEL",
+    # GITHUB
+    "API_GITHUB_DATASET_REPO_URL": "API_GITHUB_DATASET_REPO_URL",
+}
+
+_cache: dict = {}
 
 
 def get_secret(secret_name, version_id="latest"):
@@ -27,19 +57,16 @@ def get_secret_that_may_not_exist(secret_name, version_id="latest"):
         return None
 
 
-# QUESTION DATASET SOURCES
-API_EMAIL_ACLED = get_secret(secret_name="API_EMAIL_ACLED")
-API_PASSWORD_ACLED = get_secret(secret_name="API_PASSWORD_ACLED")
-API_KEY_FRED = get_secret("API_KEY_FRED")
+def __getattr__(name):
+    """Lazily resolve and memoize ``API_*`` secrets on first access (PEP 562)."""
+    secret_name = _SECRET_NAMES.get(name)
+    if secret_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    if name not in _cache:
+        _cache[name] = get_secret(secret_name)
+    return _cache[name]
 
-# QUESTION MARKET SOURCES
-API_KEY_METACULUS = get_secret(secret_name="API_KEY_METACULUS")
-API_KEY_POLYMARKET = get_secret("API_KEY_POLYMARKET")
-API_KEY_INFER = get_secret("API_KEY_INFER")
 
-# WORKFLOW BOT
-API_SLACK_BOT_NOTIFICATION = get_secret(secret_name="API_SLACK_BOT_NOTIFICATION")
-API_SLACK_BOT_CHANNEL = get_secret(secret_name="API_SLACK_BOT_CHANNEL")
-
-# GITHUB
-API_GITHUB_DATASET_REPO_URL = get_secret(secret_name="API_GITHUB_DATASET_REPO_URL")
+def __dir__():
+    """Expose the lazily-resolved secret names to ``dir()``/autocomplete."""
+    return sorted(set(globals()) | set(_SECRET_NAMES))
