@@ -63,7 +63,62 @@ SOURCE_METADATA = {
             "resolve as 'Yes'."
         ),
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
-        "nullified_questions": [],
+        # INFER became unavailable on Aug 1, 2026. It shut down before these questions resolved, so
+        # their resolution files are frozen at the last values we fetched. Nullifying them makes
+        # explicit that these questions are not currently resolvable and that their market values
+        # are no longer updated. Delete a line once its question has been resolved, by hand or by
+        # LLM.
+        "nullified_questions": [
+            NullifiedQuestion(id=nid, nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE)
+            for nid in sorted(
+                {
+                    "1385",
+                    "1401",
+                    "1432",
+                    "1451",
+                    "1461",
+                    "1473",
+                    "1474",
+                    "1509",
+                    "1510",
+                    "1511",
+                    "1513",
+                    "1515",
+                    "1519",
+                    "1525",
+                    "1557",
+                    "1611",
+                    "1612",
+                    "1613",
+                    "1614",
+                    "1615",
+                    "1617",
+                    "1644",
+                    "1645",
+                    "1659",
+                    "1661",
+                    "1677",
+                    "1678",
+                    "1679",
+                    "1700",
+                    "1701",
+                    "1702",
+                    "1705",
+                    "1706",
+                    "1728",
+                    "1761",
+                    "1765",
+                    "1766",
+                    "1773",
+                    "1774",
+                    "1775",
+                }
+            )
+        ],
+        # INFER / The RAND Forecasting Initiative shut down, so there is nothing left to fetch.
+        # `run_update` is still True, allowing for LLM resolution of unresolved questions to be
+        # implemented in a second pass.
+        "run_fetch": False,
     },
     "manifold": {
         "source_type": SourceType.MARKET,
@@ -382,3 +437,11 @@ DATASET_SOURCE_NAMES = sorted(
 MARKET_SOURCE_NAMES = sorted(
     name for name, m in SOURCE_METADATA.items() if m["source_type"] == SourceType.MARKET
 )
+
+# Which nightly jobs a source is scheduled for. Sources opt out by setting these to False, so an
+# entry that says nothing about them is fetched and updated, and consumers can index them
+# directly rather than guessing a fallback.
+_SCHEDULING_DEFAULTS = {"run_fetch": True, "run_update": True}
+for _meta in SOURCE_METADATA.values():
+    for _key, _default in _SCHEDULING_DEFAULTS.items():
+        _meta.setdefault(_key, _default)

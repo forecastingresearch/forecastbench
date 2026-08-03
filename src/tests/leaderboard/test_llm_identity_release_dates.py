@@ -173,9 +173,9 @@ def test_explicit_model_run_and_forecast_variant_keys_are_validated():
 
 
 def test_score_models_keeps_reference_models_when_llm_identity_columns_exist():
-    from tests.leaderboard.test_llm_identities import _import_leaderboard_main
+    from tests.leaderboard._leaderboard_import import import_leaderboard_main
 
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
@@ -263,9 +263,9 @@ def test_score_models_keeps_reference_models_when_llm_identity_columns_exist():
 
 
 def test_release_date_info_preserves_forecastbench_created_reference_models(monkeypatch):
-    from tests.leaderboard.test_llm_identities import _import_leaderboard_main
+    from tests.leaderboard._leaderboard_import import import_leaderboard_main
 
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     messages = []
     monkeypatch.setattr(main.slack, "send_message", messages.append, raising=False)
     df = pd.DataFrame(
@@ -313,9 +313,9 @@ def test_release_date_info_preserves_forecastbench_created_reference_models(monk
 
 
 def test_release_date_info_errors_when_forecastbench_llm_model_run_key_is_unknown(monkeypatch):
-    from tests.leaderboard.test_llm_identities import _import_leaderboard_main
+    from tests.leaderboard._leaderboard_import import import_leaderboard_main
 
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     messages = []
     monkeypatch.setattr(main.slack, "send_message", messages.append, raising=False)
     df = pd.DataFrame(

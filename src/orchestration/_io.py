@@ -25,7 +25,7 @@ from _fb_types import QuestionBank, SourceQuestionBank
 from _schemas import AcledResolutionFrame, QuestionFrame, ResolutionFrame
 from helpers import data_utils, dates, env
 from helpers.run_mode import RunMode
-from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES
+from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES, SOURCE_METADATA
 from sources._base import BaseSource
 
 logging.basicConfig(level=logging.INFO)
@@ -110,6 +110,10 @@ def load_question_bank(sources_to_get: list[str] | None = None) -> QuestionBank:
     # Check market dfq files are up-to-date
     any_out_of_date_dfq = False
     for source in MARKET_SOURCE_NAMES:
+        if not SOURCE_METADATA[source]["run_fetch"]:
+            # Sources we no longer fetch have an intentionally frozen dfq and hence will be
+            # out of date.
+            continue
         last_updated_dfq = data_utils.get_last_modified_time_of_dfq_from_cloud_storage(source)
         any_out_of_date_dfq |= last_updated_dfq is None or last_updated_dfq.date() < today
         if last_updated_dfq is None or last_updated_dfq.date() < today:

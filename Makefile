@@ -157,10 +157,7 @@ metaculus-fetch:
 metaculus-update-questions:
 	$(MAKE) -C src/orchestration/func_metaculus_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
-infer: infer-fetch infer-update-questions
-
-infer-fetch:
-	$(MAKE) -C src/orchestration/func_infer_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+infer: infer-update-questions
 
 infer-update-questions:
 	$(MAKE) -C src/orchestration/func_infer_update || echo "* $@" >> $(MAKE_FAILURE_LOG)

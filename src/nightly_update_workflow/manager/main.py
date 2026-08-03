@@ -9,9 +9,20 @@ from tabulate import tabulate
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import cloud_run, constants, env, question_curation, slack  # noqa: E402
+from sources import ALL_SOURCE_NAMES  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def get_fetch_and_update_task_count() -> int:
+    """Return the number of worker tasks needed to fetch and update every source.
+
+    The worker runs one task per source, so this must cover the longest job list the worker can
+    produce on any day. Sized from the source metadata rather than the question-curation lists,
+    which only cover the sources we still sample questions from.
+    """
+    return len(ALL_SOURCE_NAMES)
 
 
 def call_worker(dict_to_use, task_count, timeout=cloud_run.timeout_1h):
@@ -33,7 +44,7 @@ def summarize_question_bank():
         lines=True,
     )[["id", "source", "valid_question"]]
     df = pd.DataFrame()
-    for source in sorted(question_curation.ALL_SOURCES):
+    for source in ALL_SOURCE_NAMES:
         logger.info(f"downloading {source} question file.")
         dfq = pd.read_json(
             f"gs://{env.QUESTION_BANK_BUCKET}/{source}_questions.jsonl",
@@ -105,9 +116,7 @@ def main():
 
     dict_to_use = "fetch_and_update"
     timeout_fetch_and_update = cloud_run.timeout_1h * 6
-    task_count = len(question_curation.FREEZE_QUESTION_DATA_SOURCES) + len(
-        question_curation.FREEZE_QUESTION_MARKET_SOURCES
-    )
+    task_count = get_fetch_and_update_task_count()
     operation = call_worker(
         dict_to_use=dict_to_use,
         task_count=task_count,

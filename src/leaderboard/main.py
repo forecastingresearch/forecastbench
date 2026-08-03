@@ -34,7 +34,6 @@ from helpers import (  # noqa: E402
     decorator,
     env,
     git,
-    question_curation,
     resolution,
     slack,
 )
@@ -42,6 +41,7 @@ from llm_forecaster.forecast_variants import (  # noqa: E402
     ALL_FORECAST_VARIANT_KEYS_WITH_CONTEXT,
     ALL_FORECAST_VARIANT_KEYS_WITHOUT_CONTEXT,
 )
+from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -382,15 +382,15 @@ def download_question_set_save_in_cache(
 
 
 def get_dataset_mask(df: pd.DataFrame) -> pd.Series:
-    """Generate boolean masks for market questions.
+    """Generate boolean masks for dataset questions.
 
     Args:
         df (pd.DataFrame): The forecast set.
 
     Returns:
-        pd.Series: questions from DATA_SOURCES
+        pd.Series: questions from DATASET_SOURCE_NAMES
     """
-    return df["source"].isin(question_curation.DATA_SOURCES)
+    return df["source"].isin(DATASET_SOURCE_NAMES)
 
 
 def get_market_mask(df: pd.DataFrame) -> pd.Series:
@@ -400,9 +400,9 @@ def get_market_mask(df: pd.DataFrame) -> pd.Series:
         df (pd.DataFrame): The forecast set.
 
     Returns:
-        pd.Series: all questions from MARKET_SOURCES.
+        pd.Series: all questions from MARKET_SOURCE_NAMES.
     """
-    return df["source"].isin(question_curation.MARKET_SOURCES)
+    return df["source"].isin(MARKET_SOURCE_NAMES)
 
 
 def get_masks(df: pd.DataFrame) -> Dict[str, pd.Series]:
@@ -413,8 +413,8 @@ def get_masks(df: pd.DataFrame) -> Dict[str, pd.Series]:
 
     Returns:
         Dict[str, pd.Series]: Mapping of mask names to boolean Series:
-            - "dataset":      questions from DATA_SOURCES that are resolved.
-            - "market":       all questions from MARKET_SOURCES.
+            - "dataset":      questions from DATASET_SOURCE_NAMES that are resolved.
+            - "market":       all questions from MARKET_SOURCE_NAMES.
             - "market_resolved":   market questions that are resolved.
             - "market_unresolved": market questions that are unresolved.
     """

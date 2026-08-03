@@ -100,14 +100,6 @@ class ForecastFrame(pa.DataFrameModel):
         coerce = False
 
 
-class InferFetchFrame(QuestionFrame):
-    """Output of InferSource.fetch(). QuestionFrame plus transient fields for update()."""
-
-    fetch_datetime: Series[str]
-    probability: Series[object] = pa.Field(nullable=True)
-    nullify_question: Series[bool]
-
-
 class PolymarketFetchFrame(QuestionFrame):
     """Output of PolymarketSource.fetch(). QuestionFrame plus transient fields for update()."""
 

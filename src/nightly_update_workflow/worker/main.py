@@ -5,6 +5,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from helpers import cloud_run, dates, question_curation  # noqa: E402
+from sources import ALL_SOURCE_NAMES, SOURCE_METADATA  # noqa: E402
 
 metadata = [
     [
@@ -88,29 +89,24 @@ def get_publish_question_set_make_llm_baseline():
 
 def get_fetch_and_update():
     """Dynamically add acled to list of functions to call dending on the day of the week."""
-    sources = [
-        "dbnomics",
-        "fred",
-        "infer",
-        "manifold",
-        "metaculus",
-        "polymarket",
-        "wikipedia",
-        "yfinance",
-    ]
+    sources = [source for source in ALL_SOURCE_NAMES if source != "acled"]
     day_of_week = dates.get_datetime_today().strftime("%A")
     if day_of_week in ["Wednesday"]:
         # Fetch ACLED data on Wednesdays. See Issue #115.
         sources += [
             "acled",
         ]
-    return [
-        [
-            (f"func-data-{source}-fetch", True, cloud_run.timeout_1h * 3, 1),
-            (f"func-data-{source}-update-questions", True, cloud_run.timeout_1h * 3, 1),
-        ]
-        for source in sources
-    ]
+    jobs = []
+    for source in sources:
+        group = []
+        if SOURCE_METADATA[source]["run_fetch"]:
+            group.append((f"func-data-{source}-fetch", True, cloud_run.timeout_1h * 3, 1))
+        if SOURCE_METADATA[source]["run_update"]:
+            group.append(
+                (f"func-data-{source}-update-questions", True, cloud_run.timeout_1h * 3, 1)
+            )
+        jobs.append(group)
+    return jobs
 
 
 def sequential_cloud_run_jobs(functions_to_call):
