@@ -1,83 +1,14 @@
 """Tests for strict ForecastBench LLM identities."""
 
-import importlib
-import os
-import sys
-import types
-from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from tests.leaderboard._leaderboard_import import import_leaderboard_main
+
 ROOT = Path(__file__).resolve().parents[3]
-
-
-@contextmanager
-def _patched_import_environment():
-    stubs = {
-        "pyfixest": types.SimpleNamespace(),
-        "jinja2": types.SimpleNamespace(Template=object),
-        "joblib": types.SimpleNamespace(Parallel=object, delayed=lambda fn: fn),
-        "scipy": types.SimpleNamespace(),
-        "scipy.stats": types.SimpleNamespace(norm=object()),
-        "statsmodels": types.SimpleNamespace(),
-        "statsmodels.stats": types.SimpleNamespace(),
-        "statsmodels.stats.multitest": types.SimpleNamespace(
-            multipletests=lambda *args, **kwargs: None
-        ),
-        "termcolor": types.SimpleNamespace(colored=lambda text, *args, **kwargs: text),
-        "git": types.SimpleNamespace(
-            Actor=object,
-            Repo=object,
-        ),
-        "helpers.git": types.SimpleNamespace(),
-        "helpers.slack": types.SimpleNamespace(),
-    }
-    previous_modules = {name: sys.modules.get(name) for name in stubs}
-    previous_parent_attrs = {}
-    for name in stubs:
-        if "." not in name:
-            continue
-        parent_name, attr = name.rsplit(".", maxsplit=1)
-        parent = sys.modules.get(parent_name)
-        if parent is not None:
-            previous_parent_attrs[(parent, attr)] = (
-                hasattr(parent, attr),
-                getattr(parent, attr, None),
-            )
-    previous_leaderboard_main = sys.modules.pop("leaderboard.main", None)
-    previous_top_level_llm_identities = sys.modules.pop("llm_identities", None)
-    previous_cwd = Path.cwd()
-    try:
-        sys.modules.update(stubs)
-        os.chdir(ROOT / "src" / "leaderboard")
-        yield
-    finally:
-        os.chdir(previous_cwd)
-        sys.modules.pop("leaderboard.main", None)
-        if previous_leaderboard_main is not None:
-            sys.modules["leaderboard.main"] = previous_leaderboard_main
-        sys.modules.pop("llm_identities", None)
-        if previous_top_level_llm_identities is not None:
-            sys.modules["llm_identities"] = previous_top_level_llm_identities
-        for name, previous in previous_modules.items():
-            if previous is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = previous
-        for (parent, attr), (had_attr, previous_attr) in previous_parent_attrs.items():
-            if had_attr:
-                setattr(parent, attr, previous_attr)
-            elif hasattr(parent, attr):
-                delattr(parent, attr)
-
-
-def _import_leaderboard_main():
-    with _patched_import_environment():
-        return importlib.import_module("leaderboard.main")
-
 
 CANONICAL_FORECASTBENCH_LLM = {
     "organization": "ForecastBench",
@@ -127,7 +58,7 @@ def test_leaderboard_org_logo_lookup_uses_shared_lab_and_provider_names():
     from utils.llm.lab_registry import LABS
     from utils.llm.provider_registry import PROVIDERS
 
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
 
     assert main.get_org_logo(LABS["MiniMax"].name) == "minimax.svg"
     assert main.get_org_logo(LABS["Moonshot"].name) == "moonshot.svg"
@@ -136,7 +67,7 @@ def test_leaderboard_org_logo_lookup_uses_shared_lab_and_provider_names():
 
 
 def test_leaderboard_org_logo_lookup_keeps_legacy_and_external_names():
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
 
     assert main.get_org_logo("Moonshot") == "moonshot.svg"
     assert main.get_org_logo("Minimax") == "minimax.svg"
@@ -486,7 +417,7 @@ def test_new_file_identity_uses_explicit_keys_for_display_and_semantics():
 
 
 def test_leaderboard_filters_use_precomputed_selection_flags():
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
@@ -513,7 +444,7 @@ def test_leaderboard_filters_use_precomputed_selection_flags():
 
 
 def test_baseline_filter_keeps_baseline_llm_variants_and_drops_tournament_variants():
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     normalize = main.llm_identities.normalize_llm_identity
     df = pd.DataFrame(
         [
@@ -605,7 +536,7 @@ def test_baseline_filter_keeps_baseline_llm_variants_and_drops_tournament_varian
 
 
 def test_tournament_filter_keeps_tournament_llm_variants_and_drops_baseline_variants():
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     normalize = main.llm_identities.normalize_llm_identity
     df = pd.DataFrame(
         [
@@ -681,7 +612,7 @@ def test_tournament_filter_keeps_tournament_llm_variants_and_drops_baseline_vari
 
 
 def test_leaderboard_filters_require_selection_flag_columns():
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
@@ -697,7 +628,7 @@ def test_leaderboard_filters_require_selection_flag_columns():
 
 
 def test_preliminary_leaderboard_filters_to_tournament_models_before_scoring(monkeypatch):
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
@@ -758,7 +689,7 @@ def test_preliminary_leaderboard_filters_to_tournament_models_before_scoring(mon
 
 
 def test_two_way_fixed_effects_excludes_external_submission_flag_from_fit(monkeypatch):
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     fitted_model_pks = []
     df = pd.DataFrame(
         [
@@ -806,7 +737,7 @@ def test_two_way_fixed_effects_excludes_external_submission_flag_from_fit(monkey
 
 
 def test_two_way_fixed_effects_excludes_llm_crowd_comparison_models_from_fit(monkeypatch):
-    main = _import_leaderboard_main()
+    main = import_leaderboard_main()
     fitted_model_pks = []
     crowd_models = [
         "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) "
@@ -984,7 +915,7 @@ def test_explicit_new_identity_sets_uses_tools_from_model_run_key():
 
 
 def test_leaderboard_integration_uses_model_run_and_forecast_variant_for_model_pk():
-    leaderboard_main = _import_leaderboard_main()
+    leaderboard_main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
@@ -1025,7 +956,7 @@ def test_leaderboard_integration_uses_model_run_and_forecast_variant_for_model_p
 
 
 def test_set_model_pk_errors_when_forecastbench_llm_identity_columns_are_missing():
-    leaderboard_main = _import_leaderboard_main()
+    leaderboard_main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
@@ -1042,7 +973,7 @@ def test_set_model_pk_errors_when_forecastbench_llm_identity_columns_are_missing
 
 
 def test_set_model_pk_uses_forecastbench_llm_flag():
-    leaderboard_main = _import_leaderboard_main()
+    leaderboard_main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
@@ -1060,7 +991,7 @@ def test_set_model_pk_uses_forecastbench_llm_flag():
 
 
 def test_get_df_info_handles_forecastbench_comparison_model_without_llm_identity():
-    leaderboard_main = _import_leaderboard_main()
+    leaderboard_main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
@@ -1092,7 +1023,7 @@ def test_get_df_info_handles_forecastbench_comparison_model_without_llm_identity
 
 
 def test_get_df_info_handles_llm_crowd_comparison_models_without_llm_identity(monkeypatch):
-    leaderboard_main = _import_leaderboard_main()
+    leaderboard_main = import_leaderboard_main()
     messages = []
     monkeypatch.setattr(leaderboard_main.slack, "send_message", messages.append, raising=False)
     comparison_models = [
@@ -1135,7 +1066,7 @@ def test_get_df_info_handles_llm_crowd_comparison_models_without_llm_identity(mo
 
 
 def test_get_df_info_raises_and_sends_slack_for_unclassified_forecastbench_model(monkeypatch):
-    leaderboard_main = _import_leaderboard_main()
+    leaderboard_main = import_leaderboard_main()
     messages = []
     monkeypatch.setattr(leaderboard_main.slack, "send_message", messages.append, raising=False)
     df = pd.DataFrame(
@@ -1166,7 +1097,7 @@ def test_get_df_info_raises_and_sends_slack_for_unclassified_forecastbench_model
 
 
 def test_get_df_info_uses_pre_normalized_llm_identity(monkeypatch):
-    leaderboard_main = _import_leaderboard_main()
+    leaderboard_main = import_leaderboard_main()
     org_and_model = leaderboard_main.llm_identities.normalize_llm_identity(
         {
             "organization": "ForecastBench",
@@ -1209,7 +1140,7 @@ def test_get_df_info_uses_pre_normalized_llm_identity(monkeypatch):
 
 
 def test_legacy_and_new_model_run_identity_share_model_pk():
-    leaderboard_main = _import_leaderboard_main()
+    leaderboard_main = import_leaderboard_main()
     df = pd.DataFrame(
         [
             {

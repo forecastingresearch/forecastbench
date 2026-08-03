@@ -9,7 +9,6 @@ from . import (
     dates,
     dbnomics,
     fred,
-    infer,
     manifold,
     metaculus,
     polymarket,
@@ -28,8 +27,9 @@ assert FREEZE_NUM_LLM_QUESTIONS > FREEZE_NUM_HUMAN_QUESTIONS
 
 
 FREEZE_QUESTION_MARKET_SOURCES = {
-    # If market sources are ever removed, the key must be added to MARKET_SOURCES in
-    # `helpers/resolution.py` as the resolution code needs all old market sources.
+    # The market sources we sample questions from. Dropping a source here stops sampling it
+    # without affecting resolution: `helpers/resolution.py` takes its source lists from
+    # `sources/_metadata.py`, which holds every market source we've ever published questions for.
     "manifold": {
         "name": "Manifold",
         "source_intro": manifold.SOURCE_INTRO,
@@ -39,11 +39,6 @@ FREEZE_QUESTION_MARKET_SOURCES = {
         "name": "Metaculus",
         "source_intro": metaculus.SOURCE_INTRO,
         "resolution_criteria": metaculus.RESOLUTION_CRITERIA,
-    },
-    "infer": {
-        "name": "INFER",
-        "source_intro": infer.SOURCE_INTRO,
-        "resolution_criteria": infer.RESOLUTION_CRITERIA,
     },
     "polymarket": {
         "name": "Polymarket",
@@ -84,7 +79,6 @@ FREEZE_QUESTION_SOURCES = {**FREEZE_QUESTION_MARKET_SOURCES, **FREEZE_QUESTION_D
 
 DATA_SOURCES = list(FREEZE_QUESTION_DATA_SOURCES.keys())
 MARKET_SOURCES = list(FREEZE_QUESTION_MARKET_SOURCES.keys())
-ALL_SOURCES = DATA_SOURCES + MARKET_SOURCES
 
 FREEZE_WINDOW_IN_DAYS = 10
 

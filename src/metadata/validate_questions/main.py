@@ -117,7 +117,6 @@ def driver(_):
         dfmeta = dfmeta[dfmeta["source"] != source]
 
         if source in question_curation.DATA_SOURCES + [
-            "infer",
             "metaculus",
         ]:
             dfq["valid_question"] = True
