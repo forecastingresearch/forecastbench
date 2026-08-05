@@ -163,6 +163,7 @@ def process_questions(
             df_all_available,
             total_market_requested,
             source_name="ALL SOURCES",
+            source_counts=[(source, got, want) for source, got, want, _ in source_summaries],
         )
 
     log_sampling_summary(
@@ -561,6 +562,7 @@ def plot_sampling_distribution(
     df_available: pd.DataFrame,
     n_target: int,
     source_name: str | None = None,
+    source_counts: list[tuple[str, int, int]] | None = None,
 ) -> None:
     """Plot the realized vs expected distribution for market question sampling.
 
@@ -572,6 +574,8 @@ def plot_sampling_distribution(
         df_available (pd.DataFrame): All available questions (must include bin columns)
         n_target (int): Number of questions requested
         source_name (str | None): Name for the source (used in chart title)
+        source_counts (list[tuple[str, int, int]] | None): (source, sampled, target) per source,
+            charted as an extra row when given
     """
     if not env.RUNNING_LOCALLY:
         return
@@ -589,11 +593,19 @@ def plot_sampling_distribution(
     title = "Sampling Distribution"
     if source_name:
         title = f"Sampling Distribution: {source_name}"
+    title += (
+        f"<br><sub>{len(df_sampled):,}/{n_target:,} sampled "
+        f"from {len(df_available):,} available</sub>"
+    )
+
+    subplot_titles = ["Market Value", "Time Horizon", "Category"]
+    if source_counts:
+        subplot_titles.append("Questions by Source")
 
     fig = make_subplots(
-        rows=3,
+        rows=len(subplot_titles),
         cols=1,
-        subplot_titles=("Market Value", "Time Horizon", "Category"),
+        subplot_titles=tuple(subplot_titles),
         vertical_spacing=0.1,
     )
 
@@ -733,9 +745,43 @@ def plot_sampling_distribution(
     )
     fig.update_xaxes(tickangle=45, row=3, col=1)
 
+    # Number of questions sampled from each source
+    if source_counts:
+        source_row = len(subplot_titles)
+        source_labels = [source for source, _, _ in source_counts]
+        # The target bar is never shorter than the selected bar, so labeling it keeps the
+        # sampled/target counts clear of both bars.
+        fig.add_trace(
+            go.Bar(
+                name="Target",
+                x=source_labels,
+                y=[target for _, _, target in source_counts],
+                text=[f"{sampled}/{target}" for _, sampled, target in source_counts],
+                textposition="outside",
+                marker=dict(color="coral", opacity=0.5),
+                legendgroup="target",
+                showlegend=False,
+            ),
+            row=source_row,
+            col=1,
+        )
+        fig.add_trace(
+            go.Bar(
+                name="Selected",
+                x=source_labels,
+                y=[sampled for _, sampled, _ in source_counts],
+                marker=dict(color="steelblue"),
+                legendgroup="selected",
+                showlegend=False,
+            ),
+            row=source_row,
+            col=1,
+        )
+        fig.update_xaxes(tickangle=45, row=source_row, col=1)
+
     fig.update_layout(
         title_text=title,
-        height=1000,
+        height=250 + 250 * len(subplot_titles),
         barmode="overlay",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
