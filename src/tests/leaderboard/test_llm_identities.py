@@ -81,6 +81,10 @@ def test_leaderboard_org_logo_lookup_keeps_legacy_and_external_names():
     assert main.get_org_logo("Cenva Intelligence") == "cenva-intelligence.svg"
     assert main.get_org_logo("Quotient") == "quotient.svg"
     assert main.get_org_logo("Thinking Machines Lab") == "thinking-machines-lab.png"
+    assert main.get_org_logo("PolyLedger") == "polyledger.svg"
+    assert main.get_org_logo("Google Cloud") == "google-cloud.png"
+    assert main.get_org_logo("yarrow") == "yarrow.png"
+    assert main.get_org_logo("Agentese Labs") == "agentese-labs.svg"
     assert main.get_org_logo("anonymous 4") == "anonymous_4.svg"
     assert main.get_org_logo("Unknown Org") == "default.svg"
 

@@ -149,6 +149,10 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Cenva Intelligence": "cenva-intelligence.svg",
     "Quotient": "quotient.svg",
     "Thinking Machines Lab": "thinking-machines-lab.png",
+    "PolyLedger": "polyledger.svg",
+    "Google Cloud": "google-cloud.png",
+    "yarrow": "yarrow.png",
+    "Agentese Labs": "agentese-labs.svg",
 }
 
 ORG_TO_LOGO = {
