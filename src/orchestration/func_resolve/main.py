@@ -211,6 +211,7 @@ def driver(_: Any) -> None:
         model = file_data.get("model")
         model_organization = file_data.get("model_organization")
         question_set_filename = file_data.get("question_set")
+        url = file_data.get("url")
         leaderboard_eligible = file_data.get("leaderboard_eligible", True)
         forecast_due_date = question_set_filename[:10]
         df = file_data.get("df")
@@ -284,6 +285,7 @@ def driver(_: Any) -> None:
             "model_organization": model_organization,
             "forecast_due_date": forecast_due_date,
             "question_set": question_set_filename,
+            "url": url,
             "leaderboard_eligible": leaderboard_eligible,
             "forecasts": json.loads(df.to_json(orient="records", date_format="iso")),
         }
