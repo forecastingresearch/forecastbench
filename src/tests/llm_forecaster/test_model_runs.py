@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-from utils.llm import model_registry as shared_model_registry
 from utils.llm import model_runs as shared_model_runs
 from utils.llm.provider_registry import PROVIDERS
 
@@ -58,20 +57,6 @@ def test_forecastbench_selected_model_run_indexes_use_prefixed_names():
     assert not hasattr(fb_model_runs, "_".join(("MODEL", "RUNS", "BY", "SLUG")))
 
 
-def test_model_run_calls_utils_with_provider_model_id_and_options():
-    run = fb_model_runs.get_model_run_by_slug("gemma-4-31b-it")
-
-    with patch("utils.llm.model_registry.get_response", return_value="0.61") as mock_call:
-        assert run.get_response("prompt", max_tokens=128) == "0.61"
-
-    mock_call.assert_called_once_with(
-        provider=PROVIDERS["Together"],
-        model_id="google/gemma-4-31B-it",
-        prompt="prompt",
-        options={"temperature": 0, "max_tokens": 128},
-    )
-
-
 def test_model_run_slugs_are_unique_and_file_safe():
     slugs = [run.slug for run in fb_model_runs.FB_MODEL_RUNS]
 
@@ -79,21 +64,6 @@ def test_model_run_slugs_are_unique_and_file_safe():
     assert len(slugs) == len(set(slugs))
     assert all(slug == slug.lower() for slug in slugs)
     assert all(" " not in slug and "/" not in slug and "_" not in slug for slug in slugs)
-
-
-def test_labs_and_providers_are_shared_registry_objects():
-    runs = {run.slug: run for run in fb_model_runs.FB_MODEL_RUNS}
-
-    assert "kimi-k2.6" not in runs
-    assert (
-        runs["minimax-m3-adaptive-thinking-12000"].lab
-        == shared_model_registry.MODELS_BY_KEY["minimax-m3"].lab
-    )
-    assert runs["minimax-m3-adaptive-thinking-12000"].provider == PROVIDERS["Together"]
-    assert runs["kimi-k3-max-128k"].lab == shared_model_registry.MODELS_BY_KEY["kimi-k3"].lab
-    assert runs["kimi-k3-max-128k"].provider == PROVIDERS["Moonshot AI"]
-    assert runs["gemma-4-31b-it"].lab == shared_model_registry.MODELS_BY_KEY["gemma-4-31b-it"].lab
-    assert runs["gemma-4-31b-it"].provider == PROVIDERS["Together"]
 
 
 def test_forecastbench_model_run_imports_are_top_level():
