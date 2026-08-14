@@ -67,7 +67,7 @@ GEM
       jekyll (>= 3.7, < 5.0)
     jekyll-watch (2.2.1)
       listen (~> 3.0)
-    json (2.20.0)
+    json (2.21.2)
     kramdown (2.5.2)
       rexml (>= 3.4.4)
     kramdown-parser-gfm (1.1.0)
@@ -137,7 +137,7 @@ DEPENDENCIES
   faraday-retry
   jekyll (~> 4.4, >= 4.4.1)
   jekyll-sass-converter (= 2.2.0)
-  json (>= 2.19.2)
+  json (>= 2.21.2)
   minimal-mistakes-jekyll (~> 4.27.2)
 
 BUNDLED WITH
