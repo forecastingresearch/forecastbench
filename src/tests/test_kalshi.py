@@ -47,13 +47,15 @@ def _discovered_market(
     event_ticker: str = "KXTEST",
     series_ticker: str = "KXTEST",
     needs_yes_label: bool = False,
-) -> dict[str, str | bool]:
+    settlement_sources: list[dict[str, str | None]] | None = None,
+) -> dict[str, object]:
     """Build retained Kalshi event metadata for fetch tests."""
     return {
         "category": category,
         "event_ticker": event_ticker,
         "needs_yes_label": needs_yes_label,
         "series_ticker": series_ticker,
+        "settlement_sources": settlement_sources or [],
     }
 
 
@@ -117,6 +119,46 @@ class TestMarketHelpers:
         """Primary and secondary rules are joined, empties dropped."""
         market = make_kalshi_api_market(rules_primary="Primary.", rules_secondary="Secondary.")
         assert KalshiSource._resolution_criteria(market) == "Primary. Secondary."
+
+    def test_resolution_criteria_includes_settlement_sources(self):
+        """Event-level outcome sources are appended with their provider URLs."""
+        market = make_kalshi_api_market(rules_primary="Primary.", rules_secondary="Secondary.")
+        settlement_sources = [
+            {"name": "Library of Congress", "url": "https://www.congress.gov/"},
+            {"name": "House Clerk", "url": "https://clerk.house.gov/"},
+        ]
+
+        criteria = KalshiSource._resolution_criteria(market, settlement_sources=settlement_sources)
+
+        assert criteria == (
+            "Primary. Secondary. Outcome verified from Library of Congress "
+            "(https://www.congress.gov/); House Clerk (https://clerk.house.gov/)."
+        )
+
+    def test_resolution_criteria_preserves_stored_sources(self):
+        """A capped fetch cannot remove a previously stored settlement source."""
+        market = make_kalshi_api_market(rules_primary="Updated primary.", rules_secondary="")
+        existing_criteria = (
+            "Old primary. Outcome verified from Library of Congress " "(https://www.congress.gov/)."
+        )
+
+        criteria = KalshiSource._resolution_criteria(market, existing_criteria=existing_criteria)
+
+        assert criteria == (
+            "Updated primary. Outcome verified from Library of Congress "
+            "(https://www.congress.gov/)."
+        )
+
+    def test_resolution_criteria_uses_url_when_source_name_is_missing(self):
+        """A URL-only provider source remains usable resolution information."""
+        market = make_kalshi_api_market(rules_primary="Primary.", rules_secondary="")
+
+        criteria = KalshiSource._resolution_criteria(
+            market,
+            settlement_sources=[{"name": None, "url": "https://example.com/outcome"}],
+        )
+
+        assert criteria == "Primary. Outcome verified from https://example.com/outcome."
 
     def test_resolution_criteria_na_when_empty(self):
         """No rules yields 'N/A'."""
@@ -369,9 +411,11 @@ class TestCallSearchEndpoint:
     @patch("sources.kalshi.requests.get")
     def test_basic_returns_qualifying_tickers(self, mock_get, kalshi_source):
         """Returns qualifying tickers with category and parent routing metadata."""
+        settlement_sources = [{"name": "Library of Congress", "url": "https://www.congress.gov/"}]
         events = [
             make_kalshi_event(
                 category="Economics",
+                settlement_sources=settlement_sources,
                 markets=[
                     make_kalshi_api_market(ticker="A"),
                     make_kalshi_api_market(ticker="B"),
@@ -381,10 +425,71 @@ class TestCallSearchEndpoint:
         mock_get.return_value = self._mock_response(events)
         tickers, cursor = kalshi_source._call_search_endpoint(min_resolution_date=date(2026, 1, 25))
         assert tickers == {
-            "A": _discovered_market("Economics", needs_yes_label=True),
-            "B": _discovered_market("Economics", needs_yes_label=True),
+            "A": _discovered_market(
+                "Economics",
+                needs_yes_label=True,
+                settlement_sources=settlement_sources,
+            ),
+            "B": _discovered_market(
+                "Economics",
+                needs_yes_label=True,
+                settlement_sources=settlement_sources,
+            ),
         }
         assert cursor is None
+
+    @patch("sources.kalshi.requests.get")
+    def test_url_only_settlement_source_is_retained(self, mock_get, kalshi_source):
+        """A qualifying event can use a settlement source that has only a URL."""
+        events = [
+            make_kalshi_event(
+                settlement_sources=[{"url": "https://example.com/outcome"}],
+                markets=[make_kalshi_api_market(ticker="A")],
+            )
+        ]
+        mock_get.return_value = self._mock_response(events)
+
+        tickers, _ = kalshi_source._call_search_endpoint(min_resolution_date=date(2026, 1, 25))
+
+        assert tickers == {
+            "A": _discovered_market(
+                "Economics",
+                settlement_sources=[{"name": None, "url": "https://example.com/outcome"}],
+            )
+        }
+
+    @patch("sources.kalshi.requests.get")
+    def test_irrelevant_event_does_not_parse_settlement_sources(self, mock_get, kalshi_source):
+        """Malformed sources cannot fail discovery when no child market qualifies."""
+        events = [
+            make_kalshi_event(
+                settlement_sources=[{}],
+                markets=[make_kalshi_api_market(ticker="low", volume_fp="0")],
+            )
+        ]
+        mock_get.return_value = self._mock_response(events)
+
+        tickers, _ = kalshi_source._call_search_endpoint(min_resolution_date=date(2026, 1, 25))
+
+        assert tickers == {}
+
+    @patch("sources.kalshi.requests.get")
+    def test_terminal_null_event_page_is_empty(self, mock_get, kalshi_source):
+        """Kalshi's terminal [null] pagination sentinel ends discovery cleanly."""
+        mock_get.return_value = self._mock_response([None], cursor=None)
+
+        tickers, cursor = kalshi_source._call_search_endpoint(min_resolution_date=date(2026, 1, 25))
+
+        assert tickers == {}
+        assert cursor is None
+
+    @patch("sources.kalshi.requests.get")
+    def test_nonterminal_null_event_fails_loudly(self, mock_get, kalshi_source):
+        """A null event is accepted only as the final page's sole sentinel."""
+        mock_get.return_value = self._mock_response([None], cursor="next")
+
+        with pytest.raises(ValueError, match="contains a null event"):
+            kalshi_source._call_search_endpoint(min_resolution_date=date(2026, 1, 25))
 
     @patch("sources.kalshi.requests.get")
     def test_skips_market_with_mismatched_parent_event(self, mock_get, kalshi_source):
@@ -640,6 +745,7 @@ class TestCallSearchEndpoint:
             ("event", "markets"),
             ("event", "event_ticker"),
             ("event", "series_ticker"),
+            ("event", "settlement_sources"),
         ],
     )
     @patch("sources.kalshi.requests.get")
@@ -937,6 +1043,7 @@ class TestFetch:
             {"event_ticker": "event_b", "series_ticker": "series_b"},
             {"event_ticker": "event_c", "series_ticker": "series_c"},
         ]
+        assert dff["settlement_sources"].tolist() == [[], [], []]
         KalshiFetchFrame.validate(dff)
 
     @patch.object(KalshiSource, "_search_markets")
@@ -1074,12 +1181,17 @@ class TestUpdate:
         )
         dfq = make_question_df([{"id": "KXTEST-001", "resolved": False}])
         dff = make_kalshi_fetch_df([{"id": "KXTEST-001"}])
+        dff.at[0, "settlement_sources"] = [
+            {"name": "Library of Congress", "url": "https://www.congress.gov/"}
+        ]
 
         result = kalshi_source.update(dfq, dff)
 
         row = result.dfq[result.dfq["id"] == "KXTEST-001"].iloc[0]
         assert row["question"] == "Updated question text"
-        assert row["market_info_resolution_criteria"] == "New rules"
+        assert row["market_info_resolution_criteria"] == (
+            "New rules Outcome verified from Library of Congress " "(https://www.congress.gov/)."
+        )
         assert row["url"] == "https://kalshi.com/markets/kxtest/x/kxtest"
 
     @patch.object(KalshiSource, "_build_resolution_df")
@@ -1126,8 +1238,19 @@ class TestUpdate:
         )
         expected_url = "https://kalshi.com/markets/kxtest/x/kxtest"
         expected_question = "Will X happen by 2026? [Yes: X happens]"
+        expected_criteria = (
+            "Resolves Yes if X happens. Outcome verified from Library of Congress "
+            "(https://www.congress.gov/)."
+        )
         dfq = make_question_df(
-            [{"id": "KXTEST-001", "question": expected_question, "url": expected_url}]
+            [
+                {
+                    "id": "KXTEST-001",
+                    "question": expected_question,
+                    "url": expected_url,
+                    "market_info_resolution_criteria": expected_criteria,
+                }
+            ]
         )
 
         result = kalshi_source.update(dfq, make_kalshi_fetch_df([]))
@@ -1135,6 +1258,7 @@ class TestUpdate:
         row = result.dfq.iloc[0]
         assert row["question"] == expected_question
         assert row["url"] == expected_url
+        assert row["market_info_resolution_criteria"] == expected_criteria
 
     @patch.object(KalshiSource, "_build_resolution_df")
     @patch.object(KalshiSource, "_get_market")

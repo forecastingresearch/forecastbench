@@ -50,6 +50,14 @@ _MAX_CANDLESTICK_RANGE_SECONDS = (
     (_MAX_CANDLESTICKS_PER_REQUEST - 1) * _CANDLESTICK_PERIOD_INTERVAL * 60
 )
 _RESOLVED_STATUSES = {"finalized"}
+_SETTLEMENT_SOURCE_PREFIX = "Outcome verified from "
+
+
+class _SettlementSource(TypedDict):
+    """Kalshi event-level source used to verify the outcome."""
+
+    name: str | None
+    url: str
 
 
 class _DiscoveredMarket(TypedDict):
@@ -59,6 +67,7 @@ class _DiscoveredMarket(TypedDict):
     event_ticker: str
     needs_yes_label: bool
     series_ticker: str
+    settlement_sources: list[_SettlementSource]
 
 
 class MarketNotFoundError(Exception):
@@ -132,11 +141,19 @@ class KalshiSource(MarketSource):
                 "event_ticker": discovered_markets[ticker]["event_ticker"],
                 "needs_yes_label": discovered_markets[ticker]["needs_yes_label"],
                 "series_ticker": discovered_markets[ticker]["series_ticker"],
+                "settlement_sources": discovered_markets[ticker]["settlement_sources"],
             }
             for ticker in sorted(ids)
         ]
         return pd.DataFrame(
-            rows, columns=["id", "event_ticker", "needs_yes_label", "series_ticker"]
+            rows,
+            columns=[
+                "id",
+                "event_ticker",
+                "needs_yes_label",
+                "series_ticker",
+                "settlement_sources",
+            ],
         )
 
     # ------------------------------------------------------------------
@@ -238,7 +255,12 @@ class KalshiSource(MarketSource):
                 market, include_yes_label=include_yes_label
             )
             dfq.at[index, "background"] = "N/A"
-            dfq.at[index, "market_info_resolution_criteria"] = self._resolution_criteria(market)
+            settlement_sources = routing["settlement_sources"] if routing is not None else None
+            dfq.at[index, "market_info_resolution_criteria"] = self._resolution_criteria(
+                market,
+                settlement_sources=settlement_sources,
+                existing_criteria=row["market_info_resolution_criteria"],
+            )
             dfq.at[index, "market_info_open_datetime"] = dates.convert_zulu_to_iso(
                 market["open_time"]
             )
@@ -393,8 +415,15 @@ class KalshiSource(MarketSource):
 
         data = response.json()
         try:
+            events = data["events"]
+            cursor = data["cursor"]
+            if events == [None] and not cursor:
+                return {}, None
+
             discovered_markets: dict[str, _DiscoveredMarket] = {}
-            for event in data["events"]:
+            for event in events:
+                if event is None:
+                    raise ValueError("Kalshi events API response contains a null event.")
                 category = event.get("category") or "Uncategorized"
                 event_ticker = event["event_ticker"]
                 series_ticker = event["series_ticker"]
@@ -420,6 +449,7 @@ class KalshiSource(MarketSource):
                             )
                         continue
                     title_counts[title.strip().casefold()] += 1
+                qualifying_markets = []
                 for market in event["markets"]:
                     if market["event_ticker"] != event_ticker:
                         logger.warning(
@@ -432,15 +462,22 @@ class KalshiSource(MarketSource):
                         min_resolution_date=min_resolution_date,
                         max_resolution_date=max_resolution_date,
                     ):
-                        discovered_markets[market["ticker"]] = {
-                            "category": category,
-                            "event_ticker": event_ticker,
-                            "needs_yes_label": (
-                                title_counts[market["title"].strip().casefold()] > 1
-                            ),
-                            "series_ticker": series_ticker,
-                        }
-            return discovered_markets, data["cursor"]
+                        qualifying_markets.append(market)
+                if not qualifying_markets:
+                    continue
+                settlement_sources = [
+                    {"name": source.get("name"), "url": source["url"]}
+                    for source in event["settlement_sources"]
+                ]
+                for market in qualifying_markets:
+                    discovered_markets[market["ticker"]] = {
+                        "category": category,
+                        "event_ticker": event_ticker,
+                        "needs_yes_label": (title_counts[market["title"].strip().casefold()] > 1),
+                        "series_ticker": series_ticker,
+                        "settlement_sources": settlement_sources,
+                    }
+            return discovered_markets, cursor
         except KeyError as error:
             raise ValueError(
                 f"Kalshi events API response is missing required field {error.args[0]!r}."
@@ -860,10 +897,28 @@ class KalshiSource(MarketSource):
         return f"https://kalshi.com/markets/{series_ticker.lower()}/x/{event_ticker.lower()}"
 
     @staticmethod
-    def _resolution_criteria(market: dict) -> str:
-        """Join the market's primary and secondary rules into a resolution criteria string."""
+    def _resolution_criteria(
+        market: dict,
+        *,
+        settlement_sources: list[_SettlementSource] | None = None,
+        existing_criteria: object | None = None,
+    ) -> str:
+        """Join market rules and event-level outcome verification sources."""
         parts = [market.get("rules_primary"), market.get("rules_secondary")]
         parts = [part for part in parts if part]
+
+        if settlement_sources is not None:
+            formatted_sources = [
+                f'{source["name"]} ({source["url"]})' if source.get("name") else source["url"]
+                for source in settlement_sources
+            ]
+            if formatted_sources:
+                parts.append(f"{_SETTLEMENT_SOURCE_PREFIX}{'; '.join(formatted_sources)}.")
+        elif isinstance(existing_criteria, str):
+            source_start = existing_criteria.rfind(_SETTLEMENT_SOURCE_PREFIX)
+            if source_start >= 0:
+                parts.append(existing_criteria[source_start:])
+
         return " ".join(parts) if parts else "N/A"
 
     @staticmethod

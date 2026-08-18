@@ -162,6 +162,7 @@ class KalshiFetchFrame(pa.DataFrameModel):
     event_ticker: Series[str]
     needs_yes_label: Series[bool]
     series_ticker: Series[str]
+    settlement_sources: Series[object]
 
     class Config:
         """Schema configuration."""

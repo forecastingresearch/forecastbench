@@ -399,6 +399,7 @@ def make_kalshi_event(markets=None, category="Economics", **overrides):
         "series_ticker": "KXTEST",
         "category": category,
         "title": "Test event",
+        "settlement_sources": [],
         "markets": markets if markets is not None else [make_kalshi_api_market()],
     }
     base.update(overrides)
@@ -423,7 +424,12 @@ def make_kalshi_candlestick(end_period_ts, close_dollars=None, **overrides):
 
 def make_kalshi_fetch_df(rows):
     """Build a DataFrame matching KalshiFetchFrame schema."""
-    defaults = dict(event_ticker="KXTEST", needs_yes_label=False, series_ticker="KXTEST")
+    defaults = dict(
+        event_ticker="KXTEST",
+        needs_yes_label=False,
+        series_ticker="KXTEST",
+        settlement_sources=[],
+    )
     records = [{**defaults, **row} for row in rows]
     return pd.DataFrame(records, columns=["id", *defaults])
 
