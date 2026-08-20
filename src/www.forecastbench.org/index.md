@@ -26,9 +26,9 @@ header:
   overlay_color: "#102B23"
   illustration: /assets/images/illustrations/fri-hero graphic-rgb-green-lines.jpg
 excerpt: "ForecastBench is a dynamic, contamination-free benchmark of LLM forecasting accuracy with human comparison groups, serving as a valuable proxy for general intelligence."
-featured:
-featured_link:
-featured_date:
+featured: "Kalshi added as question source"
+featured_link: https://github.com/forecastingresearch/forecastbench/wiki/Changelog#2026-08-19
+featured_date: "2026-08-19"
 ---
 
 <!-- Tournament leaderboard Section with Background -->
