@@ -59,7 +59,7 @@ footer_scripts:
   <div class="site-feature-row__content">
     <div class="site-feature-row__left-2">
       <h1 id="architecture-title" class="site-feature-row__title" data-section-link>Architecture</h1>
-      <p>ForecastBench is an automated Benchmark. Every night at 00:00 UTC the system ingests new questions and resolution data, runs validation and category tagging, refreshes metadata, resolves forecasts, and updates the leaderboard. Every two weeks it samples balanced question sets for LLMs (1,000) and humans (200) and starts a new forecasting round. To better understand how ForecastBench updates its question bank, creates question sets, and resolved forecasts, see the dedicated page on the wiki.</p>
+      <p>ForecastBench is an automated Benchmark. Every night at 00:00 UTC the system ingests new questions and resolution data, runs validation and category tagging, refreshes metadata, resolves forecasts, and updates the leaderboard. Every two weeks it samples balanced question sets for LLMs (500) and humans (200) and starts a new forecasting round. To better understand how ForecastBench updates its question bank, creates question sets, and resolved forecasts, see the dedicated page on the wiki.</p>
       <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-does-ForecastBench-work%3F" class="btn btn--primary">GitHub Wiki</a>
     </div>
   </div>

@@ -31,6 +31,10 @@ footer_scripts:
     <div class="site-feature-row__left-2">
       <h1 id="blog-title" class="site-feature-row__title" data-section-link>Blog</h1>
       <div class="blog-entry">
+        <a href="https://forecastingresearch.substack.com/p/ai-models-have-likely-reached-parity" class="blog-entry__title">AI models have likely reached parity with superforecasters on ForecastBench <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        <p class="blog-entry__meta"><span class="blog-date">2026-07-16</span> · New results from the ForecastBench leaderboard suggest the gap between frontier AI and elite human forecasters is closing.</p>
+      </div>
+      <div class="blog-entry">
         <a href="https://forecastingresearch.substack.com/p/introducing-the-brier-index" class="blog-entry__title">Making Forecasting Scores Easier to Interpret: Introducing the Brier Index <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
         <p class="blog-entry__meta"><span class="blog-date">2026-03-04</span> · A simple transformation that makes the Brier score intuitive.</p>
       </div>
