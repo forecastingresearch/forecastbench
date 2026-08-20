@@ -2,4 +2,6 @@ google-cloud-storage
 google-cloud-secret-manager
 pandas>=2.2.2,<3.0
 pandera
-termcolor
+requests
+backoff
+numpy
