@@ -189,6 +189,62 @@ class TestBuildResolutionDf:
 
 
 # ---------------------------------------------------------------------------
+# get_resolved_ids_with_suspect_value (pure, no mocking)
+# ---------------------------------------------------------------------------
+
+
+class TestGetResolvedIdsWithSuspectValue:
+    """Tests for the prefilter that picks which resolution files are worth downloading."""
+
+    method = staticmethod(PolymarketSource.get_resolved_ids_with_suspect_value)
+
+    @pytest.mark.parametrize("freeze_value", ["0.0005", "0.9995", "0.7", "0.02"])
+    def test_value_that_is_not_a_resolution_is_suspect(self, freeze_value):
+        dfq = make_question_df(
+            [{"id": "0xq", "resolved": True, "freeze_datetime_value": freeze_value}]
+        )
+        assert self.method(dfq) == ["0xq"]
+
+    @pytest.mark.parametrize("freeze_value", ["0", "1", "0.0", "1.0", "0.5"])
+    def test_real_resolution_value_is_not_suspect(self, freeze_value):
+        dfq = make_question_df(
+            [{"id": "0xq", "resolved": True, "freeze_datetime_value": freeze_value}]
+        )
+        assert self.method(dfq) == []
+
+    def test_unresolved_questions_are_ignored(self):
+        """Unresolved questions are re-fetched anyway, so their files need no inspection."""
+        dfq = make_question_df(
+            [{"id": "0xq", "resolved": False, "freeze_datetime_value": "0.0005"}]
+        )
+        assert self.method(dfq) == []
+
+    @pytest.mark.parametrize("freeze_value", ["N/A", "", None])
+    def test_unparseable_value_is_suspect(self, freeze_value):
+        """If dfq cannot tell us the value, fall back to reading the file rather than assuming."""
+        dfq = make_question_df(
+            [{"id": "0xq", "resolved": True, "freeze_datetime_value": freeze_value}]
+        )
+        assert self.method(dfq) == ["0xq"]
+
+    def test_returns_only_the_suspect_ids(self):
+        dfq = make_question_df(
+            [
+                {"id": "0xgood", "resolved": True, "freeze_datetime_value": "1.0"},
+                {"id": "0xbad", "resolved": True, "freeze_datetime_value": "0.9995"},
+                {"id": "0xopen", "resolved": False, "freeze_datetime_value": "0.42"},
+            ]
+        )
+        assert self.method(dfq) == ["0xbad"]
+
+    def test_empty_question_bank_yields_nothing(self):
+        assert self.method(make_question_df([])) == []
+
+    def test_none_question_bank_yields_nothing(self):
+        assert self.method(None) == []
+
+
+# ---------------------------------------------------------------------------
 # _transform_question (pure static method)
 # ---------------------------------------------------------------------------
 
@@ -899,7 +955,7 @@ class TestFetch:
     @patch.object(PolymarketSource, "_get_market")
     @patch.object(PolymarketSource, "_transform_question")
     @patch.object(PolymarketSource, "_fetch_active_markets_from_api")
-    def test_resolved_not_checked_by_default(
+    def test_resolved_date_gaps_not_checked_by_default(
         self,
         mock_active,
         mock_transform,
@@ -908,7 +964,7 @@ class TestFetch:
         polymarket_source,
         freeze_today,
     ):
-        """By default, resolved questions are never re-fetched (CHECK flag unset)."""
+        """Date-gap completeness stays behind the flag; only the value check runs by default."""
         from datetime import date
 
         freeze_today(date(2026, 1, 15))
@@ -918,15 +974,139 @@ class TestFetch:
         mock_active.return_value = [new_market]
         mock_transform.return_value = self._row("0xnew")
 
-        dfq = make_question_df([{"id": "0xresolved", "resolved": True}])
+        dfq = make_question_df(
+            [{"id": "0xresolved", "resolved": True, "freeze_datetime_value": "1.0"}]
+        )
         gapped_res = make_resolution_df(
             [
                 {"id": "0xresolved", "date": "2024-06-01", "value": 0.5},
-                {"id": "0xresolved", "date": "2024-06-03", "value": 0.6},  # gap
+                {"id": "0xresolved", "date": "2024-06-03", "value": 1.0},  # gap
             ]
         )
 
         polymarket_source.fetch(dfq=dfq, existing_resolution_files={"0xresolved": gapped_res})
+
+        mock_get_market.assert_not_called()
+
+    @patch.dict(os.environ, {"CHECK_AND_FIX_RESOLVED_DATA": "1"})
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch.object(PolymarketSource, "_get_market")
+    @patch.object(PolymarketSource, "_transform_question")
+    @patch.object(PolymarketSource, "_fetch_active_markets_from_api")
+    def test_resolved_to_market_price_refetched_with_flag_set_too(
+        self,
+        mock_active,
+        mock_transform,
+        mock_get_market,
+        mock_price,
+        mock_sleep,
+        polymarket_source,
+        freeze_today,
+    ):
+        """Setting the flag must not lose the value check.
+
+        The flag's own checks only look at file presence and date contiguity, so a resolution file
+        that is present and contiguous but ends on a market price passes both of them. The value
+        check has to run in this mode as well, or turning the flag on would detect less.
+        """
+        from datetime import date
+
+        freeze_today(date(2026, 1, 15))
+        mock_active.return_value = []
+        mock_get_market.return_value = make_polymarket_api_market(conditionId="0xresolved")
+        mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
+        mock_transform.return_value = self._row("0xresolved")
+
+        dfq = make_question_df(
+            [{"id": "0xresolved", "resolved": True, "freeze_datetime_value": "0.0005"}]
+        )
+        contiguous_res = make_resolution_df(
+            [
+                {"id": "0xresolved", "date": "2024-06-01", "value": 0.02},
+                {"id": "0xresolved", "date": "2024-06-02", "value": 0.01},
+                {"id": "0xresolved", "date": "2024-06-03", "value": 0.0005},
+            ]
+        )
+
+        polymarket_source.fetch(dfq=dfq, existing_resolution_files={"0xresolved": contiguous_res})
+
+        mock_get_market.assert_called_once_with("0xresolved")
+
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_fetch_price_history")
+    @patch.object(PolymarketSource, "_get_market")
+    @patch.object(PolymarketSource, "_transform_question")
+    @patch.object(PolymarketSource, "_fetch_active_markets_from_api")
+    def test_resolved_to_market_price_refetched_without_flag(
+        self,
+        mock_active,
+        mock_transform,
+        mock_get_market,
+        mock_price,
+        mock_sleep,
+        polymarket_source,
+        freeze_today,
+    ):
+        """A resolution value that is really a market price is always re-fetched.
+
+        Gamma can report `umaResolutionStatus: resolved` while `outcomePrices` still holds the
+        last traded price, leaving a CLOB tick (0.0005 / 0.9995) in the resolution file. The dates
+        stay contiguous, so only the value gives it away, and it must be caught without anyone
+        having to set a flag.
+        """
+        from datetime import date
+
+        freeze_today(date(2026, 1, 15))
+        mock_active.return_value = []
+        mock_get_market.return_value = make_polymarket_api_market(conditionId="0xresolved")
+        mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
+        mock_transform.return_value = self._row("0xresolved")
+
+        dfq = make_question_df(
+            [{"id": "0xresolved", "resolved": True, "freeze_datetime_value": "0.0005"}]
+        )
+
+        # No resolution files supplied: the frozen value alone has to be enough, because a
+        # prematurely-resolved question's file may be missing entirely.
+        polymarket_source.fetch(dfq=dfq)
+
+        mock_get_market.assert_called_once_with("0xresolved")
+
+    @pytest.mark.parametrize("final_value", ["0.0", "1.0", "0.5"])
+    @patch("sources.polymarket.time.sleep")
+    @patch.object(PolymarketSource, "_get_market")
+    @patch.object(PolymarketSource, "_transform_question")
+    @patch.object(PolymarketSource, "_fetch_active_markets_from_api")
+    def test_real_resolution_value_not_refetched_without_flag(
+        self,
+        mock_active,
+        mock_transform,
+        mock_get_market,
+        mock_sleep,
+        polymarket_source,
+        freeze_today,
+        final_value,
+    ):
+        """0 and 1 are settled outcomes and 0.5 is a genuine 50-50, so none needs re-fetching.
+
+        0.5 must be accepted or the ambiguous resolutions would be re-fetched on every run and
+        never converge.
+        """
+        from datetime import date
+
+        freeze_today(date(2026, 1, 15))
+        new_market = make_polymarket_api_market(
+            conditionId="0xnew", price_history=[{"t": 1736380800, "p": 0.5}]
+        )
+        mock_active.return_value = [new_market]
+        mock_transform.return_value = self._row("0xnew")
+
+        dfq = make_question_df(
+            [{"id": "0xresolved", "resolved": True, "freeze_datetime_value": final_value}]
+        )
+
+        polymarket_source.fetch(dfq=dfq)
 
         mock_get_market.assert_not_called()
 
@@ -955,7 +1135,9 @@ class TestFetch:
         mock_price.return_value = [{"t": 1736380800, "p": 0.5}]
         mock_transform.return_value = self._row("0xresolved")
 
-        dfq = make_question_df([{"id": "0xresolved", "resolved": True}])
+        dfq = make_question_df(
+            [{"id": "0xresolved", "resolved": True, "freeze_datetime_value": "1.0"}]
+        )
         gapped_res = make_resolution_df(
             [
                 {"id": "0xresolved", "date": "2024-06-01", "value": 0.5},
@@ -991,12 +1173,14 @@ class TestFetch:
         mock_active.return_value = [new_market]
         mock_transform.return_value = self._row("0xnew")
 
-        dfq = make_question_df([{"id": "0xresolved", "resolved": True}])
+        dfq = make_question_df(
+            [{"id": "0xresolved", "resolved": True, "freeze_datetime_value": "1.0"}]
+        )
         contiguous_res = make_resolution_df(
             [
                 {"id": "0xresolved", "date": "2024-06-01", "value": 0.5},
                 {"id": "0xresolved", "date": "2024-06-02", "value": 0.6},
-                {"id": "0xresolved", "date": "2024-06-03", "value": 0.7},
+                {"id": "0xresolved", "date": "2024-06-03", "value": 1.0},
             ]
         )
 
