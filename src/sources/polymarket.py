@@ -442,6 +442,26 @@ class PolymarketSource(MarketSource):
         return end_date or None
 
     @staticmethod
+    def _get_market_open_date_str(market: dict) -> str:
+        """Return the market's open date as ``YYYY-MM-DD``, or ``"N/A"`` if unavailable.
+
+        Prefers the market's own ``startDateIso``, then its first event's ``startDate``, then
+        ``createdAt``. The Gamma API omits the market-level start date on some markets (e.g.
+        manually activated legs of a multi-outcome event), hence the fallbacks.
+
+        Args:
+            market (dict): Raw Gamma API market.
+        """
+        start_date = market.get("startDateIso")
+        if start_date:
+            return start_date
+        events = market.get("events") or []
+        for zulu_date in (events[0].get("startDate") if events else None, market.get("createdAt")):
+            if zulu_date:
+                return dates.convert_zulu_to_datetime(zulu_date).date().isoformat()
+        return "N/A"
+
+    @staticmethod
     def _get_market_close_date(market: dict) -> date | None:
         """Return the market's scheduled close date, or ``None`` if it can't be determined.
 
@@ -617,7 +637,7 @@ class PolymarketSource(MarketSource):
             "question": market["question"],
             "background": market["description"],
             "market_info_resolution_criteria": "N/A",
-            "market_info_open_datetime": market["startDateIso"],
+            "market_info_open_datetime": PolymarketSource._get_market_open_date_str(market),
             "market_info_close_datetime": market_closed_datetime_str,
             "url": "https://polymarket.com/market/" + market["slug"],
             "resolved": resolved,

@@ -298,6 +298,44 @@ class TestTransformQuestion:
         assert result is not None
         assert result["market_info_close_datetime"].startswith("2026-06-15")
 
+    def test_falls_back_to_event_start_date_when_market_start_date_missing(self):
+        """With no market-level startDateIso, the event's startDate drives the open datetime."""
+        market = make_polymarket_api_market(
+            events=[{"endDate": "2026-06-01T00:00:00Z", "startDate": "2026-08-13T17:37:49Z"}],
+            price_history=make_polymarket_price_history([(1736380800, 0.5)]),
+        )
+        del market["startDateIso"]
+
+        result = PolymarketSource._transform_question(market, self.FETCH_DT, set())
+
+        assert result is not None
+        assert result["market_info_open_datetime"] == "2026-08-13"
+
+    def test_falls_back_to_created_at_when_no_start_date_anywhere(self):
+        """With no start date on the market or its event, createdAt drives the open datetime."""
+        market = make_polymarket_api_market(
+            createdAt="2026-08-13T17:36:54.176496Z",
+            price_history=make_polymarket_price_history([(1736380800, 0.5)]),
+        )
+        del market["startDateIso"]
+
+        result = PolymarketSource._transform_question(market, self.FETCH_DT, set())
+
+        assert result is not None
+        assert result["market_info_open_datetime"] == "2026-08-13"
+
+    def test_missing_start_date_everywhere_is_na(self):
+        """Market with no start date and no createdAt records the open datetime as N/A."""
+        market = make_polymarket_api_market(
+            price_history=make_polymarket_price_history([(1736380800, 0.5)]),
+        )
+        del market["startDateIso"]
+
+        result = PolymarketSource._transform_question(market, self.FETCH_DT, set())
+
+        assert result is not None
+        assert result["market_info_open_datetime"] == "N/A"
+
     def test_single_price_history_entry(self):
         """Single price history entry: probability and freeze value are N/A."""
         market = make_polymarket_api_market(
