@@ -1305,8 +1305,8 @@ class TestUpdate:
             status="closed",
             close_time="2026-07-24T05:00:00Z",
             occurrence_datetime="2026-08-25T05:00:00Z",
-            expected_expiration_time="2026-08-25T05:00:00Z",
-            latest_expiration_time="2026-08-26T05:00:00Z",
+            expected_expiration_time="2027-01-01T00:00:00Z",
+            latest_expiration_time="2026-07-24T05:00:00Z",
         )
         mock_build.return_value = make_resolution_df(
             [{"id": "KXCLOSED-001", "date": "2026-07-23", "value": 0.5}]
@@ -1419,25 +1419,72 @@ class TestUpdate:
 
     @patch.object(KalshiSource, "_build_resolution_df")
     @patch.object(KalshiSource, "_get_market")
-    def test_market_becomes_resolved(self, mock_market, mock_build, kalshi_source):
-        """Market with a terminal status marks the dfq row as resolved."""
+    def test_early_settlement_becomes_resolved(self, mock_market, mock_build, kalshi_source):
+        """A finalized early close ignores the stale scheduled expiration."""
         mock_market.return_value = make_kalshi_api_market(
-            ticker="KXTEST-001",
+            ticker="KXGOVOKNOMR-26-MMAZ",
             status="finalized",
             result="yes",
-            settlement_ts="2026-01-13T05:00:00Z",
+            occurrence_datetime="2026-08-26T02:51:02.814Z",
+            close_time="2026-08-26T03:03:07Z",
+            latest_expiration_time="2026-08-26T03:03:07Z",
+            expected_expiration_time="2027-01-01T15:00:21Z",
+            settlement_ts="2026-08-26T03:08:17.058528Z",
         )
         mock_build.return_value = make_resolution_df(
-            [{"id": "KXTEST-001", "date": "2024-06-01", "value": 1.0}]
+            [{"id": "KXGOVOKNOMR-26-MMAZ", "date": "2026-08-26", "value": 1.0}]
         )
-        dfq = make_question_df([{"id": "KXTEST-001", "resolved": False}])
-        dff = make_kalshi_fetch_df([{"id": "KXTEST-001"}])
+        dfq = make_question_df([{"id": "KXGOVOKNOMR-26-MMAZ", "resolved": False}])
+        dff = make_kalshi_fetch_df([{"id": "KXGOVOKNOMR-26-MMAZ"}])
 
         result = kalshi_source.update(dfq, dff)
 
-        row = result.dfq[result.dfq["id"] == "KXTEST-001"].iloc[0]
+        row = result.dfq[result.dfq["id"] == "KXGOVOKNOMR-26-MMAZ"].iloc[0]
         assert bool(row["resolved"]) is True
-        assert "2026-01-13" in str(row["market_info_resolution_datetime"])
+        assert row["market_info_close_datetime"] == "2026-08-26T02:51:02+00:00"
+        assert row["market_info_resolution_datetime"] == "2026-08-26T03:08:17+00:00"
+
+    @patch.object(KalshiSource, "_build_resolution_df")
+    @patch.object(KalshiSource, "_get_market")
+    def test_invalid_windows_are_isolated_without_aborting(
+        self, mock_market, mock_build, kalshi_source
+    ):
+        """Unusable markets cannot prevent valid stored questions from updating."""
+        markets = {
+            "invalid": make_kalshi_api_market(ticker="invalid", occurrence_datetime="not-a-date"),
+            "valid": make_kalshi_api_market(ticker="valid", title="Updated valid question"),
+            "new-invalid": make_kalshi_api_market(
+                ticker="new-invalid", occurrence_datetime="not-a-date"
+            ),
+        }
+        mock_market.side_effect = lambda ticker: markets[ticker]
+        mock_build.side_effect = lambda market, **kwargs: make_resolution_df(
+            [{"id": market["ticker"], "date": "2026-08-01", "value": 0.6}]
+        )
+        dfq = make_question_df(
+            [
+                {
+                    "id": "invalid",
+                    "question": "Persisted invalid question",
+                    "freeze_datetime_value": "0.4",
+                },
+                {
+                    "id": "valid",
+                    "question": "Persisted valid question",
+                    "freeze_datetime_value": "0.5",
+                },
+            ]
+        )
+
+        result = kalshi_source.update(dfq, make_kalshi_fetch_df([{"id": "new-invalid"}]))
+
+        questions = result.dfq.set_index("id")
+        assert questions.at["invalid", "question"] == "Persisted invalid question"
+        assert questions.at["invalid", "freeze_datetime_value"] == "N/A"
+        assert questions.at["valid", "question"] == "Updated valid question"
+        assert float(questions.at["valid", "freeze_datetime_value"]) == 0.6
+        assert "new-invalid" not in questions.index
+        assert set(result.resolution_files) == {"valid"}
 
     @pytest.mark.parametrize(("outcome", "expected"), [("yes", 1.0), ("no", 0.0)])
     def test_finalization_replaces_stale_settlement_probability(
