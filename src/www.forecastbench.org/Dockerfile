@@ -13,7 +13,7 @@ RUN apt-get update && \
     curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
     gpg --dearmor | tee /usr/share/keyrings/cloud.google.gpg >/dev/null && \
     apt-get update && \
-    apt-get install -y google-cloud-sdk dumb-init
+    apt-get install -y google-cloud-cli dumb-init
 
 COPY . .
 
