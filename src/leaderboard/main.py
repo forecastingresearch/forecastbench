@@ -20,7 +20,6 @@ from scipy.stats import norm
 from termcolor import colored
 from utils.llm import model_runs
 from utils.llm.lab_registry import LABS
-from utils.llm.provider_registry import PROVIDERS
 
 sys.path.append(os.path.dirname(__file__))
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -117,10 +116,6 @@ LLM_LAB_ORG_TO_LOGO = {
     LABS["Z.ai"].name: "zai.svg",
 }
 
-LLM_PROVIDER_ORG_TO_LOGO = {
-    PROVIDERS["Google"].name: "deepmind.svg",
-}
-
 LEGACY_ORG_TO_LOGO = {
     "Moonshot": "moonshot.svg",
     "Minimax": "minimax.svg",
@@ -149,14 +144,17 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Thinking Machines Lab": "thinking-machines-lab.png",
     "PolyLedger": "polyledger.svg",
     "Google Cloud": "google-cloud.png",
+    "Google": "google.svg",
     "yarrow": "yarrow.png",
     "Agentese Labs": "agentese-labs.svg",
+    "PathFi": "pathfi.svg",
+    "Phinomial Labs": "phinomial-labs.svg",
+    "TRACES": "traces.svg",
 }
 
 ORG_TO_LOGO = {
     constants.BENCHMARK_NAME: "fri.svg",
     **LLM_LAB_ORG_TO_LOGO,
-    **LLM_PROVIDER_ORG_TO_LOGO,
     **LEGACY_ORG_TO_LOGO,
     **EXTERNAL_TOURNAMENT_ORG_TO_LOGO,
 }
