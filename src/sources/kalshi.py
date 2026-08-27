@@ -185,6 +185,7 @@ class KalshiSource(MarketSource):
         """
         existing_resolution_files = existing_resolution_files or {}
         existing_resolution_ids = existing_resolution_ids or set()
+        self.invalid_resolution_window_actions: list[str] = []
         persisted_dfq = dfq.copy(deep=True)
         persisted_ids = set(persisted_dfq["id"].astype(str))
         nullified_ids = self.get_nullified_ids()
@@ -250,6 +251,7 @@ class KalshiSource(MarketSource):
                 else:
                     dfq.at[index, "freeze_datetime_value"] = "N/A"
                     action = "Quarantined existing"
+                self.invalid_resolution_window_actions.append(f"{action}: {question_id}")
                 logger.warning(
                     f"{action} Kalshi market {question_id} because its resolution window "
                     "is invalid."
