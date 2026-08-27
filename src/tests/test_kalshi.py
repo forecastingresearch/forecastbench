@@ -1485,6 +1485,10 @@ class TestUpdate:
         assert float(questions.at["valid", "freeze_datetime_value"]) == 0.6
         assert "new-invalid" not in questions.index
         assert set(result.resolution_files) == {"valid"}
+        assert kalshi_source.invalid_resolution_window_actions == [
+            "Quarantined existing: invalid",
+            "Dropped new: new-invalid",
+        ]
 
     @pytest.mark.parametrize(("outcome", "expected"), [("yes", 1.0), ("no", 0.0)])
     def test_finalization_replaces_stale_settlement_probability(
@@ -1772,8 +1776,10 @@ def test_update_driver_downloads_only_unresolved_resolution_histories():
             return_value={"active", "finalized"},
         ),
         patch.object(update_main, "KalshiSource") as mock_source_class,
+        patch.object(update_main, "_alert_invalid_resolution_windows") as mock_alert,
     ):
         mock_source_class.return_value.get_nullified_ids.return_value = {"nullified"}
+        mock_source_class.return_value.invalid_resolution_window_actions = []
         mock_source_class.return_value.update.return_value = Mock(
             dfq=dfq,
             resolution_files={},
@@ -1783,6 +1789,33 @@ def test_update_driver_downloads_only_unresolved_resolution_histories():
 
     downloaded_paths = [call.kwargs["filename"] for call in mock_download.call_args_list]
     assert downloaded_paths == ["kalshi/active.jsonl"]
+    mock_alert.assert_called_once_with([])
+
+
+def test_invalid_resolution_window_alert_is_aggregated():
+    """The update entry point sends one concise alert for all isolated markets."""
+    from orchestration.func_kalshi_update import main as update_main
+
+    slack = Mock()
+    actions = ["Quarantined existing: invalid", "Dropped new: new-invalid"]
+
+    with patch.object(update_main, "import_module", return_value=slack):
+        update_main._alert_invalid_resolution_windows(actions)
+
+    message = slack.send_message.call_args.kwargs["message"]
+    assert message.splitlines() == [
+        ":warning: Kalshi update found 2 market(s) with invalid resolution windows: "
+        "Quarantined existing: invalid, Dropped new: new-invalid.",
+        "Review any quarantined existing question and resolution file manually.",
+    ]
+
+
+def test_invalid_resolution_window_alert_failure_does_not_abort():
+    """A Slack or Secret Manager failure cannot turn isolation into a failed update."""
+    from orchestration.func_kalshi_update import main as update_main
+
+    with patch.object(update_main, "import_module", side_effect=RuntimeError("Slack unavailable")):
+        update_main._alert_invalid_resolution_windows(["Quarantined existing: invalid"])
 
 
 # ---------------------------------------------------------------------------

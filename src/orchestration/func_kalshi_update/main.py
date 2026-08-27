@@ -1,6 +1,7 @@
 """Kalshi update entry point."""
 
 import logging
+from importlib import import_module
 from typing import Any
 
 from helpers import data_utils, decorator
@@ -11,6 +12,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SOURCE = "kalshi"
+
+
+def _alert_invalid_resolution_windows(actions: list[str]) -> None:
+    """Alert on isolated invalid markets without risking the update job."""
+    if not actions:
+        return
+    message = (
+        f":warning: Kalshi update found {len(actions)} market(s) with invalid resolution windows: "
+        f"{', '.join(actions)}.\n"
+        "Review any quarantined existing question and resolution file manually."
+    )
+    try:
+        slack = import_module("helpers.slack")
+        slack.send_message(message=message)
+    except Exception:
+        logger.exception("Failed to send the Kalshi invalid-resolution-window Slack alert.")
 
 
 @decorator.log_runtime
@@ -44,6 +61,7 @@ def driver(_: Any) -> None:
     data_utils.upload_questions(result.dfq, SOURCE)
     if result.resolution_files:
         _source_io.upload_resolution_files(SOURCE, result.resolution_files)
+    _alert_invalid_resolution_windows(source.invalid_resolution_window_actions)
 
     logger.info("Done.")
 

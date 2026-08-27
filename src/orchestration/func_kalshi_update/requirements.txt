@@ -7,3 +7,4 @@ requests
 certifi
 backoff
 numpy
+slack_sdk
