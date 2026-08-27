@@ -5,6 +5,7 @@ All GCS, filesystem, git, and Slack interactions live here.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import logging
 import os
@@ -237,10 +238,11 @@ def upload_hash_mapping(raw_json: str, source_name: str) -> None:
 
 
 def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set_filename: str):
-    """Upload resolution set to GCS and push to git."""
-    from helpers import git  # noqa: E402
-    from helpers import keys  # noqa: E402
+    """Upload resolution set to GCS.
 
+    Only uploads to the bucket; the file reaches the dataset repo later via
+    `push_datasets_to_git`.
+    """
     basename = f"{forecast_due_date}_resolution_set.json"
     local_filename = f"/tmp/{basename}"
     df = df[["id", "source", "direction", "resolution_date", "resolved_to", "resolved"]]
@@ -263,14 +265,74 @@ def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set
     )
     logger.info(f"Uploaded Resolution File {local_filename} to {upload_folder}.")
 
+
+# Bucket folder -> (git folder, basename pattern) for everything the nightly run publishes to
+# the dataset repo. The resolution sets and the leaderboard html & csv keep the locations they
+# already have in the repo; the parity dates and the question fixed effects are new to it. The
+# patterns keep files that live in the same bucket folder but are not published (e.g. the SOTA
+# graph csv files) out of the repo.
+DATASET_PUSH_FOLDERS = (
+    ("datasets/resolution_sets", "datasets/resolution_sets", "*_resolution_set.json"),
+    ("leaderboards/html", "leaderboards/html", "leaderboard_*.html"),
+    ("leaderboards/csv", "leaderboards/csv", "leaderboard_*.csv"),
+    # `[!0-9]` skips the dated files that predate the switch to one file per leaderboard
+    # (question_fixed_effects.2026-08-27.baseline_leaderboard.json) if any are left in the bucket.
+    (
+        "question-fixed-effects",
+        "datasets/question_fixed_effects",
+        "question_fixed_effects.[!0-9]*.json",
+    ),
+    ("simulated_llm_parity", "datasets/parity_dates", "parity_dates.*.json"),
+)
+
+
+def push_datasets_to_git() -> None:
+    """Push resolution sets, leaderboards, parity dates & question fixed effects to git.
+
+    Everything the nightly run publishes goes out in a single commit. Run as one job at the
+    end of the run rather than having each of the parallel resolve and leaderboard jobs push
+    its own files, which avoids the race condition of concurrent pushes to the repository.
+    """
+    from helpers import git, keys  # noqa: E402
+
+    if env.RUNNING_LOCALLY:
+        logger.info("Running locally; not pushing datasets to git.")
+        return
+
+    files = {}
+    for bucket_folder, git_folder, pattern in DATASET_PUSH_FOLDERS:
+        blob_names = [
+            blob_name
+            for blob_name in gcp.storage.list_with_prefix(
+                bucket_name=env.PUBLIC_RELEASE_BUCKET,
+                prefix=f"{bucket_folder}/",
+            )
+            if fnmatch.fnmatch(os.path.basename(blob_name), pattern)
+        ]
+        for blob_name in blob_names:
+            basename = os.path.basename(blob_name)
+            local_filename = f"/tmp/{basename}"
+            gcp.storage.download(
+                bucket_name=env.PUBLIC_RELEASE_BUCKET,
+                filename=blob_name,
+                local_filename=local_filename,
+            )
+            files[local_filename] = f"{git_folder}/{basename}"
+
+    if not files:
+        logger.warning("No dataset files found in the bucket; nothing to push.")
+        return
+
     mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
     mirrors = [mirrors] if mirrors else []
-    git.clone_and_push_files(
+    committed = git.clone_and_push_files(
         repo_url=keys.API_GITHUB_DATASET_REPO_URL,
-        files={local_filename: f"{upload_folder}/{basename}"},
-        commit_message=f"resolution set: automatic update for {question_set_filename}.",
+        files=files,
+        commit_message="datasets: automatic nightly update.",
         mirrors=mirrors,
     )
+    if committed:
+        logger.info(f"Pushed {len(files)} dataset files to git in a single commit.")
 
 
 def upload_processed_forecast_file(data: dict, forecast_due_date: str, filename: str):

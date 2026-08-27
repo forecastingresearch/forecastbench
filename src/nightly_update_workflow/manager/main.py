@@ -255,6 +255,21 @@ def main():
         ),
     )
 
+    # Push the resolution sets, the leaderboards, the parity dates and the question fixed
+    # effects to the dataset repo in a single dedicated job. The resolve and leaderboard jobs
+    # run in parallel, so letting each push its own files races on the repo. Run last, once
+    # every job that writes to the bucket has finished, so the night goes out as one commit.
+    dict_to_use_push_datasets_to_git = "push_datasets_to_git"
+    operation_push_datasets_to_git = call_worker(
+        dict_to_use=dict_to_use_push_datasets_to_git,
+        task_count=1,
+    )
+    cloud_run.block_and_check_job_result(
+        operation=operation_push_datasets_to_git,
+        name=dict_to_use_push_datasets_to_git,
+        exit_on_error=True,
+    )
+
     slack.send_message(message="Nightly update succeeded 😊")
 
 

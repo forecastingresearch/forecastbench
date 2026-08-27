@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 from git import Actor, Repo
 
-from . import constants, env, keys
+from . import constants, keys
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def clone_and_push_files(
     files: Dict[str, str],
     commit_message: str,
     mirrors: Optional[List[str]] = None,
-) -> None:
+) -> bool:
     """Clone a Git repository, add/update files, commit, and push to origin and optional mirrors.
 
     Args:
@@ -68,7 +68,9 @@ def clone_and_push_files(
                                        If None, attempts to load from secrets.
 
     Returns:
-        None. Exits with status 1 if an error is encountered while pushing.
+        bool: True if a new commit was created, False if HEAD was unchanged.
+              Origin and mirrors are pushed either way. Exits with status 1 if the push to
+              origin fails; a failed mirror push is logged as a warning.
     """
     if not mirrors:
         mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
@@ -84,23 +86,38 @@ def clone_and_push_files(
         shutil.copy(source, full_destination_path, follow_symlinks=False)
         repo.index.add([destination])
 
+    # Skip empty commits, but always push so a lagging mirror catches up.
+    has_changes = bool(repo.index.diff(repo.head.commit))
+    if not has_changes:
+        logger.info(f"No new commit for {repo_url}; syncing remotes to HEAD.")
+
     error_encountered = False
     author = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
     committer = Actor("ForecastBench bot", constants.BENCHMARK_EMAIL)
     ssh_env = {"GIT_SSH_COMMAND": f"ssh -i {tmp_key_file_path} -o StrictHostKeyChecking=no"}
     try:
-        repo.index.commit(commit_message, author=author, committer=committer)
+        if has_changes:
+            repo.index.commit(commit_message, author=author, committer=committer)
         origin = repo.remote(name="origin")
-        origin.push(env=ssh_env)
-        for index, mirror_url in enumerate(mirrors):
-            mirror = repo.create_remote(f"mirror_{index}", url=mirror_url)
-            mirror.push(env=ssh_env)
-            repo.delete_remote(mirror.name)
-            logger.info(f"Pushed to {mirror_url} (mirror) with commit message: {commit_message}")
+        # A rejected push does not raise in GitPython; surface it explicitly.
+        origin.push(env=ssh_env).raise_if_error()
     except Exception as e:
         error_encountered = True
         message = e.message if hasattr(e, "message") else str(e)
         logger.error(f"encountered error when pushing to git: {message}")
+
+    # Mirrors are convenience copies; the repo at `repo_url` is the source of truth. A mirror
+    # that's down or has diverged must not fail the nightly run, so log and carry on.
+    if not error_encountered:
+        for index, mirror_url in enumerate(mirrors):
+            try:
+                mirror = repo.create_remote(f"mirror_{index}", url=mirror_url)
+                mirror.push(env=ssh_env).raise_if_error()
+                repo.delete_remote(mirror.name)
+                logger.info(f"Pushed to {mirror_url} (mirror)")
+            except Exception as e:
+                message = e.message if hasattr(e, "message") else str(e)
+                logger.warning(f"Could not push to {mirror_url} (mirror): {message}")
 
     os.remove(tmp_key_file_path)
     shutil.rmtree(local_repo_dir, ignore_errors=True)
@@ -108,26 +125,6 @@ def clone_and_push_files(
     if error_encountered:
         sys.exit(1)
 
-    logger.info(f"Pushed to {repo_url} with commit message: {commit_message}")
-
-
-def clone_commit_and_push(
-    files: Dict[str, str],
-    commit_message: str,
-) -> None:
-    """Upload files files to Cloud Storage and push updates to Git.
-
-    Args:
-        files (Dict[str, str]): Mapping of local file paths to their git location.
-
-    Returns:
-        None
-    """
-    if env.RUNNING_LOCALLY:
-        return
-
-    clone_and_push_files(
-        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
-        files=files,
-        commit_message=commit_message,
-    )
+    if has_changes:
+        logger.info(f"Pushed to {repo_url} with commit message: {commit_message}")
+    return has_changes

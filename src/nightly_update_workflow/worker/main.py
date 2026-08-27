@@ -25,6 +25,12 @@ def get_resolve_forecasts():
     return [[("func-resolve-forecasts", True, cloud_run.timeout_1h * 3, task_count)]]
 
 
+push_datasets_to_git = [
+    [
+        ("func-push-datasets-to-git", True, cloud_run.timeout_1h, 1),
+    ]
+]
+
 leaderboards = [
     [
         ("func-leaderboard-tournament", True, cloud_run.timeout_1h * 4, 1),
@@ -142,7 +148,8 @@ def main():
 
     Env variables:
     CLOUD_RUN_TASK_INDEX: automatically set by Cloud Run Jobs
-    DICT_TO_USE: one of `fetch_and_update`, `metadata`, `resolve_forecasts`, `leaderboards`.
+    DICT_TO_USE: one of `fetch_and_update`, `metadata`, `resolve_forecasts`,
+                 `leaderboards`, `push_datasets_to_git`.
     """
     dict_mapping = {
         "fetch_and_update": get_fetch_and_update(),
@@ -151,6 +158,7 @@ def main():
         "publish_question_set_make_llm_baseline": get_publish_question_set_make_llm_baseline(),
         "resolve_forecasts": get_resolve_forecasts(),
         "leaderboards": leaderboards,
+        "push_datasets_to_git": push_datasets_to_git,
         "naive_and_dummy_forecasters": get_naive_and_dummy_forecasters(),
         "website": website,
     }
