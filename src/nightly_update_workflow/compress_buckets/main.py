@@ -42,11 +42,11 @@ def compress_bucket_and_upload_tarball(bucket: str, compression: str = "gz") -> 
     logger.info(f"Downloading gs://{bucket} to {local_dir}.")
     subprocess.run(
         [
-            "gsutil",
-            "-m",
+            "gcloud",
+            "storage",
             "rsync",
-            "-r",
-            "-x",
+            "--recursive",
+            "--exclude",
             r".*\.(gz|xz)$",
             f"gs://{bucket}",
             local_dir,
@@ -73,7 +73,7 @@ def compress_bucket_and_upload_tarball(bucket: str, compression: str = "gz") -> 
     content_type = "application/gzip" if compression == "gz" else "application/x-xz"
     logger.info(f"Uploading {local_tarball} to {remote_path}.")
     subprocess.run(
-        ["gsutil", "-h", f"Content-Type:{content_type}", "cp", local_tarball, remote_path],
+        ["gcloud", "storage", "cp", f"--content-type={content_type}", local_tarball, remote_path],
         check=True,
     )
     logger.info(f"Created {bucket}{ext}.")
