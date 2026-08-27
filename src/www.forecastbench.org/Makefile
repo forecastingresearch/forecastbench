@@ -39,7 +39,6 @@ deploy : entrypoint.sh Dockerfile .gcloudignore
 		--exclude='assets/js/leaderboard_tournament_compact.js' \
 		--exclude='assets/js/leaderboard_tournament_full.js' \
 		--exclude='assets/js/leaderboard_preliminary_full.js' \
-		--exclude='assets/data/question-fixed-effects/placeholder.json' \
 		--exclude='assets/data/sota_graph_tournament.csv' \
 		--exclude='assets/data/parity_dates.baseline_leaderboard.json' \
 		--exclude='assets/data/parity_dates.tournament_leaderboard.json' \

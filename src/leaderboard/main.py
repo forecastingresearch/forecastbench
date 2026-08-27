@@ -32,7 +32,6 @@ from helpers import (  # noqa: E402
     dates,
     decorator,
     env,
-    git,
     resolution,
     slack,
 )
@@ -752,7 +751,7 @@ def write_question_fixed_effects(
         None: Concatenated DataFrame is created (and can be written or processed
         further inside the function).
     """
-    logger.info(colored("Writing question fixed effects to WEBSITE.", "yellow"))
+    logger.info(colored("Writing question fixed effects.", "yellow"))
 
     dfs = []
     for question_type, df_qfe in question_fixed_effects.items():
@@ -779,11 +778,12 @@ def write_question_fixed_effects(
     ]
 
     directory = data_utils.get_mounted_bucket(bucket=env.PUBLIC_RELEASE_BUCKET)
-    iso_date = dates.get_date_today_as_iso()
     leaderboard_file_stem = LEADERBOARD_FILE_STEMS[leaderboard_type]
+    # One file per leaderboard, overwritten nightly. The history lives in the dataset repo,
+    # where `push_datasets_to_git` sends this file every night.
     local_filename = (
         f"{directory}/question-fixed-effects/"
-        f"question_fixed_effects.{iso_date}.{leaderboard_file_stem}.json"
+        f"question_fixed_effects.{leaderboard_file_stem}.json"
     )
     os.makedirs(os.path.dirname(local_filename), exist_ok=True)
     df.to_json(local_filename, orient="records")
@@ -794,7 +794,7 @@ def write_leaderboard_html_file(
     sorting_column_number: int,
     leaderboard_type: LeaderboardType,
 ) -> None:
-    """Generate HTML and CSV leaderboard files and upload to Bucket & git repo.
+    """Generate HTML and CSV leaderboard files and upload to Bucket.
 
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
@@ -1026,7 +1026,7 @@ def write_leaderboard_html_file(
 
     stem = f"leaderboard_{leaderboard_type.value}"
     destination_folder = "leaderboards/html"
-    local_filename_html, destination_filename_html = data_utils.write_file_to_bucket(
+    data_utils.write_file_to_bucket(
         bucket=env.PUBLIC_RELEASE_BUCKET,
         basename=f"{stem}.html",
         destination_folder=f"{destination_folder}",
@@ -1039,14 +1039,6 @@ def write_leaderboard_html_file(
     destination_filename_csv = f"{destination_folder}/{stem}.csv"
     local_filename_csv = f"{directory}/{destination_filename_csv}"
     df.to_csv(local_filename_csv, index=False)
-
-    git.clone_commit_and_push(
-        files={
-            local_filename_html: destination_filename_html,
-            local_filename_csv: destination_filename_csv,
-        },
-        commit_message=f"leaderboard {leaderboard_type.value}: automatic update html & csv files.",
-    )
 
 
 def write_preliminary_leaderboard_html_file(
@@ -1242,7 +1234,7 @@ def write_preliminary_leaderboard_html_file(
     leaderboard_type = LeaderboardType.PRELIMINARY
     stem = f"leaderboard_{leaderboard_type.value}"
     destination_folder = "leaderboards/html"
-    local_filename_html, destination_filename_html = data_utils.write_file_to_bucket(
+    data_utils.write_file_to_bucket(
         bucket=env.PUBLIC_RELEASE_BUCKET,
         basename=f"{stem}.html",
         destination_folder=f"{destination_folder}",
@@ -1255,14 +1247,6 @@ def write_preliminary_leaderboard_html_file(
     destination_filename_csv = f"{destination_folder}/{stem}.csv"
     local_filename_csv = f"{directory}/{destination_filename_csv}"
     df.to_csv(local_filename_csv, index=False)
-
-    git.clone_commit_and_push(
-        files={
-            local_filename_html: destination_filename_html,
-            local_filename_csv: destination_filename_csv,
-        },
-        commit_message=f"leaderboard {leaderboard_type.value}: automatic update html & csv files.",
-    )
 
 
 def write_leaderboard_js_file_full(

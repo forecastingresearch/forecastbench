@@ -6,3 +6,4 @@ tqdm
 scipy
 pandera
 termcolor
+slack_sdk

@@ -120,7 +120,7 @@ deploy: orchestration questions metadata resolve leaderboards curate-questions w
 
 questions: manifold metaculus acled infer kalshi yfinance polymarket wikipedia fred dbnomics
 
-orchestration: nightly-worker-job nightly-manager-job compress_buckets
+orchestration: nightly-worker-job nightly-manager-job compress_buckets push-datasets-to-git
 
 metadata: tag-questions validate-questions
 
@@ -247,6 +247,9 @@ nightly-worker-job:
 
 nightly-manager-job:
 	$(MAKE) -C src/nightly_update_workflow/manager || echo "* $@" >> $(MAKE_FAILURE_LOG)
+
+push-datasets-to-git:
+	$(MAKE) -C src/orchestration/func_push_datasets_to_git || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 llm-forecaster: llm-forecaster-manager llm-forecaster-worker
 
