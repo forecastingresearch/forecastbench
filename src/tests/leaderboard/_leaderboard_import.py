@@ -15,11 +15,6 @@ STUBS = {
     "joblib": types.SimpleNamespace(Parallel=object, delayed=lambda fn: fn),
     "scipy": types.SimpleNamespace(),
     "scipy.stats": types.SimpleNamespace(norm=object()),
-    "statsmodels": types.SimpleNamespace(),
-    "statsmodels.stats": types.SimpleNamespace(),
-    "statsmodels.stats.multitest": types.SimpleNamespace(
-        multipletests=lambda *args, **kwargs: None
-    ),
     "termcolor": types.SimpleNamespace(colored=lambda text, *args, **kwargs: text),
     "git": types.SimpleNamespace(
         Actor=object,

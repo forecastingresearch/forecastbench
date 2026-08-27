@@ -17,7 +17,6 @@ from jinja2 import Template
 from joblib import Parallel, delayed
 from pandas._libs.tslibs.nattype import NaTType
 from scipy.stats import norm
-from statsmodels.stats.multitest import multipletests
 from termcolor import colored
 from utils.llm import model_runs
 from utils.llm.lab_registry import LABS
@@ -2850,7 +2849,6 @@ def get_comparison_p_val(
     comparison: dict,
     question_type: str = "overall",
     is_centered: bool = False,
-    bh_adjust_p_vals: bool = False,
 ) -> pd.DataFrame:
     """Compute one-sided p-values comparing each model to the human comparison groups.
 
@@ -2863,7 +2861,6 @@ def get_comparison_p_val(
         comparison (dict): dict showing model to use for comparison.
         question_type (str): Question type to compare on (e.g. "overall", "dataset", "market").
         is_centered (bool): Center p-value calculation on observed score differences.
-        bh_adjust_p_vals (bool): Apply Benjamini-Hochberg adjustment if True.
 
     Returns:
         pd.DataFrame: Leaderboard with updated p_value column.
@@ -2902,18 +2899,6 @@ def get_comparison_p_val(
 
     df_leaderboard[out_col] = df_leaderboard["model_pk"].map(p_value_one_sided)
     df_leaderboard.loc[comparison_idx, out_col] = -1
-
-    if bh_adjust_p_vals:
-        # P-value adjustment for multiple tests to avoid the multiple comparisons problem.
-        # Drop best row for p-value adjustment
-        mask = df_leaderboard.index != comparison_idx
-        _, bh_adj_pvals, _, _ = multipletests(
-            pvals=df_leaderboard.loc[mask, out_col],
-            alpha=0.05,
-            method="fdr_bh",
-        )
-        df_leaderboard.loc[mask, f"{out_col}_bh_adj"] = bh_adj_pvals
-        df_leaderboard.loc[comparison_idx, f"{out_col}_bh_adj"] = -1
 
     if comparison == HUMAN_PUBLIC:
         # Switch directions for the one-sided test for the general public as LLMs have already
