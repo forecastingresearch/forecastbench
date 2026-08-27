@@ -49,6 +49,7 @@ _MAX_CANDLESTICKS_PER_REQUEST = 5000
 _MAX_CANDLESTICK_RANGE_SECONDS = (
     (_MAX_CANDLESTICKS_PER_REQUEST - 1) * _CANDLESTICK_PERIOD_INTERVAL * 60
 )
+_POST_CLOSE_STATUSES = {"closed", "determined", "disputed", "amended", "finalized"}
 _RESOLVED_STATUSES = {"finalized"}
 _SETTLEMENT_SOURCE_PREFIX = "Outcome verified from "
 
@@ -243,7 +244,17 @@ class KalshiSource(MarketSource):
 
             resolution_window = self._resolution_window(market)
             if resolution_window is None:
-                raise ValueError(f"Invalid Kalshi resolution window for {row['id']}.")
+                if question_id in newly_added_ids:
+                    dfq = dfq.drop(index=index)
+                    action = "Dropped new"
+                else:
+                    dfq.at[index, "freeze_datetime_value"] = "N/A"
+                    action = "Quarantined existing"
+                logger.warning(
+                    f"{action} Kalshi market {question_id} because its resolution window "
+                    "is invalid."
+                )
+                continue
             earliest_resolution_time, _ = resolution_window
 
             # Assign market details to dfq row
@@ -822,15 +833,17 @@ class KalshiSource(MarketSource):
         """Return the credible earliest and latest resolution timestamps.
 
         Kalshi's close time can be a late postponement bound rather than the time the outcome is
-        expected to become known. Required timestamp keys are accessed directly so absent API
+        expected to become known. Once a market has closed, its actual close and occurrence times
+        supersede scheduling estimates that Kalshi may leave unchanged after an early settlement.
+        Timestamp keys needed for the market's lifecycle state are accessed directly so absent API
         fields still fail loudly; present but unusable or inconsistent timestamps make the market
         ineligible.
         """
-        timestamps = {
-            "close": market["close_time"],
-            "expected": market["expected_expiration_time"],
-            "latest": market["latest_expiration_time"],
-        }
+        post_close = market.get("status") in _POST_CLOSE_STATUSES
+        timestamps = {"close": market["close_time"]}
+        if not post_close:
+            timestamps["expected"] = market["expected_expiration_time"]
+            timestamps["latest"] = market["latest_expiration_time"]
         occurrence_datetime = market.get("occurrence_datetime")
         if not all(
             isinstance(timestamp, str) and timestamp.strip() for timestamp in timestamps.values()
@@ -855,9 +868,16 @@ class KalshiSource(MarketSource):
         ):
             return None
 
-        earliest_fields = ["close", "expected"]
+        earliest_fields = ["close"]
         if "occurrence" in parsed_datetimes:
             earliest_fields.append("occurrence")
+
+        if post_close:
+            earliest_field = min(earliest_fields, key=parsed_datetimes.__getitem__)
+            latest_field = max(earliest_fields, key=parsed_datetimes.__getitem__)
+            return timestamps[earliest_field], timestamps[latest_field]
+
+        earliest_fields.append("expected")
         earliest_field = min(earliest_fields, key=parsed_datetimes.__getitem__)
         latest_field = max(("close", "latest"), key=parsed_datetimes.__getitem__)
         latest_resolution_datetime = parsed_datetimes[latest_field]
