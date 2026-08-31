@@ -1,9 +1,68 @@
 """Tests for processed forecast file IO."""
 
+import io
 import json
 
 from helpers import env
 from orchestration import _io
+
+
+def _forecast_file_handle(**overrides) -> io.StringIO:
+    """Return a file handle for a forecast submission with sensible defaults."""
+    data = {
+        "organization": "Test Org",
+        "model": "Test Model",
+        "model_organization": "Test Model Org",
+        "question_set": "2026-09-01-llm.json",
+        "forecasts": [{"id": "q1", "forecast": 0.5}],
+    }
+    data.update(overrides)
+    data = {k: v for k, v in data.items() if v is not None}
+    return io.StringIO(json.dumps(data))
+
+
+def test_read_forecast_file_passes_url_through():
+    data = _io.read_forecast_file(
+        "forecast.json",
+        f=_forecast_file_handle(url="https://example.org"),
+    )
+
+    assert data is not None
+    assert data["url"] == "https://example.org"
+
+
+def test_read_forecast_file_requires_url_for_new_non_anonymous_submissions():
+    data = _io.read_forecast_file("forecast.json", f=_forecast_file_handle())
+
+    assert data is None
+
+
+def test_read_forecast_file_allows_missing_url_for_anonymous_submissions():
+    data = _io.read_forecast_file(
+        "forecast.json",
+        f=_forecast_file_handle(organization="Anonymous 12"),
+    )
+
+    assert data is not None
+    assert "url" not in data
+
+
+def test_read_forecast_file_allows_missing_url_for_old_forecast_sets():
+    data = _io.read_forecast_file(
+        "forecast.json",
+        f=_forecast_file_handle(question_set="2026-05-24-llm.json"),
+    )
+
+    assert data is not None
+
+
+def test_read_forecast_file_rejects_non_http_url():
+    data = _io.read_forecast_file(
+        "forecast.json",
+        f=_forecast_file_handle(url="example.org"),
+    )
+
+    assert data is None
 
 
 def test_valid_forecast_files_excludes_nested_test_files(monkeypatch):
