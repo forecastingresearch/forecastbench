@@ -35,7 +35,8 @@ deploy : main.py .gcloudignore requirements.txt Dockerfile
 		--tasks 1 \
 		--parallelism 1 \
 		--task-timeout 2h \
-		--memory 4Gi \
+		--memory 8Gi \
+		--cpu 2 \
 		--max-retries 0 \
 		--add-volume name=$(QUESTION_BANK_BUCKET),type=cloud-storage,bucket=$(QUESTION_BANK_BUCKET),readonly=true \
 		--add-volume-mount volume=$(QUESTION_BANK_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(QUESTION_BANK_BUCKET) \
