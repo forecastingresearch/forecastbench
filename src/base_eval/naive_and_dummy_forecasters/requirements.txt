@@ -10,3 +10,4 @@ cmdstanpy
 scipy
 termcolor
 pandera
+slack_sdk

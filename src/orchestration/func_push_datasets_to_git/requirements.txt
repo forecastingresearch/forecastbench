@@ -6,3 +6,4 @@ termcolor
 pandera
 pytz
 python-dateutil
+slack_sdk
