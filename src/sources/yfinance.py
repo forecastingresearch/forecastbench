@@ -306,11 +306,13 @@ class YfinanceSource(DatasetSource):
             ticker_symbol (str): Stock ticker symbol.
 
         Returns:
-            Tuple of (company_name, hist_df) or (None, None) on failure.
+            Tuple of (company_name, hist_df), where company_name is None when yfinance has
+            no name for the ticker, or (None, None) on failure.
         """
         try:
             ticker = yf.Ticker(ticker_symbol)
-            company_name = ticker.info["longName"]
+            info = ticker.info
+            company_name = info.get("longName") or info.get("shortName")
             hist = ticker.history(period="5d", auto_adjust=False).reset_index()
             yesterday = self.get_date_today() - timedelta(days=1)
             hist["Date"] = pd.to_datetime(hist["Date"])

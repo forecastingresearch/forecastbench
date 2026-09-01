@@ -285,9 +285,26 @@ class TestSourceFetchOneStock:
         assert out["Close"].iloc[-1] == 254.23  # capped at yesterday, last row
 
     @patch("sources.yfinance.yf.Ticker")
+    def test_falls_back_to_short_name(self, mock_ticker_cls, yfinance_source, freeze_today):
+        """Yahoo omits longName for some live tickers, which must not look like a delisting."""
+        freeze_today(date(2026, 3, 18))
+        mock_ticker = MagicMock()
+        mock_ticker.info = {"shortName": "Match Group, Inc."}
+        hist = pd.DataFrame(
+            {"Date": pd.to_datetime(["2026-03-16", "2026-03-17"]), "Close": [40.5, 41.22]}
+        ).set_index("Date")
+        mock_ticker.history.return_value = hist
+        mock_ticker_cls.return_value = mock_ticker
+
+        name, out = yfinance_source._fetch_one_stock("MTCH")
+
+        assert name == "Match Group, Inc."
+        assert out["Close"].iloc[-1] == 41.22
+
+    @patch("sources.yfinance.yf.Ticker")
     def test_returns_none_on_error(self, mock_ticker_cls, yfinance_source):
         """Returns (None, None) when the ticker lookup fails (legacy-faithful swallow)."""
-        mock_ticker_cls.return_value.info.__getitem__.side_effect = KeyError("longName")
+        mock_ticker_cls.side_effect = Exception("yfinance unavailable")
         assert yfinance_source._fetch_one_stock("INVALID") == (None, None)
 
 
