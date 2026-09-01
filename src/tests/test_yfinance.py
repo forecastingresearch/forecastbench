@@ -36,6 +36,7 @@ class TestTickerRenamesDefinition:
         assert renames["FI"] == "FISV"
         assert renames["MMC"] == "MRSH"
         assert renames["BK"] == "BNY"
+        assert renames["SATS"] == "ECHO"
 
 
 class TestDelistedStocksDefinition:
@@ -48,7 +49,21 @@ class TestDelistedStocksDefinition:
 
     def test_known_delisted_tickers_present(self):
         ids = {nq.id for nq in DELISTED_STOCKS}
-        expected = {"MRO", "CTLT", "DFS", "JNPR", "ANSS", "HES", "PARA", "WBA", "K", "DAY"}
+        expected = {
+            "MRO",
+            "CTLT",
+            "DFS",
+            "JNPR",
+            "ANSS",
+            "HES",
+            "PARA",
+            "WBA",
+            "IPG",
+            "K",
+            "DAY",
+            "HOLX",
+            "CTRA",
+        }
         assert ids == expected
 
     def test_nullification_dates_are_day_after_last_trade(self):
@@ -61,8 +76,11 @@ class TestDelistedStocksDefinition:
         assert date_map["HES"] == date(2025, 7, 18)
         assert date_map["PARA"] == date(2025, 8, 7)
         assert date_map["WBA"] == date(2025, 8, 28)
+        assert date_map["IPG"] == date(2025, 11, 27)
         assert date_map["K"] == date(2025, 12, 11)
         assert date_map["DAY"] == date(2026, 2, 4)
+        assert date_map["HOLX"] == date(2026, 4, 7)
+        assert date_map["CTRA"] == date(2026, 5, 7)
 
 
 class TestYfinanceSourceNullification:
@@ -73,7 +91,7 @@ class TestYfinanceSourceNullification:
         return YfinanceSource()
 
     def test_source_has_nullified_questions(self, source):
-        assert len(source.nullified_questions) == 10
+        assert len(source.nullified_questions) == 13
 
     def test_pre_delisting_question_not_nullified(self, source):
         """JNPR in the 2025-03-30 question set should NOT be nullified (delisted 2025-07-02)."""

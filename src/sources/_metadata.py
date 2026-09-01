@@ -428,8 +428,11 @@ SOURCE_METADATA = {
             NullifiedQuestion(id="HES", nullification_start_date=date(2025, 7, 18)),
             NullifiedQuestion(id="PARA", nullification_start_date=date(2025, 8, 7)),
             NullifiedQuestion(id="WBA", nullification_start_date=date(2025, 8, 28)),
+            NullifiedQuestion(id="IPG", nullification_start_date=date(2025, 11, 27)),
             NullifiedQuestion(id="K", nullification_start_date=date(2025, 12, 11)),
             NullifiedQuestion(id="DAY", nullification_start_date=date(2026, 2, 4)),
+            NullifiedQuestion(id="HOLX", nullification_start_date=date(2026, 4, 7)),
+            NullifiedQuestion(id="CTRA", nullification_start_date=date(2026, 5, 7)),
         ],
         # Tickers that were renamed on yfinance while still in the question pool. yfinance serves
         # all price history under the replacement ticker; the original ticker returns no data. The
@@ -439,6 +442,7 @@ SOURCE_METADATA = {
             {"original_ticker": "FI", "replacement_ticker": "FISV"},
             {"original_ticker": "MMC", "replacement_ticker": "MRSH"},
             {"original_ticker": "BK", "replacement_ticker": "BNY"},
+            {"original_ticker": "SATS", "replacement_ticker": "ECHO"},
         ],
     },
 }
