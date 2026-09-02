@@ -54,7 +54,17 @@ def download_and_read(filename, local_filename, df_tmp, dtype):
         filename=filename,
         local_filename=local_filename,
     )
-    df = pd.read_json(local_filename, lines=True, dtype=dtype, convert_dates=False)
+    if os.path.getsize(local_filename) == 0:
+        return df_tmp
+    # Read large JSONL files in chunks to avoid a temporary whole-file memory spike.
+    chunks = pd.read_json(
+        local_filename,
+        lines=True,
+        dtype=dtype,
+        convert_dates=False,
+        chunksize=50_000,
+    )
+    df = pd.concat(chunks, ignore_index=True)
     if df.empty:
         return df_tmp
     # Allows us to pass a dtype that may contain column names that are not in the df

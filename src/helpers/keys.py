@@ -30,6 +30,7 @@ def get_secret_that_may_not_exist(secret_name, version_id="latest"):
 # QUESTION DATASET SOURCES
 API_EMAIL_ACLED = get_secret(secret_name="API_EMAIL_ACLED")
 API_PASSWORD_ACLED = get_secret(secret_name="API_PASSWORD_ACLED")
+API_KEY_DBNOMICS = get_secret("API_KEY_DBNOMICS")
 API_KEY_FRED = get_secret("API_KEY_FRED")
 
 # QUESTION MARKET SOURCES

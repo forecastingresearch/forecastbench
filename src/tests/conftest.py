@@ -108,7 +108,9 @@ def yfinance_source():
 @pytest.fixture()
 def dbnomics_source():
     """Return a DbnomicsSource instance."""
-    return DbnomicsSource()
+    source = DbnomicsSource()
+    source.api_key = "test-dbnomics-api-key"
+    return source
 
 
 # ---------------------------------------------------------------------------
@@ -508,7 +510,7 @@ def make_polymarket_fetch_df(rows):
 
 def make_dbnomics_api_response(
     period_values,
-    provider_name="MeteoFrance",
+    provider_code="meteofrance",
     dataset_name="Temperature",
     series_name="Abbeville",
 ):
@@ -516,19 +518,19 @@ def make_dbnomics_api_response(
 
     Args:
         period_values (list): List of (period_str, value) tuples; value is a float or "NA".
-        provider_name (str): Provider name returned under provider.name.
+        provider_code (str): Provider code returned on the series document.
         dataset_name (str): Dataset name on the series doc.
         series_name (str): Series name on the series doc.
     """
     periods = [p for p, _ in period_values]
     values = [v for _, v in period_values]
     return {
-        "provider": {"name": provider_name},
         "series": {
             "docs": [
                 {
                     "period": periods,
                     "value": values,
+                    "provider_code": provider_code,
                     "dataset_name": dataset_name,
                     "series_name": series_name,
                 }

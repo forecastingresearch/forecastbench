@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Any, ClassVar
 
 import backoff
@@ -16,10 +17,15 @@ from _schemas import DbnomicsFetchFrame, QuestionFrame, ResolutionFrame
 from helpers import constants, data_utils, dates
 
 from ._dataset import DatasetSource
+from .dbnomics_questions import ECB_QUESTIONS, METEOFRANCE_STATIONS
 
 logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.db.nomics.world/v22/series/"
+_PROVIDER_NAMES = {
+    "ECB": "European Central Bank",
+    "meteofrance": "Météo-France",
+}
 
 # Some dataseries with regular updates have large numbers of NA values during periods in which
 # data is not being reported. _OBSERVATIONS_WITHOUT_DATA detects these quiet periods and excludes
@@ -27,97 +33,80 @@ _BASE_URL = "https://api.db.nomics.world/v22/series/"
 # resolve them and the freeze values become increasingly irrelevant).
 _OBSERVATIONS_WITHOUT_DATA = 10
 
-_METEOFRANCE_STATIONS = [
-    {"id": "07005", "station": "Abbeville"},
-    {"id": "07015", "station": "Lille Airport"},
-    {"id": "07020", "station": "Pointe De La Hague"},
-    {"id": "07027", "station": "Caen – Carpiquet Airport"},
-    {"id": "07037", "station": "Rouen Airport"},
-    {"id": "07072", "station": "Reims – Prunay Aerodrome"},
-    {"id": "07110", "station": "Brest Bretagne Airport"},
-    {"id": "07117", "station": "Ploumanac'h"},
-    {"id": "07130", "station": "Rennes–Saint-Jacques Airport"},
-    {"id": "07139", "station": "Alençon"},
-    {"id": "07149", "station": "Orly"},
-    {"id": "07168", "station": "Troyes-Barberey Airport"},
-    {"id": "07181", "station": "Nancy – Ochey Air Base"},
-    {"id": "07190", "station": "Strasbourg Airport"},
-    {"id": "07222", "station": "Nantes Atlantique Airport"},
-    {"id": "07240", "station": "Tours"},
-    {"id": "07255", "station": "Bourges"},
-    {"id": "07280", "station": "Dijon-Bourgogne Airport"},
-    {"id": "07299", "station": "EuroAirport Basel Mulhouse Freiburg"},
-    {"id": "07335", "station": "Poitiers–Biard Airport"},
-    {"id": "07434", "station": "Limoges – Bellegarde Airport"},
-    {"id": "07460", "station": "Clermont-Ferrand Auvergne Airport"},
-    {"id": "07471", "station": "Le Puy – Loudes Airport"},
-    {"id": "07481", "station": "Lyon–Saint Exupéry Airport"},
-    {"id": "07510", "station": "Bordeaux–Mérignac Airport"},
-    {"id": "07535", "station": "Gourdon"},
-    {"id": "07558", "station": "Millau"},
-    {"id": "07577", "station": "Montélimar"},
-    {"id": "07591", "station": "Embrun"},
-    {"id": "07607", "station": "Mont-de-Marsan"},
-    {"id": "07621", "station": "Tarbes–Lourdes–Pyrénées Airport"},
-    {"id": "07627", "station": "Saint-Girons"},
-    {"id": "07630", "station": "Toulouse–Blagnac Airport"},
-    {"id": "07650", "station": "Marignane"},
-    {"id": "07690", "station": "Nice"},
-    {"id": "07747", "station": "Perpignan"},
-    {"id": "07761", "station": "Ajaccio"},
-    {"id": "61968", "station": "Glorioso Islands"},
-    {"id": "61970", "station": "Juan de Nova Island"},
-    {"id": "61972", "station": "Europa Island"},
-    {"id": "61976", "station": "Tromelin Island"},
-    {"id": "61980", "station": "Roland Garros Airport"},
-    {"id": "61996", "station": "Amsterdam Island"},
-    {"id": "61997", "station": "Île de la Possession"},
-    {"id": "61998", "station": "Grande Terre"},
-    {"id": "67005", "station": "Pamandzi"},
-    {"id": "71805", "station": "Saint-Pierre"},
-    {"id": "78890", "station": "La Désirade"},
-    {"id": "78894", "station": "Saint Barthélemy"},
-    {"id": "78897", "station": "Pointe-à-Pitre International Airport"},
-    {"id": "78925", "station": "Martinique Aimé Césaire International Airport"},
-    {"id": "81401", "station": "Saint-Laurent"},
-    {"id": "81405", "station": "Cayenne – Félix Éboué Airport"},
-]
-
 _QUESTION_TEMPLATES = {
     "meteofrance": (
         "What is the probability that the daily average temperature at the French weather station "
         "at {station} will be higher on {resolution_date} than on {forecast_due_date}?"
-    )
+    ),
+    "ecb": (
+        "What is the probability that the value of the latest observation dated on or before "
+        "{resolution_date} for the European Central Bank time series “{question_subject}” "
+        "will exceed the value of its latest observation dated on or before "
+        "{forecast_due_date}?"
+    ),
 }
 
 _VALUE_EXPLANATIONS = {
-    "meteofrance": "The daily average temperature at the French weather station at {station}."
+    "meteofrance": "The daily average temperature at the French weather station at {station}.",
+    "ecb": (
+        "The latest value published on or before the question-set freeze date for "
+        "“{question_subject}” in the European Central Bank’s “{dataset_name}” dataset."
+    ),
 }
 
 
-def _create_meteofrance_constants(stations: list[dict]) -> list[dict]:
-    """Convert station data into the series config consumed by fetch and update.
+def _create_meteofrance_questions(stations: list[dict]) -> list[dict]:
+    """Convert station data into the question config consumed by fetch and update.
 
     Args:
         stations (list[dict]): MeteoFrance station entries with ``id`` and ``station``.
     """
-    constants_list = []
+    questions = []
     for item in stations:
         station_id = item["id"]
         station = item["station"]
         question_text = _QUESTION_TEMPLATES["meteofrance"].replace("{station}", station)
         explanation = _VALUE_EXPLANATIONS["meteofrance"].format(station=station)
-        constants_list.append(
+        questions.append(
             {
                 "id": f"meteofrance/TEMPERATURE/celsius.{station_id}.D",
                 "question_text": question_text,
                 "freeze_datetime_value_explanation": explanation,
+                "fill_missing_dates": False,
             }
         )
-    return constants_list
+    return questions
 
 
-_CONSTANTS = _create_meteofrance_constants(_METEOFRANCE_STATIONS)
+def _create_ecb_questions(series: list[dict[str, str]]) -> list[dict]:
+    """Convert curated ECB series into the question config consumed by fetch and update.
+
+    Args:
+        series (list[dict[str, str]]): ECB series IDs and question metadata.
+    """
+    questions = []
+    for item in series:
+        question_text = _QUESTION_TEMPLATES["ecb"].replace(
+            "{question_subject}", item["question_subject"]
+        )
+        explanation = _VALUE_EXPLANATIONS["ecb"].format(
+            question_subject=item["question_subject"],
+            dataset_name=item["dataset_name"],
+        )
+        questions.append(
+            {
+                "id": item["id"],
+                "question_text": question_text,
+                "freeze_datetime_value_explanation": explanation,
+                "fill_missing_dates": True,
+            }
+        )
+    return questions
+
+
+DBNOMICS_QUESTIONS = _create_meteofrance_questions(METEOFRANCE_STATIONS) + _create_ecb_questions(
+    ECB_QUESTIONS
+)
 
 
 class DbnomicsSource(DatasetSource):
@@ -131,17 +120,23 @@ class DbnomicsSource(DatasetSource):
 
     @pa.check_types
     def fetch(self, **kwargs: Any) -> DataFrame[DbnomicsFetchFrame]:
-        """Fetch DBnomics series data from the public API."""
+        """Fetch DBnomics series data from the API."""
+        self._require_api_key()
         # Compute 'today' once and thread it to every series call so a run straddling midnight
         # uses one consistent upper bound across all of its requests.
         today = dates.get_date_today()
         logger.info("Downloading DBnomics data.")
 
-        df = None
-        for row in _CONSTANTS:
+        frames = []
+        for row in DBNOMICS_QUESTIONS:
             new_rows = self._call_endpoint(id=row["id"], today=today)
-            df = new_rows if df is None else pd.concat([df, new_rows])
+            if new_rows is not None:
+                frames.append(new_rows)
 
+        if not frames:
+            raise RuntimeError("No DBnomics series returned usable observations.")
+
+        df = pd.concat(frames, ignore_index=True)
         df["period"] = df["period"].astype(str)
         return df
 
@@ -172,11 +167,15 @@ class DbnomicsSource(DatasetSource):
         resolution_files: dict[str, pd.DataFrame] = {}
 
         new_series = None
-        for row in _CONSTANTS:
+        for row in DBNOMICS_QUESTIONS:
             id = row["id"].replace("/", "_")
             df_series = dff[dff["id"] == id]
+            if df_series.empty:
+                logger.warning(f"Skipping DBnomics series {row['id']}: no fetched observations.")
+                continue
 
-            resolution_files[id] = self._build_resolution_df(df_series)
+            fill_through = yesterday if row["fill_missing_dates"] else None
+            resolution_files[id] = self._build_resolution_df(df_series, fill_through=fill_through)
 
             provider_name = df_series["provider_name"].iloc[0]
             dataset_name = df_series["dataset_name"].iloc[0]
@@ -189,17 +188,9 @@ class DbnomicsSource(DatasetSource):
             )
             freeze_datetime_value_explanation = row["freeze_datetime_value_explanation"]
             series_values = df_series["value"]
-            series_dates = pd.to_datetime(df_series["period"])
-
-            last_fetch_date = series_dates.iloc[-1]
-            last_fetch_value = series_values.iloc[-1]
-            freeze_datetime_value = (
-                float(last_fetch_value)
-                if last_fetch_date.date() > yesterday and last_fetch_value != "NA"
-                else "N/A"
-            )
 
             if (series_values.tail(_OBSERVATIONS_WITHOUT_DATA) != "NA").any():
+                freeze_datetime_value = float(series_values[series_values != "NA"].iloc[-1])
                 new_row = {
                     "id": id,
                     "question": question,
@@ -231,7 +222,7 @@ class DbnomicsSource(DatasetSource):
         if new_series is not None:
             dfq = pd.concat([dfq, new_series])
 
-        logger.info(f"Found {len(dfq):,} questions of {len(_CONSTANTS):,} possible.")
+        logger.info(f"Found {len(dfq):,} questions of {len(DBNOMICS_QUESTIONS):,} possible.")
 
         return UpdateResult(dfq=dfq, resolution_files=resolution_files)
 
@@ -254,8 +245,12 @@ class DbnomicsSource(DatasetSource):
         """
         logger.info(f"Calling DBnomics for series {id}")
         endpoint = _BASE_URL + id
-        params = {"observations": "true"}
-        response = requests.get(url=endpoint, params=params)
+        api_key = self._require_api_key()
+        # metadata=0 omits large provider and dataset metadata objects that would otherwise bloat
+        # every response; the series document still contains the compact labels used below.
+        params = {"observations": 1, "metadata": 0}
+        headers = {"Authorization": f"Bearer {api_key}"}
+        response = requests.get(url=endpoint, params=params, headers=headers, timeout=(10, 60))
         if not response.ok:
             logger.error("Request to DBnomics API endpoint failed.")
             response.raise_for_status()
@@ -267,7 +262,7 @@ class DbnomicsSource(DatasetSource):
                 "id": id_safe,
                 "period": docs.get("period"),
                 "value": docs.get("value"),
-                "provider_name": data.get("provider", {}).get("name"),
+                "provider_name": _PROVIDER_NAMES[docs.get("provider_code")],
                 "dataset_name": docs.get("dataset_name"),
                 "series_name": docs.get("series_name"),
             }
@@ -285,13 +280,27 @@ class DbnomicsSource(DatasetSource):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_resolution_df(df: pd.DataFrame) -> DataFrame[ResolutionFrame]:
+    def _build_resolution_df(
+        df: pd.DataFrame, fill_through: date | None = None
+    ) -> DataFrame[ResolutionFrame]:
         """Build a resolution DataFrame ([id, date, value]) for a single series.
 
         Args:
             df (pd.DataFrame): Fetched rows for this series.
+            fill_through (date | None): If set, carry observations forward through this date.
         """
         df = df[["id", "period", "value"]].rename(columns={"period": "date"})
+        if fill_through is not None:
+            df["date"] = pd.to_datetime(df["date"])
+            # Match other dataset sources by treating the provider's missing-value sentinel as
+            # missing before expanding to calendar dates and carrying the latest value forward.
+            df["value"] = df["value"].replace("NA", pd.NA)
+            dates_to_fill = pd.date_range(df["date"].min(), fill_through, freq="D")
+            df = df.set_index("date").reindex(dates_to_fill).ffill()
+            df["value"] = df["value"].fillna("NA")
+            df.index.name = "date"
+            df = df.reset_index()
+            df["date"] = df["date"].dt.strftime("%Y-%m-%d")
         df = df.astype(dtype=constants.RESOLUTION_FILE_COLUMN_DTYPE)
         df["value"] = df["value"].replace("NA", "N/A")
         return df

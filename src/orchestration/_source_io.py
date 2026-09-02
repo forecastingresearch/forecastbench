@@ -14,6 +14,8 @@ from helpers import constants, data_utils, env
 
 logger = logging.getLogger(__name__)
 
+_FETCH_WRITE_CHUNK_SIZE = 10_000
+
 
 def write_fetch_output(source: str, dff: pd.DataFrame) -> None:
     """Write fetch DataFrame to <source>_fetch.jsonl and upload.
@@ -25,8 +27,11 @@ def write_fetch_output(source: str, dff: pd.DataFrame) -> None:
     filenames = data_utils.generate_filenames(source)
     local = filenames["local_fetch"]
     with open(local, "w", encoding="utf-8") as f:
-        for record in dff.to_dict(orient="records"):
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        for start in range(0, len(dff), _FETCH_WRITE_CHUNK_SIZE):
+            # Process a small batch at a time to avoid running out of memory.
+            chunk = dff.iloc[start : start + _FETCH_WRITE_CHUNK_SIZE]
+            for record in chunk.to_dict(orient="records"):
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
     logger.info(f"Uploading {filenames['jsonl_fetch']} to GCP...")
     gcp.storage.upload(
         bucket_name=env.QUESTION_BANK_BUCKET,

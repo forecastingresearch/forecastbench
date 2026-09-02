@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from helpers import decorator
+from helpers import decorator, keys
 from orchestration import _source_io
 from sources.dbnomics import DbnomicsSource
 
@@ -19,6 +19,7 @@ SOURCE = "dbnomics"
 def driver(_: Any) -> None:
     """Fetch DBnomics data and upload to question bank."""
     source = DbnomicsSource()
+    source.api_key = keys.API_KEY_DBNOMICS
 
     dff = source.fetch()
 
