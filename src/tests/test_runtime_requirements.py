@@ -90,6 +90,17 @@ def test_metadata_deploy_requirements_keep_direct_gcp_deps():
         assert "google-cloud-secret-manager" in requirements
 
 
+def test_dbnomics_update_declares_slack_runtime_dependency():
+    """A fresh update-job deployment must support stale-series Slack notifications."""
+    requirements_path = ROOT / "src/orchestration/func_dbnomics_update/requirements.txt"
+    requirement_names = {
+        re.split(r"[<>=!~\[;]", line, maxsplit=1)[0].strip().lower().replace("_", "-")
+        for line in requirements_path.read_text().splitlines()
+    }
+
+    assert "slack-sdk" in requirement_names
+
+
 def test_root_makefile_routes_llm_baseline_targets_to_refactored_jobs():
     makefile = (ROOT / "Makefile").read_text()
 

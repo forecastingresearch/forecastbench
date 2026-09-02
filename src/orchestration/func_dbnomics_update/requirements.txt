@@ -1,4 +1,5 @@
 google-cloud-storage
+slack_sdk
 pandas>=2.2.2,<3.0
 pandera
 requests
