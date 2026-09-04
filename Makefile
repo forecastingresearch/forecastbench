@@ -12,7 +12,7 @@ endif
 
 .DEFAULT_GOAL := lint
 
-include *.mk
+-include variables.mk
 export CLOUD_PROJECT
 export QUESTION_BANK_BUCKET
 export QUESTION_BANK_BUCKET_SERVICE_ACCOUNT
