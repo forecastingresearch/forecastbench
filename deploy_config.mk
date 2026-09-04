@@ -11,7 +11,7 @@ DOCKERFILE_TEMPLATE ?= $(ROOT_DIR)src/helpers/Dockerfile.template
 .gcloudignore: $(ROOT_DIR)src/helpers/.gcloudignore
 	cp $< $@
 
-Dockerfile: $(DOCKERFILE_TEMPLATE)
+Dockerfile: $(DOCKERFILE_TEMPLATE) $(ROOT_DIR)Makefile $(ROOT_DIR).python-version
 	sed \
 		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
 		-e 's/STACK/$(RUNTIME_STACK)/g' \
