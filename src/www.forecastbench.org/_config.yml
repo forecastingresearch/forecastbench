@@ -55,6 +55,5 @@ footer:
 
 exclude:
   - entrypoint.sh
-  - Procfile
   - Dockerfile
   - upload

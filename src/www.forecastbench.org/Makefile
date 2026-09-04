@@ -5,9 +5,10 @@ all :
 .PHONY : all clean deploy
 
 UPLOAD_DIR = upload
+ROOT_DIR ?= $(abspath ../..)/
 
-.gcloudignore:
-	cp -r $(ROOT_DIR)src/helpers/.gcloudignore .
+.gcloudignore: $(ROOT_DIR)src/helpers/.gcloudignore
+	cp $< $@
 
 JEKYLL_ENV := $(if $(filter $(BUILD_ENV),prod),production,development)
 
