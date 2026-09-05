@@ -164,12 +164,12 @@ SOURCE_METADATA = {
             "resolve as 'Yes'."
         ),
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
-        # IDs for which it is no longer possible to fetch data on Polymarket
-        # (though it was once possible)
         "nullified_questions": [
             NullifiedQuestion(id=nid, nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE)
             for nid in sorted(
                 {
+                    # IDs for which it is no longer possible to fetch data on Polymarket
+                    # (though it was once possible)
                     "0x525820c5314f4143091d05079a8d810ecc07c8d5c8954ec2e6b6e163e40de9cb",
                     "0x9b46e4d85db0b2cd29acc36b836e1dad6cd2ac4fe495643cca64f7b962b6ab24",
                     "0x1e4d38c9b9e4aa154e350099216f4d86d94f1277eaa0d22fd33f48c0402155d5",
@@ -179,6 +179,15 @@ SOURCE_METADATA = {
                     "0x4afb076c5d9dfe1c33bf300cfd9fb93a5a8d9bfce8fe2beaeccbde5f8c269fc1",
                     "0x5642824719fa2e4d164de9a9ddaa1b5ca4f6fc57483eb222bec54082ad0bb57c",
                     "0xd8bf9a22e052cc97b14047a48552f3bd0e2605654e4fe580f48fa65e98d8487f",
+                    # Markets that Polymarket resolved 50/50 because they became unresolvable.
+                    # There's no outcome to score, so nullify them from the benchmark start
+                    # instead of warning nightly that they resolved to 0.5.
+                    "0x0ea8005efbc460378340a2f28a6d97b0d1d9d9d7fba4d16f529b8a415dca77a2",
+                    "0x7b49b9bacb5f435bc10f3b100ff59e2fdd346f7f92a9001881bc9825a0af0f11",
+                    "0xbb57ccf5853a85487bc3d83d04d669310d28c6c810758953b9d9b91d1aee89d2",
+                    "0x84f8b70331323c2fba97d7ceaa9a35fb645a0770d0dbff169d07f24f376766e9",
+                    "0x1fad72fae204143ff1c3035e99e7c0f65ea8d5cd9bd1070987bd1a3316f772be",
+                    "0x50ddb9cd80d5c271664a2ebb7fcaed1d0a148d82c8e8d314d830f75a944c3dcc",
                 }
             )
         ],
