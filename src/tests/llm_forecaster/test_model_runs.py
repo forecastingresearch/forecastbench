@@ -215,6 +215,7 @@ def test_provider_max_workers_matches_plan_exactly():
         PROVIDERS["Google"]: 50,
         PROVIDERS["xAI"]: 50,
         PROVIDERS["Moonshot AI"]: 50,
+        PROVIDERS["Meta"]: 50,
         PROVIDERS["Together"]: 4,
     }
 
