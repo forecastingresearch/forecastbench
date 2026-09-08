@@ -46,7 +46,7 @@
 </div>
 
 {% if site.header.announcement %}
-<div style="background-color: {{ site.header.announcement.background_color }}; color: {{ site.header.announcement.text_color }}; text-align: center; font-size:0.5rem;">
+<div style="position: fixed; top: 0; left: 0; right: 0; z-index: 100; height: 1rem; line-height: 1rem; background-color: {{ site.header.announcement.background_color }}; color: {{ site.header.announcement.text_color }}; text-align: center; font-size:0.5rem;">
   {{ site.header.announcement.text }}
 </div>
 {% endif %}
