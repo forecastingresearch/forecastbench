@@ -3,6 +3,8 @@
 This module samples questions for LLM and human question sets.
 
 Sampling strategies:
+- Sources: Each question type's target is split across its sources by `sampling_share`
+  (see `helpers/question_curation.py`)
 - Market questions: Multi-dimensional binning across market value and time horizon
 - Data questions: Even distribution across categories
 - Human questions: Random sampling from the LLM question set
@@ -14,6 +16,7 @@ Market question sampling aims to achieve balanced representation across:
 
 import json
 import logging
+import math
 import os
 import sys
 from collections.abc import Callable
@@ -1012,15 +1015,45 @@ def llm_sample_questions(
         return pd.concat(dfs, ignore_index=True)
 
 
-def allocate_evenly(data: dict[str, int], n: int) -> dict:
-    """Allocate n items evenly across keys in data, respecting availability.
+def _round_by_largest_remainder(targets: dict[str, float], n: int) -> dict[str, int]:
+    """Round float targets to ints that sum to n.
 
-    `data` maps keys to available counts (e.g., {'source1': 30, 'source2': 50}).
+    Every key gets the floor of its target. The leftover units go to the keys with the largest
+    fractional parts. Ties go to earlier keys because `sorted` is stable.
+
+    Args:
+        targets (dict[str, float]): Keys mapped to float targets that sum to n
+        n (int): The total the rounded values must sum to
+
+    Returns
+        rounded (dict[str, int]): Keys mapped to ints that sum to n
+    """
+    rounded = {key: math.floor(value) for key, value in targets.items()}
+    leftover = n - sum(rounded.values())
+    by_remainder = sorted(targets, key=lambda key: targets[key] - rounded[key], reverse=True)
+    for key in by_remainder[:leftover]:
+        rounded[key] += 1
+    return rounded
+
+
+def allocate_by_share(data: dict[str, int], shares: dict[str, float], n: int) -> dict:
+    """Allocate n items across keys in proportion to shares, respecting availability.
+
+    `data` maps keys to available counts (e.g., {'source1': 30, 'source2': 50}). `shares` maps
+    the same keys to their fraction of n. Shares are normalized, so they need not sum to 1.
     Returns allocation dict with same keys where each value <= the original.
     If sum(data.values()) <= n, returns data unchanged.
 
+    Each pass splits the items not yet fixed across the open keys in proportion to their shares
+    and rounds with the largest-remainder method. Keys whose rounded target exceeds their
+    availability are fixed at that availability and the pass repeats for the remaining keys.
+    The last pass rounds the open keys only once, so keys with equal shares differ by at most
+    one item. Because sum(data.values()) > n here, at least one key stays open, so every pass
+    either fixes a key or ends the loop.
+
     Args:
         data (dict[str,int]): Keys to allocate across, values are available counts
+        shares (dict[str,float]): Keys mapped to their share of n
         n (int): Total number of items to allocate
 
     Returns
@@ -1029,7 +1062,7 @@ def allocate_evenly(data: dict[str, int], n: int) -> dict:
 
     def validate_allocation(num_allocated: int, n: int) -> None:
         if num_allocated != n:
-            raise ValueError(f"Failed to allocate evenly: allocated {num_allocated:,}/{n}")
+            raise ValueError(f"Failed to allocate by share: allocated {num_allocated:,}/{n}")
         logger.info(f"Successfully allocated {num_allocated:,}/{n}.")
 
     sum_n_items = sum(data.values())
@@ -1037,33 +1070,20 @@ def allocate_evenly(data: dict[str, int], n: int) -> dict:
         validate_allocation(sum_n_items, n)
         return data
 
-    # initial allocation
-    allocation = {key: min(n // len(data), value) for key, value in data.items()}
-    allocated_num = sum(allocation.values())
-
-    while allocated_num < n:
-        remaining = n - allocated_num
-        under_allocated = {
-            key: value - allocation[key] for key, value in data.items() if allocation[key] < value
-        }
-
-        if not under_allocated:
-            # Break if nothing more to allocate
+    fixed = {}
+    while True:
+        remaining = n - sum(fixed.values())
+        open_shares = {key: shares[key] for key in data if key not in fixed}
+        total_share = sum(open_shares.values())
+        targets = {key: remaining * share / total_share for key, share in open_shares.items()}
+        rounded = _round_by_largest_remainder(targets, remaining)
+        over = {key: data[key] for key, amount in rounded.items() if amount > data[key]}
+        if not over:
             break
+        fixed.update(over)
 
-        # Amount to add in this iteration
-        to_allocate = max(remaining // len(under_allocated), 1)
-        for key in under_allocated:
-            if under_allocated[key] > 0:
-                add_amount = min(to_allocate, under_allocated[key], remaining)
-                allocation[key] += add_amount
-                remaining -= add_amount
-                if remaining <= 0:
-                    break
-        allocated_num = sum(allocation.values())
-
-    num_allocated = sum(allocation.values())
-    validate_allocation(num_allocated, n)
+    allocation = {key: fixed[key] if key in fixed else rounded[key] for key in data}
+    validate_allocation(sum(allocation.values()), n)
     return allocation
 
 
@@ -1079,11 +1099,12 @@ def allocate_across_categories(num_questions: int, dfq: pd.DataFrame) -> dict:
     """
     categories = dfq["category"].unique()
     data = {category: sum(dfq["category"] == category) for category in categories}
-    return allocate_evenly(data=data, n=num_questions)
+    shares = {category: 1 / len(categories) for category in categories}
+    return allocate_by_share(data=data, shares=shares, n=num_questions)
 
 
 def allocate_across_sources(questions: dict, num_questions: int) -> dict:
-    """Allocate questions evenly among sources.
+    """Allocate questions among sources by their sampling share.
 
     Args:
         questions (dict): Source data keyed by source name
@@ -1094,8 +1115,9 @@ def allocate_across_sources(questions: dict, num_questions: int) -> dict:
     """
     sources = deepcopy(questions)
     data = {key: source["num_questions_available"] for key, source in sources.items()}
+    shares = {key: source["sampling_share"] for key, source in sources.items()}
 
-    allocation = allocate_evenly(data=data, n=num_questions)
+    allocation = allocate_by_share(data=data, shares=shares, n=num_questions)
 
     for source in sources:
         sources[source]["num_questions_to_sample"] = allocation[source]

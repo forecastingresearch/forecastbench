@@ -1,4 +1,11 @@
-"""Sampling excludes INFER, Manifold and Wikipedia; the registry still resolves them."""
+"""Sampling excludes INFER, Manifold and Wikipedia, which the registry still resolves.
+
+Sampling shares in each source type sum to 1.
+"""
+
+import math
+
+import pytest
 
 from helpers import question_curation
 from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES
@@ -33,3 +40,15 @@ def test_manifold_not_sampled():
 
 def test_manifold_still_a_market_source_for_resolution():
     assert "manifold" in MARKET_SOURCE_NAMES
+
+
+@pytest.mark.parametrize(
+    "sources",
+    [
+        question_curation.FREEZE_QUESTION_MARKET_SOURCES,
+        question_curation.FREEZE_QUESTION_DATA_SOURCES,
+    ],
+    ids=["market", "data"],
+)
+def test_sampling_shares_sum_to_one(sources):
+    assert math.isclose(sum(source["sampling_share"] for source in sources.values()), 1)

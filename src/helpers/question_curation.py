@@ -1,5 +1,6 @@
 """Info relevant to selecting questions."""
 
+import math
 import os
 from datetime import timedelta
 
@@ -42,16 +43,19 @@ FREEZE_QUESTION_MARKET_SOURCES = {
         "name": "Metaculus",
         "source_intro": metaculus.SOURCE_INTRO,
         "resolution_criteria": metaculus.RESOLUTION_CRITERIA,
+        "sampling_share": 1 / 6,
     },
     "kalshi": {
         "name": "Kalshi",
         "source_intro": kalshi.SOURCE_INTRO,
         "resolution_criteria": kalshi.RESOLUTION_CRITERIA,
+        "sampling_share": 5 / 12,
     },
     "polymarket": {
         "name": "Polymarket",
         "source_intro": polymarket.SOURCE_INTRO,
         "resolution_criteria": polymarket.RESOLUTION_CRITERIA,
+        "sampling_share": 5 / 12,
     },
 }
 
@@ -60,30 +64,40 @@ FREEZE_QUESTION_DATA_SOURCES = {
         "name": "ACLED",
         "source_intro": acled.SOURCE_INTRO,
         "resolution_criteria": acled.RESOLUTION_CRITERIA,
+        "sampling_share": 0.2,
     },
     "dbnomics": {
         "name": "DBnomics",
         "source_intro": dbnomics.SOURCE_INTRO,
         "resolution_criteria": dbnomics.RESOLUTION_CRITERIA,
+        "sampling_share": 0.1,
     },
     "fred": {
         "name": "FRED",
         "source_intro": fred.SOURCE_INTRO,
         "resolution_criteria": fred.RESOLUTION_CRITERIA,
+        "sampling_share": 0.2,
     },
     "serpapi": {
         "name": "SerpAPI",
         "source_intro": serpapi.SOURCE_INTRO,
         "resolution_criteria": serpapi.RESOLUTION_CRITERIA,
+        "sampling_share": 0.3,
     },
     "yfinance": {
         "name": "Yahoo Finance",
         "source_intro": yfinance.SOURCE_INTRO,
         "resolution_criteria": yfinance.RESOLUTION_CRITERIA,
+        "sampling_share": 0.2,
     },
 }
 
 FREEZE_QUESTION_SOURCES = {**FREEZE_QUESTION_MARKET_SOURCES, **FREEZE_QUESTION_DATA_SOURCES}
+
+for _sources in (FREEZE_QUESTION_MARKET_SOURCES, FREEZE_QUESTION_DATA_SOURCES):
+    assert math.isclose(
+        sum(source["sampling_share"] for source in _sources.values()), 1
+    ), "sampling shares within a source type must sum to 1"
 
 DATA_SOURCES = list(FREEZE_QUESTION_DATA_SOURCES.keys())
 MARKET_SOURCES = list(FREEZE_QUESTION_MARKET_SOURCES.keys())
