@@ -34,16 +34,19 @@ deploy : entrypoint.sh Dockerfile .gcloudignore
 		--exclude='Makefile' \
 		--exclude='entrypoint.sh.template' \
 		--exclude='_site/' \
+		--exclude='vendor/' \
 		--exclude='$(UPLOAD_DIR)/' \
 		--exclude='assets/js/leaderboard_baseline_compact.js' \
 		--exclude='assets/js/leaderboard_baseline_full.js' \
 		--exclude='assets/js/leaderboard_tournament_compact.js' \
 		--exclude='assets/js/leaderboard_tournament_full.js' \
 		--exclude='assets/js/leaderboard_preliminary_full.js' \
-		--exclude='assets/data/sota_graph_tournament.csv' \
+		--exclude='assets/data/*.csv' \
 		--exclude='assets/data/parity_dates.baseline_leaderboard.json' \
 		--exclude='assets/data/parity_dates.tournament_leaderboard.json' \
+		--exclude='assets/images/org_logos/anonymous_*' \
 		./ $(UPLOAD_DIR)/
+	cp .gcloudignore $(UPLOAD_DIR)/
 	gcloud run jobs deploy \
 		func-website \
 		--project $(CLOUD_PROJECT) \
