@@ -48,7 +48,8 @@ def create_resolution_file(dff, page, wid, question_key: pd.Series):
         This could be for invalid reasons: a name change, e.g. Erigaisi Arjun -> Arjun Erigaisi
 
         Either way, fill these with nan. Invalid reasons will need to be caught by hand and
-        invalidated in `src/helpers/wikipedia.py` IDS_TO_NULLIFY.
+        invalidated by adding a `NullifiedQuestion` to the wikipedia `nullified_questions` list
+        in `src/sources/_metadata.py`.
         """
         # fill in nan where the item has dropped out of the table
         all_dates = dff["date"].sort_values().unique()
