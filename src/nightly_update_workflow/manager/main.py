@@ -38,13 +38,18 @@ def call_worker(dict_to_use, task_count, timeout=cloud_run.timeout_1h):
 
 
 def summarize_question_bank():
-    """Send a message to Slack with the updated status of the question bank."""
+    """Send a message to Slack with the status of the question bank for the sources we sample.
+
+    Sized from the question-curation lists, not the source metadata: sources we still resolve but
+    no longer sample get no fresh metadata from `validate_questions`, so their counts would be
+    stale.
+    """
     dfmeta = pd.read_json(
         f"gs://{env.QUESTION_BANK_BUCKET}/{constants.META_DATA_FILENAME}",
         lines=True,
     )[["id", "source", "valid_question"]]
     df = pd.DataFrame()
-    for source in ALL_SOURCE_NAMES:
+    for source in sorted(question_curation.FREEZE_QUESTION_SOURCES):
         logger.info(f"downloading {source} question file.")
         dfq = pd.read_json(
             f"gs://{env.QUESTION_BANK_BUCKET}/{source}_questions.jsonl",

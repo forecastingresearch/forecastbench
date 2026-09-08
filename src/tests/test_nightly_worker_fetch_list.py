@@ -3,8 +3,10 @@
 import types
 from unittest.mock import patch
 
+import pandas as pd
 import pytest
 
+from helpers import question_curation
 from tests._module_stubs import imported_with_stubs
 
 WEEKDAYS = [
@@ -93,3 +95,26 @@ def test_acled_is_fetched_on_wednesdays(worker):
     names = _job_names(_jobs_on(worker, "Wednesday"))
     assert "func-data-acled-fetch" in names
     assert "func-data-acled-update-questions" in names
+
+
+def test_question_bank_summary_covers_only_sampled_sources(manager):
+    # Wikipedia and INFER still resolve but are no longer sampled, so the summary of what is
+    # available for the next question set must leave them out.
+    def fake_read_json(path, **kwargs):
+        if path.endswith(manager.constants.META_DATA_FILENAME):
+            return pd.DataFrame(
+                [
+                    {"id": "q1", "source": s, "valid_question": True}
+                    for s in manager.ALL_SOURCE_NAMES
+                ]
+            )
+        return pd.DataFrame([{"id": "q1", "resolved": False}])
+
+    sent = []
+    manager.slack.send_message = lambda message: sent.append(message)
+    with patch.object(manager.pd, "read_json", side_effect=fake_read_json):
+        manager.summarize_question_bank()
+
+    (message,) = sent
+    for source in manager.ALL_SOURCE_NAMES:
+        assert (source in message) == (source in question_curation.FREEZE_QUESTION_SOURCES)
