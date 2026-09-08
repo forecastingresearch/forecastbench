@@ -90,7 +90,7 @@ def validate_questions(dfq):
 @decorator.log_runtime
 def driver(_):
     """Pull in fetched data and update question metadata in question bank."""
-    from helpers import question_curation, wikipedia
+    from helpers import question_curation
 
     local_filename = f"/tmp/{constants.META_DATA_FILENAME}"
     dfmeta = data_utils.download_and_read(
@@ -120,11 +120,6 @@ def driver(_):
             "metaculus",
         ]:
             dfq["valid_question"] = True
-            if source == "wikipedia":
-                invalid_ids = set(wikipedia.transform_id_mapping.keys()) | {
-                    entry["id"] for entry in wikipedia.IDS_TO_NULLIFY
-                }
-                dfq.loc[dfq["id"].isin(invalid_ids), "valid_question"] = False
         else:
             dfq = validate_questions(dfq)
 

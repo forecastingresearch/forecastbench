@@ -13,7 +13,6 @@ from . import (
     manifold,
     metaculus,
     polymarket,
-    wikipedia,
     yfinance,
 )
 
@@ -68,11 +67,6 @@ FREEZE_QUESTION_DATA_SOURCES = {
         "name": "FRED",
         "source_intro": fred.SOURCE_INTRO,
         "resolution_criteria": fred.RESOLUTION_CRITERIA,
-    },
-    "wikipedia": {
-        "name": "Wikipedia",
-        "source_intro": wikipedia.SOURCE_INTRO,
-        "resolution_criteria": wikipedia.RESOLUTION_CRITERIA,
     },
     "yfinance": {
         "name": "Yahoo Finance",

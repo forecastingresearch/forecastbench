@@ -15,7 +15,6 @@ import pandas as pd
 from helpers import constants, dates
 
 from ._dataset import DatasetSource
-from ._metadata import SOURCE_METADATA
 
 logger = logging.getLogger(__name__)
 
@@ -216,8 +215,8 @@ _TRANSFORM_ID_MAPPING = {
     #
     # If they were asked previously, they resolution values from the value variable are used. Hence
     # to be included in this list, the value must have been consistently used since the ID present
-    # in the `key` was first included in a question set. If not, then put the key in the
-    # `_IDS_TO_NULLIFY` list.
+    # in the `key` was first included in a question set. If not, then add a `NullifiedQuestion` for
+    # the key to the wikipedia `nullified_questions` list in `_metadata.py`.
     #
     # *******
     #
@@ -307,9 +306,3 @@ _TRANSFORM_ID_MAPPING = {
     #
     "f9323386a651ce67fc0da31285bee22a4ec53b8a2ea5220431ecb4560fb44c77": "3f04d0cfccd38b26e86c0939516c483eb31edf6aaa3a1eaaabe38a48f7a0996a",
 }
-
-
-_IDS_TO_NULLIFY = [
-    {"id": nq.id, "nullify_start_date": nq.nullification_start_date}
-    for nq in SOURCE_METADATA["wikipedia"]["nullified_questions"]
-]
