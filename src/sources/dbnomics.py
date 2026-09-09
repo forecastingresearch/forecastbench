@@ -50,7 +50,10 @@ _QUESTION_TEMPLATES = {
 }
 
 _VALUE_EXPLANATIONS = {
-    "meteofrance": "The daily average temperature at the French weather station at {station}.",
+    "meteofrance": (
+        "The latest value published as of the question-set freeze date for the daily average "
+        "temperature at the French weather station at {station}."
+    ),
     "ecb": (
         "The latest value published as of the question-set freeze date for "
         "“{question_subject}” in the European Central Bank’s “{dataset_name}” dataset."

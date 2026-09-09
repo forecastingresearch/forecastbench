@@ -26,7 +26,8 @@ _TEST_QUESTIONS = [
             "station at Abbeville will be higher on {resolution_date} than on {forecast_due_date}?"
         ),
         "freeze_datetime_value_explanation": (
-            "The daily average temperature at the French weather station at Abbeville."
+            "The latest value published as of the question-set freeze date for the daily average "
+            "temperature at the French weather station at Abbeville."
         ),
         "fill_missing_dates": False,
     }
