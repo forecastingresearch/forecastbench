@@ -209,6 +209,12 @@ class DbnomicsSource(DatasetSource):
             valid_periods = df_series.loc[series_values != "NA", "period"]
             latest = date.fromisoformat(valid_periods.iloc[-1]) if not valid_periods.empty else None
             if latest is None or (today - latest).days > MAX_OBSERVATION_AGE_DAYS:
+                # Clear the stale tail, including values carried forward by earlier updates.
+                resolution_df = resolution_files[id]
+                if latest is None:
+                    resolution_df["value"] = "N/A"
+                else:
+                    resolution_df.loc[resolution_df["date"] > latest.isoformat(), "value"] = "N/A"
                 warning = f"{row['id']}: latest non-missing observation {latest or 'unavailable'}"
                 logger.warning(warning)
                 self.freshness_warnings.append(warning)

@@ -14,6 +14,7 @@ from sources.dbnomics import DBNOMICS_QUESTIONS, DbnomicsSource
 from .conftest import (
     make_dbnomics_api_response,
     make_dbnomics_fetch_df,
+    make_forecast_df,
     make_question_df,
 )
 
@@ -270,6 +271,79 @@ class TestUpdate:
         assert result.dfq.iloc[0]["resolved"]
         assert "2026-01-01" in dbnomics_source.freshness_warnings[0]
         assert result.resolution_files[_SAFE_ID]["date"].iloc[-1] == "2026-01-14"
+        values = result.resolution_files[_SAFE_ID].set_index("date")["value"]
+        assert float(values.loc["2026-01-01"]) == 6.0
+        assert (values.loc["2026-01-02":] == "N/A").all()
+
+    @patch(
+        "sources.dbnomics.DBNOMICS_QUESTIONS",
+        [{**_TEST_QUESTIONS[0], "fill_missing_dates": True}],
+    )
+    def test_stale_tail_is_cleared_and_recovers_when_observations_resume(
+        self, dbnomics_source, freeze_today
+    ):
+        """The eleventh stale day clears prior carry-forward; fresh data restores resolution."""
+        dff = make_dbnomics_fetch_df(
+            [
+                {"id": _SAFE_ID, "period": "2026-01-01", "value": 5.0},
+                {"id": _SAFE_ID, "period": "2026-01-02", "value": 6.0},
+            ]
+        )
+        dfq = make_question_df([{"id": _SAFE_ID}])
+        forecast = make_forecast_df(
+            [
+                {
+                    "id": _SAFE_ID,
+                    "source": "dbnomics",
+                    "forecast_due_date": "2026-01-02",
+                    "resolution_date": "2026-01-09",
+                }
+            ]
+        )
+        for today, stale in [(date(2026, 1, 12), False), (date(2026, 1, 13), True)]:
+            freeze_today(today)
+            result = dbnomics_source.update(dfq, dff)
+            dfq = result.dfq
+            history = result.resolution_files[_SAFE_ID]
+            values = history.set_index("date")["value"]
+            assert float(values.loc["2026-01-01"]) == 5.0
+            assert float(values.loc["2026-01-02"]) == 6.0
+            assert bool(dfq.iloc[0]["resolved"]) == stale
+            if stale:
+                assert (values.loc["2026-01-03":] == "N/A").all()
+            else:
+                assert (values.loc["2026-01-03":].astype(float) == 6.0).all()
+            history = history.copy()
+            history["date"] = pd.to_datetime(history["date"])
+            resolved, _ = dbnomics_source.resolve(
+                forecast.copy(), dfq, history, forecast_due_date=date(2026, 1, 2)
+            )
+            if stale:
+                assert pd.isna(resolved.iloc[0]["resolved_to"])
+            else:
+                assert resolved.iloc[0]["resolved_to"] == 0.0
+
+        resumed = pd.concat(
+            [dff, make_dbnomics_fetch_df([{"id": _SAFE_ID, "period": "2026-01-12", "value": 7.0}])],
+            ignore_index=True,
+        )
+        result = dbnomics_source.update(dfq, resumed)
+        values = result.resolution_files[_SAFE_ID].set_index("date")["value"]
+        assert not result.dfq.iloc[0]["resolved"]
+        assert float(values.loc["2026-01-09"]) == 6.0
+        assert float(values.loc["2026-01-12"]) == 7.0
+
+    @patch(
+        "sources.dbnomics.DBNOMICS_QUESTIONS",
+        [{**_TEST_QUESTIONS[0], "fill_missing_dates": True}],
+    )
+    def test_all_missing_history_remains_unavailable(self, dbnomics_source, freeze_today):
+        """A series without any valid observations cannot acquire resolution values."""
+        freeze_today(date(2026, 1, 15))
+        dff = make_dbnomics_fetch_df([{"id": _SAFE_ID, "period": "2026-01-01", "value": "NA"}])
+        result = dbnomics_source.update(make_question_df([{"id": _SAFE_ID}]), dff)
+        assert result.dfq.iloc[0]["resolved"]
+        assert (result.resolution_files[_SAFE_ID]["value"] == "N/A").all()
 
     @patch("sources.dbnomics.DBNOMICS_QUESTIONS", _TEST_QUESTIONS)
     def test_recovery_clears_warnings_and_reenables_existing_question(
