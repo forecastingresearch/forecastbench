@@ -85,10 +85,10 @@ class TestSeriesConfiguration:
         row = next(row for row in DBNOMICS_QUESTIONS if row["id"] == "ECB/EXR/D.USD.EUR.SP00.A")
 
         assert row["question_text"] == (
-            "What is the probability that the value of the latest observation dated on or before "
-            "{resolution_date} for the European Central Bank time series “US dollar per euro "
-            "spot exchange rate” will exceed the value of its latest observation dated on or "
-            "before {forecast_due_date}?"
+            "What is the probability that the value of the European Central Bank time series "
+            "“US dollar per euro spot exchange rate” on {resolution_date} will exceed its value "
+            "on {forecast_due_date}? If no observation is available for either date, the most "
+            "recent earlier observation is used."
         )
         assert row["freeze_datetime_value_explanation"] == (
             "The latest value published as of the question-set freeze date for “US dollar "
