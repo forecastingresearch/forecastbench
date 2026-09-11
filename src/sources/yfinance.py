@@ -146,20 +146,18 @@ class YfinanceSource(DatasetSource):
                     }
                 )
                 logger.info(company_name)
-            elif (
-                company_name is None
-                and ticker_symbol in set_current
-                and ticker_symbol not in set_top_500
-            ):
-                # In the question pool, no longer fetchable, and out of the S&P 500, but not in any
-                # curated list: either newly delisted or newly renamed. Carry the existing row
-                # forward as resolved and record it so the driver can flag it for triage.
+            elif ticker_symbol in set_current and ticker_symbol not in set_top_500:
+                # In the question pool, no usable price data (no name or no price history), and
+                # out of the S&P 500, but not in any curated list: either newly delisted or newly
+                # renamed. Carry the existing row forward as resolved and record it so the driver
+                # can flag it for triage.
                 rows.append(self._carry_forward_resolved(ticker_symbol, dfq, current_time))
                 self.uncurated_delisted_tickers.append(ticker_symbol)
                 logger.warning(
-                    f"{ticker_symbol} failed to fetch and is no longer in the S&P 500 (likely "
-                    "delisted or renamed). If delisted, add it to nullified_questions; if renamed, "
-                    "add it to ticker_renames (mapping it to its replacement symbol)."
+                    f"{ticker_symbol} returned no usable price data (no name or no price "
+                    "history) and is no longer in the S&P 500 (likely delisted or renamed). "
+                    "If delisted, add it to nullified_questions; if renamed, add it to "
+                    "ticker_renames (mapping it to its replacement symbol)."
                 )
 
         return pd.DataFrame(rows)
@@ -306,11 +304,13 @@ class YfinanceSource(DatasetSource):
             ticker_symbol (str): Stock ticker symbol.
 
         Returns:
-            Tuple of (company_name, hist_df) or (None, None) on failure.
+            Tuple of (company_name, hist_df), where company_name is None when yfinance has
+            no name for the ticker, or (None, None) on failure.
         """
         try:
             ticker = yf.Ticker(ticker_symbol)
-            company_name = ticker.info["longName"]
+            info = ticker.info
+            company_name = info.get("longName") or info.get("shortName")
             hist = ticker.history(period="5d", auto_adjust=False).reset_index()
             yesterday = self.get_date_today() - timedelta(days=1)
             hist["Date"] = pd.to_datetime(hist["Date"])
