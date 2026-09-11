@@ -42,10 +42,10 @@ _QUESTION_TEMPLATES = {
         "at {station} will be higher on {resolution_date} than on {forecast_due_date}?"
     ),
     "ecb": (
-        "What is the probability that the value of the latest observation dated on or before "
-        "{resolution_date} for the European Central Bank time series “{question_subject}” "
-        "will exceed the value of its latest observation dated on or before "
-        "{forecast_due_date}?"
+        "What is the probability that the value of the European Central Bank time series "
+        "“{question_subject}” on {resolution_date} will exceed its value on {forecast_due_date}? "
+        "If no observation is available for either date, the most recent earlier observation "
+        "is used."
     ),
 }
 
