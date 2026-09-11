@@ -36,6 +36,7 @@ class TestTickerRenamesDefinition:
         assert renames["FI"] == "FISV"
         assert renames["MMC"] == "MRSH"
         assert renames["BK"] == "BNY"
+        assert renames["SATS"] == "ECHO"
 
 
 class TestDelistedStocksDefinition:
@@ -48,7 +49,21 @@ class TestDelistedStocksDefinition:
 
     def test_known_delisted_tickers_present(self):
         ids = {nq.id for nq in DELISTED_STOCKS}
-        expected = {"MRO", "CTLT", "DFS", "JNPR", "ANSS", "HES", "PARA", "WBA", "K", "DAY"}
+        expected = {
+            "MRO",
+            "CTLT",
+            "DFS",
+            "JNPR",
+            "ANSS",
+            "HES",
+            "PARA",
+            "WBA",
+            "IPG",
+            "K",
+            "DAY",
+            "HOLX",
+            "CTRA",
+        }
         assert ids == expected
 
     def test_nullification_dates_are_day_after_last_trade(self):
@@ -61,8 +76,11 @@ class TestDelistedStocksDefinition:
         assert date_map["HES"] == date(2025, 7, 18)
         assert date_map["PARA"] == date(2025, 8, 7)
         assert date_map["WBA"] == date(2025, 8, 28)
+        assert date_map["IPG"] == date(2025, 11, 27)
         assert date_map["K"] == date(2025, 12, 11)
         assert date_map["DAY"] == date(2026, 2, 4)
+        assert date_map["HOLX"] == date(2026, 4, 7)
+        assert date_map["CTRA"] == date(2026, 5, 7)
 
 
 class TestYfinanceSourceNullification:
@@ -73,7 +91,7 @@ class TestYfinanceSourceNullification:
         return YfinanceSource()
 
     def test_source_has_nullified_questions(self, source):
-        assert len(source.nullified_questions) == 10
+        assert len(source.nullified_questions) == 13
 
     def test_pre_delisting_question_not_nullified(self, source):
         """JNPR in the 2025-03-30 question set should NOT be nullified (delisted 2025-07-02)."""
@@ -267,9 +285,26 @@ class TestSourceFetchOneStock:
         assert out["Close"].iloc[-1] == 254.23  # capped at yesterday, last row
 
     @patch("sources.yfinance.yf.Ticker")
+    def test_falls_back_to_short_name(self, mock_ticker_cls, yfinance_source, freeze_today):
+        """Yahoo omits longName for some live tickers, which must not look like a delisting."""
+        freeze_today(date(2026, 3, 18))
+        mock_ticker = MagicMock()
+        mock_ticker.info = {"shortName": "Match Group, Inc."}
+        hist = pd.DataFrame(
+            {"Date": pd.to_datetime(["2026-03-16", "2026-03-17"]), "Close": [40.5, 41.22]}
+        ).set_index("Date")
+        mock_ticker.history.return_value = hist
+        mock_ticker_cls.return_value = mock_ticker
+
+        name, out = yfinance_source._fetch_one_stock("MTCH")
+
+        assert name == "Match Group, Inc."
+        assert out["Close"].iloc[-1] == 41.22
+
+    @patch("sources.yfinance.yf.Ticker")
     def test_returns_none_on_error(self, mock_ticker_cls, yfinance_source):
         """Returns (None, None) when the ticker lookup fails (legacy-faithful swallow)."""
-        mock_ticker_cls.return_value.info.__getitem__.side_effect = KeyError("longName")
+        mock_ticker_cls.side_effect = Exception("yfinance unavailable")
         assert yfinance_source._fetch_one_stock("INVALID") == (None, None)
 
 
