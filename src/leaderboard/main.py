@@ -150,6 +150,10 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "PathFi": "pathfi.svg",
     "Phinomial Labs": "phinomial-labs.svg",
     "TRACES": "traces.svg",
+    "Ryso AI": "ryso-ai.svg",
+    "Yhat Labs": "yhat-labs.svg",
+    "NeuroFusion": "neurofusion.svg",
+    "Afterflow": "afterflow.svg",
 }
 
 ORG_TO_LOGO = {

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" fill="none">
+  <path fill="#0D0D0D" fill-rule="evenodd" clip-rule="evenodd" d="
+    M70 50
+    A50 50 0 1 0 70 150
+    A50 50 0 1 0 70 50
+    Z
+    M130 50
+    A50 50 0 1 0 130 150
+    A50 50 0 1 0 130 50
+    Z
+  "/>
+</svg>
