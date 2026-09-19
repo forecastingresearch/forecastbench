@@ -37,6 +37,7 @@ class TestTickerRenamesDefinition:
         assert renames["MMC"] == "MRSH"
         assert renames["BK"] == "BNY"
         assert renames["SATS"] == "ECHO"
+        assert renames["EQR"] == "VMRK"
 
 
 class TestDelistedStocksDefinition:
@@ -63,6 +64,8 @@ class TestDelistedStocksDefinition:
             "DAY",
             "HOLX",
             "CTRA",
+            "EA",
+            "AVB",
         }
         assert ids == expected
 
@@ -81,6 +84,8 @@ class TestDelistedStocksDefinition:
         assert date_map["DAY"] == date(2026, 2, 4)
         assert date_map["HOLX"] == date(2026, 4, 7)
         assert date_map["CTRA"] == date(2026, 5, 7)
+        assert date_map["EA"] == date(2026, 8, 5)
+        assert date_map["AVB"] == date(2026, 8, 15)
 
 
 class TestYfinanceSourceNullification:
@@ -91,7 +96,7 @@ class TestYfinanceSourceNullification:
         return YfinanceSource()
 
     def test_source_has_nullified_questions(self, source):
-        assert len(source.nullified_questions) == 13
+        assert len(source.nullified_questions) == 15
 
     def test_pre_delisting_question_not_nullified(self, source):
         """JNPR in the 2025-03-30 question set should NOT be nullified (delisted 2025-07-02)."""
