@@ -142,7 +142,14 @@ SOURCE_METADATA = {
             "resolve as 'Yes'."
         ),
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
-        "nullified_questions": [],
+        # See issue #299 for nS5zCqShsC nullification reason. In short: it resolved to 0.49,
+        # which is invalid and the resolution was ambigious.
+        "nullified_questions": [
+            NullifiedQuestion(
+                id="nS5zCqShsC",
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+            ),
+        ],
     },
     "metaculus": {
         "source_type": SourceType.MARKET,
