@@ -10,6 +10,7 @@ from _schemas import ManifoldFetchFrame, QuestionFrame, ResolutionFrame
 from sources.manifold import ManifoldSource
 
 from .conftest import (
+    make_forecast_df,
     make_manifold_api_market,
     make_manifold_bet,
     make_manifold_fetch_df,
@@ -590,3 +591,53 @@ class TestGetMarketBets:
 
         assert result == []
         assert mock_get.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Nullification
+# ---------------------------------------------------------------------------
+
+
+class TestManifoldNullification:
+    """Test that the MKT-resolved market nS5zCqShsC is nullified."""
+
+    def test_mkt_resolution_is_not_scored_and_raises_no_warning(
+        self, manifold_source, freeze_today
+    ):
+        """Resolving to 0.49 (MKT) yields NaN with no warning, so the question is dropped."""
+        freeze_today(date(2025, 8, 20))
+
+        df = make_forecast_df(
+            [
+                {
+                    "id": "nS5zCqShsC",
+                    "source": "manifold",
+                    "forecast_due_date": "2025-06-22",
+                    "resolution_date": "2025-06-30",
+                }
+            ]
+        )
+        dfq = make_question_df(
+            [
+                {
+                    "id": "nS5zCqShsC",
+                    "resolved": True,
+                    "market_info_close_datetime": "2025-06-30T22:59:00Z",
+                    "market_info_resolution_datetime": "2025-08-12T22:32:08Z",
+                }
+            ]
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "nS5zCqShsC", "date": "2025-06-22", "value": 0.107},
+                {"id": "nS5zCqShsC", "date": "2025-06-30", "value": 0.112},
+                {"id": "nS5zCqShsC", "date": "2025-08-12", "value": 0.49},
+            ]
+        )
+
+        result, warnings = manifold_source.resolve(
+            df, dfq, dfr, forecast_due_date=date(2025, 6, 22)
+        )
+
+        assert pd.isna(result.iloc[0]["resolved_to"])
+        assert warnings == []
