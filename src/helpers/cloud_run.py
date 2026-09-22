@@ -45,7 +45,7 @@ def run_job(job_name, env_vars=None, task_count=1, timeout=timeout_1h):
     """
     client = run_v2.JobsClient()
     name = client.job_path(
-        project=env.PROJECT_ID,
+        project=env.CLOUD_PROJECT,
         location=env.CLOUD_DEPLOY_REGION,
         job=job_name,
     )
