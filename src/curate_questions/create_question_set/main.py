@@ -1086,8 +1086,8 @@ def write_questions(questions: dict, question_set_target: QuestionSetTarget) -> 
         "questions": df.to_dict(orient="records"),
     }
 
-    with open(local_filename, "w") as json_file:
-        json.dump(json_data, json_file, indent=4)
+    with open(local_filename, "w", encoding="utf-8") as json_file:
+        json.dump(json_data, json_file, indent=4, ensure_ascii=False)
 
     if not env.RUNNING_LOCALLY:
         gcp.storage.upload(
