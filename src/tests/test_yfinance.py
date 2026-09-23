@@ -312,6 +312,97 @@ class TestSourceFetchOneStock:
         mock_ticker_cls.side_effect = Exception("yfinance unavailable")
         assert yfinance_source._fetch_one_stock("INVALID") == (None, None)
 
+    @patch("sources.yfinance.yf.Ticker")
+    def test_fills_missing_close_from_quote(self, mock_ticker_cls, yfinance_source, freeze_today):
+        """Yahoo's chart bar for the latest session has Close NaN; the quote still has the close."""
+        freeze_today(date(2026, 9, 23))
+        mock_ticker = MagicMock()
+        mock_ticker.info = {
+            "longName": "AT&T Inc.",
+            "regularMarketPrice": 25.1,
+            "regularMarketTime": int(
+                pd.Timestamp("2026-09-22 16:00:01", tz="America/New_York").timestamp()
+            ),
+        }
+        hist = pd.DataFrame(
+            {
+                "Date": pd.to_datetime(["2026-09-21", "2026-09-22"]).tz_localize(
+                    "America/New_York"
+                ),
+                "Open": [25.3, 25.57],
+                "Close": [25.4, float("nan")],
+            }
+        ).set_index("Date")
+        mock_ticker.history.return_value = hist
+        mock_ticker_cls.return_value = mock_ticker
+
+        _, out = yfinance_source._fetch_one_stock("T")
+
+        assert out["Close"].iloc[-1] == 25.1
+
+    @patch("sources.yfinance.yf.Ticker")
+    def test_uses_previous_close_when_run_during_a_later_session(
+        self, mock_ticker_cls, yfinance_source, freeze_today
+    ):
+        """Run while today's market is open, the quote is intraday; yesterday's close is the
+        quote's previous close.
+        """
+        freeze_today(date(2026, 9, 23))
+        mock_ticker = MagicMock()
+        mock_ticker.info = {
+            "longName": "AT&T Inc.",
+            "regularMarketPrice": 25.3,
+            "regularMarketPreviousClose": 25.1,
+            "regularMarketTime": int(
+                pd.Timestamp("2026-09-23 11:00:00", tz="America/New_York").timestamp()
+            ),
+        }
+        hist = pd.DataFrame(
+            {
+                "Date": pd.to_datetime(["2026-09-21", "2026-09-22", "2026-09-23"]).tz_localize(
+                    "America/New_York"
+                ),
+                "Open": [25.3, 25.57, 25.2],
+                "Close": [25.4, float("nan"), 25.3],
+            }
+        ).set_index("Date")
+        mock_ticker.history.return_value = hist
+        mock_ticker_cls.return_value = mock_ticker
+
+        _, out = yfinance_source._fetch_one_stock("T")
+
+        assert out["Close"].iloc[-1] == 25.1
+
+    @patch("sources.yfinance.yf.Ticker")
+    def test_leaves_close_missing_when_quote_is_from_another_day(
+        self, mock_ticker_cls, yfinance_source, freeze_today
+    ):
+        """A quote from an earlier session must not stand in for the missing close."""
+        freeze_today(date(2026, 9, 23))
+        mock_ticker = MagicMock()
+        mock_ticker.info = {
+            "longName": "AT&T Inc.",
+            "regularMarketPrice": 25.4,
+            "regularMarketTime": int(
+                pd.Timestamp("2026-09-21 16:00:01", tz="America/New_York").timestamp()
+            ),
+        }
+        hist = pd.DataFrame(
+            {
+                "Date": pd.to_datetime(["2026-09-21", "2026-09-22"]).tz_localize(
+                    "America/New_York"
+                ),
+                "Open": [25.3, 25.57],
+                "Close": [25.4, float("nan")],
+            }
+        ).set_index("Date")
+        mock_ticker.history.return_value = hist
+        mock_ticker_cls.return_value = mock_ticker
+
+        _, out = yfinance_source._fetch_one_stock("T")
+
+        assert pd.isna(out["Close"].iloc[-1])
+
 
 class TestSourceFetch:
     """Tests for YfinanceSource.fetch."""

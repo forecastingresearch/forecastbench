@@ -315,9 +315,56 @@ class YfinanceSource(DatasetSource):
             yesterday = self.get_date_today() - timedelta(days=1)
             hist["Date"] = pd.to_datetime(hist["Date"])
             hist = hist[hist["Date"].dt.date <= yesterday].tail(1)
-            return company_name, hist
+            return company_name, self._fill_missing_close(ticker_symbol, hist, info)
         except Exception:
             return None, None
+
+    @staticmethod
+    def _fill_missing_close(ticker_symbol: str, hist: pd.DataFrame, info: dict) -> pd.DataFrame:
+        """Fill a missing Close on the latest bar from the ticker's quote.
+
+        Since September 2026 Yahoo's chart endpoint returns the most recent completed session with
+        Open/High/Low/Volume filled but Close null (yfinance issue #2925). The close is still in
+        the quote metadata, and which field holds it depends on when this runs relative to the
+        bar's trading day: a quote from that day means ``regularMarketPrice`` is its close; a quote
+        from a later session means the market has traded since, so that day's close is the quote's
+        ``regularMarketPreviousClose``. A quote older than the bar is inconsistent and not used.
+
+        Args:
+            ticker_symbol (str): Stock ticker symbol, for logging.
+            hist (pd.DataFrame): At most one price bar, with ``Date`` and ``Close`` columns.
+            info (dict): The ticker's quote metadata (``yf.Ticker.info``).
+        """
+        if hist.empty or pd.notna(hist["Close"].iloc[-1]):
+            return hist
+
+        bar_date = hist["Date"].iloc[-1]
+        market_time = info.get("regularMarketTime")
+        if market_time is None:
+            logger.warning(f"{ticker_symbol}: Close missing on {bar_date.date()} and no quote.")
+            return hist
+
+        quote_time = pd.Timestamp(market_time, unit="s", tz="UTC")
+        if bar_date.tzinfo is not None:
+            quote_time = quote_time.tz_convert(bar_date.tzinfo)
+        if quote_time.date() == bar_date.date():
+            price = info.get("regularMarketPrice")
+        elif quote_time.date() > bar_date.date():
+            price = info.get("regularMarketPreviousClose")
+        else:
+            logger.warning(
+                f"{ticker_symbol}: Close missing on {bar_date.date()}; quote is from "
+                f"{quote_time.date()}, not using it."
+            )
+            return hist
+        if price is None:
+            logger.warning(f"{ticker_symbol}: Close missing on {bar_date.date()} and no quote.")
+            return hist
+
+        logger.info(f"{ticker_symbol}: Close missing on {bar_date.date()}; using quote {price}.")
+        hist = hist.copy()
+        hist.loc[hist.index[-1], "Close"] = price
+        return hist
 
     # ------------------------------------------------------------------
     # Private: resolution file building
