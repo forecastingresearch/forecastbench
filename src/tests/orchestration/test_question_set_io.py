@@ -12,6 +12,7 @@ RAW_QUESTION_SET_REQUIREMENTS_WITHOUT_GITPYTHON = [
     ROOT / "requirements.txt",
     ROOT / "src" / "orchestration" / "func_llm_forecaster_manager" / "requirements.txt",
     ROOT / "src" / "orchestration" / "func_llm_forecaster_worker" / "requirements.txt",
+    ROOT / "src" / "base_eval" / "naive_and_dummy_forecasters" / "requirements.txt",
 ]
 
 

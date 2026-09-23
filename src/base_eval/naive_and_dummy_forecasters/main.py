@@ -20,10 +20,10 @@ from helpers import (  # noqa: E402
     data_utils,
     decorator,
     env,
-    question_sets,
     resolution,
     wikipedia,
 )
+from orchestration import _io  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -413,12 +413,21 @@ def create_dummy_files(data, df):
         write_and_upload_forecast_file(data=data, df=df_dummy, model_name=key)
 
 
+def load_latest_question_set() -> tuple[pd.DataFrame, str, str]:
+    """Load the latest LLM question set from the published datasets repo.
+
+    Returns:
+        The questions as a DataFrame, the forecast due date, and the question set filename.
+    """
+    metadata = _io.get_latest_llm_question_set_metadata()
+    df = _io.download_and_read_question_set_file(metadata["question_set"])
+    return df, metadata["forecast_due_date"], metadata["question_set"]
+
+
 @decorator.log_runtime
 def driver(_):
     """Generate the naive forecast."""
-    df = question_sets.download_and_read_latest_question_set_file()
-    forecast_due_date = question_sets.get_field_from_latest_question_set_file("forecast_due_date")
-    question_set_filename = question_sets.get_field_from_latest_question_set_file("question_set")
+    df, forecast_due_date, question_set_filename = load_latest_question_set()
 
     forecast_due_date = pd.to_datetime(forecast_due_date)
     last_date_for_data = pd.to_datetime(forecast_due_date) - pd.to_timedelta(1, unit="D")
