@@ -53,14 +53,17 @@ class YfinanceSource(DatasetSource):
     ) -> DataFrame[YfinanceFetchFrame]:
         """Fetch S&P 500 stock data from Yahoo Finance.
 
-        The ticker universe is the union of the current S&P 500 constituents and any tickers
-        already in the question bank, minus the tickers that are known to 404 on every run:
-        curated nullified (known-delisted) tickers and renamed originals (whose data is served
-        under their replacement symbol). Those are never fetched; the noise would only hide
-        genuinely-new delistings. Any of them still in the pool are carried forward as resolved
-        using their existing question row. Tickers that are still in the pool, have dropped out of
-        the S&P 500, and can no longer be fetched (but are not yet curated) are likewise marked
-        resolved.
+        The ticker universe is the tickers already in the question bank, minus the ones that are
+        known to 404 on every run: curated nullified (known-delisted) tickers and renamed
+        originals (whose data is served under their replacement symbol). Those are never fetched;
+        the noise would only hide genuinely-new delistings. Any of them still in the pool are
+        carried forward as resolved using their existing question row. Tickers that are still in
+        the pool, have dropped out of the S&P 500, and can no longer be fetched (but are not yet
+        curated) are likewise marked resolved.
+
+        The pool never grows. We no longer sample yfinance, so a company joining the S&P 500 is
+        not made into a question; the constituent list is read only to tell a delisting apart
+        from a Yahoo outage below.
 
         Args:
             dfq (DataFrame[QuestionFrame] | None): Existing question bank.
@@ -77,7 +80,7 @@ class YfinanceSource(DatasetSource):
         nullified_ids = self.get_nullified_ids()
         renamed_original_ids = {entry["original_ticker"] for entry in self.ticker_renames}
         skip_fetch_ids = nullified_ids | renamed_original_ids
-        all_tickers = list((set_top_500 | set_current) - skip_fetch_ids)
+        all_tickers = list(set_current - skip_fetch_ids)
 
         nullified_in_pool = sorted(set_current & nullified_ids)
         renamed_in_pool = sorted(set_current & renamed_original_ids)
