@@ -68,6 +68,7 @@ class MarketQuestionAdjustment(str, Enum):
 LEADERBOARD_FILE_STEMS = {
     LeaderboardType.BASELINE: "baseline_leaderboard",
     LeaderboardType.TOURNAMENT: "tournament_leaderboard",
+    LeaderboardType.PRELIMINARY: "preliminary_leaderboard",
 }
 
 
@@ -3471,7 +3472,7 @@ def make_preliminary_leaderboard(
     ]
 
     # Score
-    df_leaderboard, _ = score_models(
+    df_leaderboard, question_fixed_effects = score_models(
         df=df,
         scoring_funcs=scoring_funcs,
         market_question_adjustment=MarketQuestionAdjustment.MARKET_BRIER,
@@ -3513,6 +3514,12 @@ def make_preliminary_leaderboard(
     df_leaderboard = get_simulation_performance_metrics(
         df_leaderboard=df_leaderboard,
         df_simulated_scores=df_simulated_scores_dataset,
+    )
+
+    # Write question fixed effects
+    write_question_fixed_effects(
+        question_fixed_effects=question_fixed_effects,
+        leaderboard_type=LeaderboardType.PRELIMINARY,
     )
 
     # Write preliminary leaderboard

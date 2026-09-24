@@ -689,6 +689,7 @@ def test_preliminary_leaderboard_filters_to_tournament_models_before_scoring(mon
         "get_simulation_performance_metrics",
         lambda df_leaderboard, **kwargs: df_leaderboard,
     )
+    monkeypatch.setattr(main, "write_question_fixed_effects", lambda **kwargs: None)
     monkeypatch.setattr(main, "write_preliminary_leaderboard", lambda **kwargs: None)
 
     main.make_preliminary_leaderboard(leaderboard_entries=[])
