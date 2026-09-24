@@ -146,10 +146,7 @@ publish-question-set:
 
 baselines: llm-forecaster naive-and-dummy-forecasters
 
-manifold: manifold-fetch manifold-update-questions
-
-manifold-fetch:
-	$(MAKE) -C src/orchestration/func_manifold_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+manifold: manifold-update-questions
 
 manifold-update-questions:
 	$(MAKE) -C src/orchestration/func_manifold_update || echo "* $@" >> $(MAKE_FAILURE_LOG)

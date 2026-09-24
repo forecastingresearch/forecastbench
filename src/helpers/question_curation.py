@@ -10,7 +10,6 @@ from . import (
     dbnomics,
     fred,
     kalshi,
-    manifold,
     metaculus,
     polymarket,
 )
@@ -29,11 +28,6 @@ FREEZE_QUESTION_MARKET_SOURCES = {
     # The market sources we sample questions from. Dropping a source here stops sampling it
     # without affecting resolution: `helpers/resolution.py` takes its source lists from
     # `sources/_metadata.py`, which holds every market source we've ever published questions for.
-    "manifold": {
-        "name": "Manifold",
-        "source_intro": manifold.SOURCE_INTRO,
-        "resolution_criteria": manifold.RESOLUTION_CRITERIA,
-    },
     "metaculus": {
         "name": "Metaculus",
         "source_intro": metaculus.SOURCE_INTRO,

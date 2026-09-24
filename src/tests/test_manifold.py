@@ -5,16 +5,15 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from _schemas import ManifoldFetchFrame, QuestionFrame, ResolutionFrame
+from _schemas import QuestionFrame, ResolutionFrame
 from sources.manifold import ManifoldSource
 
 from .conftest import (
     make_forecast_df,
     make_manifold_api_market,
     make_manifold_bet,
-    make_manifold_fetch_df,
-    make_manifold_search_result,
     make_question_df,
     make_resolution_df,
 )
@@ -216,118 +215,14 @@ class TestBuildResolutionDf:
 # ---------------------------------------------------------------------------
 # _call_search_endpoint (mock requests.get)
 # ---------------------------------------------------------------------------
-
-
-class TestCallSearchEndpoint:
-    """Tests for ManifoldSource._call_search_endpoint."""
-
-    def _mock_response(self, markets):
-        resp = Mock()
-        resp.ok = True
-        resp.json.return_value = markets
-        resp.raise_for_status = Mock()
-        return resp
-
-    @patch("sources.manifold.requests.get")
-    def test_basic_returns_qualifying_ids(self, mock_get, manifold_source, freeze_today):
-        """Returns IDs for markets meeting all criteria."""
-        freeze_today(date(2026, 1, 15))
-        mock_get.return_value = self._mock_response(
-            [
-                make_manifold_search_result(id="a"),
-                make_manifold_search_result(id="b"),
-            ]
-        )
-        ids = manifold_source._call_search_endpoint(max_resolution_date=date(2028, 1, 14))
-        assert ids == {"a", "b"}
-
-    @patch("sources.manifold.requests.get")
-    def test_filters_low_bettors(self, mock_get, manifold_source, freeze_today):
-        """Markets with < 17 bettors are excluded."""
-        freeze_today(date(2026, 1, 15))
-        mock_get.return_value = self._mock_response(
-            [
-                make_manifold_search_result(id="low", uniqueBettorCount=16),
-                make_manifold_search_result(id="ok", uniqueBettorCount=17),
-            ]
-        )
-        ids = manifold_source._call_search_endpoint(max_resolution_date=date(2028, 1, 14))
-        assert ids == {"ok"}
-
-    @patch("sources.manifold.requests.get")
-    def test_filters_low_liquidity(self, mock_get, manifold_source, freeze_today):
-        """Markets with < 120 liquidity are excluded."""
-        freeze_today(date(2026, 1, 15))
-        mock_get.return_value = self._mock_response(
-            [
-                make_manifold_search_result(id="low", totalLiquidity=119),
-                make_manifold_search_result(id="ok", totalLiquidity=120),
-            ]
-        )
-        ids = manifold_source._call_search_endpoint(max_resolution_date=date(2028, 1, 14))
-        assert ids == {"ok"}
-
-    @patch("sources.manifold.requests.get")
-    def test_filters_late_resolution(self, mock_get, manifold_source, freeze_today):
-        """Markets closing > 730 days from today are excluded."""
-        freeze_today(date(2026, 1, 15))
-        mock_get.return_value = self._mock_response(
-            [
-                # 2029-01-01 is way past 730 days from 2026-01-15
-                make_manifold_search_result(id="late", closeTime=1861920000000),
-                # 2025-06-01 is well within range (already past, even)
-                make_manifold_search_result(id="ok", closeTime=1748736000000),
-            ]
-        )
-        ids = manifold_source._call_search_endpoint(max_resolution_date=date(2028, 1, 14))
-        assert ids == {"ok"}
-
-    @patch("sources.manifold.requests.get")
-    def test_additional_params_passed(self, mock_get, manifold_source, freeze_today):
-        """additional_params are merged into API request params."""
-        freeze_today(date(2026, 1, 15))
-        mock_get.return_value = self._mock_response([])
-        manifold_source._call_search_endpoint(
-            max_resolution_date=date(2028, 1, 14),
-            additional_params={"topicSlug": "ai"},
-        )
-
-        mock_get.assert_called_once()
-        called_params = mock_get.call_args[1].get("params") or mock_get.call_args[0][1]
-        # params could be passed as keyword arg
-        if isinstance(called_params, dict):
-            assert called_params["topicSlug"] == "ai"
-        else:
-            # Check kwargs
-            assert mock_get.call_args.kwargs["params"]["topicSlug"] == "ai"
-
-
-# ---------------------------------------------------------------------------
-# fetch() (mock _search_markets)
+# update() (mock _get_market + _build_resolution_df)
 # ---------------------------------------------------------------------------
 
 
-class TestFetch:
-    """Tests for ManifoldSource.fetch."""
-
-    @patch.object(ManifoldSource, "_search_markets")
-    def test_basic_fetch(self, mock_search, manifold_source):
-        """Returns sorted ManifoldFetchFrame with correct IDs."""
-        mock_search.return_value = {"id_b", "id_a", "id_c"}
-        dff = manifold_source.fetch()
-
-        assert len(dff) == 3
-        assert dff["id"].tolist() == ["id_a", "id_b", "id_c"]
-        ManifoldFetchFrame.validate(dff)
-
-    @patch.object(ManifoldSource, "_search_markets")
-    def test_empty_results(self, mock_search, manifold_source):
-        """Empty search returns empty valid frame."""
-        mock_search.return_value = set()
-        dff = manifold_source.fetch()
-
-        assert len(dff) == 0
-        ManifoldFetchFrame.validate(dff)
+def test_fetch_raises():
+    """Manifold is no longer fetched, so nothing can pull new markets in."""
+    with pytest.raises(RuntimeError, match="is no longer fetched"):
+        ManifoldSource().fetch()
 
 
 # ---------------------------------------------------------------------------
@@ -340,21 +235,17 @@ class TestUpdate:
 
     @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
-    def test_new_id_appended(self, mock_market, mock_build, manifold_source):
-        """IDs in dff not in dfq get appended with defaults."""
-        mock_market.return_value = make_manifold_api_market(id="new_001")
+    def test_no_questions_added(self, mock_market, mock_build, manifold_source):
+        """Manifold is no longer fetched, so an update never adds questions."""
+        mock_market.return_value = make_manifold_api_market(id="mkt_001")
         mock_build.return_value = make_resolution_df(
-            [{"id": "new_001", "date": "2024-06-01", "value": 0.5}]
+            [{"id": "mkt_001", "date": "2024-06-01", "value": 0.5}]
         )
-        dfq = make_question_df([{"id": "existing_001"}])
-        dff = make_manifold_fetch_df([{"id": "new_001"}])
+        dfq = make_question_df([{"id": "mkt_001"}])
 
-        result = manifold_source.update(dfq, dff)
+        result = manifold_source.update(dfq)
 
-        assert "new_001" in result.dfq["id"].values
-        assert len(result.dfq) == 2
-        new_row = result.dfq[result.dfq["id"] == "new_001"].iloc[0]
-        assert new_row["freeze_datetime_value_explanation"] == "The market value."
+        assert result.dfq["id"].tolist() == ["mkt_001"]
 
     @patch.object(ManifoldSource, "_build_resolution_df")
     @patch.object(ManifoldSource, "_get_market")
@@ -370,9 +261,7 @@ class TestUpdate:
             [{"id": "mkt_001", "date": "2024-06-01", "value": 0.65}]
         )
         dfq = make_question_df([{"id": "mkt_001", "resolved": False}])
-        dff = make_manifold_fetch_df([{"id": "mkt_001"}])
-
-        result = manifold_source.update(dfq, dff)
+        result = manifold_source.update(dfq)
 
         row = result.dfq[result.dfq["id"] == "mkt_001"].iloc[0]
         assert row["question"] == "Updated question text"
@@ -393,9 +282,7 @@ class TestUpdate:
             [{"id": "mkt_001", "date": "2024-06-01", "value": 1.0}]
         )
         dfq = make_question_df([{"id": "mkt_001", "resolved": False}])
-        dff = make_manifold_fetch_df([{"id": "mkt_001"}])
-
-        result = manifold_source.update(dfq, dff)
+        result = manifold_source.update(dfq)
 
         row = result.dfq[result.dfq["id"] == "mkt_001"].iloc[0]
         assert bool(row["resolved"]) is True
@@ -409,9 +296,7 @@ class TestUpdate:
         mock_market.return_value = make_manifold_api_market(id="mkt_001")
         mock_build.return_value = res_df
         dfq = make_question_df([{"id": "mkt_001", "resolved": False}])
-        dff = make_manifold_fetch_df([{"id": "mkt_001"}])
-
-        result = manifold_source.update(dfq, dff)
+        result = manifold_source.update(dfq)
 
         assert "mkt_001" in result.resolution_files
 
@@ -427,9 +312,7 @@ class TestUpdate:
             ]
         )
         dfq = make_question_df([{"id": "mkt_001", "resolved": False}])
-        dff = make_manifold_fetch_df([{"id": "mkt_001"}])
-
-        result = manifold_source.update(dfq, dff)
+        result = manifold_source.update(dfq)
 
         row = result.dfq[result.dfq["id"] == "mkt_001"].iloc[0]
         assert str(row["freeze_datetime_value"]) == "0.75"
@@ -441,9 +324,7 @@ class TestUpdate:
         mock_market.return_value = make_manifold_api_market(id="mkt_001")
         mock_build.return_value = None
         dfq = make_question_df([{"id": "mkt_001", "resolved": False}])
-        dff = make_manifold_fetch_df([{"id": "mkt_001"}])
-
-        result = manifold_source.update(dfq, dff)
+        result = manifold_source.update(dfq)
 
         assert "mkt_001" not in (result.resolution_files or {})
 
@@ -466,9 +347,7 @@ class TestUpdate:
                 }
             ]
         )
-        dff = make_manifold_fetch_df([{"id": "mkt_001"}])
-
-        result = manifold_source.update(dfq, dff, existing_resolution_ids=set())
+        result = manifold_source.update(dfq, existing_resolution_ids=set())
 
         assert "mkt_001" in result.resolution_files
 
@@ -485,9 +364,7 @@ class TestUpdate:
                 }
             ]
         )
-        dff = make_manifold_fetch_df([{"id": "mkt_001"}])
-
-        result = manifold_source.update(dfq, dff, existing_resolution_ids={"mkt_001"})
+        result = manifold_source.update(dfq, existing_resolution_ids={"mkt_001"})
 
         # _get_market should not be called for the resolved question
         mock_market.assert_not_called()
@@ -497,14 +374,13 @@ class TestUpdate:
     @patch.object(ManifoldSource, "_get_market")
     def test_output_schema_valid(self, mock_market, mock_build, manifold_source):
         """Output dfq passes QuestionFrame validation."""
-        mock_market.return_value = make_manifold_api_market(id="new_001")
+        mock_market.return_value = make_manifold_api_market(id="mkt_001")
         mock_build.return_value = make_resolution_df(
-            [{"id": "new_001", "date": "2024-06-01", "value": 0.5}]
+            [{"id": "mkt_001", "date": "2024-06-01", "value": 0.5}]
         )
-        dfq = make_question_df([{"id": "existing_001"}])
-        dff = make_manifold_fetch_df([{"id": "new_001"}])
+        dfq = make_question_df([{"id": "mkt_001"}])
 
-        result = manifold_source.update(dfq, dff)
+        result = manifold_source.update(dfq)
         QuestionFrame.validate(result.dfq)
 
 

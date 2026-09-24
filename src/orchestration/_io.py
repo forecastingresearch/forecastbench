@@ -111,9 +111,10 @@ def load_question_bank(sources_to_get: list[str] | None = None) -> QuestionBank:
     # Check market dfq files are up-to-date
     any_out_of_date_dfq = False
     for source in MARKET_SOURCE_NAMES:
-        if not SOURCE_METADATA[source]["run_fetch"]:
-            # Sources we no longer fetch have an intentionally frozen dfq and hence will be
-            # out of date.
+        if SOURCE_METADATA[source]["dfq_is_frozen"]:
+            # Nothing writes these question files any more, so they are out of date by design.
+            # A source we no longer fetch but still update is not frozen: its dfq is rewritten
+            # every night, and a stale one means the update job stopped running.
             continue
         last_updated_dfq = data_utils.get_last_modified_time_of_dfq_from_cloud_storage(source)
         any_out_of_date_dfq |= last_updated_dfq is None or last_updated_dfq.date() < today

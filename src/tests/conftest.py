@@ -247,18 +247,6 @@ def make_manifold_api_market(**overrides):
     return base
 
 
-def make_manifold_search_result(**overrides):
-    """Build a search result item from /search-markets (subset of market fields)."""
-    base = {
-        "id": "mkt_001",
-        "uniqueBettorCount": 20,
-        "totalLiquidity": 200,
-        "closeTime": 1735689600000,  # 2025-01-01 epoch ms
-    }
-    base.update(overrides)
-    return base
-
-
 def make_manifold_bet(**overrides):
     """Build a single bet dict as returned by /bets endpoint."""
     base = {
@@ -272,11 +260,6 @@ def make_manifold_bet(**overrides):
     }
     base.update(overrides)
     return base
-
-
-def make_manifold_fetch_df(rows):
-    """Build a DataFrame matching ManifoldFetchFrame schema (just id column)."""
-    return pd.DataFrame(rows)
 
 
 # ---------------------------------------------------------------------------

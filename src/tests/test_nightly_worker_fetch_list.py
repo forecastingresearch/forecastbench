@@ -78,8 +78,8 @@ def test_infer_has_update_but_no_fetch(worker):
 
 def test_active_source_has_both(worker):
     names = _job_names(worker.get_fetch_and_update())
-    assert "func-data-manifold-fetch" in names
-    assert "func-data-manifold-update-questions" in names
+    assert "func-data-metaculus-fetch" in names
+    assert "func-data-metaculus-update-questions" in names
 
 
 @pytest.mark.parametrize("day_of_week", WEEKDAYS)

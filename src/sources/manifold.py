@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any, ClassVar
 
 import backoff
@@ -15,7 +15,7 @@ import requests
 from pandera.typing import DataFrame
 
 from _fb_types import UpdateResult
-from _schemas import ManifoldFetchFrame, QuestionFrame, ResolutionFrame
+from _schemas import QuestionFrame, ResolutionFrame
 from helpers import constants, data_utils, dates
 
 from ._market import MarketSource
@@ -23,47 +23,6 @@ from ._market import MarketSource
 logger = logging.getLogger(__name__)
 
 _MANIFOLD_API_BASE = "https://api.manifold.markets/v0"
-
-_TOPIC_SLUGS = [
-    "ai",
-    "biotech",
-    "business",
-    "celebrities",
-    "chess",
-    "china",
-    "climate",
-    "culture-default",
-    "economics-default",
-    "entertainment",
-    "europe",
-    "finance",
-    "gaming",
-    "geopolitics",
-    "health",
-    "india",
-    "mathematics",
-    "middle-east",
-    "movies",
-    "music-f213cbf1eab5",
-    "politics-default",
-    "programming",
-    "russia",
-    "science-default",
-    "space",
-    "sports-default",
-    "stocks",
-    "technical-ai-timelines",
-    "technology-default",
-    "uk-politics",
-    "ukraine",
-    "us-politics",
-    "wars",
-    "world-default",
-]
-
-_MAX_RESOLUTION_DATE_IN_DAYS = 365 * 2
-_MIN_BETTOR_COUNT = 17
-_MIN_LIQUIDITY = 120
 
 
 class ManifoldSource(MarketSource):
@@ -75,31 +34,9 @@ class ManifoldSource(MarketSource):
     # Public: fetch
     # ------------------------------------------------------------------
 
-    @pa.check_types
-    def fetch(
-        self,
-        *,
-        max_resolution_date: date | None = None,
-        **kwargs: Any,
-    ) -> DataFrame[ManifoldFetchFrame]:
-        """Fetch market IDs from Manifold search-markets endpoint.
-
-        Calls search-markets (1 global + N topic slugs), filters by
-        min bettors, min liquidity, and max resolution date.
-
-        Args:
-            max_resolution_date (date | None): Cutoff for market close date.
-                Defaults to today + ``_MAX_RESOLUTION_DATE_IN_DAYS``. Computed
-                once here and threaded through so the inner endpoint calls
-                share the same cutoff instead of each recomputing "today".
-        """
-        if max_resolution_date is None:
-            max_resolution_date = dates.get_date_today() + timedelta(
-                days=_MAX_RESOLUTION_DATE_IN_DAYS
-            )
-        ids = self._search_markets(max_resolution_date=max_resolution_date)
-        logger.info(f"Discovered {len(ids)} candidate market IDs from search.")
-        return pd.DataFrame({"id": sorted(ids)})
+    def fetch(self, **kwargs: Any) -> pd.DataFrame:
+        """Unavailable. We no longer sample Manifold, so no new markets are pulled in."""
+        raise RuntimeError(f"{self.name} is no longer fetched.")
 
     # ------------------------------------------------------------------
     # Public: update
@@ -109,20 +46,20 @@ class ManifoldSource(MarketSource):
     def update(
         self,
         dfq: DataFrame[QuestionFrame],
-        dff: DataFrame[ManifoldFetchFrame],
+        dff: pd.DataFrame | None = None,
         *,
         existing_resolution_files: dict[str, DataFrame[ResolutionFrame]] | None = None,
         existing_resolution_ids: set[str] | None = None,
     ) -> UpdateResult:
-        """Process fetched IDs into updated questions and resolution files.
+        """Update the existing questions and their resolution files.
 
-        For each new ID in dff, appends to dfq. Then for each unresolved question,
-        fetches market details and builds resolution files. Finally regenerates
-        missing resolution files for resolved questions.
+        Manifold is no longer fetched, so no questions are added. For each unresolved question,
+        fetches market details and builds resolution files. Finally regenerates missing
+        resolution files for resolved questions.
 
         Args:
             dfq (DataFrame[QuestionFrame]): Existing questions.
-            dff (DataFrame[ManifoldFetchFrame]): Freshly fetched market IDs.
+            dff (pd.DataFrame | None): Always None. Manifold is no longer fetched.
             existing_resolution_files (dict | None): Per-question existing resolution data.
             existing_resolution_ids (set[str] | None): Bare IDs that already have a resolution
                 file in storage.
@@ -130,17 +67,6 @@ class ManifoldSource(MarketSource):
         existing_resolution_files = existing_resolution_files or {}
         existing_resolution_ids = existing_resolution_ids or set()
         resolution_files: dict[str, pd.DataFrame] = {}
-
-        # --- Append new IDs from dff to dfq ---
-        new_ids = dff[~dff["id"].isin(dfq["id"])]["id"]
-        if not new_ids.empty:
-            df_new = pd.DataFrame({"id": new_ids}).assign(
-                **{col: None for col in dfq.columns if col != "id"}
-            )
-            df_new["resolved"] = False
-            df_new["freeze_datetime_value_explanation"] = "The market value."
-            df_new["market_info_resolution_datetime"] = "N/A"
-            dfq = pd.concat([dfq, df_new], ignore_index=True)
 
         # --- Update all unresolved questions ---
         dfq["resolved"] = dfq["resolved"].astype(bool)
@@ -197,66 +123,6 @@ class ManifoldSource(MarketSource):
             dfq=dfq,
             resolution_files=resolution_files,
         )
-
-    # ------------------------------------------------------------------
-    # Private: search-markets API
-    # ------------------------------------------------------------------
-
-    @backoff.on_exception(
-        backoff.expo,
-        requests.exceptions.RequestException,
-        max_time=500,
-        on_backoff=data_utils.print_error_info_handler,
-    )
-    def _call_search_endpoint(
-        self,
-        *,
-        max_resolution_date: date,
-        additional_params: dict | None = None,
-    ) -> set[str]:
-        """Call search-markets and return qualifying market IDs."""
-        endpoint = f"{_MANIFOLD_API_BASE}/search-markets"
-        params: dict[str, Any] = {
-            "sort": "most-popular",
-            "contractType": "BINARY",
-            "filter": "open",
-            "limit": 100,
-        }
-        if additional_params:
-            params.update(additional_params)
-            logger.info(f"Calling {endpoint} with additional params: {additional_params}")
-
-        response = requests.get(endpoint, params=params, verify=certifi.where())
-        if not response.ok:
-            logger.error(
-                f"Request to endpoint failed for {endpoint}: {response.status_code} Error. "
-                f"{response.text}"
-            )
-            response.raise_for_status()
-
-        def resolves_by(close_time_epoch_ms: int) -> bool:
-            close_sec = min(close_time_epoch_ms / 1000, dates.MAX_EPOCH_SEC)
-            close_date = dates.convert_epoch_time_in_sec_to_datetime(close_sec).date()
-            return close_date <= max_resolution_date
-
-        return {
-            market["id"]
-            for market in response.json()
-            if market["uniqueBettorCount"] >= _MIN_BETTOR_COUNT
-            and market["totalLiquidity"] >= _MIN_LIQUIDITY
-            and resolves_by(market["closeTime"])
-        }
-
-    def _search_markets(self, *, max_resolution_date: date) -> set[str]:
-        """Discover market IDs across all topic slugs."""
-        logger.info("Calling Manifold search-markets endpoint")
-        ids = self._call_search_endpoint(max_resolution_date=max_resolution_date)
-        for topic in _TOPIC_SLUGS:
-            ids |= self._call_search_endpoint(
-                max_resolution_date=max_resolution_date,
-                additional_params={"topicSlug": topic},
-            )
-        return ids
 
     # ------------------------------------------------------------------
     # Private: market detail API

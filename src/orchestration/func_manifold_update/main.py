@@ -17,12 +17,15 @@ SOURCE = "manifold"
 
 @decorator.log_runtime
 def driver(_: Any) -> None:
-    """Update Manifold questions and resolution files."""
+    """Update Manifold questions and resolution files.
+
+    Manifold is no longer fetched, so this does not read a fetch file and no questions are added.
+    The questions already in the bank keep getting market values and resolution status so that
+    they can still be resolved.
+    """
     source = ManifoldSource()
 
-    dfq, dff = data_utils.get_data_from_cloud_storage(
-        SOURCE, return_question_data=True, return_fetch_data=True
-    )
+    dfq = data_utils.get_data_from_cloud_storage(SOURCE, return_question_data=True)
 
     logger.info("Loading existing resolution files...")
     # No ids= filter: load ALL existing resolution files so that we
@@ -35,7 +38,6 @@ def driver(_: Any) -> None:
 
     result = source.update(
         dfq,
-        dff,
         existing_resolution_files=existing_resolution_files,
         existing_resolution_ids=existing_resolution_ids,
     )

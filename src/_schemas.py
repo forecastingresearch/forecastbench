@@ -114,18 +114,6 @@ class YfinanceFetchFrame(QuestionFrame):
     fetch_datetime: Series[str]
 
 
-class ManifoldFetchFrame(pa.DataFrameModel):
-    """Output of ManifoldSource.fetch(). Just market IDs from search-markets endpoint."""
-
-    id: Series[str]
-
-    class Config:
-        """Schema configuration."""
-
-        strict = False
-        coerce = True
-
-
 class MetaculusFetchFrame(pa.DataFrameModel):
     """Output of MetaculusSource.fetch(). Just question IDs from the search endpoint."""
 

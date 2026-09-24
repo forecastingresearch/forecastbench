@@ -117,8 +117,11 @@ SOURCE_METADATA = {
         ],
         # INFER / The RAND Forecasting Initiative shut down, so there is nothing left to fetch.
         # `run_update` is still True, allowing for LLM resolution of unresolved questions to be
-        # implemented in a second pass.
+        # implemented in a second pass. Until then that update is a no-op, so nothing writes the
+        # question file and `dfq_is_frozen` keeps the resolve step from reading its age as an
+        # error.
         "run_fetch": False,
+        "dfq_is_frozen": True,
     },
     "kalshi": {
         "source_type": SourceType.MARKET,
@@ -150,6 +153,10 @@ SOURCE_METADATA = {
                 nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
             ),
         ],
+        # We no longer sample Manifold, so there are no new markets to pull in. `run_update` is
+        # still True so the questions we have already published keep getting market values and
+        # resolution status, and hence can still be resolved.
+        "run_fetch": False,
     },
     "metaculus": {
         "source_type": SourceType.MARKET,
@@ -474,10 +481,13 @@ MARKET_SOURCE_NAMES = sorted(
     name for name, m in SOURCE_METADATA.items() if m["source_type"] == SourceType.MARKET
 )
 
-# Which nightly jobs a source is scheduled for. Sources opt out by setting these to False, so an
-# entry that says nothing about them is fetched and updated, and consumers can index them
-# directly rather than guessing a fallback.
-_SCHEDULING_DEFAULTS = {"run_fetch": True, "run_update": True}
+# Per-source flags that every entry is guaranteed to carry, so consumers can index them directly
+# rather than guessing a fallback. An entry that says nothing about them takes the default here.
+#   run_fetch / run_update: which nightly jobs the source is scheduled for.
+#   dfq_is_frozen: nothing writes the source's question file any more, so the resolve step must
+#     not read its age as a failed nightly run. A source we stopped fetching but still update
+#     keeps a fresh dfq and is not frozen.
+_METADATA_DEFAULTS = {"run_fetch": True, "run_update": True, "dfq_is_frozen": False}
 for _meta in SOURCE_METADATA.values():
-    for _key, _default in _SCHEDULING_DEFAULTS.items():
+    for _key, _default in _METADATA_DEFAULTS.items():
         _meta.setdefault(_key, _default)
