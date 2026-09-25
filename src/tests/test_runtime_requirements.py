@@ -123,6 +123,13 @@ def test_root_makefile_exports_transcript_bucket_to_deployments():
     assert "FORECAST_SETS_TRANSCRIPTS_BUCKET=$(FORECAST_SETS_TRANSCRIPTS_BUCKET)" in makefile
 
 
+def test_root_makefile_does_not_ship_random_seed_to_deployments():
+    """`RANDOM_SEED` is for testing/reproducibility only and must never reach a Cloud Run job."""
+    makefile = (ROOT / "Makefile").read_text()
+
+    assert "RANDOM_SEED" not in makefile
+
+
 def test_root_make_test_bootstraps_python_env_before_pytest():
     result = subprocess.run(
         ["make", "--dry-run", "--always-make", "test", "ARGS=--version"],
