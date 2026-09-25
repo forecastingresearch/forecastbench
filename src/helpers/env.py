@@ -38,10 +38,14 @@ def __getattr__(name):
         return bool(int(os.environ.get("RUNNING_LOCALLY", False)))
     if name == "BUCKET_MOUNT_POINT":
         return os.environ.get("BUCKET_MOUNT_POINT", "")
+    if name == "RANDOM_SEED":
+        # Seed for sources of non-determinism for testing/reproducibility; must be unset/None in prod
+        value = os.environ.get("RANDOM_SEED")
+        return int(value) if value else None
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__():
     """Expose the lazily-read environment variable names to ``dir()``/autocomplete."""
-    extra = {"NUM_CPUS", "RUNNING_LOCALLY", "BUCKET_MOUNT_POINT"}
+    extra = {"NUM_CPUS", "RUNNING_LOCALLY", "BUCKET_MOUNT_POINT", "RANDOM_SEED"}
     return sorted(set(globals()) | set(_STR_VARS) | extra)
