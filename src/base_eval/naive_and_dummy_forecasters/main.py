@@ -72,7 +72,17 @@ def get_prophet_forecast(
     resolution_dates = sorted(df_standard["resolution_date"].unique())
 
     for mid in df_standard["id"].unique():
-        dfr_mid = dfr[dfr["id"] == mid].sort_values(by="date", ignore_index=True).ffill().bfill()
+        dfr_mid = dfr[dfr["id"] == mid].sort_values(by="date", ignore_index=True)
+        flight = source == "serpapi" and mid.startswith("flight_departure_delay__")
+        if source == "serpapi":
+            dfr_mid = dfr_mid.dropna(subset=["value"])
+            if flight:
+                dfr_mid["value"] = dfr_mid["value"].clip(lower=0)
+            if len(dfr_mid) < 2:
+                df_standard.loc[df_standard["id"] == mid, "forecast"] = 0.5
+                continue
+        else:
+            dfr_mid = dfr_mid.ffill().bfill()
         comparison_value = dfr_mid["value"].iloc[-1]
 
         if source == "fred":
@@ -88,6 +98,17 @@ def get_prophet_forecast(
         periods = (forecast_due_date_plus_max_horizon - max(prophet_df["ds"]).date()).days
         future = model.make_future_dataframe(periods=periods)
         forecast = model.predict(future)
+        if flight:
+            # Preserve observed past delays and omit missing past dates. Only dates from
+            # the forecast due date onward use predictions, never future observations.
+            delays = pd.concat(
+                [
+                    dfr_mid.set_index("date")["value"],
+                    forecast.loc[forecast["ds"] > day_before_forecast_due_date].set_index("ds")[
+                        "yhat"
+                    ],
+                ]
+            ).clip(lower=0)
         for resolution_date in resolution_dates:
             row = forecast[forecast["ds"].dt.date == resolution_date]
 
@@ -96,7 +117,19 @@ def get_prophet_forecast(
             upper = row["yhat_upper"].values[0]
             forecast_std = (upper - lower) / (2 * 1.28)
 
-            if source in ["fred", "yfinance"]:
+            if flight:
+                target_date = pd.Timestamp(resolution_date)
+                # A plug-in median is a simple baseline: its uncertainty is not modeled.
+                comparison_value = delays.loc[
+                    (delays.index >= target_date - pd.Timedelta(days=14))
+                    & (delays.index < target_date)
+                ].median()
+                # For a nonnegative threshold, P(max(0, delay) > threshold) equals
+                # P(delay > threshold), so the normal approximation also applies.
+
+            if source == "serpapi" and forecast_std <= 0:
+                prob_increase = float(forecast_mean > comparison_value)
+            elif source in ["fred", "yfinance"]:
                 # linear interpolation
                 prob_increase = (forecast_mean - lower) / (upper - lower)
             else:
@@ -292,10 +325,12 @@ def get_dataset_forecasts(source, df, dfr, forecast_due_date):
         "dbnomics",
         "fred",
         "yfinance",
+        "serpapi",
     ]:
         dfr = remove_newer_dates_from_dfr(dfr, day_before_forecast_due_date)
 
-    if source in ["dbnomics", "fred", "yfinance"]:
+    if source in ["dbnomics", "fred", "yfinance", "serpapi"]:
+        prophet_args = {}
         if source == "fred":
             prophet_args = {
                 "yearly_seasonality": True,

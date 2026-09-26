@@ -116,6 +116,22 @@ class YfinanceFetchFrame(QuestionFrame):
     company_name: Series[str]  # Yahoo's name for the ticker, used in pair question text; "N/A"
 
 
+class SerpapiFetchFrame(pa.DataFrameModel):
+    """One SerpAPI measurement with its request date and collection timestamp."""
+
+    id: Series[str]
+    date: Series[str]
+    value: Series[object] = pa.Field(nullable=True)
+    fetch_datetime: Series[str]
+    requested_date: Series[str]
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = True
+
+
 class MetaculusFetchFrame(pa.DataFrameModel):
     """Output of MetaculusSource.fetch(). Just question IDs from the search endpoint."""
 

@@ -123,7 +123,7 @@ all: deploy
 
 deploy: orchestration questions metadata resolve leaderboards curate-questions website baselines
 
-questions: manifold metaculus acled infer kalshi yfinance polymarket wikipedia fred dbnomics
+questions: manifold metaculus acled infer kalshi yfinance polymarket wikipedia fred dbnomics serpapi
 
 orchestration: nightly-worker-job nightly-manager-job compress_buckets push-datasets-to-git
 
@@ -219,6 +219,14 @@ dbnomics-fetch:
 
 dbnomics-update-questions:
 	$(MAKE) -C src/orchestration/func_dbnomics_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
+
+serpapi: serpapi-fetch serpapi-update-questions
+
+serpapi-fetch:
+	$(MAKE) -C src/orchestration/func_serpapi_fetch || echo "* $@" >> $(MAKE_FAILURE_LOG)
+
+serpapi-update-questions:
+	$(MAKE) -C src/orchestration/func_serpapi_update || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 tag-questions:
 	$(MAKE) -C src/metadata/tag_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
