@@ -21,6 +21,7 @@ from helpers import (  # noqa: E402
     decorator,
     env,
     resolution,
+    serpapi,
     wikipedia,
 )
 from orchestration import _io  # noqa: E402
@@ -62,8 +63,18 @@ def get_prophet_forecast(
     resolution_dates = sorted(df_standard["resolution_date"].unique())
 
     for mid in df_standard["id"].unique():
-        dfr_mid = dfr[dfr["id"] == mid].sort_values(by="date", ignore_index=True).ffill().bfill()
+        dfr_mid = dfr[dfr["id"] == mid].sort_values(by="date", ignore_index=True)
+        threshold = serpapi.get_percentage_threshold(mid) if source == "serpapi" else None
+        if source == "serpapi":
+            dfr_mid = dfr_mid.dropna(subset=["value"])
+            if len(dfr_mid) < 2 or (threshold is not None and dfr_mid["value"].iloc[-1] <= 0):
+                df_standard.loc[df_standard["id"] == mid, "forecast"] = 0.5
+                continue
+        else:
+            dfr_mid = dfr_mid.ffill().bfill()
         comparison_value = dfr_mid["value"].iloc[-1]
+        if threshold is not None:
+            comparison_value = float(serpapi.threshold_target(comparison_value, threshold))
 
         if source == "fred":
             dfr_mid = dfr_mid[
@@ -86,7 +97,13 @@ def get_prophet_forecast(
             upper = row["yhat_upper"].values[0]
             forecast_std = (upper - lower) / (2 * 1.28)
 
-            if source in ["fred", "yfinance"]:
+            if source == "serpapi" and forecast_std <= 0:
+                prob_increase = float(
+                    forecast_mean >= comparison_value
+                    if threshold is not None
+                    else forecast_mean > comparison_value
+                )
+            elif source in ["fred", "yfinance"]:
                 # linear interpolation
                 prob_increase = (forecast_mean - lower) / (upper - lower)
             else:
@@ -282,10 +299,12 @@ def get_dataset_forecasts(source, df, dfr, forecast_due_date):
         "dbnomics",
         "fred",
         "yfinance",
+        "serpapi",
     ]:
         dfr = remove_newer_dates_from_dfr(dfr, day_before_forecast_due_date)
 
-    if source in ["dbnomics", "fred", "yfinance"]:
+    if source in ["dbnomics", "fred", "yfinance", "serpapi"]:
+        prophet_args = {}
         if source == "fred":
             prophet_args = {
                 "yearly_seasonality": True,

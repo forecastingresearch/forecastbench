@@ -15,6 +15,7 @@ from .kalshi import KalshiSource
 from .manifold import ManifoldSource
 from .metaculus import MetaculusSource
 from .polymarket import PolymarketSource
+from .serpapi import SerpapiSource
 from .wikipedia import WikipediaSource
 from .yfinance import YfinanceSource
 
@@ -27,6 +28,7 @@ _kalshi = KalshiSource()
 _manifold = ManifoldSource()
 _metaculus = MetaculusSource()
 _polymarket = PolymarketSource()
+_serpapi = SerpapiSource()
 _wikipedia = WikipediaSource()
 _yfinance = YfinanceSource()
 
@@ -41,6 +43,7 @@ SOURCES = {
         _manifold,
         _metaculus,
         _polymarket,
+        _serpapi,
         _wikipedia,
         _yfinance,
     ]

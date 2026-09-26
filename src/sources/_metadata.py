@@ -35,6 +35,17 @@ SOURCE_METADATA = {
         "resolution_criteria": "Resolves to the value found at {url} once the data is published.",
         "nullified_questions": [],
     },
+    "serpapi": {
+        "source_type": SourceType.DATASET,
+        "source_intro": (
+            "SerpAPI collects measurements from search engines, stores, travel services and "
+            "social platforms. You're going to predict how these measurements change over time."
+        ),
+        # SerpAPI question types use different APIs and resolution rules, so each
+        # entry in serpapi_questions.QUESTION_SPECS supplies custom resolution_criteria.
+        "resolution_criteria": "",
+        "nullified_questions": [],
+    },
     "fred": {
         "source_type": SourceType.DATASET,
         "source_intro": (

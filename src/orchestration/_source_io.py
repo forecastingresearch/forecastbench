@@ -8,6 +8,7 @@ import os
 from typing import Iterable
 
 import pandas as pd
+from google.api_core.exceptions import NotFound
 from utils import gcp
 
 from helpers import constants, data_utils, env
@@ -55,6 +56,8 @@ def list_existing_resolution_ids(source: str) -> set[str]:
 def load_existing_resolution_files(
     source: str,
     ids: Iterable[str] | None = None,
+    *,
+    strict: bool = False,
 ) -> dict[str, pd.DataFrame]:
     """Download <source>/<id>.jsonl resolution files.
 
@@ -65,6 +68,7 @@ def load_existing_resolution_files(
         source (str): Source name (e.g. "infer").
         ids (Iterable[str] | None): Specific question IDs to load. If None,
             load every resolution file present in the bucket for this source.
+        strict (bool): Ignore only missing remote files; propagate other download errors.
 
     Returns:
         dict mapping question_id to its resolution DataFrame.
@@ -80,12 +84,22 @@ def load_existing_resolution_files(
         remote_path = f"{source}/{basename}"
         local_filename = f"/tmp/{source}_{basename}"
 
-        gcp.storage.download_no_error_message_on_404(
-            bucket_name=env.QUESTION_BANK_BUCKET,
-            filename=remote_path,
-            local_filename=local_filename,
-        )
-        if os.path.exists(local_filename):
+        if strict:
+            try:
+                local_filename = gcp.storage.download(
+                    bucket_name=env.QUESTION_BANK_BUCKET,
+                    filename=remote_path,
+                    local_filename=local_filename,
+                )
+            except NotFound:
+                continue  # Never read a stale local copy after an unsuccessful download.
+        else:
+            gcp.storage.download_no_error_message_on_404(
+                bucket_name=env.QUESTION_BANK_BUCKET,
+                filename=remote_path,
+                local_filename=local_filename,
+            )
+        if strict or os.path.exists(local_filename):
             df = pd.read_json(
                 local_filename,
                 lines=True,
@@ -98,21 +112,27 @@ def load_existing_resolution_files(
     return result
 
 
-def upload_resolution_files(source: str, resolution_files: dict[str, pd.DataFrame]) -> None:
+def upload_resolution_files(
+    source: str,
+    resolution_files: dict[str, pd.DataFrame],
+    *,
+    extra_columns: Iterable[str] = (),
+) -> None:
     """Upload per-question resolution files to <source>/<id>.jsonl.
 
     Args:
         source (str): Source name (e.g. "infer").
         resolution_files (dict): Mapping of question_id to resolution DataFrame.
+        extra_columns (Iterable[str]): Additional columns to retain when present in each frame.
     """
+    extra_columns = tuple(extra_columns)
     for question_id, df in resolution_files.items():
         basename = f"{question_id}.jsonl"
         remote_filename = f"{source}/{basename}"
         local_filename = f"/tmp/{basename}"
 
-        df[["id", "date", "value"]].to_json(
-            local_filename, orient="records", lines=True, date_format="iso"
-        )
+        columns = ["id", "date", "value"] + [column for column in extra_columns if column in df]
+        df[columns].to_json(local_filename, orient="records", lines=True, date_format="iso")
         gcp.storage.upload(
             bucket_name=env.QUESTION_BANK_BUCKET,
             local_filename=local_filename,

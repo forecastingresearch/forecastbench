@@ -119,6 +119,7 @@ _EXPECTED_SOURCES = {
     "manifold": SourceType.MARKET,
     "metaculus": SourceType.MARKET,
     "polymarket": SourceType.MARKET,
+    "serpapi": SourceType.DATASET,
     "wikipedia": SourceType.DATASET,
     "yfinance": SourceType.DATASET,
 }

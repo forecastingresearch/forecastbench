@@ -12,6 +12,7 @@ from . import (
     kalshi,
     metaculus,
     polymarket,
+    serpapi,
 )
 
 FREEZE_NUM_LLM_QUESTIONS = 500
@@ -54,6 +55,11 @@ FREEZE_QUESTION_MARKET_SOURCES = {
 }
 
 FREEZE_QUESTION_DATA_SOURCES = {
+    "serpapi": {
+        "name": "SerpAPI",
+        "source_intro": serpapi.SOURCE_INTRO,
+        "resolution_criteria": serpapi.RESOLUTION_CRITERIA,
+    },
     "acled": {
         "name": "ACLED",
         "source_intro": acled.SOURCE_INTRO,

@@ -4,6 +4,7 @@ import json
 from datetime import timedelta
 
 import pandas as pd
+import pytest
 
 from curate_questions.create_question_set import main as create_question_set
 from curate_questions.create_question_set.main import QuestionSetTarget
@@ -25,6 +26,31 @@ _QUESTION_COLUMNS = [
     "source_intro",
     "forecast_horizons",
 ]
+
+
+@pytest.mark.parametrize("criteria", [None, "", "  ", "N/A", float("nan")])
+def test_custom_criteria_required_for_every_question(criteria):
+    dfq = pd.DataFrame({"resolution_criteria": ["Valid criteria", criteria]})
+    with pytest.raises(ValueError, match="update the question bank"):
+        create_question_set.get_resolution_criteria(dfq, "")
+
+
+def test_custom_criteria_required_in_older_question_banks():
+    with pytest.raises(ValueError, match="update the question bank"):
+        create_question_set.get_resolution_criteria(pd.DataFrame({"id": ["q1"]}), "")
+
+
+def test_source_wide_criteria_still_use_each_question_url():
+    dfq = pd.DataFrame(
+        {
+            "url": ["https://example.com/a", "https://example.com/b"],
+            "resolution_criteria": [None, "old"],
+        }
+    )
+    assert create_question_set.get_resolution_criteria(dfq, "Resolves at {url}.").tolist() == [
+        "Resolves at https://example.com/a.",
+        "Resolves at https://example.com/b.",
+    ]
 
 
 def test_write_questions_writes_raw_utf8_not_ascii_escapes(monkeypatch):
