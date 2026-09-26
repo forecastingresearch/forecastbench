@@ -1,0 +1,8 @@
+google-cloud-storage
+pandas>=2.2.2,<3.0
+pandera
+requests
+backoff
+numpy
+tzdata
+beautifulsoup4

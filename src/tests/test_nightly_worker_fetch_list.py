@@ -76,10 +76,11 @@ def test_infer_has_update_but_no_fetch(worker):
     assert "func-data-infer-fetch" not in names
 
 
-def test_active_source_has_both(worker):
+@pytest.mark.parametrize("source", ["metaculus", "serpapi"])
+def test_active_source_has_both(worker, source):
     names = _job_names(worker.get_fetch_and_update())
-    assert "func-data-metaculus-fetch" in names
-    assert "func-data-metaculus-update-questions" in names
+    assert f"func-data-{source}-fetch" in names
+    assert f"func-data-{source}-update-questions" in names
 
 
 @pytest.mark.parametrize("day_of_week", WEEKDAYS)
