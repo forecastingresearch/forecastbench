@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
 
 import pandas as pd
 from pandas._libs.tslibs.np_datetime import OutOfBoundsDatetime
 
-from helpers import constants, dates
 from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources._base import BaseSource
 
@@ -38,6 +36,7 @@ def check_and_prepare_forecast_file(
     df: pd.DataFrame,
     forecast_due_date: str,
     organization: str,
+    valid_resolution_dates: list[str],
 ) -> pd.DataFrame:
     """Check and prepare the organization's forecast file.
 
@@ -45,6 +44,8 @@ def check_and_prepare_forecast_file(
         df: Organization's forecasts DataFrame.
         forecast_due_date: Date as YYYY-MM-DD.
         organization: The organization that created the forecasts.
+        valid_resolution_dates: ISO dates asked in the question set this file was forecast on.
+            Dataset forecasts on any other date are dropped.
 
     Returns:
         Validated DataFrame ready for resolution.
@@ -73,14 +74,9 @@ def check_and_prepare_forecast_file(
             "invalid forecasts."
         )
 
-    # Drop invalid resolution dates for dataset questions and overwirte all resolution dates for
+    # Drop invalid resolution dates for dataset questions and overwrite all resolution dates for
     # market questions
     df_len = len(df)
-    forecast_due_date_date = dates.convert_iso_str_to_date(forecast_due_date)
-    valid_resolution_dates = [
-        (forecast_due_date_date + timedelta(days=horizon)).strftime("%Y-%m-%d")
-        for horizon in constants.FORECAST_HORIZONS_IN_DAYS
-    ]
     df["resolution_date"] = df["resolution_date"].str.slice(0, 10)
     df = df[
         df["source"].isin(MARKET_SOURCE_NAMES)

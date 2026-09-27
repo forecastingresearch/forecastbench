@@ -12,7 +12,7 @@ from _schemas import KalshiFetchFrame, QuestionFrame, ResolutionFrame
 from curate_questions.create_question_set import main as create_question_set
 from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
-from resolve.explode_question_set import explode_question_set
+from resolve.explode_question_set import explode_question_set, get_resolution_dates
 from resolve.resolve_all import resolve_all
 from sources.kalshi import KalshiSource, MarketNotFoundError
 from sources.registry import SOURCES
@@ -1878,7 +1878,9 @@ class TestKalshiEndToEnd:
                 "resolution_date": ["2025-01-08", "2025-01-08"],
             }
         )
-        prepared = check_and_prepare_forecast_file(forecast_df, "2025-01-01", "test_org")
+        prepared = check_and_prepare_forecast_file(
+            forecast_df, "2025-01-01", "test_org", get_resolution_dates(question_set_df)
+        )
         merged = set_resolution_dates(prepared, resolved)
         result = impute_missing_forecasts(merged, "test_org", "test_model_org", "test_model")
 
