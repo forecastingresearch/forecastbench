@@ -31,6 +31,9 @@ class TestConvertAndBoundDates:
 # check_and_prepare_forecast_file
 # ---------------------------------------------------------------------------
 
+# Resolution dates asked in the question set the test forecasts were made on.
+VALID_DATES = ["2025-01-08", "2025-01-31"]
+
 
 class TestCheckAndPrepareForecastFile:
     """Test forecast file validation pipeline."""
@@ -57,7 +60,7 @@ class TestCheckAndPrepareForecastFile:
                 "resolution_date": ["2025-01-08", "2025-01-08"],
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert len(result) == 1
         assert result.iloc[0]["source"] == "metaculus"
 
@@ -71,7 +74,7 @@ class TestCheckAndPrepareForecastFile:
                 "resolution_date": ["2025-01-08", "2025-01-08"],
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert len(result) == 1
 
     def test_drops_forecasts_outside_range(self):
@@ -84,11 +87,11 @@ class TestCheckAndPrepareForecastFile:
                 "resolution_date": ["2025-01-08", "2025-01-08", "2025-01-08"],
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert len(result) == 1
 
     def test_drops_invalid_dataset_resolution_dates(self):
-        """Dataset sources must have resolution dates matching valid horizons."""
+        """Dataset sources must have resolution dates asked in the question set."""
         df = pd.DataFrame(
             {
                 "id": ["q1", "q2"],
@@ -96,12 +99,28 @@ class TestCheckAndPrepareForecastFile:
                 "direction": [(), ()],
                 "forecast": [0.5, 0.5],
                 "resolution_date": [
-                    "2025-01-08",  # 7 days → valid
-                    "2025-01-10",  # 9 days → invalid
+                    "2025-01-08",  # in question set → valid
+                    "2025-01-10",  # not in question set → invalid
                 ],
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
+        assert len(result) == 1
+
+    def test_keeps_dataset_resolution_dates_beyond_current_horizons(self):
+        """Old question sets asked horizons no longer in use; their forecasts still resolve."""
+        df = pd.DataFrame(
+            {
+                "id": ["q1"],
+                "source": ["fred"],
+                "direction": [()],
+                "forecast": [0.5],
+                "resolution_date": ["2028-01-01"],  # 1095 days out
+            }
+        )
+        result = check_and_prepare_forecast_file(
+            df, "2025-01-01", "test_org", ["2025-01-08", "2028-01-01"]
+        )
         assert len(result) == 1
 
     def test_accepts_any_market_resolution_date(self):
@@ -115,7 +134,7 @@ class TestCheckAndPrepareForecastFile:
                 "resolution_date": ["2025-06-15"],  # arbitrary date
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert len(result) == 1
 
     def test_market_na_resolution_date_does_not_crash(self):
@@ -129,7 +148,7 @@ class TestCheckAndPrepareForecastFile:
                 "resolution_date": ["N/A"],
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert len(result) == 1
         assert pd.isna(result.iloc[0]["resolution_date"])
 
@@ -144,7 +163,7 @@ class TestCheckAndPrepareForecastFile:
                 "resolution_date": ["2025-01-08", "N/A"],
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert len(result) == 1
         assert result.iloc[0]["id"] == "q1"
 
@@ -159,7 +178,7 @@ class TestCheckAndPrepareForecastFile:
                 "resolution_date": ["2025-01-08"],
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert isinstance(result.iloc[0]["id"], tuple)
         assert isinstance(result.iloc[0]["direction"], tuple)
 
@@ -175,7 +194,7 @@ class TestCheckAndPrepareForecastFile:
             }
         )
         with pytest.raises(ValueError, match="Duplicate Rows"):
-            check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+            check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
 
     def test_drops_extra_columns(self):
         """Extra columns are dropped."""
@@ -190,13 +209,13 @@ class TestCheckAndPrepareForecastFile:
                 "reasoning": ["also_dropped"],
             }
         )
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert "extra_col" not in result.columns
         assert "reasoning" not in result.columns
 
     def test_adds_forecast_due_date_column(self):
         df = self._make_valid_df()
-        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org")
+        result = check_and_prepare_forecast_file(df, "2025-01-01", "test_org", VALID_DATES)
         assert "forecast_due_date" in result.columns
         assert result.iloc[0]["forecast_due_date"] == pd.Timestamp("2025-01-01")
 

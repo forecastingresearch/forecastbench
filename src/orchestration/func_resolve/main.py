@@ -15,7 +15,7 @@ from helpers import data_utils, dates, decorator, env, slack
 from orchestration import _io
 from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
-from resolve.explode_question_set import explode_question_set
+from resolve.explode_question_set import explode_question_set, get_resolution_dates
 from resolve.resolve_all import resolve_all
 from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES
 from sources.registry import SOURCES
@@ -200,6 +200,7 @@ def driver(_: Any) -> None:
 
     local_forecast_set_dir = data_utils.get_local_file_dir(bucket=env.FORECAST_SETS_BUCKET)
     resolved_cache: dict[str, dict[str, pd.DataFrame]] = {}
+    question_set_resolution_dates: dict[str, list[str]] = {}
 
     for f in forecast_files:
         logger.info(f"Resolving {f}")
@@ -260,10 +261,16 @@ def driver(_: Any) -> None:
 
         df_question_resolutions = resolved_cache[forecast_due_date][human_llm_key].copy()
 
+        if question_set_filename not in question_set_resolution_dates:
+            question_set_resolution_dates[question_set_filename] = get_resolution_dates(
+                _io.download_and_read_question_set_file(question_set_filename)
+            )
+
         df = check_and_prepare_forecast_file(
             df=df,
             forecast_due_date=forecast_due_date,
             organization=organization,
+            valid_resolution_dates=question_set_resolution_dates[question_set_filename],
         )
 
         df = set_resolution_dates(

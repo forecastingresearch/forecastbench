@@ -2,8 +2,26 @@
 
 from datetime import date
 
-from resolve.explode_question_set import explode_question_set
+from resolve.explode_question_set import explode_question_set, get_resolution_dates
 from tests.conftest import make_question_set_df
+
+
+class TestGetResolutionDates:
+    """Test collection of the resolution dates asked in a question set."""
+
+    def test_union_of_dataset_dates_sorted_and_market_ignored(self):
+        df = make_question_set_df(
+            [
+                {"id": "q1", "source": "fred", "resolution_dates": ["2025-01-31", "2025-01-08"]},
+                {"id": "q2", "source": "fred", "resolution_dates": ["2025-01-31", "2028-01-01"]},
+                {"id": "m1", "source": "metaculus", "resolution_dates": "N/A"},
+            ]
+        )
+        assert get_resolution_dates(df) == ["2025-01-08", "2025-01-31", "2028-01-01"]
+
+    def test_no_dataset_questions_returns_empty(self):
+        df = make_question_set_df([{"id": "m1", "source": "metaculus", "resolution_dates": "N/A"}])
+        assert get_resolution_dates(df) == []
 
 
 class TestExplodeQuestionSet:

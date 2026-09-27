@@ -623,7 +623,7 @@ def make_fred_fetch_df(rows):
         "background": "N/A",
         "url": "https://fred.stlouisfed.org/series/DGS10",
         "resolved": False,
-        "forecast_horizons": [7, 30, 90, 180, 365, 1095, 1825, 3650],
+        "forecast_horizons": [7, 30, 90, 180, 365],
         "freeze_datetime_value": 4.30,
         "freeze_datetime_value_explanation": "The latest value released in X from the release Y.",
         "market_info_resolution_criteria": "N/A",

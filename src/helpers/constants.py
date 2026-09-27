@@ -40,9 +40,6 @@ FORECAST_HORIZONS_IN_DAYS = [
     90,  # 3 months
     180,  # 6 months
     365,  # 1 year
-    1095,  # 3 years
-    1825,  # 5 years
-    3650,  # 10 years
 ]
 
 QUESTION_FILE_COLUMN_DTYPE = {

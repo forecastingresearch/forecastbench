@@ -1197,6 +1197,29 @@ def market_resolves_before_forecast_due_date(dt: datetime) -> bool:
     return ndays <= 0
 
 
+def keep_current_forecast_horizons(dfq: pd.DataFrame) -> pd.DataFrame:
+    """Drop forecast horizons no longer in `constants.FORECAST_HORIZONS_IN_DAYS`.
+
+    Sources that only refresh some fields of existing questions leave stale horizon lists in the
+    question bank, so the constant is enforced here rather than trusted from storage.
+
+    Args:
+        dfq (pd.DataFrame): Dataset questions with a `forecast_horizons` column
+
+    Returns
+        dfq (pd.DataFrame): Copy with `forecast_horizons` restricted to current horizons
+    """
+    dfq = dfq.copy()
+    dfq["forecast_horizons"] = dfq["forecast_horizons"].apply(
+        lambda horizons: (
+            [h for h in horizons if h in constants.FORECAST_HORIZONS_IN_DAYS]
+            if isinstance(horizons, list)
+            else horizons
+        )
+    )
+    return dfq
+
+
 def drop_questions_that_resolve_too_soon(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
     """Drop questions that resolve too soon.
 
@@ -1257,6 +1280,8 @@ def driver(_: None) -> None:
             dfq = drop_missing_freeze_datetime(dfq)
             dfq = dfq[dfq["category"] != "Other"]
             dfq = dfq[~dfq["resolved"]]
+            if source in question_curation.DATA_SOURCES:
+                dfq = keep_current_forecast_horizons(dfq)
             dfq = drop_questions_that_resolve_too_soon(source=source, dfq=dfq)
             dfq["source_intro"] = QUESTIONS[source]["source_intro"]
             dfq["resolution_criteria"] = dfq["url"].apply(

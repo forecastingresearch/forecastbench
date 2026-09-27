@@ -8,7 +8,7 @@ import pandas as pd
 from _fb_types import SourceQuestionBank
 from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
-from resolve.explode_question_set import explode_question_set
+from resolve.explode_question_set import explode_question_set, get_resolution_dates
 from resolve.resolve_all import resolve_all
 from sources.registry import SOURCES
 from tests.conftest import make_question_df, make_question_set_df, make_resolution_df
@@ -219,7 +219,9 @@ class TestFullMixedPipeline:
                 "resolution_date": ["2025-01-08", "2025-01-08"],
             }
         )
-        prepared = check_and_prepare_forecast_file(forecast_df, "2025-01-01", "test_org")
+        prepared = check_and_prepare_forecast_file(
+            forecast_df, "2025-01-01", "test_org", get_resolution_dates(question_set_df)
+        )
         merged = set_resolution_dates(prepared, resolved)
 
         # 5. Impute

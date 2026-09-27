@@ -13,6 +13,22 @@ from sources import MARKET_SOURCE_NAMES
 logger = logging.getLogger(__name__)
 
 
+def get_resolution_dates(question_set_df: pd.DataFrame) -> list[str]:
+    """Return the sorted union of resolution dates asked in a question set.
+
+    Args:
+        question_set_df: DataFrame with a `resolution_dates` column (list of ISO dates or "N/A").
+
+    Returns:
+        Sorted ISO date strings.
+    """
+    resolution_dates = set()
+    for question_resolution_dates in question_set_df["resolution_dates"]:
+        if question_resolution_dates != "N/A" and isinstance(question_resolution_dates, list):
+            resolution_dates.update(question_resolution_dates)
+    return sorted(resolution_dates)
+
+
 def explode_question_set(question_set_df: pd.DataFrame, forecast_due_date: str) -> pd.DataFrame:
     """Explode a question set DataFrame into resolvable rows.
 
@@ -28,12 +44,7 @@ def explode_question_set(question_set_df: pd.DataFrame, forecast_due_date: str) 
 
     df["forecast_due_date"] = pd.to_datetime(forecast_due_date)
 
-    # Collect all resolution dates across all questions
-    all_resolution_dates = set()
-    for resolution_date in df["resolution_dates"]:
-        if resolution_date != "N/A" and isinstance(resolution_date, list):
-            all_resolution_dates.update(resolution_date)
-    all_resolution_dates = sorted(all_resolution_dates)
+    all_resolution_dates = get_resolution_dates(df)
 
     # Market questions get all resolution dates
     df["resolution_dates"] = df.apply(

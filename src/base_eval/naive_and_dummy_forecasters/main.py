@@ -37,8 +37,6 @@ N_WINDOWS_FOR_FORECAST = 100
 SHORT_WINDOW_LENGTH_FOR_FORECAST = 30
 LONG_WINDOW_LENGTH_FOR_FORECAST = 90
 
-MAX_FORECAST_HORIZON = max(constants.FORECAST_HORIZONS_IN_DAYS)
-
 # The amount of data to remove from the dataset
 # This is because when running on forecast due date, not all data is available until the day before
 # so we can retroactively run the naive forecast
@@ -278,9 +276,8 @@ def get_dataset_forecasts(source, df, dfr, forecast_due_date):
         return dfr[dfr["date"] <= day_before_forecast_due_date].copy()
 
     day_before_forecast_due_date = get_day_before_forecast_due_date(forecast_due_date)
-    forecast_due_date_plus_max_horizon = (
-        forecast_due_date + timedelta(days=MAX_FORECAST_HORIZON)
-    ).date()
+    # Forecast as far out as the question set asks; must not disagree with `resolution_date`.
+    forecast_due_date_plus_max_horizon = df["resolution_date"].dropna().max()
     if source in [
         "dbnomics",
         "fred",
