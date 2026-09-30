@@ -1246,6 +1246,33 @@ def drop_questions_that_resolve_too_soon(source: str, dfq: pd.DataFrame) -> pd.D
     return dfq[~resolves_too_soon]
 
 
+def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
+    """Drop question families we no longer want in the sampling pool.
+
+    HACK: matches on id prefix / question text instead of a proper per-question flag.
+    * dbnomics: all Météo-France weather questions. Ids start with ``meteofrance_`` because the
+      question file stores ids with ``/`` replaced by ``_``.
+    * acled: all "ten times as many" (x10) questions
+    * acled: all questions whose freeze value, the 30-day average over the past 360 days, is zero
+
+    Args:
+        source (str): Source name
+        dfq (pd.DataFrame): Questions to filter
+
+    Returns
+        dfq (pd.DataFrame): Questions not in a culled family
+    """
+    if source == "dbnomics":
+        return dfq[~dfq["id"].str.startswith("meteofrance_")]
+    if source == "acled":
+        # A zero 30-day average over the past 360 days turns "more than the average" into "will any
+        # event happen at all", which almost always resolves No.
+        is_x10 = dfq["question"].str.contains("more than ten times as many", regex=False)
+        is_zero_baseline = dfq["freeze_datetime_value"].astype(float) == 0
+        return dfq[~(is_x10 | is_zero_baseline)]
+    return dfq
+
+
 @decorator.log_runtime
 def driver(_: None) -> None:
     """Create question set."""
@@ -1283,6 +1310,7 @@ def driver(_: None) -> None:
             if source in question_curation.DATA_SOURCES:
                 dfq = keep_current_forecast_horizons(dfq)
             dfq = drop_questions_that_resolve_too_soon(source=source, dfq=dfq)
+            dfq = drop_culled_questions(source=source, dfq=dfq)
             dfq["source_intro"] = QUESTIONS[source]["source_intro"]
             dfq["resolution_criteria"] = dfq["url"].apply(
                 lambda url, template=QUESTIONS[source]["resolution_criteria"]: template.format(
