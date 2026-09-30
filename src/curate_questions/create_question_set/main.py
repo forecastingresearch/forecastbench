@@ -1329,16 +1329,16 @@ def driver(_: None) -> None:
 
     # Find allocations of questions
     LLM_QUESTIONS, HUMAN_QUESTIONS = {}, {}
-    for question_type in [question_curation.MARKET_SOURCES, question_curation.DATA_SOURCES]:
-        questions_of_question_type = {k: v for k, v in QUESTIONS.items() if k in question_type}
+    for question_type, sources in question_curation.QUESTION_TYPE_SOURCES.items():
+        questions_of_question_type = {k: v for k, v in QUESTIONS.items() if k in sources}
         llm_questions_of_question_type = allocate_across_sources(
             questions=questions_of_question_type,
-            num_questions=question_curation.FREEZE_NUM_LLM_QUESTIONS // 2,
+            num_questions=question_curation.FREEZE_NUM_LLM_QUESTIONS_BY_TYPE[question_type],
         )
         LLM_QUESTIONS.update(llm_questions_of_question_type)
         human_questions_of_question_type = allocate_across_sources(
             questions=llm_questions_of_question_type,
-            num_questions=question_curation.FREEZE_NUM_HUMAN_QUESTIONS // 2,
+            num_questions=question_curation.FREEZE_NUM_HUMAN_QUESTIONS_BY_TYPE[question_type],
         )
         HUMAN_QUESTIONS.update(human_questions_of_question_type)
 

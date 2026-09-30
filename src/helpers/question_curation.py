@@ -17,11 +17,19 @@ from . import (
 FREEZE_NUM_LLM_QUESTIONS = 500
 FREEZE_NUM_HUMAN_QUESTIONS = 200
 
-assert FREEZE_NUM_LLM_QUESTIONS % 2 == 0, "FREEZE_NUM_LLM_QUESTIONS must be even"
-assert FREEZE_NUM_HUMAN_QUESTIONS % 2 == 0, "FREEZE_NUM_HUMAN_QUESTIONS must be even"
+# How each question set is split between market and dataset questions. Dataset questions resolve
+# at several horizons, so the human set leans toward market questions to gain power (issue #310).
+FREEZE_NUM_LLM_QUESTIONS_BY_TYPE = {"market": 250, "dataset": 250}
+FREEZE_NUM_HUMAN_QUESTIONS_BY_TYPE = {"market": 130, "dataset": 70}
 
-# Assumed in the code
-assert FREEZE_NUM_LLM_QUESTIONS > FREEZE_NUM_HUMAN_QUESTIONS
+assert sum(FREEZE_NUM_LLM_QUESTIONS_BY_TYPE.values()) == FREEZE_NUM_LLM_QUESTIONS
+assert sum(FREEZE_NUM_HUMAN_QUESTIONS_BY_TYPE.values()) == FREEZE_NUM_HUMAN_QUESTIONS
+
+# Assumed in the code: human questions are sampled from the LLM set.
+assert all(
+    FREEZE_NUM_HUMAN_QUESTIONS_BY_TYPE[t] < FREEZE_NUM_LLM_QUESTIONS_BY_TYPE[t]
+    for t in FREEZE_NUM_LLM_QUESTIONS_BY_TYPE
+)
 
 
 FREEZE_QUESTION_MARKET_SOURCES = {
@@ -67,6 +75,10 @@ FREEZE_QUESTION_SOURCES = {**FREEZE_QUESTION_MARKET_SOURCES, **FREEZE_QUESTION_D
 
 DATA_SOURCES = list(FREEZE_QUESTION_DATA_SOURCES.keys())
 MARKET_SOURCES = list(FREEZE_QUESTION_MARKET_SOURCES.keys())
+
+QUESTION_TYPE_SOURCES = {"market": MARKET_SOURCES, "dataset": DATA_SOURCES}
+assert QUESTION_TYPE_SOURCES.keys() == FREEZE_NUM_LLM_QUESTIONS_BY_TYPE.keys()
+assert QUESTION_TYPE_SOURCES.keys() == FREEZE_NUM_HUMAN_QUESTIONS_BY_TYPE.keys()
 
 FREEZE_WINDOW_IN_DAYS = 10
 
