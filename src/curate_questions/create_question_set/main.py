@@ -64,6 +64,22 @@ TIME_HORIZON_CONFIG = [
     {"min": 366, "max": float("inf"), "weight": 0.04},
 ]
 
+# Draw weights by question category inside each sampling bin. Every category in
+# `constants.QUESTION_CATEGORIES` must be listed, and weights must be positive. With weight 0.03 a
+# Sports question is about 33 times less likely to be picked than another question competing for the
+# same bin slot.
+CATEGORY_SAMPLING_WEIGHTS = {
+    "Science & Tech": 1.0,
+    "Healthcare & Biology": 1.0,
+    "Economics & Business": 1.0,
+    "Environment & Energy": 1.0,
+    "Politics & Governance": 1.0,
+    "Arts & Recreation": 1.0,
+    "Security & Defense": 1.0,
+    "Sports": 0.03,
+    "Other": 1.0,
+}
+
 UNKNOWN_BIN_WEIGHT = 0.0
 
 
@@ -86,6 +102,10 @@ def validate_bin_weights():
         total = sum(Fraction(str(c["weight"])) for c in config)
         if total != 1:
             raise ValueError(f"{name} weights sum to {float(total)}, expected 1")
+    if set(CATEGORY_SAMPLING_WEIGHTS) != set(constants.QUESTION_CATEGORIES):
+        raise ValueError("CATEGORY_SAMPLING_WEIGHTS must list every category exactly once")
+    if any(weight <= 0 for weight in CATEGORY_SAMPLING_WEIGHTS.values()):
+        raise ValueError("CATEGORY_SAMPLING_WEIGHTS must all be positive")
 
 
 def process_questions(
@@ -810,6 +830,20 @@ def _as_random_state(
     return np.random.RandomState(random_state)
 
 
+def category_draw_weights(dfq: pd.DataFrame) -> pd.Series | None:
+    """Per-row draw weights from `CATEGORY_SAMPLING_WEIGHTS`, or None for a uniform draw.
+
+    Args:
+        dfq (pd.DataFrame): Questions in one composite bin
+
+    Returns
+        weights (pd.Series | None): One weight per row; None when there is no category column
+    """
+    if "category" not in dfq.columns:
+        return None
+    return dfq["category"].map(CATEGORY_SAMPLING_WEIGHTS)
+
+
 def stratified_sample_questions(
     dfq: pd.DataFrame, n_target: int, random_state: int | np.random.RandomState | None = None
 ) -> pd.DataFrame:
@@ -884,7 +918,12 @@ def stratified_sample_questions(
     for bin_name, n_samples in bin_samples.items():
         if n_samples > 0:
             bin_df = dfq_weighted[dfq_weighted["composite_bin"] == bin_name]
-            sampled = bin_df.sample(n=n_samples, replace=False, random_state=random_state)
+            sampled = bin_df.sample(
+                n=n_samples,
+                replace=False,
+                random_state=random_state,
+                weights=category_draw_weights(bin_df),
+            )
             sampled_dfs.append(sampled)
 
     if not sampled_dfs:
