@@ -82,6 +82,9 @@ CATEGORY_SAMPLING_WEIGHTS = {
 
 UNKNOWN_BIN_WEIGHT = 0.0
 
+# Market questions resolving more than this many days after the forecast due date are not sampled.
+MAX_DAYS_TO_MARKET_RESOLUTION = 365
+
 
 class QuestionSetTarget(str, Enum):
     """Question set targets used throughout sampling and writing."""
@@ -1312,6 +1315,51 @@ def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
     return dfq
 
 
+def market_datetimes(row: pd.Series) -> list[datetime]:
+    """Return the known close and resolution datetimes of a market question.
+
+    The question bank stores "N/A" for a datetime it does not know yet, e.g. the resolution
+    datetime of a market that has not resolved.
+
+    Args:
+        row (pd.Series): One market question
+
+    Returns
+        datetimes (list[datetime]): The close and resolution datetimes that are not "N/A"
+    """
+    return [
+        datetime.fromisoformat(value)
+        for value in (row["market_info_close_datetime"], row["market_info_resolution_datetime"])
+        if value != "N/A"
+    ]
+
+
+def drop_questions_that_resolve_too_late(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
+    """Drop market questions that resolve more than `MAX_DAYS_TO_MARKET_RESOLUTION` after the due date.
+
+    A market resolves too late if its close datetime or its resolution datetime is after the cutoff.
+    Data questions resolve at the fixed forecast horizons and are returned unchanged.
+
+    Args:
+        source (str): Source name
+        dfq (pd.DataFrame): Questions to filter
+
+    Returns
+        dfq (pd.DataFrame): Questions that resolve within the cap
+    """
+    if source in question_curation.DATA_SOURCES:
+        return dfq
+    cutoff_date = question_curation.FORECAST_DATETIME + timedelta(
+        days=MAX_DAYS_TO_MARKET_RESOLUTION
+    )
+    resolves_in_time = dfq.apply(
+        lambda row: all(dt <= cutoff_date for dt in market_datetimes(row)),
+        axis=1,
+        result_type="reduce",
+    )
+    return dfq[resolves_in_time]
+
+
 @decorator.log_runtime
 def driver(_: None) -> None:
     """Create question set."""
@@ -1349,6 +1397,7 @@ def driver(_: None) -> None:
             if source in question_curation.DATA_SOURCES:
                 dfq = keep_current_forecast_horizons(dfq)
             dfq = drop_questions_that_resolve_too_soon(source=source, dfq=dfq)
+            dfq = drop_questions_that_resolve_too_late(source=source, dfq=dfq)
             dfq = drop_culled_questions(source=source, dfq=dfq)
             dfq["source_intro"] = QUESTIONS[source]["source_intro"]
             dfq["resolution_criteria"] = dfq["url"].apply(
