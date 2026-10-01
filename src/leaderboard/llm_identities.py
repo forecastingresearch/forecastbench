@@ -7,6 +7,7 @@ from utils.llm import model_runs
 
 from helpers import constants
 from llm_forecaster.forecast_variants import (
+    ALL_FORECAST_VARIANT_KEYS_WITHOUT_CONTEXT,
     SCRATCHPAD,
     SCRATCHPAD_WITH_FREEZE_VALUES,
     SCRATCHPAD_WITH_NEWS,
@@ -530,3 +531,32 @@ def normalize_llm_identity(data: dict) -> dict:
 
     normalized.update(identity.as_normalized_fields())
     return normalized
+
+
+def is_forecastbench_llm_without_prompt_context(data: dict) -> bool:
+    """Return whether a forecast file is a ForecastBench LLM run whose prompt had no context.
+
+    These are the zero-shot and scratchpad variants: the prompt carried neither freeze values nor
+    news. Provider tools such as web search are a property of the model run, not of the prompt,
+    so a tool-using run with one of these variants still counts as without prompt context. These
+    variants fed the retired baseline leaderboard, so they are no longer resolved or scored.
+
+    Args:
+        data (dict): Forecast file identity fields: `organization`, `model`,
+            `model_organization`, and the `model_run_key` / `forecast_variant_key` pair when the
+            file is current.
+
+    Returns:
+        bool: True only for a ForecastBench LLM run with a without-prompt-context variant. External
+            submissions and ForecastBench comparison models return False.
+
+    Raises:
+        KeyError: If the file is a ForecastBench LLM run whose identity is unknown, from
+            `normalize_llm_identity`.
+    """
+    normalized = normalize_llm_identity(data)
+    if normalized.get("organization") != constants.BENCHMARK_NAME:
+        return False
+    if normalized.get("model_organization") == constants.BENCHMARK_NAME:
+        return False
+    return normalized["forecast_variant_key"] in ALL_FORECAST_VARIANT_KEYS_WITHOUT_CONTEXT

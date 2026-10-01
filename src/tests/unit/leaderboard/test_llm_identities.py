@@ -1216,3 +1216,87 @@ def test_grok_4_3_release_date_is_recorded_once_by_model_key():
 
     assert release_dates["grok-4.3"] == date(2026, 4, 17)
     assert "grok-4.3†" not in release_dates
+
+
+@pytest.mark.parametrize(
+    "data, expected",
+    [
+        (
+            {
+                "organization": "ForecastBench",
+                "model": "Claude-Opus-4-7 (zero shot)",
+                "model_organization": "Anthropic",
+            },
+            True,
+        ),
+        (
+            {
+                "organization": "ForecastBench",
+                "model": "Claude-Opus-4-7 (scratchpad)",
+                "model_organization": "Anthropic",
+            },
+            True,
+        ),
+        (
+            {
+                "organization": "ForecastBench",
+                "model": "GPT-4o-2024-11-20 (zero shot with web search)",
+                "model_organization": "OpenAI",
+            },
+            True,
+        ),
+        (
+            {
+                "organization": "ForecastBench",
+                "model": "Claude-Opus-4-7 (zero shot with freeze values)",
+                "model_organization": "Anthropic",
+            },
+            False,
+        ),
+        (CANONICAL_FORECASTBENCH_LLM, True),
+        (CANONICAL_FORECASTBENCH_LLM_WITH_FREEZE_VALUES, False),
+        (
+            {
+                "organization": "ForecastBench",
+                "model": "gpt-5.4-2026-03-05-high-web-search",
+                "model_organization": "OpenAI",
+                "model_run_key": "gpt-5.4-2026-03-05-run-variant-03",
+                "forecast_variant_key": "zero-shot",
+            },
+            True,
+        ),
+        (
+            {
+                "organization": "ForecastBench",
+                "model": "Always 0.5",
+                "model_organization": "ForecastBench",
+            },
+            False,
+        ),
+        (
+            {
+                "organization": "External Team",
+                "model": "zero-shot",
+                "model_organization": "External Lab",
+            },
+            False,
+        ),
+    ],
+)
+def test_is_forecastbench_llm_without_prompt_context(data, expected):
+    from leaderboard.llm_identities import is_forecastbench_llm_without_prompt_context
+
+    assert is_forecastbench_llm_without_prompt_context(data) is expected
+
+
+def test_is_forecastbench_llm_without_prompt_context_rejects_unknown_forecastbench_llm():
+    from leaderboard.llm_identities import is_forecastbench_llm_without_prompt_context
+
+    with pytest.raises(KeyError, match="Unmapped ForecastBench LLM model"):
+        is_forecastbench_llm_without_prompt_context(
+            {
+                "organization": "ForecastBench",
+                "model": "Never-Registered-Model (zero shot)",
+                "model_organization": "Anthropic",
+            }
+        )

@@ -12,6 +12,7 @@ import pandas as pd
 from termcolor import colored
 
 from helpers import data_utils, dates, decorator, env, slack
+from leaderboard import llm_identities
 from orchestration import _io
 from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
@@ -204,6 +205,19 @@ def driver(_: Any) -> None:
         logger.info(f"Resolving {f}")
         file_data = _io.read_forecast_file(filename=f"{local_forecast_set_dir}/{f}")
         if file_data is None:
+            continue
+        if llm_identities.is_forecastbench_llm_without_prompt_context(
+            {
+                "organization": file_data.get("organization"),
+                "model": file_data.get("model"),
+                "model_organization": file_data.get("model_organization"),
+                "model_run_key": file_data.get("model_run_key"),
+                "forecast_variant_key": file_data.get("forecast_variant_key"),
+            }
+        ):
+            logger.info(
+                f"Skipping {f}: ForecastBench LLM forecasts without prompt context are not resolved."
+            )
             continue
 
         organization = file_data.get("organization")

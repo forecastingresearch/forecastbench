@@ -6,6 +6,8 @@ This package owns ForecastBench LLM forecast generation.
   weekly round.
 - Select model runs for `FB_MODEL_RUN_KEYS` from `utils.llm.model_runs` by `model_run_key`.
   Do not declare local `ModelRun` registries here.
+- After you change `FB_MODEL_RUN_KEYS` or the `utils` pin, redeploy resolve and the leaderboards
+  too. Both look forecast files up in the same model-run registry.
 - Use `utils.llm` for provider calls; do not instantiate provider SDK clients directly here.
 - Keep runtime model options in the `ModelRun.options` declaration, except the
   project-specific OpenAI `safety_identifier`, which is injected at runtime from Secret Manager.

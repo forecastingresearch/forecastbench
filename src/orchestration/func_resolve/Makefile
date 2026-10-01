@@ -8,7 +8,7 @@ UPLOAD_DIR = upload
 ROOT_DIR ?= $(abspath ../../..)/
 include $(ROOT_DIR)orchestration_upload.mk
 
-ORCHESTRATION_EXTRA_PACKAGES = resolve
+ORCHESTRATION_EXTRA_PACKAGES = resolve llm_forecaster
 
 include $(ROOT_DIR)deploy_config.mk
 
@@ -16,6 +16,8 @@ NUM_CPUS = 2
 
 deploy : main.py .gcloudignore requirements.txt Dockerfile
 	$(stage-orchestration-upload)
+	mkdir -p $(UPLOAD_DIR)/leaderboard
+	cp $(ROOT_DIR)src/leaderboard/llm_identities.py $(UPLOAD_DIR)/leaderboard/
 	gcloud run jobs deploy \
 		func-resolve-forecasts \
 		--project $(CLOUD_PROJECT) \
