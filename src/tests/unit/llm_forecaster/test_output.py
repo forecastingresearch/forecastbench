@@ -150,7 +150,6 @@ def test_forecast_file_data_includes_stable_model_run_identity():
         "model_run_key": "test-model-run-variant-01",
         "model_run_slug": "test-model",
         "forecast_variant_key": "zero-shot",
-        "market_prompt_uses_freeze_values": False,
         "question_set": "2026-05-10-llm.json",
         "forecast_due_date": "2026-05-10",
         "forecasts": rows,
@@ -185,4 +184,4 @@ def test_forecast_file_data_does_not_write_display_footnote_marker():
     assert data["model"] == "test-model-zero-shot-with-freeze-values"
     assert data["model_run_slug"] == "test-model"
     assert data["forecast_variant_key"] == ZERO_SHOT_WITH_FREEZE_VALUES.key
-    assert data["market_prompt_uses_freeze_values"] is True
+    assert "market_prompt_uses_freeze_values" not in data

@@ -41,7 +41,6 @@ FORECAST_FILE_METADATA_FIELDS = [
     "model_run_key",
     "model_run_slug",
     "forecast_variant_key",
-    "uses_freeze_values",
 ]
 
 

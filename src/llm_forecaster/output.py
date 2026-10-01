@@ -170,7 +170,6 @@ def forecast_file_data(
     rows: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Return a ForecastBench LLM forecast file using the current identity schema."""
-    market_prompt_uses_freeze_values = variant.market_prompt_uses_freeze_values
     return {
         "organization": BENCHMARK_NAME,
         "model": forecast_file_model_name(model_run, variant),
@@ -178,7 +177,6 @@ def forecast_file_data(
         "model_run_key": model_run.model_run_key,
         "model_run_slug": model_run.slug,
         "forecast_variant_key": variant.key,
-        "market_prompt_uses_freeze_values": market_prompt_uses_freeze_values,
         "question_set": question_set_filename,
         "forecast_due_date": forecast_due_date,
         "forecasts": rows,

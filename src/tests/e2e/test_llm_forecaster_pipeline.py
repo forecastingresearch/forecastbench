@@ -159,7 +159,6 @@ def test_llm_forecaster_pipeline_offline_writes_forecast_set(tmp_path):
         "model_run_key",
         "model_run_slug",
         "forecast_variant_key",
-        "market_prompt_uses_freeze_values",
         "question_set",
         "forecast_due_date",
         "forecasts",
@@ -168,7 +167,6 @@ def test_llm_forecaster_pipeline_offline_writes_forecast_set(tmp_path):
     assert freeze_data["forecast_due_date"] == _FORECAST_DUE_DATE
     assert freeze_data["question_set"] == _QUESTION_SET_FILENAME
     assert freeze_data["forecast_variant_key"] == ZERO_SHOT_WITH_FREEZE_VALUES.key
-    assert freeze_data["market_prompt_uses_freeze_values"] is True
 
     # No display-only footnote marker leaks into the persisted JSON.
     for written_file in written_files:
