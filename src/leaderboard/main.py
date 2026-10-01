@@ -36,7 +36,6 @@ from helpers import (
 )
 from llm_forecaster.forecast_variants import (
     ALL_FORECAST_VARIANT_KEYS_WITH_CONTEXT,
-    ALL_FORECAST_VARIANT_KEYS_WITHOUT_CONTEXT,
 )
 from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES
 
@@ -48,25 +47,15 @@ class LeaderboardType(str, Enum):
     """Enumeration of leaderboard types.
 
     This enum distinguishes between the supported leaderboard variants:
-    * BASELINE: The baseline leaderboard: FB forecast files w/o freeze values.
     * TOURNAMENT: The tournament leaderboard. All forecast files.
     * PRELIMINARY: The preliminary leaderboard using dataset questions only.
     """
 
-    BASELINE = "baseline"
     TOURNAMENT = "tournament"
     PRELIMINARY = "preliminary"
 
 
-class MarketQuestionAdjustment(str, Enum):
-    """Enumeration of market question adjustment methods."""
-
-    MARKET_BRIER = "market_brier"
-    TWO_WAY_FIXED_EFFECTS = "two_way_fixed_effects"
-
-
 LEADERBOARD_FILE_STEMS = {
-    LeaderboardType.BASELINE: "baseline_leaderboard",
     LeaderboardType.TOURNAMENT: "tournament_leaderboard",
 }
 
@@ -651,34 +640,22 @@ def get_df_info(
         df["model_organization"] != constants.BENCHMARK_NAME
     )
     df["forecastbench_comparison_model"] = df["model"].isin(FORECASTBENCH_COMPARISON_MODEL_NAMES)
-    unclassified_forecastbench_model = (
-        ~df["external_submission"]
-        & ~df["forecastbench_llm"]
-        & ~df["forecastbench_comparison_model"]
+    forecast_variant_key = df.get("forecast_variant_key", pd.Series(pd.NA, index=df.index))
+    tournament_forecast_variant = forecast_variant_key.isin(ALL_FORECAST_VARIANT_KEYS_WITH_CONTEXT)
+    df["tournament_model"] = (
+        df["external_submission"]
+        | df["forecastbench_comparison_model"]
+        | (df["forecastbench_llm"] & tournament_forecast_variant)
     )
-    if unclassified_forecastbench_model.any():
-        unclassified_models = "\n".join(
-            sorted(df.loc[unclassified_forecastbench_model, "model"].unique())
-        )
+    if not df["tournament_model"].all():
+        unclassified_models = "\n".join(sorted(df.loc[~df["tournament_model"], "model"].unique()))
         message = (
             f"{constants.BENCHMARK_NAME} model is not classified as an external submission, "
-            "ForecastBench LLM, or comparison model:\n"
+            "comparison model, or ForecastBench LLM with context:\n"
             f"{unclassified_models}"
         )
         slack.send_message(message)
         raise ValueError(message)
-    uses_tools = df.get("uses_tools", pd.Series(False, index=df.index))
-    forecast_variant_key = df.get("forecast_variant_key", pd.Series(pd.NA, index=df.index))
-    baseline_forecast_variant = forecast_variant_key.isin(ALL_FORECAST_VARIANT_KEYS_WITHOUT_CONTEXT)
-    tournament_forecast_variant = forecast_variant_key.isin(ALL_FORECAST_VARIANT_KEYS_WITH_CONTEXT)
-    df["baseline_model"] = df["forecastbench_comparison_model"] | (
-        df["forecastbench_llm"] & baseline_forecast_variant & ~uses_tools
-    )
-    df["tournament_model"] = (
-        df["external_submission"]
-        | df["forecastbench_comparison_model"]
-        | (df["forecastbench_llm"] & (tournament_forecast_variant | uses_tools))
-    )
     df = set_model_pk(df)
 
     return df.sort_values(by=["forecast_due_date", "source", "id"], ignore_index=True)
@@ -803,7 +780,7 @@ def write_leaderboard_html_file(
         df (pd.DataFrame): DataFrame containing the leaderboard.
         sorting_column_number (int): column to sort by.
         leaderboard_type (LeaderboardType): The type of leaderboard to generate
-                                            (e.g., baseline or tournament).
+                                            (tournament).
 
     Returns:
         None.
@@ -1261,7 +1238,7 @@ def write_leaderboard_js_file_full(
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
         leaderboard_type (LeaderboardType): The type of leaderboard to generate
-                                            (e.g., baseline or tournament).
+                                            (tournament).
 
     Returns:
         None.
@@ -1270,8 +1247,7 @@ def write_leaderboard_js_file_full(
         window.initLeaderboard_{{ leaderboard_type }} = function()
         {
             const data = {{ data }};
-            const isTournament = {{ is_tournament | lower }};
-            const cols = ["Rank", {% if is_tournament %} "Team",{% endif %}
+            const cols = ["Rank", "Team",
                           "Model Organization", "Model Organization Logo", "Model",
                           "Dataset", "N dataset", "Dataset 95% CI",
                           "Market", "N market", "Market 95% CI",
@@ -1407,7 +1383,7 @@ def write_leaderboard_js_file_full(
             });
 
             // Register anonymous-team filter before DataTable init so it applies on first draw
-            if (isTournament && teamColIndex >= 0) {
+            if (teamColIndex >= 0) {
               $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, rowData) {
                 if (settings.nTable.id !== 'lb') return true;
                 const showAnon = document.getElementById('show-anonymous')?.checked;
@@ -1422,18 +1398,16 @@ def write_leaderboard_js_file_full(
             }
 
             $('#leaderboard-table-full').html(`
-               ${isTournament ? `<div id="anon-toggle" style="margin-bottom:8px; display:flex;
+               <div id="anon-toggle" style="margin-bottom:8px; display:flex;
                                       align-items:center; gap:6px;">
                    <input type="checkbox" id="show-anonymous" aria-label="Show anonymous teams">
                    <label for="show-anonymous" style="margin:0; cursor:pointer;">Show anonymous teams</label>
-                 </div>` : ''}
+                 </div>
                <table id="lb" class="display compact hover" style="width:100%">
                <thead>
                  <tr>
                    <th>Rank</th>
-                   {% if is_tournament %}
                    <th class="column-header-tooltip" data-tooltip="Team">Team</th>
-                   {% endif %}
                    <th class="column-header-tooltip" data-tooltip="Org">Org</th>
                    <th><!-- Model Organization Logo --></th>
                    <th class="column-header-tooltip" data-tooltip="Model">Model</th>
@@ -1481,7 +1455,7 @@ def write_leaderboard_js_file_full(
                }
            });
 
-           if (isTournament && teamColIndex >= 0) {
+           if (teamColIndex >= 0) {
              $('#show-anonymous').on('change', function() { table.draw(); });
              // Apply the filter once on load so anonymous rows start hidden
              table.draw();
@@ -1510,7 +1484,6 @@ def write_leaderboard_js_file_full(
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
-        is_tournament=leaderboard_type == LeaderboardType.TOURNAMENT,
         leaderboard_type=leaderboard_type.value,
     )
 
@@ -1535,7 +1508,6 @@ def write_preliminary_leaderboard_js_file_full(
         window.initLeaderboard_preliminary = function()
         {
             const data = {{ data }};
-            const isTournament = {{ is_tournament | lower }};
             const cols = ["Rank", "Team",
                           "Model Organization", "Model Organization Logo", "Model",
                           "Dataset", "N dataset", "Dataset 95% CI",
@@ -1646,7 +1618,7 @@ def write_preliminary_leaderboard_js_file_full(
             });
 
             // Register anonymous-team filter before DataTable init so it applies on first draw
-            if (isTournament && teamColIndex >= 0) {
+            if (teamColIndex >= 0) {
               $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, rowData) {
                 if (settings.nTable.id !== 'lb-preliminary') return true;
                 const showAnon = document.getElementById('show-anonymous-preliminary')?.checked;
@@ -1661,19 +1633,17 @@ def write_preliminary_leaderboard_js_file_full(
             }
 
             $('#leaderboard-table-full').html(`
-               ${isTournament ? `<div id="anon-toggle-preliminary" style="margin-bottom:8px; display:flex;
+               <div id="anon-toggle-preliminary" style="margin-bottom:8px; display:flex;
                                       align-items:center; gap:6px;">
                    <input type="checkbox" id="show-anonymous-preliminary" aria-label="Show anonymous teams">
                    <label for="show-anonymous-preliminary"
                      style="margin:0; cursor:pointer;">Show anonymous teams</label>
-                 </div>` : ''}
+                 </div>
                <table id="lb-preliminary" class="display compact hover" style="width:100%">
                <thead>
                  <tr>
                    <th>Rank</th>
-                   {% if is_tournament %}
                    <th class="column-header-tooltip" data-tooltip="Team">Team</th>
-                   {% endif %}
                    <th class="column-header-tooltip" data-tooltip="Org">Org</th>
                    <th><!-- Model Organization Logo --></th>
                    <th class="column-header-tooltip" data-tooltip="Model">Model</th>
@@ -1713,7 +1683,7 @@ def write_preliminary_leaderboard_js_file_full(
                }
            });
 
-           if (isTournament && teamColIndex >= 0) {
+           if (teamColIndex >= 0) {
              $('#show-anonymous-preliminary').on('change', function() { table.draw(); });
              // Apply the filter once on load so anonymous rows start hidden
              table.draw();
@@ -1738,7 +1708,6 @@ def write_preliminary_leaderboard_js_file_full(
         last_updated_date=LAST_UPDATED_DATE,
         model_highlight_rows=HUMAN_MODELS_TO_HIGHLIGHT,
         col_desc=TOOLTIP_COLUMN_DESCRIPTIONS,
-        is_tournament=True,
     )
 
     return {
@@ -1756,7 +1725,7 @@ def write_leaderboard_js_file_compact(
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
         leaderboard_type (LeaderboardType): The type of leaderboard to generate
-                                            (e.g., baseline or tournament).
+                                            (tournament).
 
     Returns:
         None.
@@ -1885,7 +1854,7 @@ def write_leaderboard_js_files(
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
         leaderboard_type (LeaderboardType): The type of leaderboard to generate
-                                            (e.g., baseline or tournament).
+                                            (tournament).
 
     Returns:
         None.
@@ -1920,7 +1889,7 @@ def write_sota_graph_csv(
     Args:
         df (pd.DataFrame): DataFrame containing the leaderboard.
         leaderboard_type (LeaderboardType): The type of leaderboard to generate
-             (e.g., baseline or tournament). Only the baseline is used for the graph.
+             (tournament).
 
     Returns:
         None.
@@ -2308,21 +2277,6 @@ def brier_score(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def filter_to_baseline_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
-    """Filter to models used for the baseline leaderboard.
-
-    Keeps rows preclassified as baseline models.
-
-    Args:
-        df (pd.DataFrame): Combined forecast set.
-
-    Returns:
-        pd.DataFrame: Filtered dataframe with baseline leaderboard models.
-    """
-    df = df.copy()
-    return df[df["baseline_model"]].reset_index(drop=True)
-
-
 def filter_to_tournament_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
     """Filter to models used for the tournament leaderboard.
 
@@ -2341,7 +2295,6 @@ def filter_to_tournament_leaderboard_models(df: pd.DataFrame) -> pd.DataFrame:
 def two_way_fixed_effects(
     df: pd.DataFrame,
     question_type: str,
-    market_question_adjustment: MarketQuestionAdjustment,
 ) -> pd.DataFrame:
     """Generate the difficulty adjusted Brier score.
 
@@ -2349,16 +2302,14 @@ def two_way_fixed_effects(
 
       brier{i, j} = a_i + b_j + u_{i,j}
 
-    where i = forecaster, and j = question. Question difficulty is estimated with b_j. In
-    pyfixest, question_pk should be provided as the first FE variable, to ensure we have an
-    estimate for each question_pk (otherwise one question may be dropped to avoid perfect
-    multicolinearity).
+    where i = forecaster, and j = question. Question difficulty is estimated with b_j. For market
+    questions, the question effect is the Imputed Forecaster's Brier score. In pyfixest,
+    question_pk should be provided as the first FE variable, to ensure we have an estimate for
+    each question_pk (otherwise one question may be dropped to avoid perfect multicolinearity).
 
     Args:
         df (pd.DataFrame): Combined forecast set.
         question_type (str): One of "dataset" or "market".
-        market_question_adjustment (MarketQuestionAdjustment): How to estimate market question
-            effects.
 
     Returns:
         pd.DataFrame: A new DataFrame with an added 'two_way_fixed_effects' column.
@@ -2367,22 +2318,14 @@ def two_way_fixed_effects(
     df_fe = df.copy()
     orig_cols = df.columns.tolist()
 
-    use_two_way_fixed_effects = question_type == "dataset" or (
-        question_type == "market"
-        and market_question_adjustment == MarketQuestionAdjustment.TWO_WAY_FIXED_EFFECTS
-    )
-
-    if use_two_way_fixed_effects:
+    if question_type == "dataset":
         # Drop some ForecastBench dummy models
         forecastbench_models_to_drop = [
             "Always 0",
             "Always 1",
             "Always 0.5",
             "Random Uniform",
-            # Drop Imputed Forecaster so as not to:
-            # * double count the crowd forecast for market questions (the Naive Forecaster uses the
-            #   value at t-1).
-            # * consider its 0.5 forecast for dataset questions
+            # Drop Imputed Forecaster so as not to consider its 0.5 forecast for dataset questions
             "Imputed Forecaster",
             *ENSEMBLE_COMPARISON_MODELS,
         ]
@@ -2397,10 +2340,7 @@ def two_way_fixed_effects(
 
         mod = pf.feols("brier_score ~ 1 | question_pk + model_pk", data=df_fe)
         dict_question_fe = mod.fixef()["C(question_pk)"]
-    elif (
-        question_type == "market"
-        and market_question_adjustment == MarketQuestionAdjustment.MARKET_BRIER
-    ):
+    elif question_type == "market":
         # Estimated question fixed effects are equivalent to the market Brier
         mask = (
             (df_fe["organization"] == constants.BENCHMARK_NAME)
@@ -2479,15 +2419,12 @@ def brier_skill_score(df: pd.DataFrame) -> pd.DataFrame:
 def score_models(
     df: pd.DataFrame,
     scoring_funcs: List[Callable[[pd.DataFrame], pd.DataFrame]],
-    market_question_adjustment: MarketQuestionAdjustment,
 ) -> pd.DataFrame:
     """Score models using the scoring functions in `scoring_funcs`.
 
     Args:
         df (pd.DataFrame): Combined forecast set.
         scoring_funcs (List[Callable[[pd.DataFrame], pd.DataFrame]]): List of scoring functions.
-        market_question_adjustment (MarketQuestionAdjustment): How to estimate market question
-            effects for the two-way fixed effects scoring function.
 
     Returns:
         Tuple[pd.DataFrame, Dict[str, pd.Series]]:
@@ -2545,11 +2482,7 @@ def score_models(
         for func in scoring_funcs:
             name = func.__name__
             if func is two_way_fixed_effects:
-                df_qt = func(
-                    df_qt,
-                    question_type,
-                    market_question_adjustment=market_question_adjustment,
-                ).rename(columns={name: f"{name}_{question_type}"})
+                df_qt = func(df_qt, question_type).rename(columns={name: f"{name}_{question_type}"})
             else:
                 df_qt = func(df_qt).rename(columns={name: f"{name}_{question_type}"})
 
@@ -2649,7 +2582,6 @@ def _question_level_bootstrap(
 def generate_simulated_leaderboards(
     df: pd.DataFrame,
     primary_scoring_func: Callable[[pd.DataFrame], pd.DataFrame],
-    market_question_adjustment: MarketQuestionAdjustment,
     N: int = N_REPLICATES,
 ) -> pd.DataFrame:
     """Generate simulated leaderboards by bootstrap sampling.
@@ -2658,8 +2590,6 @@ def generate_simulated_leaderboards(
         df (pd.DataFrame): Combined forecast set to sample from.
         primary_scoring_func (Callable[[pd.DataFrame], pd.DataFrame]): Function to compute the
                      primary overall score.
-        market_question_adjustment (MarketQuestionAdjustment): How to estimate market question
-            effects.
         N (int): Number of bootstrap replicates to generate.
 
     Returns:
@@ -2688,7 +2618,6 @@ def generate_simulated_leaderboards(
             df_simulated_leaderboard, _ = score_models(
                 df=df_bs,
                 scoring_funcs=[primary_scoring_func],
-                market_question_adjustment=market_question_adjustment,
             )
         except Exception as e:
             traceback.print_exc()
@@ -3355,14 +3284,9 @@ def make_leaderboard(
         add_model_age_at_due_date=True,
         add_model_release_date=False,
     )
-    if leaderboard_type == LeaderboardType.BASELINE:
-        df = filter_to_baseline_leaderboard_models(df=df)
-        market_question_adjustment = MarketQuestionAdjustment.TWO_WAY_FIXED_EFFECTS
-    elif leaderboard_type == LeaderboardType.TOURNAMENT:
-        df = filter_to_tournament_leaderboard_models(df=df)
-        market_question_adjustment = MarketQuestionAdjustment.MARKET_BRIER
-    else:
+    if leaderboard_type != LeaderboardType.TOURNAMENT:
         raise ValueError(f"Unsupported leaderboard type for full leaderboard: {leaderboard_type}")
+    df = filter_to_tournament_leaderboard_models(df=df)
 
     # The scoring functions to consider
     primary_scoring_func = two_way_fixed_effects
@@ -3376,7 +3300,6 @@ def make_leaderboard(
     df_leaderboard, question_fixed_effects = score_models(
         df=df,
         scoring_funcs=scoring_funcs,
-        market_question_adjustment=market_question_adjustment,
     )
 
     # Get simulated scores
@@ -3384,7 +3307,6 @@ def make_leaderboard(
         generate_simulated_leaderboards(
             df=df,
             primary_scoring_func=primary_scoring_func,
-            market_question_adjustment=market_question_adjustment,
             N=N_REPLICATES,
         )
     )
@@ -3489,16 +3411,12 @@ def make_preliminary_leaderboard(
     df_leaderboard, _ = score_models(
         df=df,
         scoring_funcs=scoring_funcs,
-        market_question_adjustment=MarketQuestionAdjustment.MARKET_BRIER,
     )
 
     # Get simulated scores (only dataset scores are used)
-    # Market scores are discarded here, but the bootstrap still scores them; use market Brier
-    # because it is faster than estimating market 2FE.
     df_simulated_scores_dataset, _, _ = generate_simulated_leaderboards(
         df=df,
         primary_scoring_func=primary_scoring_func,
-        market_question_adjustment=MarketQuestionAdjustment.MARKET_BRIER,
         N=N_REPLICATES,
     )
 
@@ -3578,18 +3496,17 @@ def download_and_compile_processed_forecast_files(
         if data is None:
             continue
 
-        organization = data.get("organization")
-        model = data.get("model")
-        model_organization = data.get("model_organization")
-        org_and_model = llm_identities.normalize_llm_identity(
-            {
-                "organization": organization,
-                "model": model,
-                "model_organization": model_organization,
-                "model_run_key": data.get("model_run_key"),
-                "forecast_variant_key": data.get("forecast_variant_key"),
-            }
-        )
+        identity = {
+            "organization": data.get("organization"),
+            "model": data.get("model"),
+            "model_organization": data.get("model_organization"),
+            "model_run_key": data.get("model_run_key"),
+            "forecast_variant_key": data.get("forecast_variant_key"),
+        }
+        # Processed files of retired no-context variants stay in the bucket; resolve skips them.
+        if llm_identities.is_forecastbench_llm_without_prompt_context(identity):
+            continue
+        org_and_model = llm_identities.normalize_llm_identity(identity)
         leaderboard_eligible = data.get("leaderboard_eligible")
         forecast_due_date = data.get("forecast_due_date")
         df = data.get("df")
@@ -3607,18 +3524,18 @@ def download_and_compile_processed_forecast_files(
 
 @decorator.log_runtime
 def driver(leaderboard_type: LeaderboardType) -> None:
-    """Create a new baseline or tournament leaderboard.
+    """Create a new tournament leaderboard.
 
     Args:
-        leaderboard_type (LeaderboardType): Baseline or tournament leaderboard to create.
+        leaderboard_type (LeaderboardType): Leaderboard to create. Only TOURNAMENT is supported.
 
     Returns:
         None: Exits the process on completion.
     """
     min_days = 50
     min_num_market_questions = 50
-    if leaderboard_type not in [LeaderboardType.BASELINE, LeaderboardType.TOURNAMENT]:
-        raise ValueError("driver only supports baseline and tournament leaderboards.")
+    if leaderboard_type != LeaderboardType.TOURNAMENT:
+        raise ValueError("driver only supports the tournament leaderboard.")
 
     logger.info(colored(f"Making {leaderboard_type.value} leaderboard.", "red"))
     leaderboard_entries, valid_dates = download_and_compile_processed_forecast_files(
@@ -3655,11 +3572,9 @@ def driver_preliminary() -> None:
 
 if __name__ == "__main__":
     leaderboard_type = os.environ.get("LEADERBOARD_TYPE")
-    if leaderboard_type == "baseline":
-        driver(LeaderboardType.BASELINE)
-    elif leaderboard_type == "tournament":
+    if leaderboard_type == "tournament":
         driver(LeaderboardType.TOURNAMENT)
     elif leaderboard_type == "preliminary":
         driver_preliminary()
     else:
-        raise ValueError("LEADERBOARD_TYPE must be 'baseline', 'tournament', or 'preliminary'.")
+        raise ValueError("LEADERBOARD_TYPE must be 'tournament' or 'preliminary'.")

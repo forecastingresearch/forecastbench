@@ -74,13 +74,6 @@ after_footer_scripts:
         <div class="control-label">Options</div>
         <div class="toggle-section">
           <label class="toggle-switch">
-            <input type="checkbox" id="includeFreeze" checked>
-            <span class="toggle-slider"></span>
-          </label>
-          <label for="includeFreeze" class="toggle-label">Tournament models</label>
-        </div>
-        <div class="toggle-section">
-          <label class="toggle-switch">
             <input type="checkbox" id="showLegend" checked>
             <span class="toggle-slider"></span>
           </label>

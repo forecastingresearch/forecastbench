@@ -9,7 +9,6 @@ import pandas as pd
 import pytest
 
 from leaderboard.main import (
-    MarketQuestionAdjustment,
     brier_skill_score,
     combine_forecasting_rounds,
     generate_simulated_leaderboards,
@@ -21,7 +20,6 @@ from tests._golden import check_golden
 from tests.factories import make_leaderboard_entries
 
 _SCORERS = [two_way_fixed_effects, peer_score, brier_skill_score]
-_ADJ = MarketQuestionAdjustment.MARKET_BRIER
 _GOLDEN_COLS = [
     "model_pk",
     "two_way_fixed_effects_dataset",
@@ -40,7 +38,7 @@ _GOLDEN_COLS = [
 def scored():
     # Module-scoped: score_models (the pyfixest 2FE fit) is the expensive step; the tests only read.
     combined = combine_forecasting_rounds([make_leaderboard_entries()])
-    return score_models(combined, _SCORERS, _ADJ)
+    return score_models(combined, _SCORERS)
 
 
 def test_score_models_runs_2fe_without_rank_deficiency(scored):
@@ -79,8 +77,8 @@ def test_simulated_leaderboards_are_deterministic_with_seed(monkeypatch):
     monkeypatch.setenv("NUM_CPUS", "1")  # joblib runs sequentially in-process
     monkeypatch.setenv("RANDOM_SEED", "0")  # env.RANDOM_SEED seeds every bootstrap replicate
     combined = combine_forecasting_rounds([make_leaderboard_entries()])
-    a = generate_simulated_leaderboards(combined, two_way_fixed_effects, _ADJ, N=2)
-    b = generate_simulated_leaderboards(combined, two_way_fixed_effects, _ADJ, N=2)
+    a = generate_simulated_leaderboards(combined, two_way_fixed_effects, N=2)
+    b = generate_simulated_leaderboards(combined, two_way_fixed_effects, N=2)
     for left, right in zip(a, b):
         pd.testing.assert_frame_equal(left, right)
 
@@ -95,5 +93,5 @@ def test_bootstrap_overall_scores_golden(monkeypatch):
     monkeypatch.setenv("NUM_CPUS", "1")
     monkeypatch.setenv("RANDOM_SEED", "0")
     combined = combine_forecasting_rounds([make_leaderboard_entries()])
-    _, _, overall = generate_simulated_leaderboards(combined, two_way_fixed_effects, _ADJ, N=2)
+    _, _, overall = generate_simulated_leaderboards(combined, two_way_fixed_effects, N=2)
     check_golden("leaderboard_2fe_bootstrap", overall.reset_index(), key="model_pk")

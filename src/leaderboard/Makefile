@@ -2,13 +2,12 @@ all : deploy
 
 deploy :
 	$(MAKE) clean
-	$(MAKE) -j3 deploy-tournament deploy-baseline deploy-preliminary
+	$(MAKE) -j2 deploy-tournament deploy-preliminary
 	$(MAKE) clean
 
-.PHONY : all clean deploy deploy-tournament deploy-baseline deploy-preliminary
+.PHONY : all clean deploy deploy-tournament deploy-preliminary
 
 TOURNAMENT_UPLOAD_DIR = upload-leaderboard-tournament
-BASELINE_UPLOAD_DIR = upload-leaderboard-baseline
 PRELIMINARY_UPLOAD_DIR = upload-leaderboard-preliminary
 
 include $(ROOT_DIR)deploy_config.mk
@@ -53,28 +52,6 @@ deploy-tournament : $(LEADERBOARD_DEPENDENCIES)
 		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_TYPE=tournament \
 		--source $(TOURNAMENT_UPLOAD_DIR)
 
-deploy-baseline : $(LEADERBOARD_DEPENDENCIES)
-	$(call PREPARE_UPLOAD_DIR,$(BASELINE_UPLOAD_DIR))
-	gcloud run jobs deploy \
-		func-leaderboard-baseline \
-		--project $(CLOUD_PROJECT) \
-		--region $(CLOUD_DEPLOY_REGION) \
-		--tasks 1 \
-		--parallelism 1 \
-		--task-timeout 6h \
-		--memory 32Gi \
-		--cpu $(NUM_CPUS) \
-		--max-retries 0 \
-		--add-volume name=$(PROCESSED_FORECAST_SETS_BUCKET),type=cloud-storage,bucket=$(PROCESSED_FORECAST_SETS_BUCKET),readonly=true \
-		--add-volume-mount volume=$(PROCESSED_FORECAST_SETS_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(PROCESSED_FORECAST_SETS_BUCKET) \
-		--add-volume name=$(WORKSPACE_BUCKET),type=cloud-storage,bucket=$(WORKSPACE_BUCKET),readonly=false \
-		--add-volume-mount volume=$(WORKSPACE_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(WORKSPACE_BUCKET) \
-		--add-volume name=$(PUBLIC_RELEASE_BUCKET),type=cloud-storage,bucket=$(PUBLIC_RELEASE_BUCKET),readonly=false \
-		--add-volume-mount volume=$(PUBLIC_RELEASE_BUCKET),mount-path=$(BUCKET_MOUNT_POINT)/$(PUBLIC_RELEASE_BUCKET) \
-		--service-account $(WORKFLOW_SERVICE_ACCOUNT) \
-		--set-env-vars $(DEFAULT_CLOUD_FUNCTION_ENV_VARS),NUM_CPUS=$(NUM_CPUS),LEADERBOARD_TYPE=baseline \
-		--source $(BASELINE_UPLOAD_DIR)
-
 deploy-preliminary : $(LEADERBOARD_DEPENDENCIES)
 	$(call PREPARE_UPLOAD_DIR,$(PRELIMINARY_UPLOAD_DIR))
 	gcloud run jobs deploy \
@@ -98,4 +75,4 @@ deploy-preliminary : $(LEADERBOARD_DEPENDENCIES)
 		--source $(PRELIMINARY_UPLOAD_DIR)
 
 clean :
-	rm -rf $(TOURNAMENT_UPLOAD_DIR) $(BASELINE_UPLOAD_DIR) $(PRELIMINARY_UPLOAD_DIR) .gcloudignore Dockerfile
+	rm -rf $(TOURNAMENT_UPLOAD_DIR) $(PRELIMINARY_UPLOAD_DIR) .gcloudignore Dockerfile

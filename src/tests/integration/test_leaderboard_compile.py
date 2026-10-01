@@ -130,6 +130,34 @@ def test_dataset_threshold_is_enforced_independently_of_the_market_threshold(
     assert entries == []
 
 
+def test_forecastbench_llm_files_without_prompt_context_are_skipped(local_bucket, freeze_today):
+    # Processed files from the retired baseline leaderboard stay in the bucket; compiling one would
+    # make `get_df_info` reject it as an unclassified ForecastBench model and stop the leaderboard.
+    freeze_today(date(2025, 6, 1))
+    _seed_naive(local_bucket, _KEEP, _resolved_mix())
+    for model in ["Claude-2.1 (zero shot)", "Claude-2.1 (zero shot with freeze values)"]:
+        payload = make_processed_forecast_set(
+            _resolved_mix(),
+            organization="ForecastBench",
+            model=model,
+            model_organization="Anthropic",
+            forecast_due_date=_KEEP,
+            leaderboard_eligible=True,
+        )
+        fname = f"{_KEEP}.Anthropic.{model.lower().replace(' ', '-')}.json"
+        local_bucket.seed_processed_forecast_set(_KEEP, fname, payload)
+
+    with patch.object(lb, "MIN_NUM_DATASET_QUESTIONS", 2):
+        entries, _ = lb.download_and_compile_processed_forecast_files(
+            bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
+            min_days=50,
+            min_num_market_questions=1,
+        )
+
+    models = {e["model"].iloc[0] for e in entries if e["model_organization"].iloc[0] == "Anthropic"}
+    assert models == {"claude-2.1"}
+
+
 def test_market_threshold_is_enforced_independently_of_the_dataset_threshold(
     local_bucket, freeze_today
 ):

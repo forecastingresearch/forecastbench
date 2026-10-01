@@ -41,20 +41,20 @@ def _display_df():
 
 
 def test_full_js_filename_and_embeds_rows():
-    out = write_leaderboard_js_file_full(_display_df(), LeaderboardType.BASELINE)
-    assert out["filename"] == "leaderboard_baseline_full.js"
+    out = write_leaderboard_js_file_full(_display_df(), LeaderboardType.TOURNAMENT)
+    assert out["filename"] == "leaderboard_tournament_full.js"
     assert "GoodModel" in out["js"]
     # The full page keeps anonymous submissions (behind its toggle); only the compact view drops them.
     assert "HiddenModel" in out["js"]
 
 
 def test_full_js_filename_is_per_leaderboard_type():
-    out = write_leaderboard_js_file_full(_display_df(), LeaderboardType.TOURNAMENT)
-    assert out["filename"] == "leaderboard_tournament_full.js"
+    out = write_leaderboard_js_file_full(_display_df(), LeaderboardType.PRELIMINARY)
+    assert out["filename"] == "leaderboard_preliminary_full.js"
 
 
 def test_compact_js_drops_anonymous_submissions():
-    out = write_leaderboard_js_file_compact(_display_df(), LeaderboardType.BASELINE)
-    assert out["filename"] == "leaderboard_baseline_compact.js"
+    out = write_leaderboard_js_file_compact(_display_df(), LeaderboardType.TOURNAMENT)
+    assert out["filename"] == "leaderboard_tournament_compact.js"
     assert "GoodModel" in out["js"]
     assert "HiddenModel" not in out["js"]

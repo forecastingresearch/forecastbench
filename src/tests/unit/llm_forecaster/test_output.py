@@ -23,8 +23,8 @@ def _run() -> FakeRun:
 
 
 def test_display_model_name_uses_variant_display_suffix():
-    assert output.display_model_name(_run(), ZERO_SHOT) == "test-model"
-    assert output.display_model_name(_run(), ZERO_SHOT_WITH_FREEZE_VALUES) == "test-model†"
+    assert output.display_model_name(_run(), ZERO_SHOT) == "test-model-zero-shot"
+    assert output.display_model_name(_run(), ZERO_SHOT_WITH_FREEZE_VALUES) == "test-model"
 
 
 def test_destination_blob_name_uses_marker_free_file_name():
@@ -145,7 +145,7 @@ def test_forecast_file_data_includes_stable_model_run_identity():
 
     assert data == {
         "organization": "ForecastBench",
-        "model": "test-model",
+        "model": "test-model-zero-shot",
         "model_organization": "OpenAI",
         "model_run_key": "test-model-run-variant-01",
         "model_run_slug": "test-model",

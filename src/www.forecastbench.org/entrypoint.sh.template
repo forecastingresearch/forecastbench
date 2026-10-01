@@ -19,7 +19,6 @@ PUBLIC_RELEASE_MNT="$MOUNT_POINT/PUBLIC_RELEASE_BUCKET"
 SOTA_LLM_SUPER_DIR="assets/data/"
 mkdir -p "$ASSETS_MNT/$SOTA_LLM_SUPER_DIR"
 SOTA_LLM_SUPER_SRC="$PUBLIC_RELEASE_MNT/simulated_llm_parity"
-cp -a "$SOTA_LLM_SUPER_SRC/parity_dates.baseline_leaderboard.json" "$ASSETS_MNT/$SOTA_LLM_SUPER_DIR/"
 cp -a "$SOTA_LLM_SUPER_SRC/parity_dates.tournament_leaderboard.json" "$ASSETS_MNT/$SOTA_LLM_SUPER_DIR/"
 
 # leaderboard .js files
@@ -38,7 +37,6 @@ fi
 # leaderboard sota_graph_tournament.csv
 DATA_DIR="assets/data"
 mkdir -p "$ASSETS_MNT/$DATA_DIR"
-cp -a "$PUBLIC_RELEASE_MNT/leaderboards/csv/sota_graph_baseline.csv" "$ASSETS_MNT/$DATA_DIR/"
 cp -a "$PUBLIC_RELEASE_MNT/leaderboards/csv/sota_graph_tournament.csv" "$ASSETS_MNT/$DATA_DIR/"
 
 # archived forecast sets

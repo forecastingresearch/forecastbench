@@ -14,7 +14,6 @@ import pytest
 from _fb_types import SourceQuestionBank
 from leaderboard.main import (
     BASELINE_ORG_NAIVE_MODEL,
-    MarketQuestionAdjustment,
     brier_skill_score,
     combine_forecasting_rounds,
     get_df_info,
@@ -209,9 +208,7 @@ def test_full_pipeline(nullified, local_bucket, freeze_today):
     assert "polymarket1" not in set(combined["id"])
     assert set(combined["id"]) == {"metaculus1", "fred1"}
 
-    lb, _ = score_models(
-        combined, [peer_score, brier_skill_score], MarketQuestionAdjustment.MARKET_BRIER
-    )
+    lb, _ = score_models(combined, [peer_score, brier_skill_score])
     # 1 resolved market + 2 dataset (question, date) rows = 3 scored per model.
     assert (lb["n_overall"] == 3).all()
     ranked = lb.sort_values("peer_score_overall", ascending=False)["model"].tolist()
@@ -259,7 +256,6 @@ def test_full_pipeline_is_deterministic(local_bucket, freeze_today):
         lb, _ = score_models(
             combine_forecasting_rounds(entries),
             [peer_score, brier_skill_score],
-            MarketQuestionAdjustment.MARKET_BRIER,
         )
         return lb.set_index("model_pk").sort_index()
 

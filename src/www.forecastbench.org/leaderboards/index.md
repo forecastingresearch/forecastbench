@@ -17,7 +17,6 @@ after_footer_scripts:
   - https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js
   - https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.6.3/dist/floating-ui.dom.min.js
   - /assets/js/leaderboard_tournament_full.js
-  - /assets/js/leaderboard_baseline_full.js
   - /assets/js/leaderboard_preliminary_full.js
   - /assets/js/tooltip-init.js
 ---
@@ -32,18 +31,12 @@ after_footer_scripts:
         <div class="lb-tab-group">
           <button class="lb-tab active" data-tab="tournament"><i class="fa-solid fa-trophy"></i> Tournament</button>
           <button class="lb-tab" data-tab="preliminary"><i class="fa-solid fa-seedling"></i> Preliminary</button>
-          <button class="lb-tab" data-tab="baseline"><i class="fa-solid fa-chart-simple"></i> Baseline</button>
         </div>
       </div>
 
       <!-- Description sections (one per tab) -->
       <div class="lb-desc" id="desc-tournament">
          <p>The tournament leaderboard captures the frontier of LLM forecasting ability and is <a href="https://github.com/forecastingresearch/forecastbench/wiki/How-to-submit-to-ForecastBench" class="no-wrap">open to external submissions<i class="fa-solid fa-arrow-up-right-from-square"></i></a>. Teams may enhance models however they choose&mdash;with tools, added context, fine-tuning, ensembling, or other methods. Models submitted by the ForecastBench team receive the crowd forecast as context for market questions.</p>
-         {% include leaderboard-explainer.html %}
-      </div>
-
-      <div class="lb-desc" id="desc-baseline" style="display:none;">
-         <p>The baseline leaderboard is run solely by the ForecastBench team. Models are evaluated out of the box, without extra tools, context, or scaffolding. It provides a standardized benchmark for tracking progress in raw LLM forecasting accuracy.</p>
          {% include leaderboard-explainer.html %}
       </div>
 
@@ -67,9 +60,6 @@ after_footer_scripts:
       <div class="lb-notes" id="notes-tournament">
         {% include leaderboard-tournament-notes.html %}
       </div>
-      <div class="lb-notes" id="notes-baseline" style="display:none;">
-        {% include leaderboard-baseline-notes.html %}
-      </div>
       <div class="lb-notes" id="notes-preliminary" style="display:none;">
         {% include leaderboard-shared-notes.html %}
       </div>
@@ -91,7 +81,6 @@ after_footer_scripts:
 (function() {
   var initFns = {
     tournament:   'initLeaderboard_tournament',
-    baseline:     'initLeaderboard_baseline',
     preliminary:  'initLeaderboard_preliminary'
   };
   var currentTab = null;

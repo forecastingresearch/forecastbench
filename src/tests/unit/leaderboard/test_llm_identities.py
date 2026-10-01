@@ -48,7 +48,7 @@ def test_current_canonical_forecastbench_llm_identity_normalizes_with_keys():
 
     assert normalized == {
         **original,
-        "model": "claude-opus-4-7-1024",
+        "model": "claude-opus-4-7-1024-zero-shot",
         "uses_freeze_values": False,
         "uses_tools": False,
     }
@@ -256,7 +256,7 @@ def test_forecastbench_llm_identity_stores_model_run_object():
     assert identity.forecast_variant is forecast_variant
     assert identity.model_run_key == "claude-opus-4-7-run-variant-01"
     assert identity.model_run_slug == "claude-opus-4-7-1024"
-    assert identity.display_name == "claude-opus-4-7-1024"
+    assert identity.display_name == "claude-opus-4-7-1024-zero-shot"
     assert identity.as_normalized_fields()["model_run_key"] == identity.model_run_key
     assert identity.as_normalized_fields()["model_run_slug"] == identity.model_run_slug
 
@@ -283,10 +283,10 @@ def test_forecastbench_llm_identity_exports_variant_semantics():
     assert identity.forecast_variant_key == "zero-shot-with-freeze-values"
     assert identity.model_run_key == "claude-opus-4-7-run-variant-01"
     assert identity.model_key == "claude-opus-4-7"
-    assert identity.display_name == "claude-opus-4-7-1024†"
+    assert identity.display_name == "claude-opus-4-7-1024"
     assert identity.uses_freeze_values is True
     assert identity.as_normalized_fields() == {
-        "model": "claude-opus-4-7-1024†",
+        "model": "claude-opus-4-7-1024",
         "model_organization": "Anthropic",
         "model_key": "claude-opus-4-7",
         "model_run_key": "claude-opus-4-7-run-variant-01",
@@ -310,7 +310,7 @@ def test_legacy_zero_shot_with_freeze_values_identity_normalizes_with_keys():
 
     assert normalized == {
         "organization": "ForecastBench",
-        "model": "claude-opus-4-7-1024†",
+        "model": "claude-opus-4-7-1024",
         "model_organization": "Anthropic",
         "model_key": "claude-opus-4-7",
         "model_run_key": "claude-opus-4-7-run-variant-01",
@@ -342,8 +342,8 @@ def test_legacy_grok_4_3_identity_normalizes_with_keys(
     }
 
     expected_model = "grok-4.3"
-    if expected_forecast_variant_key == "zero-shot-with-freeze-values":
-        expected_model = "grok-4.3†"
+    if expected_forecast_variant_key == "zero-shot":
+        expected_model = "grok-4.3-zero-shot"
 
     uses_freeze_values = expected_forecast_variant_key == "zero-shot-with-freeze-values"
     assert normalize_llm_identity(original) == {
@@ -372,7 +372,7 @@ def test_legacy_minimax_m2_7_identity_preserves_original_variant():
 
     assert normalized == {
         "organization": "ForecastBench",
-        "model": "minimax-m2.7",
+        "model": "minimax-m2.7-zero-shot",
         "model_organization": "MiniMax",
         "model_key": "minimax-m2.7",
         "model_run_key": "minimax-m2.7-run-variant-01",
@@ -415,7 +415,7 @@ def test_new_file_identity_uses_explicit_keys_for_display_and_semantics():
 
     assert normalized == {
         "organization": "ForecastBench",
-        "model": "claude-opus-4-7-1024†",
+        "model": "claude-opus-4-7-1024",
         "model_organization": "Anthropic",
         "model_key": "claude-opus-4-7",
         "model_run_key": "claude-opus-4-7-run-variant-01",
@@ -426,215 +426,42 @@ def test_new_file_identity_uses_explicit_keys_for_display_and_semantics():
     }
 
 
-def test_leaderboard_filters_use_precomputed_selection_flags():
+def test_tournament_filter_uses_precomputed_selection_flag():
     main = _import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
-                **CANONICAL_FORECASTBENCH_LLM,
+                **CANONICAL_FORECASTBENCH_LLM_WITH_FREEZE_VALUES,
                 "model": "flagged-for-tournament",
-                "baseline_model": False,
                 "tournament_model": True,
             },
             {
-                **CANONICAL_FORECASTBENCH_LLM_WITH_FREEZE_VALUES,
-                "model": "flagged-for-baseline",
-                "baseline_model": True,
+                **CANONICAL_FORECASTBENCH_LLM,
+                "model": "not-flagged",
                 "tournament_model": False,
             },
         ]
     )
 
-    assert main.filter_to_baseline_leaderboard_models(df)["model"].tolist() == [
-        "flagged-for-baseline"
-    ]
     assert main.filter_to_tournament_leaderboard_models(df)["model"].tolist() == [
         "flagged-for-tournament"
     ]
 
 
-def test_baseline_filter_keeps_baseline_llm_variants_and_drops_tournament_variants():
-    main = _import_leaderboard_main()
-    normalize = main.llm_identities.normalize_llm_identity
-    df = pd.DataFrame(
-        [
-            CANONICAL_FORECASTBENCH_LLM,
-            CANONICAL_FORECASTBENCH_LLM_WITH_FREEZE_VALUES,
-            normalize(
-                {
-                    "organization": "ForecastBench",
-                    "model": "Claude-Opus-4-7 (zero shot)",
-                    "model_organization": "Anthropic",
-                }
-            ),
-            normalize(
-                {
-                    "organization": "ForecastBench",
-                    "model": "Claude-Opus-4-7 (scratchpad)",
-                    "model_organization": "Anthropic",
-                }
-            ),
-            normalize(
-                {
-                    "organization": "ForecastBench",
-                    "model": "Claude-Opus-4-7 (scratchpad with freeze values)",
-                    "model_organization": "Anthropic",
-                }
-            ),
-            normalize(
-                {
-                    "organization": "ForecastBench",
-                    "model": "GPT-4o-2024-11-20 (zero shot with web search)",
-                    "model_organization": "OpenAI",
-                }
-            ),
-            {
-                "organization": "ForecastBench",
-                "model": "claude-opus-4-7-1024-zero-shot-external-context",
-                "model_organization": "Anthropic",
-                "model_run_key": "claude-opus-4-7-run-variant-01",
-                "forecast_variant_key": "zero-shot",
-                "uses_freeze_values": False,
-                "uses_tools": True,
-            },
-            normalize(
-                {
-                    "organization": "ForecastBench",
-                    "model": "new-file-display-name",
-                    "model_organization": "OpenAI",
-                    "model_run_key": "gpt-4o-2024-11-20-run-variant-02",
-                    "forecast_variant_key": "zero-shot",
-                }
-            ),
-            {
-                "organization": "External Team",
-                "model": "external-model",
-                "model_organization": "External Lab",
-            },
-        ]
-    )
-    df["baseline_model"] = [
-        True,
-        False,
-        True,
-        True,
-        False,
-        False,
-        False,
-        False,
-        False,
-    ]
-    df["tournament_model"] = [
-        False,
-        True,
-        False,
-        False,
-        True,
-        True,
-        True,
-        True,
-        True,
-    ]
-
-    filtered = main.filter_to_baseline_leaderboard_models(df)
-
-    assert filtered["model"].tolist() == [
-        "claude-opus-4-7-1024",
-        "claude-opus-4-7-1024",
-        "claude-opus-4-7-1024-scratchpad",
-    ]
-
-
-def test_tournament_filter_keeps_tournament_llm_variants_and_drops_baseline_variants():
-    main = _import_leaderboard_main()
-    normalize = main.llm_identities.normalize_llm_identity
-    df = pd.DataFrame(
-        [
-            CANONICAL_FORECASTBENCH_LLM,
-            CANONICAL_FORECASTBENCH_LLM_WITH_FREEZE_VALUES,
-            normalize(
-                {
-                    "organization": "ForecastBench",
-                    "model": "Claude-Opus-4-7 (zero shot)",
-                    "model_organization": "Anthropic",
-                }
-            ),
-            normalize(
-                {
-                    "organization": "ForecastBench",
-                    "model": "GPT-4o-2024-11-20 (zero shot with web search)",
-                    "model_organization": "OpenAI",
-                }
-            ),
-            {
-                "organization": "ForecastBench",
-                "model": "claude-opus-4-7-1024-zero-shot-external-context",
-                "model_organization": "Anthropic",
-                "model_run_key": "claude-opus-4-7-run-variant-01",
-                "forecast_variant_key": "zero-shot",
-                "uses_freeze_values": False,
-                "uses_tools": True,
-            },
-            normalize(
-                {
-                    "organization": "ForecastBench",
-                    "model": "new-file-display-name",
-                    "model_organization": "OpenAI",
-                    "model_run_key": "gpt-4o-2024-11-20-run-variant-02",
-                    "forecast_variant_key": "zero-shot",
-                }
-            ),
-            {
-                "organization": "External Team",
-                "model": "external-model",
-                "model_organization": "External Lab",
-            },
-        ]
-    )
-    df["baseline_model"] = [
-        True,
-        False,
-        True,
-        True,
-        True,
-        False,
-        False,
-    ]
-    df["tournament_model"] = [
-        False,
-        True,
-        False,
-        True,
-        True,
-        True,
-        True,
-    ]
-
-    filtered = main.filter_to_tournament_leaderboard_models(df)
-
-    assert filtered["model"].tolist() == [
-        "claude-opus-4-7-1024-zero-shot-with-freeze-values",
-        "gpt-4o-2024-11-20-web-search",
-        "claude-opus-4-7-1024-zero-shot-external-context",
-        "gpt-4o-2024-11-20-web-search",
-        "external-model",
-    ]
-
-
-def test_leaderboard_filters_require_selection_flag_columns():
+def test_tournament_filter_requires_selection_flag_column():
     main = _import_leaderboard_main()
     df = pd.DataFrame(
         [
             {
                 "organization": "ForecastBench",
-                "model": "Claude-Opus-4-7 (zero shot)",
+                "model": "Claude-Opus-4-7 (zero shot with freeze values)",
                 "model_organization": "Anthropic",
             }
         ]
     )
 
-    with pytest.raises(KeyError, match="baseline_model"):
-        main.filter_to_baseline_leaderboard_models(df)
+    with pytest.raises(KeyError, match="tournament_model"):
+        main.filter_to_tournament_leaderboard_models(df)
 
 
 def test_preliminary_leaderboard_filters_to_tournament_models_before_scoring(monkeypatch):
@@ -644,9 +471,8 @@ def test_preliminary_leaderboard_filters_to_tournament_models_before_scoring(mon
             {
                 "organization": "ForecastBench",
                 "model_organization": "Anthropic",
-                "model": "baseline-llm",
-                "model_pk": "baseline-llm",
-                "baseline_model": True,
+                "model": "without-context-llm",
+                "model_pk": "without-context-llm",
                 "tournament_model": False,
             },
             {
@@ -654,7 +480,6 @@ def test_preliminary_leaderboard_filters_to_tournament_models_before_scoring(mon
                 "model_organization": "Anthropic",
                 "model": "tournament-llm",
                 "model_pk": "tournament-llm",
-                "baseline_model": False,
                 "tournament_model": True,
             },
         ]
@@ -739,7 +564,6 @@ def test_two_way_fixed_effects_excludes_external_submission_flag_from_fit(monkey
     result = main.two_way_fixed_effects(
         df=df,
         question_type="dataset",
-        market_question_adjustment=main.MarketQuestionAdjustment.TWO_WAY_FIXED_EFFECTS,
     )
 
     assert fitted_model_pks == ["included-llm"]
@@ -795,7 +619,6 @@ def test_two_way_fixed_effects_excludes_llm_crowd_comparison_models_from_fit(mon
     result = main.two_way_fixed_effects(
         df=df,
         question_type="dataset",
-        market_question_adjustment=main.MarketQuestionAdjustment.TWO_WAY_FIXED_EFFECTS,
     )
 
     assert fitted_model_pks == ["included-llm"]
@@ -952,13 +775,14 @@ def test_leaderboard_integration_uses_model_run_and_forecast_variant_for_model_p
     )
 
     assert processed is not None
-    assert processed["model"].unique().tolist() == ["claude-opus-4-7-1024†"]
+    assert processed["model"].unique().tolist() == ["claude-opus-4-7-1024"]
     assert processed["model_key"].unique().tolist() == ["claude-opus-4-7"]
     assert processed["model_run_key"].unique().tolist() == ["claude-opus-4-7-run-variant-01"]
     assert processed["model_run_slug"].unique().tolist() == ["claude-opus-4-7-1024"]
     assert processed["forecast_variant_key"].unique().tolist() == ["zero-shot-with-freeze-values"]
     assert processed["uses_freeze_values"].unique().tolist() == [True]
     assert processed["uses_tools"].unique().tolist() == [False]
+    assert processed["tournament_model"].unique().tolist() == [True]
     assert processed["model_pk"].unique().tolist() == [
         "ForecastBench_Anthropic_claude-opus-4-7-run-variant-01_zero-shot-with-freeze-values"
     ]
@@ -999,6 +823,36 @@ def test_set_model_pk_uses_forecastbench_llm_flag():
     assert processed["model_pk"].tolist() == ["ForecastBench_Anthropic_reference-model"]
 
 
+def test_get_df_info_puts_external_submissions_on_the_tournament():
+    leaderboard_main = _import_leaderboard_main()
+    df = pd.DataFrame(
+        [
+            {
+                "id": "fred-question",
+                "source": "fred",
+                "resolved": True,
+                "resolution_date": "2026-05-10",
+                "imputed": False,
+            }
+        ]
+    )
+
+    processed = leaderboard_main.get_df_info(
+        df=df,
+        org_and_model={
+            "organization": "External Team",
+            "model": "external-model",
+            "model_organization": "External Lab",
+        },
+        forecast_due_date="2026-05-07",
+    )
+
+    assert processed is not None
+    assert processed["external_submission"].unique().tolist() == [True]
+    assert processed["forecastbench_llm"].unique().tolist() == [False]
+    assert processed["tournament_model"].unique().tolist() == [True]
+
+
 def test_get_df_info_handles_forecastbench_comparison_model_without_llm_identity():
     leaderboard_main = _import_leaderboard_main()
     df = pd.DataFrame(
@@ -1026,7 +880,6 @@ def test_get_df_info_handles_forecastbench_comparison_model_without_llm_identity
     assert processed is not None
     assert processed["forecastbench_llm"].unique().tolist() == [False]
     assert processed["forecastbench_comparison_model"].unique().tolist() == [True]
-    assert processed["baseline_model"].unique().tolist() == [True]
     assert processed["tournament_model"].unique().tolist() == [True]
     assert processed["model_pk"].unique().tolist() == ["ForecastBench_ForecastBench_Always 0.5"]
 
@@ -1066,7 +919,6 @@ def test_get_df_info_handles_llm_crowd_comparison_models_without_llm_identity(mo
         assert processed is not None
         assert processed["forecastbench_llm"].unique().tolist() == [False]
         assert processed["forecastbench_comparison_model"].unique().tolist() == [True]
-        assert processed["baseline_model"].unique().tolist() == [True]
         assert processed["tournament_model"].unique().tolist() == [True]
         assert processed["model_pk"].unique().tolist() == [f"ForecastBench_ForecastBench_{model}"]
 
@@ -1102,6 +954,54 @@ def test_get_df_info_raises_and_sends_slack_for_unclassified_forecastbench_model
 
     assert len(messages) == 1
     assert "Unclassified ForecastBench Model" in messages[0]
+
+
+@pytest.mark.parametrize(
+    "model_run_key, model_organization",
+    [
+        ("claude-opus-4-7-run-variant-01", "Anthropic"),
+        ("gpt-5.4-2026-03-05-run-variant-03", "OpenAI"),
+    ],
+)
+def test_get_df_info_raises_for_forecastbench_llm_without_prompt_context(
+    monkeypatch,
+    model_run_key,
+    model_organization,
+):
+    """A without-context file that slips past resolve must fail loudly, tools or not."""
+    leaderboard_main = _import_leaderboard_main()
+    messages = []
+    monkeypatch.setattr(leaderboard_main.slack, "send_message", messages.append, raising=False)
+    org_and_model = leaderboard_main.llm_identities.normalize_llm_identity(
+        {
+            "organization": "ForecastBench",
+            "model": "display-name-in-file",
+            "model_organization": model_organization,
+            "model_run_key": model_run_key,
+            "forecast_variant_key": "zero-shot",
+        }
+    )
+    df = pd.DataFrame(
+        [
+            {
+                "id": "fred-question",
+                "source": "fred",
+                "resolved": True,
+                "resolution_date": "2026-05-10",
+                "imputed": False,
+            }
+        ]
+    )
+
+    with pytest.raises(ValueError, match="not classified"):
+        leaderboard_main.get_df_info(
+            df=df,
+            org_and_model=org_and_model,
+            forecast_due_date="2026-05-07",
+        )
+
+    assert len(messages) == 1
+    assert org_and_model["model"] in messages[0]
 
 
 def test_get_df_info_uses_pre_normalized_llm_identity(monkeypatch):
@@ -1141,7 +1041,7 @@ def test_get_df_info_uses_pre_normalized_llm_identity(monkeypatch):
     )
 
     assert processed is not None
-    assert processed["model"].unique().tolist() == ["claude-opus-4-7-1024†"]
+    assert processed["model"].unique().tolist() == ["claude-opus-4-7-1024"]
     assert processed["model_key"].unique().tolist() == ["claude-opus-4-7"]
     assert processed["model_run_key"].unique().tolist() == ["claude-opus-4-7-run-variant-01"]
     assert processed["forecast_variant_key"].unique().tolist() == ["zero-shot-with-freeze-values"]
@@ -1171,7 +1071,7 @@ def test_legacy_and_new_model_run_identity_share_model_pk():
     current_org_and_model = leaderboard_main.llm_identities.normalize_llm_identity(
         {
             "organization": "ForecastBench",
-            "model": "claude-opus-4-7-1024†",
+            "model": "claude-opus-4-7-1024",
             "model_organization": "Anthropic",
             "model_run_key": "claude-opus-4-7-run-variant-01",
             "forecast_variant_key": "zero-shot-with-freeze-values",

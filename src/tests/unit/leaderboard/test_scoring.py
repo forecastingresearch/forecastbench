@@ -10,7 +10,6 @@ import pandas as pd
 
 from leaderboard.main import (
     BASELINE_ORG_NAIVE_MODEL,
-    MarketQuestionAdjustment,
     brier_skill_score,
     peer_score,
     score_models,
@@ -62,7 +61,7 @@ class TestScoreModels:
 
     def test_one_row_per_model_with_expected_columns(self):
         df = make_scored_frame([("OrgA", "ModelA")])
-        lb, qfe = score_models(df, _SCORERS, MarketQuestionAdjustment.MARKET_BRIER)
+        lb, qfe = score_models(df, _SCORERS)
 
         assert set(lb["model_pk"]) == {
             "ForecastBench_ForecastBench_Naive Forecaster",
@@ -82,9 +81,9 @@ class TestScoreModels:
 
     def test_row_order_invariance(self):
         df = make_scored_frame([("OrgA", "ModelA"), ("OrgB", "ModelB")])
-        lb1, _ = score_models(df, _SCORERS, MarketQuestionAdjustment.MARKET_BRIER)
+        lb1, _ = score_models(df, _SCORERS)
         shuffled = df.sample(frac=1, random_state=0).reset_index(drop=True)
-        lb2, _ = score_models(shuffled, _SCORERS, MarketQuestionAdjustment.MARKET_BRIER)
+        lb2, _ = score_models(shuffled, _SCORERS)
 
         a = lb1.set_index("model_pk").sort_index()
         b = lb2.set_index("model_pk").sort_index()
@@ -94,7 +93,7 @@ class TestScoreModels:
 
     def test_overall_is_mean_of_dataset_and_market(self):
         df = make_scored_frame([("OrgA", "ModelA")])
-        lb, _ = score_models(df, _SCORERS, MarketQuestionAdjustment.MARKET_BRIER)
+        lb, _ = score_models(df, _SCORERS)
         row = lb[lb["model_pk"] == "OrgA_OrgA_ModelA"].iloc[0]
         expected = (row["peer_score_dataset"] + row["peer_score_market"]) / 2
         assert row["peer_score_overall"] == expected

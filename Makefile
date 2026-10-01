@@ -130,7 +130,7 @@ metadata: tag-questions validate-questions
 
 resolve: resolve-forecasts
 
-leaderboards: leaderboard-tournament leaderboard-baseline leaderboard-preliminary
+leaderboards: leaderboard-tournament leaderboard-preliminary
 
 curate-questions: create-question-set publish-question-set
 
@@ -244,9 +244,6 @@ leaderboard-prereqs:
 
 leaderboard-tournament: leaderboard-prereqs
 	$(MAKE) -C src/leaderboard deploy-tournament || echo "* $@" >> $(MAKE_FAILURE_LOG)
-
-leaderboard-baseline: leaderboard-prereqs
-	$(MAKE) -C src/leaderboard deploy-baseline || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 leaderboard-preliminary: leaderboard-prereqs
 	$(MAKE) -C src/leaderboard deploy-preliminary || echo "* $@" >> $(MAKE_FAILURE_LOG)

@@ -8,7 +8,6 @@ from helpers.run_mode import RunMode
 from llm_forecaster.fb_model_runs import FB_MODEL_RUNS, ModelRun
 from llm_forecaster.forecast_variants import (
     FORECAST_VARIANTS,
-    ZERO_SHOT,
     ZERO_SHOT_WITH_FREEZE_VALUES,
     ForecastVariant,
 )
@@ -16,17 +15,16 @@ from llm_forecaster.forecast_variants import (
 
 def display_model_name(model_run: ModelRun, variant: ForecastVariant) -> str:
     """Return the displayed model name for a model run and forecast variant."""
-    if variant == ZERO_SHOT:
-        return model_run.slug
+    # The forecaster only produces the crowd-forecast variant now, and the leaderboard shows it
+    # under the plain slug. Retired variants such as zero-shot only appear in older files, which
+    # the leaderboard skips, so they keep their variant key in the name.
     if variant == ZERO_SHOT_WITH_FREEZE_VALUES:
-        return f"{model_run.slug}†"
+        return model_run.slug
     return f"{model_run.slug}-{variant.key}"
 
 
 def forecast_file_model_name(model_run: ModelRun, variant: ForecastVariant) -> str:
     """Return the model name stored in forecast files and filenames."""
-    if variant == ZERO_SHOT:
-        return model_run.slug
     return f"{model_run.slug}-{variant.key}"
 
 

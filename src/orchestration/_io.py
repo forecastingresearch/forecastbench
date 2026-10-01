@@ -301,7 +301,7 @@ DATASET_PUSH_FOLDERS = (
     ("leaderboards/html", "leaderboards/html", "leaderboard_*.html"),
     ("leaderboards/csv", "leaderboards/csv", "leaderboard_*.csv"),
     # `[!0-9]` skips the dated files that predate the switch to one file per leaderboard
-    # (question_fixed_effects.2026-08-27.baseline_leaderboard.json) if any are left in the bucket.
+    # (question_fixed_effects.2026-08-27.tournament_leaderboard.json) if any are left in the bucket.
     (
         "question-fixed-effects",
         "datasets/question_fixed_effects",

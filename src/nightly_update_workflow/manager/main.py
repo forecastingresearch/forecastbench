@@ -206,7 +206,7 @@ def main():
     timeout_leaderboards = cloud_run.timeout_1h * 6
     operation_leaderboards = call_worker(
         dict_to_use=dict_to_use_leaderboards,
-        task_count=3,
+        task_count=2,
         timeout=timeout_leaderboards,
     )
 

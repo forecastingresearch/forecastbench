@@ -108,7 +108,7 @@ Jekyll::Hooks.register :site, :post_write do |site|
   end
 
   {
-    'baseline' => '/leaderboards/#baseline',
+    'baseline' => '/leaderboards/',
     'tournament' => '/leaderboards/#tournament',
     'preliminary' => '/leaderboards/#preliminary'
   }.each do |page, target|
@@ -117,7 +117,7 @@ Jekyll::Hooks.register :site, :post_write do |site|
     File.write(File.join(page_dir, 'index.html'), redirect_with_hash.call(target))
   end
   total_count += 3
-  puts "Generated redirects for /baseline/, /tournament/, /preliminary/ -> /leaderboards/#..."
+  puts "Generated redirects for /baseline/, /tournament/, /preliminary/ -> /leaderboards/"
 
   puts "Total redirects generated: #{total_count}"
 end

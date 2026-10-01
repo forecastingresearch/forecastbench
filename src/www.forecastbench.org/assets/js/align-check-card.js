@@ -1,4 +1,4 @@
-// Align the check card with the right edge of the baseline leaderboard
+// Align the check card with the right edge of the tournament leaderboard
 function alignCheckCard() {
   const card = document.querySelector('.check-card');
   const leaderboard = document.querySelector('.leaderboard-wrapper-home');

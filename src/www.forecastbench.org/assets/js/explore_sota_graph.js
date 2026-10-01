@@ -1,10 +1,7 @@
 (function() {
-  const CSV_PATH_TOURNAMENT = '/assets/data/sota_graph_tournament.csv';
-  const CSV_PATH_BASELINE = '/assets/data/sota_graph_baseline.csv';
-  const PARITY_DATE_PATHS = [
-    '/assets/data/parity_dates.baseline_leaderboard.json',
-    '/assets/data/parity_dates.tournament_leaderboard.json'
-  ];
+  const CSV_PATH = '/assets/data/sota_graph_tournament.csv';
+  const PARITY_DATE_PATH = '/assets/data/parity_dates.tournament_leaderboard.json';
+  const PARITY_SOURCE = 'tournament';
   const Y_DOMAIN = [40, 85];
   const SHOW_REFS = true;
 
@@ -370,16 +367,13 @@
 
           // Use parity dates from JSON if available
           if (shouldShowIntersection() && parityDates && baselines.superforecaster !== undefined) {
-            const useTournament = shouldIncludeFreeze();
-            const dataSource = useTournament ? 'tournament' : 'baseline';
-
             let parityData = null;
             if (currentType === 'dataset') {
-              parityData = parityDates.dataset[dataSource];
+              parityData = parityDates.dataset[PARITY_SOURCE];
             } else if (currentType === 'market') {
-              parityData = parityDates.market[dataSource];
+              parityData = parityDates.market[PARITY_SOURCE];
             } else {
-              parityData = parityDates.overall[dataSource];
+              parityData = parityDates.overall[PARITY_SOURCE];
             }
 
             if (parityData) {
@@ -477,17 +471,15 @@
     let parityAchieved = false;
     let parityAchievedDate = null;
     if (shouldShowIntersection() && parityDates && baselines.superforecaster !== undefined) {
-      const useTournament = shouldIncludeFreeze();
-      const dataSource = useTournament ? 'tournament' : 'baseline';
       parityAchievedDate = findParityAchievementDate(data, baselines.superforecaster);
       parityAchieved = parityAchievedDate !== null;
 
       if (currentType === 'dataset') {
-        parityData = parityDates.dataset[dataSource];
+        parityData = parityDates.dataset[PARITY_SOURCE];
       } else if (currentType === 'market') {
-        parityData = parityDates.market[dataSource];
+        parityData = parityDates.market[PARITY_SOURCE];
       } else {
-        parityData = parityDates.overall[dataSource];
+        parityData = parityDates.overall[PARITY_SOURCE];
       }
     }
     const showParity = parityData !== null;
@@ -742,11 +734,6 @@
     return radio ? radio.value : 'overall';
   }
 
-  function shouldIncludeFreeze() {
-    const checkbox = document.getElementById('includeFreeze');
-    return checkbox ? checkbox.checked : true;
-  }
-
   function shouldShowLegend() {
     const checkbox = document.getElementById('showLegend');
     return checkbox ? checkbox.checked : true;
@@ -755,22 +742,6 @@
   function shouldShowIntersection() {
     const checkbox = document.getElementById('showIntersection');
     return checkbox ? checkbox.checked : true;
-  }
-
-  function getCurrentCSVPath() {
-    return shouldIncludeFreeze() ? CSV_PATH_TOURNAMENT : CSV_PATH_BASELINE;
-  }
-
-  function mergeParityDates(parityDateFiles) {
-    return parityDateFiles.reduce((merged, parityDateFile) => {
-      Object.entries(parityDateFile || {}).forEach(([questionType, leaderboards]) => {
-        merged[questionType] = {
-          ...(merged[questionType] || {}),
-          ...(leaderboards || {})
-        };
-      });
-      return merged;
-    }, {});
   }
 
   let originalRows = [];
@@ -904,25 +875,21 @@
   }
 
   function loadCSVData() {
-    const csvPath = getCurrentCSVPath();
-    d3.csv(csvPath).then(parseRows).catch(err => {
+    d3.csv(CSV_PATH).then(parseRows).catch(err => {
       console.error('Could not load CSV:', err);
     });
   }
 
   // Load parity dates JSON
-  Promise.all(
-    PARITY_DATE_PATHS.map(path =>
-      fetch(path).then(response => {
-        if (!response.ok) {
-          throw new Error(`Could not load parity dates from ${path}: ${response.status}`);
-        }
-        return response.json();
-      })
-    )
-  )
+  fetch(PARITY_DATE_PATH)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Could not load parity dates from ${PARITY_DATE_PATH}: ${response.status}`);
+      }
+      return response.json();
+    })
     .then(data => {
-      parityDates = mergeParityDates(data);
+      parityDates = data;
       // Redraw chart if data is already loaded
       if (originalRows && originalRows.length) {
         renderForType(getSelectedType());
@@ -955,15 +922,6 @@
         }
       });
     });
-
-    // Freeze checkbox handler
-    const freezeCheckbox = document.getElementById('includeFreeze');
-    if (freezeCheckbox) {
-      freezeCheckbox.addEventListener('change', () => {
-        // Reload CSV data when tournament toggle changes
-        loadCSVData();
-      });
-    }
 
     // Legend checkbox handler
     const legendCheckbox = document.getElementById('showLegend');

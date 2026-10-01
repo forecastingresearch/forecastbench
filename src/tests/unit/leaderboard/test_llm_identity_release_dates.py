@@ -260,7 +260,6 @@ def test_score_models_keeps_reference_models_when_llm_identity_columns_exist():
     df_leaderboard, _ = main.score_models(
         df=df,
         scoring_funcs=[main.brier_score],
-        market_question_adjustment=main.MarketQuestionAdjustment.MARKET_BRIER,
     )
 
     assert set(df_leaderboard["model"]) == {"Always 0.5", "claude-opus-4-7-1024"}

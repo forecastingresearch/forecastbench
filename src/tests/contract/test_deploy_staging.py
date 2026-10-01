@@ -69,7 +69,6 @@ def test_leaderboard_deploy_stages_llm_identity_dependencies():
 
     assert "LEADERBOARD_DEPENDENCIES = main.py llm_identities.py" in makefile
     assert "deploy-tournament : $(LEADERBOARD_DEPENDENCIES)" in makefile
-    assert "deploy-baseline : $(LEADERBOARD_DEPENDENCIES)" in makefile
     assert "deploy-preliminary : $(LEADERBOARD_DEPENDENCIES)" in makefile
     assert "model_release_dates.csv" not in makefile
     assert "cp -r $(ROOT_DIR)src/llm_forecaster $1/" in makefile
