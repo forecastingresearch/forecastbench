@@ -140,18 +140,12 @@ def test_worker_limits_questions_to_default_dataset_then_market_count_when_not_p
 def test_worker_logs_written_forecast_files(monkeypatch, caplog):
     selected_model = SimpleNamespace(slug="model", provider=PROVIDERS["OpenAI"])
     forecast_results = [
-        SimpleNamespace(variant=SimpleNamespace(key="zero-shot"), rows=[{"id": "q1"}]),
         SimpleNamespace(
             variant=SimpleNamespace(key="zero-shot-with-freeze-values"),
             rows=[{"id": "q1"}],
         ),
     ]
     written_files = [
-        SimpleNamespace(
-            variant=SimpleNamespace(key="zero-shot"),
-            local_filename=Path("/tmp/zero-shot.json"),
-            rows=[{"id": "q1"}, {"id": "q2"}],
-        ),
         SimpleNamespace(
             variant=SimpleNamespace(key="zero-shot-with-freeze-values"),
             local_filename=Path("/tmp/freeze.json"),
@@ -187,8 +181,7 @@ def test_worker_logs_written_forecast_files(monkeypatch, caplog):
         )
 
     assert (
-        "Wrote and uploaded 2 LLM forecast files: "
-        "zero-shot -> /tmp/zero-shot.json (2 rows); "
+        "Wrote and uploaded 1 LLM forecast files: "
         "zero-shot-with-freeze-values -> /tmp/freeze.json (1 rows)"
     ) in caplog.text
 

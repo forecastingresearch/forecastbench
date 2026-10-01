@@ -5,7 +5,7 @@ EXPECTED_FORECAST_VARIANT_DECLARATIONS = (
         "name": "ZERO_SHOT",
         "key": "zero-shot",
         "market_prompt_uses_freeze_values": False,
-        "active": True,
+        "active": False,
     },
     {
         "name": "ZERO_SHOT_WITH_FREEZE_VALUES",
@@ -94,37 +94,10 @@ def test_forecast_variant_registry_is_explicit_and_stable():
     )
 
 
-def test_active_variants_are_zero_shot_and_freeze_values():
+def test_only_zero_shot_with_freeze_values_is_active():
     assert [variant.key for variant in forecast_variants.FORECAST_VARIANTS] == [
-        "zero-shot",
         "zero-shot-with-freeze-values",
     ]
-    assert all(variant.active for variant in forecast_variants.FORECAST_VARIANTS)
-    assert forecast_variants.DATASET_FORECAST_SHARING_VARIANT_GROUPS == (
-        forecast_variants.DatasetForecastSharingVariantGroup(
-            dataset_prompt_variant=forecast_variants.ZERO_SHOT,
-            output_variants=(forecast_variants.ZERO_SHOT_WITH_FREEZE_VALUES,),
-        ),
-    )
-    assert not hasattr(forecast_variants.ZERO_SHOT, "model_suffix")
-    assert not hasattr(forecast_variants.ZERO_SHOT_WITH_FREEZE_VALUES, "model_suffix")
-
-
-def test_dataset_forecast_sharing_groups_use_active_variants_once_in_run_order():
-    grouped_variants = [
-        variant
-        for group in forecast_variants.DATASET_FORECAST_SHARING_VARIANT_GROUPS
-        for variant in group.output_variants
-    ]
-    active_variants = list(forecast_variants.FORECAST_VARIANTS)
-
-    assert len(grouped_variants) == len(set(grouped_variants))
-    assert set(grouped_variants) <= set(active_variants)
-    assert grouped_variants == sorted(grouped_variants, key=active_variants.index)
-    assert all(
-        group.dataset_prompt_variant in active_variants
-        for group in forecast_variants.DATASET_FORECAST_SHARING_VARIANT_GROUPS
-    )
 
 
 def test_context_variant_groups_partition_all_forecast_variants():

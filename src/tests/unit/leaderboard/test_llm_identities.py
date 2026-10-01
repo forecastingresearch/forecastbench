@@ -130,7 +130,7 @@ def test_legacy_variant_metadata_tracks_freeze_values_not_tools():
     assert not hasattr(options["zero shot"], "uses_tools")
     assert not hasattr(options["zero shot with web search"], "uses_tools")
     assert options["scratchpad"].active is False
-    assert options["zero shot"].active is True
+    assert options["zero shot"].active is False
 
 
 def test_uses_tools_is_derived_from_model_run_options():
@@ -244,6 +244,7 @@ def test_forecastbench_llm_identity_stores_model_run_object():
     forecast_variant = ForecastVariant(
         key="zero-shot",
         market_prompt_uses_freeze_values=False,
+        active=False,
     )
 
     identity = llm_identities.ForecastBenchLLMIdentity(

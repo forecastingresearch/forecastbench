@@ -41,27 +41,6 @@ def render_template(template: str, params: Mapping[str, Any]) -> str:
 # "Approaching Human-Level Forecasting with Language Models" by Halawi et al. (2024)
 # Some are modified versions in order to adapt to our needs
 # https://arxiv.org/pdf/2402.18563v1
-ZERO_SHOT_MARKET_PROMPT = """
-You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can't answer, pick the base rate, but return a number between 0 and 1.
-
-Question:
-{question}
-
-Question Background:
-{background}
-
-Resolution Criteria:
-{resolution_criteria}
-
-Today's Date: {today_date}
-
-Question resolution date: {resolution_date}
-
-Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal.
-Do not output anything else.
-Answer: {{ Insert answer here }}
-"""  # noqa: E501
-
 ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT = """
 You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can't answer, pick the base rate, but return a number between 0 and 1.
 

@@ -1,6 +1,6 @@
 # LLM Forecaster Package
 
-This package owns ForecastBench LLM baseline generation.
+This package owns ForecastBench LLM forecast generation.
 
 - `FB_MODEL_RUN_KEYS` in `fb_model_runs.py` lists models runs that will forecast on the next
   weekly round.

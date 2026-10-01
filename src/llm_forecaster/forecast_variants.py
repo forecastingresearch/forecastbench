@@ -12,17 +12,10 @@ class ForecastVariant:
     active: bool = True
 
 
-@dataclass(frozen=True)
-class DatasetForecastSharingVariantGroup:
-    """Variants that share one dataset forecast pass."""
-
-    dataset_prompt_variant: ForecastVariant
-    output_variants: tuple[ForecastVariant, ...]
-
-
 ZERO_SHOT = ForecastVariant(
     key="zero-shot",
     market_prompt_uses_freeze_values=False,
+    active=False,
 )
 ZERO_SHOT_WITH_FREEZE_VALUES = ForecastVariant(
     key="zero-shot-with-freeze-values",
@@ -100,19 +93,6 @@ ALL_FORECAST_VARIANTS_WITHOUT_CONTEXT = tuple(
     if variant not in ALL_FORECAST_VARIANTS_WITH_CONTEXT
 )
 
-# Variants in one group produce separate forecast files but share dataset
-# forecasts because their dataset prompts are identical. If scratchpad variants
-# become active again, scratchpad and scratchpad-with-freeze-values belong in
-# their own group for the same reason.
-# Only the freeze-values forecast set is produced: every LLM forecaster gets the market's
-# freeze value as context. Dataset questions still use the zero-shot dataset prompt, which
-# has no freeze value.
-DATASET_FORECAST_SHARING_VARIANT_GROUPS = (
-    DatasetForecastSharingVariantGroup(
-        dataset_prompt_variant=ZERO_SHOT,
-        output_variants=(ZERO_SHOT_WITH_FREEZE_VALUES,),
-    ),
-)
 FORECAST_VARIANTS_BY_KEY = {variant.key: variant for variant in FORECAST_VARIANTS}
 KNOWN_FORECAST_VARIANTS_BY_KEY = {variant.key: variant for variant in ALL_FORECAST_VARIANTS}
 SUPPORTED_FORECAST_VARIANT_KEYS = frozenset(KNOWN_FORECAST_VARIANTS_BY_KEY)

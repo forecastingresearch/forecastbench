@@ -11,10 +11,7 @@ from utils import gcp
 from _schemas import ForecastFrame
 from helpers import env
 from llm_forecaster import fb_model_runs, output, runner
-from llm_forecaster.forecast_variants import (
-    DATASET_FORECAST_SHARING_VARIANT_GROUPS,
-    ForecastVariant,
-)
+from llm_forecaster.forecast_variants import FORECAST_VARIANTS, ForecastVariant
 from llm_forecaster.question_set import QuestionSet
 from orchestration import _io
 
@@ -35,18 +32,15 @@ def final_forecast_set_destination_blob_names(
     is_test: bool,
 ) -> list[str]:
     """Return destination names for all final forecast files in this run."""
-    destination_blob_names = []
-    for variant_group in DATASET_FORECAST_SHARING_VARIANT_GROUPS:
-        for variant in variant_group.output_variants:
-            destination_blob_names.append(
-                output.destination_blob_name(
-                    forecast_due_date=question_set.forecast_due_date,
-                    model_run=model_run,
-                    variant=variant,
-                    is_test=is_test,
-                )
-            )
-    return destination_blob_names
+    return [
+        output.destination_blob_name(
+            forecast_due_date=question_set.forecast_due_date,
+            model_run=model_run,
+            variant=variant,
+            is_test=is_test,
+        )
+        for variant in FORECAST_VARIANTS
+    ]
 
 
 def _forecast_rows_to_records(rows: DataFrame[ForecastFrame]) -> list[dict[str, Any]]:

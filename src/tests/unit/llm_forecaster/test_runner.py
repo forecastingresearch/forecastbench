@@ -9,9 +9,9 @@ from utils.llm.provider_registry import PROVIDERS
 from _schemas import ForecastFrame
 from llm_forecaster import model_run_transcripts, runner
 from llm_forecaster.forecast_variants import (
+    FORECAST_VARIANTS,
     ZERO_SHOT,
     ZERO_SHOT_WITH_FREEZE_VALUES,
-    DatasetForecastSharingVariantGroup,
 )
 from llm_forecaster.question_set import QuestionSet
 
@@ -116,23 +116,6 @@ def _transcript(tmp_path):
     return model_run_transcripts.LLMCallTranscript(tmp_path / "calls")
 
 
-def _pin_zero_shot_and_freeze_value_outputs(monkeypatch):
-    """Run both market variants, to test how the runner shares dataset rows and orders variants.
-
-    Production produces only the freeze-values variant; these tests cover the general mechanism.
-    """
-    monkeypatch.setattr(
-        runner,
-        "DATASET_FORECAST_SHARING_VARIANT_GROUPS",
-        (
-            DatasetForecastSharingVariantGroup(
-                dataset_prompt_variant=ZERO_SHOT,
-                output_variants=(ZERO_SHOT, ZERO_SHOT_WITH_FREEZE_VALUES),
-            ),
-        ),
-    )
-
-
 def _forecast_frame(rows):
     return runner._validated_forecast_frame_from_rows(rows)
 
@@ -147,15 +130,9 @@ def test_prompt_rendering_helpers_are_not_cached_by_question_phase():
         question=_dataset_question(),
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
     )
-    zero_shot_market_prompt = runner.render_prompt(
-        question=_market_question(),
-        forecast_due_date="2026-05-10",
-        today_date="2026-05-06",
-        variant=ZERO_SHOT,
-    )
-    freeze_market_prompt = runner.render_prompt(
+    market_prompt = runner.render_prompt(
         question=_market_question(),
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
@@ -163,35 +140,29 @@ def test_prompt_rendering_helpers_are_not_cached_by_question_phase():
     )
 
     assert "Dataset background" in dataset_prompt
-    assert "Market background" in zero_shot_market_prompt
-    assert "Market value on 2026-05-05" not in zero_shot_market_prompt
-    assert "Market value on 2026-05-05" in freeze_market_prompt
+    assert "Market background" in market_prompt
+    assert "Market value on 2026-05-05" in market_prompt
 
 
-def test_prompt_template_maps_match_dataset_forecast_sharing_groups():
-    dataset_prompt_variants = {
-        variant_group.dataset_prompt_variant
-        for variant_group in runner.DATASET_FORECAST_SHARING_VARIANT_GROUPS
-    }
-    output_variants = {
-        variant
-        for variant_group in runner.DATASET_FORECAST_SHARING_VARIANT_GROUPS
-        for variant in variant_group.output_variants
-    }
-
-    assert set(runner.DATASET_PROMPTS_BY_VARIANT) == dataset_prompt_variants
-    assert output_variants <= set(runner.MARKET_PROMPTS_BY_VARIANT)
+def test_prompt_template_maps_cover_the_active_variants():
+    assert set(runner.DATASET_PROMPTS_BY_VARIANT) == set(FORECAST_VARIANTS)
+    assert set(runner.MARKET_PROMPTS_BY_VARIANT) == set(FORECAST_VARIANTS)
 
 
-def test_dataset_prompt_selection_requires_dataset_prompt_variant():
-    with pytest.raises(
-        KeyError, match="No dataset prompt template for zero-shot-with-freeze-values"
-    ):
+def test_prompt_selection_rejects_inactive_variants():
+    with pytest.raises(KeyError, match="No dataset prompt template for zero-shot'$"):
         runner.render_prompt(
             question=_dataset_question(),
             forecast_due_date="2026-05-10",
             today_date="2026-05-06",
-            variant=ZERO_SHOT_WITH_FREEZE_VALUES,
+            variant=ZERO_SHOT,
+        )
+    with pytest.raises(KeyError, match="No market prompt template for zero-shot'$"):
+        runner.render_prompt(
+            question=_market_question(),
+            forecast_due_date="2026-05-10",
+            today_date="2026-05-06",
+            variant=ZERO_SHOT,
         )
 
 
@@ -226,7 +197,7 @@ def test_dataset_questions_are_forecast_concurrently_and_returned_in_order(
         dataset_questions=[first_question, second_question],
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
         transcript=_transcript(tmp_path),
         raise_on_question_error=True,
     )
@@ -250,7 +221,7 @@ def test_dataset_questions_extract_unparseable_response(monkeypatch, tmp_path):
         dataset_questions=[_dataset_question()],
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
         transcript=_transcript(tmp_path),
         raise_on_question_error=True,
     )
@@ -280,7 +251,7 @@ def test_dataset_question_empty_response_does_not_call_extraction_model(monkeypa
         dataset_questions=[_dataset_question()],
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
         transcript=transcript,
         raise_on_question_error=False,
     )
@@ -306,7 +277,7 @@ def test_market_questions_extract_unparseable_response(monkeypatch, tmp_path):
         market_questions=[_market_question()],
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
         transcript=_transcript(tmp_path),
         raise_on_question_error=True,
     )
@@ -343,7 +314,7 @@ def test_market_question_empty_response_does_not_call_extraction_model(monkeypat
         market_questions=[_market_question()],
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
         transcript=transcript,
         raise_on_question_error=False,
     )
@@ -382,7 +353,7 @@ def test_market_questions_are_forecast_concurrently_and_returned_in_order(
         market_questions=[first_question, second_question],
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
         transcript=_transcript(tmp_path),
         raise_on_question_error=True,
     )
@@ -416,7 +387,7 @@ def test_market_parse_miss_skips_question_by_default(monkeypatch, caplog, tmp_pa
         market_questions=[_market_question()],
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
         transcript=_transcript(tmp_path),
     )
 
@@ -449,7 +420,7 @@ def test_market_parse_miss_raises_when_fail_fast(monkeypatch, caplog, tmp_path):
             market_questions=[_market_question()],
             forecast_due_date="2026-05-10",
             today_date="2026-05-06",
-            variant=ZERO_SHOT,
+            variant=ZERO_SHOT_WITH_FREEZE_VALUES,
             transcript=_transcript(tmp_path),
             raise_on_question_error=True,
         )
@@ -461,84 +432,7 @@ def test_validated_forecast_frame_from_rows_returns_none_for_empty_rows():
     assert runner._validated_forecast_frame_from_rows([]) is None
 
 
-def test_iter_model_forecasts_yields_zero_shot_before_freeze_values(monkeypatch, tmp_path):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
-    events = []
-    original_forecast_market_questions = runner._forecast_market_questions
-
-    monkeypatch.setattr(
-        runner.parsing, "parse_dataset_forecast", lambda *args, **kwargs: [0.2, 0.3]
-    )
-    monkeypatch.setattr(runner.parsing, "parse_market_forecast", lambda *args, **kwargs: 0.4)
-
-    def fake_forecast_market_questions(*args, **kwargs):
-        variant = kwargs["variant"]
-        if variant == ZERO_SHOT_WITH_FREEZE_VALUES:
-            events.append(("freeze-started", variant.key))
-            raise RuntimeError("freeze failed")
-        return original_forecast_market_questions(*args, **kwargs)
-
-    monkeypatch.setattr(runner, "_forecast_market_questions", fake_forecast_market_questions)
-
-    forecast_results = runner.iter_model_forecasts(
-        FakeRun(),
-        _question_set(),
-        tmp_path,
-        is_test=True,
-        today_date="2026-05-06",
-        raise_on_question_error=True,
-    )
-    zero_shot_result = next(forecast_results)
-    events.append(("yield", zero_shot_result.variant.key))
-
-    with pytest.raises(RuntimeError, match="freeze failed"):
-        next(forecast_results)
-
-    assert events[:2] == [
-        ("yield", "zero-shot"),
-        ("freeze-started", "zero-shot-with-freeze-values"),
-    ]
-
-
-def test_run_model_logs_forecast_result_before_later_variant_fails(
-    monkeypatch,
-    tmp_path,
-    caplog,
-):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
-    original_forecast_market_questions = runner._forecast_market_questions
-
-    monkeypatch.setattr(
-        runner.parsing, "parse_dataset_forecast", lambda *args, **kwargs: [0.2, 0.3]
-    )
-    monkeypatch.setattr(runner.parsing, "parse_market_forecast", lambda *args, **kwargs: 0.4)
-    caplog.set_level(logging.INFO, logger=runner.logger.name)
-
-    def fake_forecast_market_questions(*args, **kwargs):
-        variant = kwargs["variant"]
-        if variant == ZERO_SHOT_WITH_FREEZE_VALUES:
-            raise RuntimeError("freeze failed")
-        return original_forecast_market_questions(*args, **kwargs)
-
-    monkeypatch.setattr(runner, "_forecast_market_questions", fake_forecast_market_questions)
-
-    with pytest.raises(RuntimeError, match="freeze failed"):
-        runner.run_model(
-            FakeRun(),
-            _question_set(),
-            tmp_path,
-            is_test=True,
-            today_date="2026-05-06",
-            raise_on_question_error=True,
-        )
-
-    assert "Generated LLM forecasts variant=zero-shot" in caplog.text
-    assert "forecast_file=" not in caplog.text
-    assert "zero-shot-with-freeze-values" not in caplog.text
-
-
 def test_run_model_logs_question_progress_by_forecast_phase(monkeypatch, tmp_path, caplog):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
     monkeypatch.setattr(
         runner.parsing, "parse_dataset_forecast", lambda *args, **kwargs: [0.2, 0.3]
     )
@@ -560,8 +454,6 @@ def test_run_model_logs_question_progress_by_forecast_phase(monkeypatch, tmp_pat
     ] == [
         "LLM forecast phase dataset starting: 1 question(s).",
         "LLM forecast progress phase=dataset completed=1/1 question_id=dataset-1",
-        "LLM forecast phase zero-shot starting: 1 question(s).",
-        "LLM forecast progress phase=zero-shot completed=1/1 question_id=market-1",
         "LLM forecast phase zero-shot-with-freeze-values starting: 1 question(s).",
         (
             "LLM forecast progress phase=zero-shot-with-freeze-values "
@@ -570,8 +462,7 @@ def test_run_model_logs_question_progress_by_forecast_phase(monkeypatch, tmp_pat
     ]
 
 
-def test_dataset_rows_are_reused_across_variants(monkeypatch, tmp_path):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
+def test_run_model_yields_one_result_per_active_variant(monkeypatch, tmp_path):
     calls = {"dataset": 0}
     dataset_row = {
         "id": "dataset-1",
@@ -610,79 +501,12 @@ def test_dataset_rows_are_reused_across_variants(monkeypatch, tmp_path):
         today_date="2026-05-06",
     )
 
-    assert [written_file.variant for written_file in written_files] == [
-        ZERO_SHOT,
-        ZERO_SHOT_WITH_FREEZE_VALUES,
-    ]
+    assert [written_file.variant for written_file in written_files] == list(FORECAST_VARIANTS)
     assert calls == {"dataset": 1}
     assert _forecast_records(written_files[0].rows)[0] == dataset_row
-    assert _forecast_records(written_files[1].rows)[0] == dataset_row
-
-
-def test_dataset_rows_are_reused_within_each_variant_group(monkeypatch, tmp_path):
-    dataset_calls = []
-
-    def fake_forecast_dataset_questions(*args, **kwargs):
-        variant = kwargs["variant"]
-        dataset_calls.append(variant)
-        return _forecast_frame(
-            [
-                {
-                    "id": "dataset-1",
-                    "source": "fred",
-                    "forecast": len(dataset_calls) / 10,
-                    "resolution_date": "2026-06-01",
-                    "reasoning": "",
-                }
-            ]
-        )
-
-    def fake_forecast_market_questions(*args, **kwargs):
-        variant = kwargs["variant"]
-        return _forecast_frame(
-            [
-                {
-                    "id": variant.key,
-                    "source": "metaculus",
-                    "forecast": 0.4,
-                    "resolution_date": None,
-                    "reasoning": "",
-                }
-            ]
-        )
-
-    monkeypatch.setattr(
-        runner,
-        "DATASET_FORECAST_SHARING_VARIANT_GROUPS",
-        (
-            DatasetForecastSharingVariantGroup(
-                dataset_prompt_variant=ZERO_SHOT,
-                output_variants=(ZERO_SHOT, ZERO_SHOT_WITH_FREEZE_VALUES),
-            ),
-        ),
-    )
-    monkeypatch.setattr(runner, "_forecast_dataset_questions", fake_forecast_dataset_questions)
-    monkeypatch.setattr(runner, "_forecast_market_questions", fake_forecast_market_questions)
-
-    written_files = runner.run_model(
-        FakeRun(),
-        _question_set(),
-        tmp_path,
-        is_test=True,
-        today_date="2026-05-06",
-    )
-
-    assert dataset_calls == [ZERO_SHOT]
-    assert [
-        _forecast_records(written_file.rows)[0]["forecast"] for written_file in written_files
-    ] == [
-        0.1,
-        0.1,
-    ]
 
 
 def test_run_model_logs_successful_forecast_counts(monkeypatch, tmp_path, caplog):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
     first_dataset_question = _dataset_question()
     second_dataset_question = {**_dataset_question(), "id": "dataset-2"}
     second_dataset_question["resolution_dates"] = [
@@ -730,11 +554,7 @@ def test_run_model_logs_successful_forecast_counts(monkeypatch, tmp_path, caplog
         )
 
     def fake_forecast_market_questions(*args, **kwargs):
-        variant = kwargs["variant"]
-        if variant == ZERO_SHOT:
-            market_question_ids = ["market-1"]
-        else:
-            market_question_ids = ["market-1", "market-2"]
+        market_question_ids = ["market-1", "market-2"]
         return _forecast_frame(
             [
                 {
@@ -765,7 +585,6 @@ def test_run_model_logs_successful_forecast_counts(monkeypatch, tmp_path, caplog
         for record in caplog.records
         if record.message.startswith("LLM forecast success ")
     ] == [
-        "LLM forecast success zero shot: 1/2",
         "LLM forecast success zero shot with freeze values: 2/2",
         "LLM forecast success dataset: 3/5",
     ]
@@ -811,7 +630,7 @@ def test_run_model_fails_when_market_forecasts_are_empty(monkeypatch, tmp_path):
 
     with pytest.raises(
         RuntimeError,
-        match="No market forecasts were produced for variant zero-shot",
+        match="No market forecasts were produced for variant zero-shot-with-freeze-values",
     ):
         runner.run_model(
             FakeRun(),
@@ -894,8 +713,6 @@ def test_run_model_sorts_dataset_and_market_rows_before_returning(monkeypatch, t
 
 
 def test_run_model_does_not_preload_prompts(monkeypatch, tmp_path):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
-
     def fail_render_prompt(*args, **kwargs):
         raise AssertionError("run_model should not render prompts before forecasting questions")
 
@@ -938,13 +755,11 @@ def test_run_model_does_not_preload_prompts(monkeypatch, tmp_path):
     )
 
     assert [written_file.variant for written_file in written_files] == [
-        ZERO_SHOT,
         ZERO_SHOT_WITH_FREEZE_VALUES,
     ]
 
 
 def test_run_model_writes_test_llm_call_transcript(monkeypatch, tmp_path):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
     monkeypatch.setattr(runner.parsing, "parse_market_forecast", lambda *args, **kwargs: 0.4)
     monkeypatch.setattr(runner.fb_model_runs, "FORECAST_EXTRACTION_MODEL", FakeExtractRun())
     question_set = _question_set()
@@ -964,8 +779,8 @@ def test_run_model_writes_test_llm_call_transcript(monkeypatch, tmp_path):
     transcript = transcript_files[0].read_text(encoding="utf-8")
 
     assert transcript.startswith("# LLM Call Transcript\n")
-    assert transcript.count("## Call ") == 4
-    assert "## Call 1: forecast (zero-shot)" in transcript
+    assert transcript.count("## Call ") == 3
+    assert "## Call 1: forecast (zero-shot-with-freeze-values)" in transcript
     assert "- Model run slug: test-model" in transcript
     assert "- Model run key: test-model-run-variant-01" in transcript
     assert "- Question Source: fred" in transcript
@@ -989,10 +804,10 @@ def test_run_model_writes_test_llm_call_transcript(monkeypatch, tmp_path):
     jsonl_files = list(tmp_path.glob("TEST.*.llm-calls.jsonl"))
     assert len(jsonl_files) == 1
     records = [json.loads(line) for line in jsonl_files[0].read_text(encoding="utf-8").splitlines()]
-    assert len(records) == 4
+    assert len(records) == 3
     assert records[0]["call_index"] == 1
     assert records[0]["role"] == "forecast"
-    assert records[0]["variant"] == "zero-shot"
+    assert records[0]["variant"] == "zero-shot-with-freeze-values"
     assert records[0]["provider"] == "OpenAI"
     assert records[0]["model_run_key"] == "test-model-run-variant-01"
     assert records[0]["model_run_slug"] == "test-model"
@@ -1033,10 +848,9 @@ def test_run_model_does_not_write_local_final_files(
     monkeypatch,
     tmp_path,
 ):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
     existing_paths = [
         tmp_path / runner.output.final_filename("2026-05-10", FakeRun(), variant, is_test=True)
-        for variant in [ZERO_SHOT, ZERO_SHOT_WITH_FREEZE_VALUES]
+        for variant in [ZERO_SHOT_WITH_FREEZE_VALUES]
     ]
     for existing_path in existing_paths:
         existing_path.write_text(f"existing {existing_path.name}", encoding="utf-8")
@@ -1054,7 +868,7 @@ def test_run_model_does_not_write_local_final_files(
         today_date="2026-05-06",
     )
 
-    assert len(forecast_results) == 2
+    assert len(forecast_results) == 1
     for existing_path in existing_paths:
         assert existing_path.read_text(encoding="utf-8") == f"existing {existing_path.name}"
     assert list(tmp_path.glob("*.llm-calls.md")) != []
@@ -1100,7 +914,6 @@ def test_missing_required_dataset_prompt_field_skips_question_and_keeps_forecast
     tmp_path,
     caplog,
 ):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
     malformed_question = _dataset_question()
     del malformed_question["background"]
     valid_question = {**_dataset_question(), "id": "dataset-2"}
@@ -1128,7 +941,6 @@ def test_missing_required_dataset_prompt_field_skips_question_and_keeps_forecast
 
     assert "Skipping LLM forecast question after error: dataset-1" in caplog.text
     assert [written_file.variant for written_file in written_files] == [
-        ZERO_SHOT,
         ZERO_SHOT_WITH_FREEZE_VALUES,
     ]
     first_result_records = [
@@ -1138,8 +950,7 @@ def test_missing_required_dataset_prompt_field_skips_question_and_keeps_forecast
     assert [row["forecast"] for row in first_result_records] == [0.2, 0.3]
 
 
-def test_market_question_missing_freeze_value_preserves_zero_shot_result(monkeypatch, tmp_path):
-    _pin_zero_shot_and_freeze_value_outputs(monkeypatch)
+def test_market_question_missing_freeze_value_fails_the_run(monkeypatch, tmp_path):
     malformed_question = _market_question()
     del malformed_question["freeze_datetime_value"]
     context = QuestionSet(
@@ -1173,7 +984,6 @@ def test_market_question_missing_freeze_value_preserves_zero_shot_result(monkeyp
         is_test=True,
         today_date="2026-05-06",
     )
-    zero_shot_result = next(forecast_results)
 
     with pytest.raises(
         RuntimeError,
@@ -1181,8 +991,7 @@ def test_market_question_missing_freeze_value_preserves_zero_shot_result(monkeyp
     ):
         next(forecast_results)
 
-    assert len(model_run.prompts) == 1
-    assert zero_shot_result.variant == ZERO_SHOT
+    assert model_run.prompts == []
 
 
 def test_llm_call_transcript_upload_targets_match_written_transcript_files(
@@ -1250,7 +1059,7 @@ def test_dataset_forecast_length_mismatch_skips_whole_question_by_default(
         dataset_questions=[_dataset_question()],
         forecast_due_date="2026-05-10",
         today_date="2026-05-06",
-        variant=ZERO_SHOT,
+        variant=ZERO_SHOT_WITH_FREEZE_VALUES,
         transcript=_transcript(tmp_path),
     )
 
@@ -1278,57 +1087,9 @@ def test_dataset_forecast_length_mismatch_raises_when_fail_fast(
             dataset_questions=[_dataset_question()],
             forecast_due_date="2026-05-10",
             today_date="2026-05-06",
-            variant=ZERO_SHOT,
+            variant=ZERO_SHOT_WITH_FREEZE_VALUES,
             transcript=_transcript(tmp_path),
             raise_on_question_error=True,
         )
 
     assert "LLM response before error for dataset-1:\n*0.4*" in caplog.text
-
-
-def test_run_model_produces_only_the_freeze_values_forecast_set(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        runner.parsing, "parse_dataset_forecast", lambda *args, **kwargs: [0.2, 0.3]
-    )
-    monkeypatch.setattr(runner.parsing, "parse_market_forecast", lambda *args, **kwargs: 0.4)
-    model_run = FakeRun()
-
-    forecast_results = runner.run_model(
-        model_run,
-        _question_set(),
-        tmp_path,
-        is_test=True,
-        today_date="2026-05-06",
-    )
-
-    assert [result.variant for result in forecast_results] == [ZERO_SHOT_WITH_FREEZE_VALUES]
-    assert len(model_run.prompts) == 2  # one dataset question and one market question
-    market_prompt = model_run.prompts[-1]
-    assert "Market value on 2026-05-05" in market_prompt
-
-
-def test_market_question_missing_freeze_value_gets_no_forecast(monkeypatch, tmp_path):
-    malformed_question = _market_question()
-    del malformed_question["freeze_datetime_value"]
-    context = QuestionSet(
-        forecast_due_date="2026-05-10",
-        question_set_filename="2026-05-10-llm.json",
-        questions=[_dataset_question(), _market_question(), malformed_question],
-    )
-    malformed_question["id"] = "market-without-freeze-value"
-    monkeypatch.setattr(
-        runner.parsing, "parse_dataset_forecast", lambda *args, **kwargs: [0.2, 0.3]
-    )
-    monkeypatch.setattr(runner.parsing, "parse_market_forecast", lambda *args, **kwargs: 0.4)
-
-    (forecast_result,) = runner.run_model(
-        FakeRun(),
-        context,
-        tmp_path,
-        is_test=True,
-        today_date="2026-05-06",
-    )
-
-    market_ids = set(forecast_result.rows.loc[forecast_result.rows["resolution_date"].isna(), "id"])
-    assert "market-without-freeze-value" not in market_ids
-    assert market_ids

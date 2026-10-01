@@ -15,8 +15,7 @@ from _schemas import ForecastFrame
 from helpers import dates
 from llm_forecaster import fb_model_runs, output, parsing, prompts
 from llm_forecaster.forecast_variants import (
-    DATASET_FORECAST_SHARING_VARIANT_GROUPS,
-    ZERO_SHOT,
+    FORECAST_VARIANTS,
     ZERO_SHOT_WITH_FREEZE_VALUES,
     ForecastVariant,
 )
@@ -31,10 +30,9 @@ from sources import DATASET_SOURCE_NAMES
 logger = logging.getLogger(__name__)
 
 DATASET_PROMPTS_BY_VARIANT: Final[dict[ForecastVariant, str]] = {
-    ZERO_SHOT: prompts.ZERO_SHOT_DATASET_PROMPT,
+    ZERO_SHOT_WITH_FREEZE_VALUES: prompts.ZERO_SHOT_DATASET_PROMPT,
 }
 MARKET_PROMPTS_BY_VARIANT: Final[dict[ForecastVariant, str]] = {
-    ZERO_SHOT: prompts.ZERO_SHOT_MARKET_PROMPT,
     ZERO_SHOT_WITH_FREEZE_VALUES: prompts.ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT,
 }
 
@@ -407,13 +405,12 @@ def _log_forecast_success_counts(
     dataset_expected_count: int,
 ) -> None:
     """Log final successful forecast counts by market variant and dataset rows."""
-    for variant_group in DATASET_FORECAST_SHARING_VARIANT_GROUPS:
-        for variant in variant_group.output_variants:
-            summary_label = _forecast_summary_label(label=variant.key)
-            logger.info(
-                f"LLM forecast success {summary_label}: "
-                f"{market_success_counts[variant]}/{market_expected_count}"
-            )
+    for variant in FORECAST_VARIANTS:
+        summary_label = _forecast_summary_label(label=variant.key)
+        logger.info(
+            f"LLM forecast success {summary_label}: "
+            f"{market_success_counts[variant]}/{market_expected_count}"
+        )
 
     logger.info(f"LLM forecast success dataset: {dataset_success_count}/{dataset_expected_count}")
 
@@ -523,13 +520,13 @@ def iter_model_forecasts(
     )
     logger.info(f"Writing LLM call transcript to {transcript.local_filename}.")
 
-    for variant_group in DATASET_FORECAST_SHARING_VARIANT_GROUPS:
+    for variant in FORECAST_VARIANTS:
         dataset_rows = _forecast_dataset_questions(
             model_run=model_run,
             dataset_questions=dataset_questions,
             forecast_due_date=question_set.forecast_due_date,
             today_date=today_date,
-            variant=variant_group.dataset_prompt_variant,
+            variant=variant,
             raise_on_question_error=raise_on_question_error,
             transcript=transcript,
         )
@@ -537,27 +534,24 @@ def iter_model_forecasts(
             raise RuntimeError("No dataset forecasts were produced.")
         dataset_success_count = len(dataset_rows)
 
-        for variant in variant_group.output_variants:
-            market_rows = _forecast_market_questions(
-                model_run=model_run,
-                market_questions=market_questions,
-                forecast_due_date=question_set.forecast_due_date,
-                today_date=today_date,
-                variant=variant,
-                raise_on_question_error=raise_on_question_error,
-                transcript=transcript,
-            )
-            if market_rows is None or market_rows.empty:
-                raise RuntimeError(f"No market forecasts were produced for variant {variant.key}.")
-            market_success_counts[variant] = len(market_rows)
-            rows = _sorted_forecast_rows(
-                rows=pd.concat([dataset_rows, market_rows], ignore_index=True)
-            )
-            forecast_result = ForecastResult(variant=variant, rows=rows)
-            logger.info(
-                f"Generated LLM forecasts variant={variant.key} rows={len(forecast_result.rows)}"
-            )
-            yield forecast_result
+        market_rows = _forecast_market_questions(
+            model_run=model_run,
+            market_questions=market_questions,
+            forecast_due_date=question_set.forecast_due_date,
+            today_date=today_date,
+            variant=variant,
+            raise_on_question_error=raise_on_question_error,
+            transcript=transcript,
+        )
+        if market_rows is None or market_rows.empty:
+            raise RuntimeError(f"No market forecasts were produced for variant {variant.key}.")
+        market_success_counts[variant] = len(market_rows)
+        rows = _sorted_forecast_rows(rows=pd.concat([dataset_rows, market_rows], ignore_index=True))
+        forecast_result = ForecastResult(variant=variant, rows=rows)
+        logger.info(
+            f"Generated LLM forecasts variant={variant.key} rows={len(forecast_result.rows)}"
+        )
+        yield forecast_result
 
     _log_forecast_success_counts(
         market_success_counts=market_success_counts,
