@@ -22,7 +22,7 @@ from ._market import MarketSource
 
 logger = logging.getLogger(__name__)
 
-_KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
+_KALSHI_API_BASE = "https://external-api.kalshi.com/trade-api/v2"
 
 # Liquidity floors. Any binary market that clears these and resolves within the window qualifies,
 # regardless of its event category (Kalshi exposes ~16 categories). The thresholds are calibrated
