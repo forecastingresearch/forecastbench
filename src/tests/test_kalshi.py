@@ -1285,10 +1285,9 @@ class TestUpdate:
         assert row["market_info_close_datetime"] == "2026-07-25T05:00:00+00:00"
         monkeypatch.setattr(
             create_question_set.question_curation,
-            "FREEZE_DATETIME",
-            datetime(2026, 7, 23, tzinfo=timezone.utc),
+            "FORECAST_DATETIME",
+            datetime(2026, 8, 2, tzinfo=timezone.utc),
         )
-        monkeypatch.setattr(create_question_set.question_curation, "FREEZE_WINDOW_IN_DAYS", 10)
         curated = create_question_set.drop_questions_that_resolve_too_soon(
             source="kalshi", dfq=result.dfq
         )
@@ -1321,10 +1320,9 @@ class TestUpdate:
         assert row["market_info_close_datetime"] == "2026-07-24T05:00:00+00:00"
         monkeypatch.setattr(
             create_question_set.question_curation,
-            "FREEZE_DATETIME",
-            datetime(2026, 7, 23, tzinfo=timezone.utc),
+            "FORECAST_DATETIME",
+            datetime(2026, 8, 2, tzinfo=timezone.utc),
         )
-        monkeypatch.setattr(create_question_set.question_curation, "FREEZE_WINDOW_IN_DAYS", 10)
         curated = create_question_set.drop_questions_that_resolve_too_soon(
             source="kalshi", dfq=result.dfq
         )

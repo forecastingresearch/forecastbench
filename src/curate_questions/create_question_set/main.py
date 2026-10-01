@@ -85,6 +85,9 @@ UNKNOWN_BIN_WEIGHT = 0.0
 # Market questions resolving more than this many days after the forecast due date are not sampled.
 MAX_DAYS_TO_MARKET_RESOLUTION = 365
 
+# Market questions resolving within this many days after the forecast due date are not sampled.
+MIN_DAYS_TO_MARKET_RESOLUTION = 7
+
 
 class QuestionSetTarget(str, Enum):
     """Question set targets used throughout sampling and writing."""
@@ -1219,26 +1222,6 @@ def drop_missing_freeze_datetime(dfq: pd.DataFrame) -> pd.DataFrame:
     return dfq
 
 
-def market_resolves_before_forecast_due_date(dt: datetime) -> bool:
-    """Determine whether the market resolves before the forecast due date.
-
-    Args:
-        dt (datetime): Market close time
-
-    Returns
-        resolves_too_soon (bool): True if market closes before forecasts are due
-    """
-    llm_forecast_release_datetime = question_curation.FREEZE_DATETIME + timedelta(
-        days=question_curation.FREEZE_WINDOW_IN_DAYS
-    )
-    all_forecasts_due = llm_forecast_release_datetime.replace(
-        hour=23, minute=59, second=59, microsecond=999999
-    )
-    ndays = dt - all_forecasts_due
-    ndays = ndays.days + (1 if ndays.total_seconds() > 0 else 0)
-    return ndays <= 0
-
-
 def keep_current_forecast_horizons(dfq: pd.DataFrame) -> pd.DataFrame:
     """Drop forecast horizons no longer in `constants.FORECAST_HORIZONS_IN_DAYS`.
 
@@ -1266,8 +1249,10 @@ def drop_questions_that_resolve_too_soon(source: str, dfq: pd.DataFrame) -> pd.D
     """Drop questions that resolve too soon.
 
     Given the freeze date:
-    * for market questions determine whether or not the market will close before at least the first
-      forecasting horizon. If it does, then do not use this question.
+    * for market questions determine whether or not the market will resolve within
+      `MIN_DAYS_TO_MARKET_RESOLUTION` of the forecast due date. A market resolves too soon if its
+      close datetime or its resolution datetime is at or before the cutoff. If it does, then do not
+      use this question.
     * for data questions if forecast_horizons is empty, don't use the question
 
     Args:
@@ -1282,8 +1267,14 @@ def drop_questions_that_resolve_too_soon(source: str, dfq: pd.DataFrame) -> pd.D
         is_na = dfq["forecast_horizons"] == "N/A"
         return dfq[~(empty_horizons | is_na)]
 
-    resolves_too_soon = dfq["market_info_close_datetime"].apply(
-        lambda x: market_resolves_before_forecast_due_date(datetime.fromisoformat(x))
+    forecast_due_date = question_curation.FORECAST_DATETIME.replace(
+        hour=23, minute=59, second=59, microsecond=999999
+    )
+    cutoff_date = forecast_due_date + timedelta(days=MIN_DAYS_TO_MARKET_RESOLUTION)
+    resolves_too_soon = dfq.apply(
+        lambda row: any(dt <= cutoff_date for dt in market_datetimes(row)),
+        axis=1,
+        result_type="reduce",
     )
     return dfq[~resolves_too_soon]
 
