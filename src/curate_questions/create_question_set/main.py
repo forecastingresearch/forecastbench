@@ -61,13 +61,15 @@ MARKET_VALUE_CONFIG = [
 ]
 
 TIME_HORIZON_CONFIG = [
-    {"min": 0, "max": 7, "weight": 0.12},
-    {"min": 8, "max": 30, "weight": 0.21},
-    {"min": 31, "max": 50, "weight": 0.21},
-    {"min": 51, "max": 90, "weight": 0.14},
-    {"min": 91, "max": 180, "weight": 0.14},
-    {"min": 181, "max": 365, "weight": 0.14},
-    {"min": 366, "max": float("inf"), "weight": 0.04},
+    {"min": 0, "max": 7, "weight": 0},
+    {"min": 8, "max": 25, "weight": 0.20},
+    {"min": 26, "max": 50, "weight": 0.35},
+    {"min": 51, "max": 70, "weight": 0.20},
+    {"min": 71, "max": 90, "weight": 0.1},
+    {"min": 91, "max": 120, "weight": 0.08},
+    {"min": 121, "max": 180, "weight": 0.05},
+    {"min": 181, "max": 365, "weight": 0.02},
+    {"min": 366, "max": float("inf"), "weight": 0},
 ]
 
 # Draw weights by question category inside each sampling bin. Every category in
