@@ -141,6 +141,7 @@ class YfinanceSource(DatasetSource):
                         "resolved": False,
                         "market_info_resolution_datetime": "N/A",
                         "fetch_datetime": current_time,
+                        "latest_close_date": str(hist["Date"].iloc[-1].date()),
                         "forecast_horizons": constants.FORECAST_HORIZONS_IN_DAYS,
                         "freeze_datetime_value": current_price,
                         "freeze_datetime_value_explanation": (
@@ -170,7 +171,8 @@ class YfinanceSource(DatasetSource):
         """Return a delisted ticker's existing question row, marked resolved.
 
         Shared by the curated-nullified skip (before fetch) and the runtime delisted heuristic
-        (fetch returned nothing). freeze_datetime_value gets the delisted marker.
+        (fetch returned nothing). freeze_datetime_value and latest_close_date get the delisted
+        marker.
 
         Args:
             ticker_symbol (str): Ticker whose existing question row to carry forward.
@@ -182,6 +184,7 @@ class YfinanceSource(DatasetSource):
             {
                 "resolved": True,
                 "fetch_datetime": current_time,
+                "latest_close_date": "N/A",
                 "freeze_datetime_value": "N/A",
             }
         )
@@ -251,6 +254,7 @@ class YfinanceSource(DatasetSource):
 
             # Strip transient fetch-only fields (not part of QuestionFrame)
             del question["fetch_datetime"]
+            del question["latest_close_date"]
 
             # Upsert into dfq
             if question["id"] in dfq["id"].values:
@@ -428,6 +432,8 @@ class YfinanceSource(DatasetSource):
         existing_df: pd.DataFrame | None,
         ticker_symbol: str,
         period: str,
+        latest_close: float | None = None,
+        latest_close_date: date | None = None,
     ) -> pd.DataFrame | None:
         """Build a resolution DataFrame of daily prices for a ticker.
 
@@ -436,6 +442,9 @@ class YfinanceSource(DatasetSource):
                 the fetch returns nothing.
             ticker_symbol (str): Stock ticker symbol.
             period (str): yfinance period string.
+            latest_close (float | None): The close the fetch job got for ``latest_close_date``,
+                used when the history's bar for that date has no close.
+            latest_close_date (date | None): The session ``latest_close`` belongs to.
 
         Returns:
             DataFrame with columns [id, date, value]; the existing data unchanged when the fetch
@@ -455,6 +464,25 @@ class YfinanceSource(DatasetSource):
             (df["date"] >= constants.QUESTION_BANK_DATA_STORAGE_START_DATE)
             & (df["date"] <= yesterday)
         ]
+
+        # Yahoo serves closes as single-precision floats (329.4 arrives as 329.3999938965). The
+        # file holds cents so every row, repaired or not, has the same representation as the
+        # freeze value and a resolution never reads representation noise as a price move.
+        df["value"] = df["value"].round(2)
+
+        # Yahoo's chart endpoint can return the latest session with no close. The fetch job repaired
+        # that close from the quote (see _fill_missing_close) and carries it as the row's freeze
+        # value; use it here so the forward fill below does not copy the day before. The close is
+        # used only for the session it was observed for: a fetch row from another night, or a
+        # history whose newest bar is a different session, says nothing about this bar.
+        if (
+            latest_close is not None
+            and not df.empty
+            and df["date"].iloc[-1] == latest_close_date
+            and pd.isna(df["value"].iloc[-1])
+        ):
+            df = df.copy()
+            df.loc[df.index[-1], "value"] = latest_close
 
         # Forward fill for weekends/holidays
         full_date_range = pd.date_range(start=df["date"].min(), end=yesterday)
@@ -501,10 +529,34 @@ class YfinanceSource(DatasetSource):
         """
         if existing_df is None or existing_df.empty:
             return None
-        df_new = self._finalize_resolution_file(existing_df)
+        # Rows are cents everywhere else; this file is never rebuilt from Yahoo, so round it here.
+        df_new = existing_df.assign(value=existing_df["value"].round(2))
+        df_new = self._finalize_resolution_file(df_new)
         if existing_df.equals(df_new):
             return None
         return df_new
+
+    @staticmethod
+    def _newest_close_matches(
+        existing_df: pd.DataFrame, latest_close: float | None, latest_close_date: date | None
+    ) -> bool:
+        """Tell whether a file's newest close is the close the fetch job got for that session.
+
+        Both hold cents, so they must be equal. With no fetch close for the newest row's date to
+        compare against, the file counts as matching.
+
+        Args:
+            existing_df (pd.DataFrame): Existing resolution data with ``date`` and ``value``.
+            latest_close (float | None): The fetch row's freeze value, or None when it has none.
+            latest_close_date (date | None): The session that close belongs to.
+        """
+        if latest_close is None:
+            return True
+        newest = existing_df.iloc[-1]
+        if pd.to_datetime(newest["date"]).date() != latest_close_date:
+            return True
+        value = pd.to_numeric(newest["value"], errors="coerce")
+        return bool(pd.notna(value) and float(value) == latest_close)
 
     def _build_resolution_df(
         self,
@@ -528,6 +580,15 @@ class YfinanceSource(DatasetSource):
         is_resolved = question.get("resolved", False)
         yesterday = self.get_date_today() - timedelta(days=1)
 
+        # The fetch row's freeze value is the latest close as repaired from the quote, dated by
+        # latest_close_date; both are "N/A" on carried-forward rows.
+        latest_close = pd.to_numeric(question["freeze_datetime_value"], errors="coerce")
+        latest_close_date = pd.to_datetime(question["latest_close_date"], errors="coerce")
+        if pd.isna(latest_close) or pd.isna(latest_close_date):
+            latest_close, latest_close_date = None, None
+        else:
+            latest_close, latest_close_date = float(latest_close), latest_close_date.date()
+
         # Already up-to-date check — skip the API call entirely. Resolved (delisted) tickers are
         # always rebuilt so the final close price is forward-filled.
         if (
@@ -536,11 +597,20 @@ class YfinanceSource(DatasetSource):
             and existing_df is not None
             and not existing_df.empty
             and pd.to_datetime(existing_df["date"].iloc[-1]).date() >= yesterday
+            # A file that reaches yesterday with a forward-filled close is not up to date; a rerun
+            # must rebuild it so the fetch job's close lands in that row (idempotent update).
+            and self._newest_close_matches(existing_df, latest_close, latest_close_date)
         ):
             logger.info(f"{question['id']} is skipped because it's already up-to-date!")
             return None
 
-        df_new = self._get_historical_prices(existing_df, question["id"], period)
+        df_new = self._get_historical_prices(
+            existing_df,
+            question["id"],
+            period,
+            latest_close=latest_close,
+            latest_close_date=latest_close_date,
+        )
         if df_new is None:
             return None
 

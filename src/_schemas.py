@@ -109,9 +109,10 @@ class PolymarketFetchFrame(QuestionFrame):
 
 
 class YfinanceFetchFrame(QuestionFrame):
-    """Output of YfinanceSource.fetch(). QuestionFrame plus a transient field for update()."""
+    """Output of YfinanceSource.fetch(). QuestionFrame plus transient fields for update()."""
 
     fetch_datetime: Series[str]
+    latest_close_date: Series[str]  # ISO date of the session freeze_datetime_value quotes; "N/A"
 
 
 class MetaculusFetchFrame(pa.DataFrameModel):

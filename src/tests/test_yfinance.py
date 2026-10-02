@@ -432,6 +432,7 @@ class TestSourceFetch:
         assert bool(row["resolved"]) is False
         assert row["url"] == "https://finance.yahoo.com/quote/AAPL"
         assert float(row["freeze_datetime_value"]) == 254.23
+        assert row["latest_close_date"] == "2026-03-17"  # the session the freeze value quotes
 
     @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=[])
@@ -448,6 +449,7 @@ class TestSourceFetch:
         row = dff[dff["id"] == "OLDCO"].iloc[0]
         assert bool(row["resolved"]) is True
         assert row["freeze_datetime_value"] == "N/A"
+        assert row["latest_close_date"] == "N/A"
         assert row["question"] == "legacy question"  # original question text preserved
 
     @patch("sources.yfinance.yf.Ticker")
@@ -641,9 +643,143 @@ class TestSourceBuildResolutionDf:
         existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-17", "value": 250.0}])
         existing["date"] = existing["date"].astype(str)
         out = yfinance_source._build_resolution_df(
-            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=existing,
         )
         assert out is None
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_rebuilds_when_yesterdays_row_disagrees_with_the_fetch(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """A file that reaches yesterday with a forward-filled close is not up to date. A rerun
+        must repair it from the fetch job's close, so the job is idempotent."""
+        freeze_today(date(2026, 3, 18))
+        existing = make_resolution_df(
+            [
+                {"id": "AAPL", "date": "2026-03-16", "value": 250.0},
+                {"id": "AAPL", "date": "2026-03-17", "value": 250.0},  # forward-filled
+            ]
+        )
+        existing["date"] = existing["date"].astype(str)
+        mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [250.0, float("nan")])
+
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "251.5",
+                "latest_close_date": "2026-03-17",
+            },
+            period="1mo",
+            existing_df=existing,
+        )
+        assert dict(zip(out["date"], out["value"]))["2026-03-17"] == 251.5
+
+    def test_skips_when_yesterdays_row_agrees_with_the_fetch(self, yfinance_source, freeze_today):
+        """Second run of the day: the repaired file matches the fetch close, so no API call."""
+        freeze_today(date(2026, 3, 18))
+        existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-17", "value": 251.5}])
+        existing["date"] = existing["date"].astype(str)
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "251.5",
+                "latest_close_date": "2026-03-17",
+            },
+            period="1mo",
+            existing_df=existing,
+        )
+        assert out is None
+
+    def test_a_stale_fetch_does_not_force_a_rebuild(self, yfinance_source, freeze_today):
+        """The fetch job failed tonight, so the fetch row quotes an older session: it says nothing
+        about the file's newest row, and the file counts as up to date."""
+        freeze_today(date(2026, 3, 18))
+        existing = make_resolution_df([{"id": "AAPL", "date": "2026-03-17", "value": 250.0}])
+        existing["date"] = existing["date"].astype(str)
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "251.5",
+                "latest_close_date": "2026-03-16",
+            },
+            period="1mo",
+            existing_df=existing,
+        )
+        assert out is None
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_rebuilds_a_file_holding_a_full_precision_close(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """File values are cents, like the freeze value; a newest row that is not is rewritten."""
+        freeze_today(date(2026, 3, 18))
+        existing = make_resolution_df(
+            [{"id": "AAPL", "date": "2026-03-17", "value": 329.3999938965}]
+        )
+        existing["date"] = existing["date"].astype(str)
+        mock_fetch.return_value = self._prices(["2026-03-17"], [329.3999938965])
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "329.4",
+                "latest_close_date": "2026-03-17",
+            },
+            period="1mo",
+            existing_df=existing,
+        )
+        assert dict(zip(out["date"], out["value"]))["2026-03-17"] == 329.4
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_history_closes_are_rounded_to_cents(self, mock_fetch, yfinance_source, freeze_today):
+        """Yahoo serves closes as single-precision floats (329.4 arrives as 329.3999938965); the
+        file holds cents so every row shares one representation with the freeze value."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(
+            ["2026-03-16", "2026-03-17"], [329.3999938965, 52.6650009155]
+        )
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=None,
+        )
+        assert list(out["value"]) == [329.4, 52.67]
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_repaired_close_equals_the_close_history_delivers_later(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """A resolution computed from the repaired row and one computed after the next night's
+        rebuild compare the same number, so an unchanged price never resolves as a move."""
+        freeze_today(date(2026, 3, 18))
+        question = {
+            "id": "AAPL",
+            "resolved": False,
+            "freeze_datetime_value": "329.4",
+            "latest_close_date": "2026-03-17",
+        }
+        mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [300.0, float("nan")])
+        repaired = yfinance_source._build_resolution_df(question, period="1mo", existing_df=None)
+        mock_fetch.return_value = self._prices(
+            ["2026-03-16", "2026-03-17"], [300.0, 329.3999938965]
+        )
+        rebuilt = yfinance_source._build_resolution_df(question, period="1mo", existing_df=None)
+        pd.testing.assert_frame_equal(repaired, rebuilt, check_exact=True)
 
     @patch.object(YfinanceSource, "_fetch_historical_prices")
     def test_force_rebuilds_when_up_to_date(self, mock_fetch, yfinance_source, freeze_today):
@@ -654,7 +790,15 @@ class TestSourceBuildResolutionDf:
         existing["date"] = existing["date"].astype(str)
 
         out = yfinance_source._build_resolution_df(
-            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing, force=True
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=existing,
+            force=True,
         )
         assert out is not None
         mock_fetch.assert_called_once()
@@ -666,7 +810,14 @@ class TestSourceBuildResolutionDf:
         mock_fetch.return_value = self._prices(["2026-03-13"], [99.5])
 
         out = yfinance_source._build_resolution_df(
-            {"id": "GONE", "resolved": True}, period="1mo", existing_df=None
+            {
+                "id": "GONE",
+                "resolved": True,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=None,
         )
         assert out is not None
         assert pd.to_datetime(out["date"]).max().date() == date(2026, 3, 17)  # yesterday
@@ -674,12 +825,142 @@ class TestSourceBuildResolutionDf:
         assert (out["id"] == "GONE").all()
 
     @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_missing_latest_close_is_filled_from_the_fetch_row(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """Yahoo's latest bar can have no close; the fetch job repaired it from the quote and the
+        file's newest row must carry that value, not a copy of the day before."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [10.0, float("nan")])
+
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "11.5",
+                "latest_close_date": "2026-03-17",
+            },
+            period="1mo",
+            existing_df=None,
+        )
+        by_date = dict(zip(out["date"], out["value"]))
+        assert by_date["2026-03-17"] == 11.5
+        assert by_date["2026-03-16"] == 10.0
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_a_close_from_a_newer_session_than_the_bar_is_not_used(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """The fetch quotes 03-17 but the history's last bar is 03-16: that bar keeps the forward
+        fill rather than a close that belongs to another day."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(["2026-03-15", "2026-03-16"], [10.0, float("nan")])
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "11.5",
+                "latest_close_date": "2026-03-17",
+            },
+            period="1mo",
+            existing_df=None,
+        )
+        by_date = dict(zip(out["date"], out["value"]))
+        assert by_date["2026-03-16"] == 10.0
+        assert by_date["2026-03-17"] == 10.0
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_a_close_from_an_older_session_than_the_bar_is_not_used(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """A stale fetch row (03-16) does not repair tonight's empty 03-17 bar."""
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [10.0, float("nan")])
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "11.5",
+                "latest_close_date": "2026-03-16",
+            },
+            period="1mo",
+            existing_df=None,
+        )
+        assert dict(zip(out["date"], out["value"]))["2026-03-17"] == 10.0
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_a_repaired_friday_close_is_carried_over_the_weekend(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        """On a Monday run the fetch quotes Friday's session; the repaired Friday close fills
+        Saturday and Sunday."""
+        freeze_today(date(2026, 3, 23))  # Monday
+        mock_fetch.return_value = self._prices(["2026-03-19", "2026-03-20"], [10.0, float("nan")])
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "11.5",
+                "latest_close_date": "2026-03-20",
+            },
+            period="1mo",
+            existing_df=None,
+        )
+        by_date = dict(zip(out["date"], out["value"]))
+        assert [by_date[d] for d in ("2026-03-20", "2026-03-21", "2026-03-22")] == [11.5] * 3
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_missing_latest_close_without_a_fetch_value_is_forward_filled(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [10.0, float("nan")])
+
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=None,
+        )
+        assert dict(zip(out["date"], out["value"]))["2026-03-17"] == 10.0
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
+    def test_present_latest_close_is_not_overwritten(
+        self, mock_fetch, yfinance_source, freeze_today
+    ):
+        freeze_today(date(2026, 3, 18))
+        mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [10.0, 12.0])
+
+        out = yfinance_source._build_resolution_df(
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "11.5",
+                "latest_close_date": "2026-03-17",
+            },
+            period="1mo",
+            existing_df=None,
+        )
+        assert dict(zip(out["date"], out["value"]))["2026-03-17"] == 12.0
+
+    @patch.object(YfinanceSource, "_fetch_historical_prices")
     def test_new_ticker_failed_fetch_returns_none(self, mock_fetch, yfinance_source, freeze_today):
         """A brand-new ticker whose fetch returns nothing writes no file (no empty upload)."""
         freeze_today(date(2026, 3, 18))
         mock_fetch.return_value = pd.DataFrame()  # fetch failure / no data
         out = yfinance_source._build_resolution_df(
-            {"id": "NEWCO", "resolved": False}, period="1mo", existing_df=None
+            {
+                "id": "NEWCO",
+                "resolved": False,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=None,
         )
         assert out is None
 
@@ -692,7 +973,15 @@ class TestSourceBuildResolutionDf:
         existing["date"] = existing["date"].astype(str)
         # Not up-to-date (last date 03-10 < yesterday 03-17), so it doesn't early-skip; fetch fails.
         out = yfinance_source._build_resolution_df(
-            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=existing, force=True
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=existing,
+            force=True,
         )
         # Existing equals the fallback -> no change -> None (existing file left as-is).
         assert out is None
@@ -703,10 +992,25 @@ class TestSourceBuildResolutionDf:
         freeze_today(date(2026, 3, 18))
         mock_fetch.return_value = self._prices(["2026-03-16", "2026-03-17"], [248.0, 251.0])
         built = yfinance_source._build_resolution_df(
-            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=None
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=None,
         )
         out = yfinance_source._build_resolution_df(
-            {"id": "AAPL", "resolved": False}, period="1mo", existing_df=built, force=True
+            {
+                "id": "AAPL",
+                "resolved": False,
+                "freeze_datetime_value": "N/A",
+                "latest_close_date": "N/A",
+            },
+            period="1mo",
+            existing_df=built,
+            force=True,
         )
         assert out is None
 
@@ -731,6 +1035,7 @@ class TestSourceUpdate:
         assert "NEW" in result.dfq["id"].values
         assert "fetch_datetime" not in result.dfq.columns
         assert "probability" not in result.dfq.columns
+        assert "latest_close_date" not in result.dfq.columns
         assert "NEW" in result.resolution_files
 
     @patch.object(YfinanceSource, "_fetch_historical_prices")
@@ -873,6 +1178,25 @@ class TestSourceUpdate:
         out = result.resolution_files["HES"]
         assert pd.to_datetime(out["date"]).max().date() == date(2026, 3, 17)  # yesterday
         assert float(out["value"].iloc[-1]) == 149.0  # final close carried forward
+
+    def test_nullified_stock_file_is_rounded_to_cents(self, yfinance_source, freeze_today):
+        """A nullified ticker's file is never refetched, so its rows are rounded in place; a file
+        that already reaches yesterday is still rewritten when rounding changes it."""
+        freeze_today(date(2026, 3, 18))
+        dfq = make_question_df([{"id": "HES"}])
+        dff = make_yfinance_fetch_df([{"id": "HES", "resolved": True}])
+        existing = {
+            "HES": make_resolution_df(
+                [
+                    {"id": "HES", "date": "2026-03-16", "value": 149.3999938965},
+                    {"id": "HES", "date": "2026-03-17", "value": 149.3999938965},
+                ]
+            )
+        }
+
+        result = yfinance_source.update(dfq, dff, existing_resolution_files=existing)
+
+        assert list(result.resolution_files["HES"]["value"]) == [149.4, 149.4]
 
     @patch.object(YfinanceSource, "_fetch_historical_prices")
     def test_nullified_stock_without_existing_file_writes_nothing(
