@@ -1107,6 +1107,25 @@ def allocate_across_sources(questions: dict, num_questions: int) -> dict:
     return sources
 
 
+def get_resolution_criteria(dfq: pd.DataFrame, source_template: str) -> pd.Series:
+    """Use source-wide criteria, or require custom criteria when the template is empty."""
+    if source_template:
+        return dfq["url"].apply(lambda url: source_template.format(url=url))
+    # SerpAPI uses different resolution criteria for each API source, so its source-wide
+    # template is empty and we preserve the criteria supplied for each question instead.
+    criteria = dfq.get("resolution_criteria")
+    if (
+        criteria is None
+        or not criteria.apply(
+            lambda value: isinstance(value, str) and value.strip() not in {"", "N/A"}
+        ).all()
+    ):
+        raise ValueError(
+            "Missing per-question resolution_criteria; update the question bank first."
+        )
+    return criteria
+
+
 def write_questions(questions: dict, question_set_target: QuestionSetTarget) -> None:
     """Write questions to JSON file and upload to GCS.
 
@@ -1391,10 +1410,8 @@ def driver(_: None) -> None:
             dfq = drop_questions_that_resolve_too_late(source=source, dfq=dfq)
             dfq = drop_culled_questions(source=source, dfq=dfq)
             dfq["source_intro"] = QUESTIONS[source]["source_intro"]
-            dfq["resolution_criteria"] = dfq["url"].apply(
-                lambda url, template=QUESTIONS[source]["resolution_criteria"]: template.format(
-                    url=url
-                )
+            dfq["resolution_criteria"] = get_resolution_criteria(
+                dfq, QUESTIONS[source]["resolution_criteria"]
             )
             dfq["freeze_datetime"] = question_curation.FREEZE_DATETIME.isoformat()
             dfq = dfq.drop(columns=["market_info_resolution_datetime", "resolved"])
