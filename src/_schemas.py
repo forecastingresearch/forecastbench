@@ -113,6 +113,7 @@ class YfinanceFetchFrame(QuestionFrame):
 
     fetch_datetime: Series[str]
     latest_close_date: Series[str]  # ISO date of the session freeze_datetime_value quotes; "N/A"
+    company_name: Series[str]  # Yahoo's name for the ticker, used in pair question text; "N/A"
 
 
 class MetaculusFetchFrame(pa.DataFrameModel):

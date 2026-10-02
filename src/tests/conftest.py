@@ -101,9 +101,14 @@ def polymarket_source():
 
 @pytest.fixture()
 def yfinance_source():
-    """Return a YfinanceSource instance with the per-ticker rate-limit sleep patched out."""
+    """Return a YfinanceSource instance with no pair questions and no rate-limit sleep.
+
+    Tests of the pair pass set ``source.pairs`` themselves.
+    """
+    source = YfinanceSource()
+    source.pairs = []
     with patch("sources.yfinance.time.sleep"):
-        yield YfinanceSource()
+        yield source
 
 
 @pytest.fixture()
@@ -216,6 +221,7 @@ def make_yfinance_fetch_df(rows):
         "market_info_resolution_datetime": "N/A",
         "fetch_datetime": "2026-03-18T00:00:00+00:00",
         "latest_close_date": "2026-03-17",
+        "company_name": "Some Co",
     }
     df = pd.DataFrame(rows)
     for col, default in defaults.items():

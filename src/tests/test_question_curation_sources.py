@@ -1,4 +1,4 @@
-"""Sampling excludes INFER, Manifold, Wikipedia and Yahoo Finance; the registry resolves them."""
+"""Sampling excludes INFER, Manifold and Wikipedia; the registry still resolves them."""
 
 from helpers import question_curation
 from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES
@@ -20,11 +20,6 @@ def test_wikipedia_not_sampled():
 
 def test_wikipedia_still_a_dataset_source_for_resolution():
     assert "wikipedia" in DATASET_SOURCE_NAMES
-
-
-def test_yfinance_not_sampled():
-    assert "yfinance" not in question_curation.DATA_SOURCES
-    assert "yfinance" not in question_curation.FREEZE_QUESTION_DATA_SOURCES
 
 
 def test_yfinance_still_a_dataset_source_for_resolution():

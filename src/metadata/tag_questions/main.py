@@ -108,6 +108,8 @@ def driver(_):
             dfq["category"] = "Security & Defense"
         elif source == "fred":
             dfq["category"] = "Economics & Business"
+        elif source == "yfinance":
+            dfq["category"] = "Economics & Business"
         else:
             dfq = get_categories_from_llm(dfq)
 
