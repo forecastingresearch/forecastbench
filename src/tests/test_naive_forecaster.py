@@ -4,6 +4,9 @@ import importlib
 import io
 import json
 import types
+from datetime import date
+
+import pandas as pd
 
 from orchestration import _io
 from tests._module_stubs import reset_modules, stubbed_modules
@@ -49,3 +52,90 @@ def test_load_latest_question_set_reads_published_utf8_question_set(monkeypatch)
     assert question_set_filename == "2026-09-27-llm.json"
     assert df["question"].tolist() == [question_text]
     assert set(calls) == {latest_url, question_set_url}
+
+
+class FakeProphet:
+    """Records what it is fit on and predicts a flat band wide enough to cover every date."""
+
+    fitted = []
+
+    def __init__(self, **kwargs):
+        pass
+
+    def fit(self, df):
+        FakeProphet.fitted.append(df)
+
+    def make_future_dataframe(self, periods):
+        start = FakeProphet.fitted[-1]["ds"].max()
+        return pd.DataFrame({"ds": pd.date_range(start=start, periods=periods + 1)})
+
+    def predict(self, future):
+        return pd.DataFrame({"ds": future["ds"], "yhat": 1.0, "yhat_lower": 0.5, "yhat_upper": 1.5})
+
+
+def test_pair_question_is_forecast_on_the_legs_price_ratio(monkeypatch):
+    naive_main = import_naive_main()
+    monkeypatch.setattr(naive_main, "Prophet", FakeProphet)
+    FakeProphet.fitted.clear()
+
+    dfr = pd.DataFrame(
+        {
+            "id": ["AAPL", "AAPL", "MSFT", "MSFT"],
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"] * 2),
+            "value": [100.0, 110.0, 200.0, 200.0],
+        }
+    )
+    df = pd.DataFrame(
+        {
+            "id": ["AAPL_MSFT"],
+            "source": ["yfinance"],
+            "resolution_date": [date(2026, 1, 9)],
+            "forecast": [None],
+        }
+    )
+
+    out = naive_main.get_prophet_forecast(
+        source="yfinance",
+        df=df,
+        dfr=dfr,
+        day_before_forecast_due_date=date(2026, 1, 2),
+        prophet_args={},
+        forecast_due_date_plus_max_horizon=date(2026, 1, 9),
+    )
+
+    assert FakeProphet.fitted[0]["y"].tolist() == [0.5, 0.55]
+    assert out.loc[out["id"] == "AAPL_MSFT", "forecast"].notna().all()
+
+
+def test_dbnomics_ids_with_underscores_are_not_treated_as_pairs(monkeypatch):
+    naive_main = import_naive_main()
+    monkeypatch.setattr(naive_main, "Prophet", FakeProphet)
+    FakeProphet.fitted.clear()
+
+    dfr = pd.DataFrame(
+        {
+            "id": ["ECB_FM_X", "ECB_FM_X"],
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"]),
+            "value": [1.0, 2.0],
+        }
+    )
+    df = pd.DataFrame(
+        {
+            "id": ["ECB_FM_X"],
+            "source": ["dbnomics"],
+            "resolution_date": [date(2026, 1, 9)],
+            "forecast": [None],
+        }
+    )
+
+    out = naive_main.get_prophet_forecast(
+        source="dbnomics",
+        df=df,
+        dfr=dfr,
+        day_before_forecast_due_date=date(2026, 1, 2),
+        prophet_args={},
+        forecast_due_date_plus_max_horizon=date(2026, 1, 9),
+    )
+
+    assert FakeProphet.fitted[0]["y"].tolist() == [1.0, 2.0]
+    assert out.loc[out["id"] == "ECB_FM_X", "forecast"].notna().all()

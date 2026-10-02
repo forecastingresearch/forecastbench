@@ -12,6 +12,7 @@ from . import (
     kalshi,
     metaculus,
     polymarket,
+    yfinance,
 )
 
 FREEZE_NUM_LLM_QUESTIONS = 500
@@ -68,6 +69,11 @@ FREEZE_QUESTION_DATA_SOURCES = {
         "name": "FRED",
         "source_intro": fred.SOURCE_INTRO,
         "resolution_criteria": fred.RESOLUTION_CRITERIA,
+    },
+    "yfinance": {
+        "name": "Yahoo Finance",
+        "source_intro": yfinance.SOURCE_INTRO,
+        "resolution_criteria": yfinance.RESOLUTION_CRITERIA,
     },
 }
 

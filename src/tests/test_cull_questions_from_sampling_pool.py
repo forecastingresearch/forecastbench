@@ -1,4 +1,4 @@
-"""Question curation culls DBnomics weather, ACLED x10, and zero-baseline ACLED questions."""
+"""Question curation culls DBnomics weather, ACLED x10 and zero-baseline, and yfinance single tickers."""
 
 import pandas as pd
 
@@ -57,3 +57,15 @@ def test_other_sources_untouched():
     )
     result = create_question_set.drop_culled_questions(source="polymarket", dfq=dfq)
     assert len(result) == 1
+
+
+def test_drop_retired_single_ticker_yfinance_questions():
+    """Only pair questions (id X_Y) are sampled; single-ticker rows stay for resolution only."""
+    dfq = pd.DataFrame(
+        {
+            "id": ["AAPL", "AAPL_MSFT", "MSFT"],
+            "question": ["Will AAPL go up?", "Will AAPL beat MSFT?", "Will MSFT go up?"],
+        }
+    )
+    result = create_question_set.drop_culled_questions(source="yfinance", dfq=dfq)
+    assert result["id"].tolist() == ["AAPL_MSFT"]

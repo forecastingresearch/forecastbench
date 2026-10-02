@@ -434,9 +434,9 @@ SOURCE_METADATA = {
             "to predict how questions based on this data will resolve."
         ),
         "resolution_criteria": (
-            "Resolves to the market close price at {url} for the resolution date. If the "
-            "resolution date coincides with a day the market is closed (weekend, holiday, etc.) "
-            "the previous market close price is used."
+            "Resolves using the market close prices at {url}. If a date in the question "
+            "coincides with a day the market is closed (weekend, holiday, etc.) the previous "
+            "market close price is used."
         ),
         # Stocks that were delisted (via acquisition, merger, or going private) while still in the
         # question pool. nullification_start_date is the first calendar day after the last trading

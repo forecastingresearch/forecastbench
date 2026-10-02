@@ -215,7 +215,7 @@ class TestSourceGetSp500Tickers:
     </body></html>
     """
 
-    @patch("sources.yfinance.requests.get")
+    @patch("requests.get")
     def test_parses_wikipedia_table(self, mock_get):
         """Returns the ticker list from the Wikipedia constituents table."""
         mock_resp = Mock()
@@ -225,7 +225,7 @@ class TestSourceGetSp500Tickers:
 
         assert YfinanceSource._get_sp500_tickers() == ["AAPL", "MSFT", "GOOGL"]
 
-    @patch("sources.yfinance.requests.get")
+    @patch("requests.get")
     def test_sends_benchmark_user_agent(self, mock_get):
         """Sends the benchmark User-Agent header (regression for the dropped/Mozilla UA)."""
         mock_resp = Mock()
@@ -238,7 +238,7 @@ class TestSourceGetSp500Tickers:
         _, kwargs = mock_get.call_args
         assert kwargs["headers"] == {"User-Agent": constants.BENCHMARK_USER_AGENT}
 
-    @patch("sources.yfinance.requests.get")
+    @patch("requests.get")
     def test_returns_empty_on_error(self, mock_get):
         """Returns an empty list when the request fails (legacy-faithful swallow)."""
         mock_get.side_effect = Exception("Network error")
@@ -272,25 +272,26 @@ class TestSourceSelectTimeRange:
 class TestSourceFetchOneStock:
     """Tests for YfinanceSource._fetch_one_stock."""
 
-    @patch("sources.yfinance.yf.Ticker")
+    @patch("yfinance.Ticker")
     def test_uses_unadjusted_close(self, mock_ticker_cls, yfinance_source, freeze_today):
         """History is requested with auto_adjust=False (raw close prices)."""
         freeze_today(date(2026, 3, 18))
         mock_ticker = MagicMock()
-        mock_ticker.info = {"longName": "Apple Inc."}
+        mock_ticker.info = {"longName": "Apple Inc.", "longBusinessSummary": "Makes phones."}
         hist = pd.DataFrame(
             {"Date": pd.to_datetime(["2026-03-16", "2026-03-17"]), "Close": [253.0, 254.23]}
         ).set_index("Date")
         mock_ticker.history.return_value = hist
         mock_ticker_cls.return_value = mock_ticker
 
-        name, out = yfinance_source._fetch_one_stock("AAPL")
+        name, summary, out = yfinance_source._fetch_one_stock("AAPL")
 
         mock_ticker.history.assert_called_once_with(period="5d", auto_adjust=False)
         assert name == "Apple Inc."
+        assert summary == "Makes phones."
         assert out["Close"].iloc[-1] == 254.23  # capped at yesterday, last row
 
-    @patch("sources.yfinance.yf.Ticker")
+    @patch("yfinance.Ticker")
     def test_falls_back_to_short_name(self, mock_ticker_cls, yfinance_source, freeze_today):
         """Yahoo omits longName for some live tickers, which must not look like a delisting."""
         freeze_today(date(2026, 3, 18))
@@ -302,18 +303,19 @@ class TestSourceFetchOneStock:
         mock_ticker.history.return_value = hist
         mock_ticker_cls.return_value = mock_ticker
 
-        name, out = yfinance_source._fetch_one_stock("MTCH")
+        name, summary, out = yfinance_source._fetch_one_stock("MTCH")
 
         assert name == "Match Group, Inc."
+        assert summary is None  # Yahoo gave no business summary
         assert out["Close"].iloc[-1] == 41.22
 
-    @patch("sources.yfinance.yf.Ticker")
+    @patch("yfinance.Ticker")
     def test_returns_none_on_error(self, mock_ticker_cls, yfinance_source):
-        """Returns (None, None) when the ticker lookup fails (legacy-faithful swallow)."""
+        """Returns (None, None, None) when the ticker lookup fails (legacy-faithful swallow)."""
         mock_ticker_cls.side_effect = Exception("yfinance unavailable")
-        assert yfinance_source._fetch_one_stock("INVALID") == (None, None)
+        assert yfinance_source._fetch_one_stock("INVALID") == (None, None, None)
 
-    @patch("sources.yfinance.yf.Ticker")
+    @patch("yfinance.Ticker")
     def test_fills_missing_close_from_quote(self, mock_ticker_cls, yfinance_source, freeze_today):
         """Yahoo's chart bar for the latest session has Close NaN; the quote still has the close."""
         freeze_today(date(2026, 9, 23))
@@ -337,11 +339,11 @@ class TestSourceFetchOneStock:
         mock_ticker.history.return_value = hist
         mock_ticker_cls.return_value = mock_ticker
 
-        _, out = yfinance_source._fetch_one_stock("T")
+        _, _, out = yfinance_source._fetch_one_stock("T")
 
         assert out["Close"].iloc[-1] == 25.1
 
-    @patch("sources.yfinance.yf.Ticker")
+    @patch("yfinance.Ticker")
     def test_uses_previous_close_when_run_during_a_later_session(
         self, mock_ticker_cls, yfinance_source, freeze_today
     ):
@@ -370,11 +372,11 @@ class TestSourceFetchOneStock:
         mock_ticker.history.return_value = hist
         mock_ticker_cls.return_value = mock_ticker
 
-        _, out = yfinance_source._fetch_one_stock("T")
+        _, _, out = yfinance_source._fetch_one_stock("T")
 
         assert out["Close"].iloc[-1] == 25.1
 
-    @patch("sources.yfinance.yf.Ticker")
+    @patch("yfinance.Ticker")
     def test_leaves_close_missing_when_quote_is_from_another_day(
         self, mock_ticker_cls, yfinance_source, freeze_today
     ):
@@ -400,7 +402,7 @@ class TestSourceFetchOneStock:
         mock_ticker.history.return_value = hist
         mock_ticker_cls.return_value = mock_ticker
 
-        _, out = yfinance_source._fetch_one_stock("T")
+        _, _, out = yfinance_source._fetch_one_stock("T")
 
         assert pd.isna(out["Close"].iloc[-1])
 
@@ -417,7 +419,7 @@ class TestSourceFetch:
         ).set_index("Date")
         return ticker
 
-    @patch("sources.yfinance.yf.Ticker")
+    @patch("yfinance.Ticker")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
     def test_builds_valid_fetch_frame(
         self, _mock_tickers, mock_ticker_cls, yfinance_source, freeze_today
@@ -429,13 +431,32 @@ class TestSourceFetch:
         dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}]))
 
         YfinanceFetchFrame.validate(dff)
+        assert mock_ticker_cls.call_count == len(dff)  # one Yahoo lookup per fetched ticker
         row = dff[dff["id"] == "AAPL"].iloc[0]
         assert bool(row["resolved"]) is False
+        assert row["background"] == "A company."
         assert row["url"] == "https://finance.yahoo.com/quote/AAPL"
         assert float(row["freeze_datetime_value"]) == 254.23
         assert row["latest_close_date"] == "2026-03-17"  # the session the freeze value quotes
+        assert row["company_name"] == "Apple Inc."
 
-    @patch("sources.yfinance.yf.Ticker")
+    @patch.object(YfinanceSource, "_fetch_one_stock")
+    @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
+    def test_missing_business_summary_keeps_the_bank_background(
+        self, _mock_tickers, mock_fetch_one, yfinance_source, freeze_today
+    ):
+        """Yahoo's profile request can fail while the quote succeeds; the row then keeps the
+        summary the bank already has instead of "N/A"."""
+        freeze_today(date(2026, 3, 18))
+        hist = pd.DataFrame({"Date": pd.to_datetime(["2026-03-17"]), "Close": [254.23]})
+        mock_fetch_one.return_value = ("Apple Inc.", None, hist)
+        dfq = make_question_df([{"id": "AAPL", "background": "Makes phones."}])
+
+        dff = yfinance_source.fetch(dfq=dfq)
+
+        assert dff[dff["id"] == "AAPL"].iloc[0]["background"] == "Makes phones."
+
+    @patch("yfinance.Ticker")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=[])
     def test_delisted_ticker_marked_resolved(
         self, _mock_tickers, mock_ticker_cls, yfinance_source, freeze_today
@@ -451,78 +472,72 @@ class TestSourceFetch:
         assert bool(row["resolved"]) is True
         assert row["freeze_datetime_value"] == "N/A"
         assert row["latest_close_date"] == "N/A"
+        assert row["company_name"] == "N/A"
         assert row["question"] == "legacy question"  # original question text preserved
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL", "FAILS"])
     def test_in_sp500_fetch_failure_is_dropped(
-        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, _mock_tickers, mock_fetch_one, yfinance_source, freeze_today
     ):
         """A ticker still in the S&P 500 that fails to fetch is dropped (not delisted)."""
         freeze_today(date(2026, 3, 18))
         hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
         mock_fetch_one.side_effect = lambda sym: (
-            ("Apple Inc.", hist) if sym == "AAPL" else (None, None)
+            ("Apple Inc.", "A company.", hist) if sym == "AAPL" else (None, None, None)
         )
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
 
         dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}]))
 
         assert "FAILS" not in dff["id"].values
         assert "AAPL" in dff["id"].values
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
     def test_not_in_sp500_but_fetch_succeeds_not_resolved(
-        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, _mock_tickers, mock_fetch_one, yfinance_source, freeze_today
     ):
         """A pool ticker no longer in the S&P 500 that still returns data is not marked resolved."""
         freeze_today(date(2026, 3, 18))
         hist = pd.DataFrame({"Close": [100.0], "Date": pd.to_datetime(["2026-03-17"])})
-        mock_fetch_one.return_value = ("Some Co", hist)
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+        mock_fetch_one.return_value = ("Some Co", "A company.", hist)
 
         dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}, {"id": "OUTCO"}]))
 
         outco = dff[dff["id"] == "OUTCO"].iloc[0]
         assert bool(outco["resolved"]) is False
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL", "NEWCO"])
     def test_new_sp500_constituent_is_not_added(
-        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, _mock_tickers, mock_fetch_one, yfinance_source, freeze_today
     ):
         """A constituent that is not already in the question bank is never fetched or added.
 
-        We no longer sample yfinance, so the ticker pool must not grow with index turnover.
+        Only pair questions are sampled, so the ticker pool must not grow with index turnover;
+        the one addition is the replacement symbols from ``ticker_renames``.
         """
         freeze_today(date(2026, 3, 18))
         hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
-        mock_fetch_one.return_value = ("Some Co", hist)
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+        mock_fetch_one.return_value = ("Some Co", "A company.", hist)
 
         dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}]))
 
         assert "NEWCO" not in mock_fetch_one.call_args_list
         assert "NEWCO" not in dff["id"].values
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
     def test_records_uncurated_delisted_for_triage(
-        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, _mock_tickers, mock_fetch_one, yfinance_source, freeze_today
     ):
         """A pooled ticker that 404s but isn't curated is recorded for triage; nullified/renamed
         tickers (carried forward without fetching) are not."""
         freeze_today(date(2026, 3, 18))
         hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
         mock_fetch_one.side_effect = lambda sym: (
-            ("Apple Inc.", hist) if sym == "AAPL" else (None, None)
+            ("Apple Inc.", "A company.", hist) if sym == "AAPL" else (None, None, None)
         )
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
 
         # ZZZZ: uncurated 404. WBA: nullified. FI: renamed original. Only ZZZZ is for triage.
         dfq = make_question_df([{"id": "AAPL"}, {"id": "ZZZZ"}, {"id": "WBA"}, {"id": "FI"}])
@@ -538,16 +553,14 @@ class TestSourceFetchSkipsNullified:
     def _ok_hist():
         return pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
     def test_nullified_in_pool_skipped_and_carried_forward(
-        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, _mock_tickers, mock_fetch_one, yfinance_source, freeze_today
     ):
         """A nullified pool ticker is never sent to the API and is carried forward as resolved."""
         freeze_today(date(2026, 3, 18))
-        mock_fetch_one.return_value = ("Apple Inc.", self._ok_hist())
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+        mock_fetch_one.return_value = ("Apple Inc.", "A company.", self._ok_hist())
 
         dfq = make_question_df(
             [
@@ -567,16 +580,14 @@ class TestSourceFetchSkipsNullified:
         assert anss["question"] == "legacy ANSS question"  # original row preserved
         YfinanceFetchFrame.validate(dff)  # carry-forward row is schema-valid
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL", "ANSS"])
     def test_nullified_never_fetched_even_if_in_sp500_scrape(
-        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, _mock_tickers, mock_fetch_one, yfinance_source, freeze_today
     ):
         """A nullified ticker is dropped from the universe even if the S&P 500 scrape lists it."""
         freeze_today(date(2026, 3, 18))
-        mock_fetch_one.return_value = ("Apple Inc.", self._ok_hist())
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+        mock_fetch_one.return_value = ("Apple Inc.", "A company.", self._ok_hist())
 
         dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}]))
 
@@ -584,30 +595,27 @@ class TestSourceFetchSkipsNullified:
         assert "ANSS" not in fetched
         assert "ANSS" not in dff["id"].values  # not in pool -> not carried forward either
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     @patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"])
     def test_carry_forward_does_not_404(
-        self, _mock_tickers, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, _mock_tickers, mock_fetch_one, yfinance_source, freeze_today
     ):
         """Carrying a nullified ticker forward must not invoke yf.Ticker for it (no 404 noise)."""
         freeze_today(date(2026, 3, 18))
-        mock_fetch_one.return_value = ("Apple Inc.", self._ok_hist())
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+        mock_fetch_one.return_value = ("Apple Inc.", "A company.", self._ok_hist())
 
         yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}, {"id": "WBA"}]))
 
-        ticker_calls = [call.args[0] for call in mock_ticker_cls.call_args_list]
-        assert "WBA" not in ticker_calls, "nullified ticker must not be passed to yf.Ticker"
+        looked_up = [call.args[0] for call in mock_fetch_one.call_args_list]
+        assert "WBA" not in looked_up, "nullified ticker must not be looked up on Yahoo"
 
 
 class TestSourceFetchSkipsRenamed:
     """Renamed originals are never fetched; only their replacement is."""
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     def test_renamed_original_skipped_and_carried_forward(
-        self, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, mock_fetch_one, yfinance_source, freeze_today
     ):
         """The renamed original (e.g. FI) is not fetched and is carried forward as resolved; its
         replacement (e.g. FISV) is still fetched normally."""
@@ -615,8 +623,7 @@ class TestSourceFetchSkipsRenamed:
         original = yfinance_source.ticker_renames[0]["original_ticker"]  # FI
         replacement = yfinance_source.ticker_renames[0]["replacement_ticker"]  # FISV
         hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
-        mock_fetch_one.return_value = ("Some Co", hist)
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+        mock_fetch_one.return_value = ("Some Co", "A company.", hist)
 
         with patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL", replacement]):
             dfq = make_question_df([{"id": "AAPL"}, {"id": original}, {"id": replacement}])
@@ -630,18 +637,16 @@ class TestSourceFetchSkipsRenamed:
         assert bool(fi["resolved"]) is True
         assert fi["freeze_datetime_value"] == "N/A"
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     def test_replacement_fetched_even_when_not_in_pool(
-        self, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, mock_fetch_one, yfinance_source, freeze_today
     ):
         """A replacement symbol with no question of its own is still fetched, so the main loop
         builds its resolution file and the rename step copies it to the original's."""
         freeze_today(date(2026, 3, 18))
         replacement = yfinance_source.ticker_renames[0]["replacement_ticker"]  # FISV
         hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
-        mock_fetch_one.return_value = ("Some Co", hist)
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+        mock_fetch_one.return_value = ("Some Co", "A company.", hist)
 
         with patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL", replacement]):
             dff = yfinance_source.fetch(dfq=make_question_df([{"id": "AAPL"}]))
@@ -650,10 +655,9 @@ class TestSourceFetchSkipsRenamed:
         assert replacement in fetched
         assert replacement in dff["id"].values
 
-    @patch("sources.yfinance.yf.Ticker")
     @patch.object(YfinanceSource, "_fetch_one_stock")
     def test_replacement_that_is_itself_nullified_is_not_fetched(
-        self, mock_fetch_one, mock_ticker_cls, yfinance_source, freeze_today
+        self, mock_fetch_one, yfinance_source, freeze_today
     ):
         """A replacement symbol that was later delisted stays excluded: no 404 every night, no
         second carried-forward row, and no "uncurated delisting" alert for a curated ticker."""
@@ -663,8 +667,7 @@ class TestSourceFetchSkipsRenamed:
             NullifiedQuestion(id="FISV", nullification_start_date=date(2026, 1, 1))
         ]
         hist = pd.DataFrame({"Close": [254.23], "Date": pd.to_datetime(["2026-03-17"])})
-        mock_fetch_one.return_value = ("Some Co", hist)
-        mock_ticker_cls.return_value.info.get.return_value = "N/A"
+        mock_fetch_one.return_value = ("Some Co", "A company.", hist)
 
         with patch.object(YfinanceSource, "_get_sp500_tickers", return_value=["AAPL"]):
             dff = yfinance_source.fetch(
@@ -1084,6 +1087,7 @@ class TestSourceUpdate:
         assert "fetch_datetime" not in result.dfq.columns
         assert "probability" not in result.dfq.columns
         assert "latest_close_date" not in result.dfq.columns
+        assert "company_name" not in result.dfq.columns
         assert "NEW" in result.resolution_files
 
     @patch.object(YfinanceSource, "_fetch_historical_prices")
