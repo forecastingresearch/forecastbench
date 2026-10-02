@@ -101,8 +101,9 @@ def polymarket_source():
 
 @pytest.fixture()
 def yfinance_source():
-    """Return a YfinanceSource instance."""
-    return YfinanceSource()
+    """Return a YfinanceSource instance with the per-ticker rate-limit sleep patched out."""
+    with patch("sources.yfinance.time.sleep"):
+        yield YfinanceSource()
 
 
 @pytest.fixture()
