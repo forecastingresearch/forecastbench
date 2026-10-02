@@ -29,10 +29,7 @@ def driver(_: Any) -> None:
         SOURCE, return_question_data=True, return_fetch_data=True
     )
 
-    # Load existing resolution files for fetched tickers plus the renamed-ticker originals, whose
-    # files are rebuilt from their replacement symbols inside update().
-    rename_originals = [entry["original_ticker"] for entry in source.ticker_renames]
-    ids_to_load = sorted(set(dff["id"].astype(str)) | set(rename_originals))
+    ids_to_load = sorted(set(dff["id"].astype(str)))
     existing_resolution_files = _source_io.load_existing_resolution_files(SOURCE, ids=ids_to_load)
 
     result = source.update(
