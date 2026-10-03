@@ -11,7 +11,7 @@ from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dat
 from resolve.explode_question_set import explode_question_set, get_resolution_dates
 from resolve.resolve_all import resolve_all
 from sources.registry import SOURCES
-from tests.conftest import make_question_df, make_question_set_df, make_resolution_df
+from tests.factories import make_question_df, make_question_set_df, make_resolution_df
 
 # ---------------------------------------------------------------------------
 # Integration Test 1: Market source end-to-end
