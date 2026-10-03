@@ -739,18 +739,19 @@ class TestGetEvents:
 
         assert list(df["event_id_cnty"]) == ["AAA", "ZZZ"]
 
-    def test_empty_first_page_returns_empty_frame(self, monkeypatch, acled_source_with_creds):
-        """Regression: empty data on the first page returns an empty frame instead of raising
-        ValueError from pd.concat([]), so the job's `if dff.empty` guard is reachable."""
+    def test_empty_first_page_raises(self, monkeypatch, acled_source_with_creds):
+        """No events on any page fails the job instead of writing an empty fetch file.
+
+        An empty ACLED response means the API or our request is broken. Failing stops the nightly
+        worker from running the update job on last week's fetch file.
+        """
         monkeypatch.setattr(
             "sources.acled.requests.get",
             lambda *args, **kwargs: _FakeResponse(make_acled_api_data_response([], count=0)),
         )
 
-        df = acled_source_with_creds._get_events(access_token="token")
-
-        assert df.empty
-        assert list(df.columns) == FETCH_COLUMNS
+        with pytest.raises(RuntimeError, match="No ACLED events were downloaded"):
+            acled_source_with_creds._get_events(access_token="token")
 
 
 # ---------------------------------------------------------------------------

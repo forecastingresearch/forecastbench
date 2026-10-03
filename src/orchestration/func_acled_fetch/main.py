@@ -22,10 +22,6 @@ def driver(_: Any) -> None:
 
     dff = source.fetch()
 
-    if dff.empty:
-        logger.error("No ACLED data was downloaded.")
-        return
-
     _source_io.write_fetch_output(SOURCE, dff)
     logger.info("Done.")
 
