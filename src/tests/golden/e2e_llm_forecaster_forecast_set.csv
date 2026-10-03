@@ -1,0 +1,13 @@
+variant,source,id,resolution_date,forecast
+zero-shot,fred,fred-1,2026-06-01,0.01
+zero-shot,fred,fred-1,2026-07-01,0.02
+zero-shot,fred,fred-2,2026-06-01,0.01
+zero-shot,fred,fred-2,2026-07-01,0.02
+zero-shot,manifold,manifold-1,,0.42
+zero-shot,metaculus,metaculus-1,,0.42
+zero-shot-with-freeze-values,fred,fred-1,2026-06-01,0.01
+zero-shot-with-freeze-values,fred,fred-1,2026-07-01,0.02
+zero-shot-with-freeze-values,fred,fred-2,2026-06-01,0.01
+zero-shot-with-freeze-values,fred,fred-2,2026-07-01,0.02
+zero-shot-with-freeze-values,manifold,manifold-1,,0.42
+zero-shot-with-freeze-values,metaculus,metaculus-1,,0.42
