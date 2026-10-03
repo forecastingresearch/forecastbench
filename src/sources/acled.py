@@ -316,7 +316,9 @@ class AcledSource(DatasetSource):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _prepare_resolution_data(dff: pd.DataFrame) -> tuple[pd.DataFrame, list, list]:
+    def _prepare_resolution_data(
+        dff: pd.DataFrame,
+    ) -> tuple[pd.DataFrame, list[str], list[str]]:
         """Aggregate raw event rows into the ACLED resolution frame.
 
         Args:
@@ -365,7 +367,7 @@ class AcledSource(DatasetSource):
             .reset_index()
         )
 
-        countries = df["country"].unique()
+        countries = list(df["country"].unique())
         event_types = list(df["event_type"].unique()) + ["fatalities"]
 
         return dfr, countries, event_types
@@ -378,8 +380,8 @@ class AcledSource(DatasetSource):
         self,
         dfq: pd.DataFrame,
         dfr: pd.DataFrame,
-        countries: list,
-        event_types: list,
+        countries: list[str],
+        event_types: list[str],
         today,
     ) -> pd.DataFrame:
         """Generate forecast questions for all (country, event_type, question key) combinations.
@@ -387,8 +389,8 @@ class AcledSource(DatasetSource):
         Args:
             dfq (pd.DataFrame): Existing questions (may be empty).
             dfr (pd.DataFrame): Aggregated resolution frame.
-            countries (list): Unique countries from the fetch data.
-            event_types (list): Unique event types plus "fatalities".
+            countries (list[str]): Unique countries from the fetch data.
+            event_types (list[str]): Unique event types plus "fatalities".
             today (date): Reference date for freeze value calculation.
         """
         logger.info(f"Found {len(countries)} countries.")
