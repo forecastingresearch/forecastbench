@@ -19,9 +19,6 @@ def driver(_: Any) -> None:
     source = WikipediaSource()
 
     fetch_result = source.fetch()
-    if not fetch_result:
-        logger.error("No Wikipedia data was downloaded.")
-        return
 
     _source_io.write_wikipedia_fetch_output(fetch_result)
     logger.info("Done.")
