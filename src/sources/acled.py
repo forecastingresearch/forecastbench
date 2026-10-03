@@ -305,9 +305,7 @@ class AcledSource(DatasetSource):
             dfs.append(df_new_rows)
 
         if not dfs:
-            # No data on any page: return an empty frame so the job's `if dff.empty` guard can
-            # handle it gracefully (pd.concat([]) would otherwise raise ValueError).
-            return pd.DataFrame(columns=FETCH_COLUMNS)
+            raise RuntimeError("No ACLED events were downloaded.")
 
         df = pd.concat(dfs, ignore_index=True).sort_values(by="event_id_cnty", ignore_index=True)
         logger.info(f"Downloaded {len(df)} rows.")
