@@ -1,0 +1,4 @@
+organization,model_organization,model,model_pk,external_submission,forecastbench_llm,forecastbench_comparison_model,peer_score_dataset,brier_skill_score_dataset,n_dataset,first_forecast_due_date,peer_score_market,brier_skill_score_market,n_market,peer_score_overall,brier_skill_score_overall,n_overall
+ForecastBench,ForecastBench,Naive Forecaster,ForecastBench_ForecastBench_Naive Forecaster,False,False,True,0.038333333,0.0,2,2025-01-01,0.05,0.0,1,0.044166667,0.0,3
+OrgBad,OrgBad,Bad,OrgBad_OrgBad_Bad,True,False,False,-0.276666667,-0.315,2,2025-01-01,-0.34,-0.39,1,-0.308333333,-0.3525,3
+OrgGood,OrgGood,Good,OrgGood_OrgGood_Good,True,False,False,0.238333333,0.2,2,2025-01-01,0.29,0.24,1,0.264166667,0.22,3
