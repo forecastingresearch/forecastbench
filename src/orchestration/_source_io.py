@@ -153,6 +153,9 @@ def write_wikipedia_fetch_output(fetch_result: WikipediaFetchResult) -> None:
 def read_wikipedia_fetch_files() -> WikipediaFetchResult:
     """Download per-page Wikipedia fetch files from wikipedia/fetch/.
 
+    Empty files are returned as empty DataFrames rather than dropped, so a page with no data can be
+    told apart from a page whose fetch file is missing.
+
     Returns:
         WikipediaFetchResult mapping id_root to fetched table DataFrame.
     """
@@ -174,8 +177,8 @@ def read_wikipedia_fetch_files() -> WikipediaFetchResult:
             local_filename=local_filename,
         )
         if os.path.exists(local_filename):
-            df = pd.read_json(local_filename, lines=True, dtype={}, convert_dates=False)
-            if not df.empty:
-                result[id_root] = df
+            result[id_root] = pd.read_json(
+                local_filename, lines=True, dtype={}, convert_dates=False
+            )
     logger.info(f"Loaded {len(result)} Wikipedia fetch files.")
     return result

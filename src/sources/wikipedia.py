@@ -299,14 +299,17 @@ class WikipediaSource(DatasetSource):
 
         Args:
             dfq (DataFrame[QuestionFrame]): Existing questions.
-            dff (WikipediaFetchResult): dict mapping id_root -> fetched table DataFrame.
+            dff (WikipediaFetchResult): dict mapping id_root -> fetched table DataFrame. Every page
+                must have an entry; an empty DataFrame means the page had no data and is skipped.
         """
         resolution_files: dict[str, pd.DataFrame] = {}
 
         for page in _PAGES:
             id_root = page["id_root"]
-            page_dff = dff.get(id_root)
-            if page_dff is None or page_dff.empty:
+            if id_root not in dff:
+                raise ValueError(f"No Wikipedia fetch file for {id_root}.")
+            page_dff = dff[id_root]
+            if page_dff.empty:
                 continue
 
             page_dff = page_dff.copy()
