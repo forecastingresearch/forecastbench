@@ -3,6 +3,7 @@
 from datetime import date, datetime
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -812,3 +813,393 @@ def test_read_wikipedia_fetch_files_keeps_empty_pages_and_skips_non_jsonl():
     assert set(result) == {f"{prefix}_page", f"{prefix}_empty"}
     assert result[f"{prefix}_empty"].empty
     assert result[f"{prefix}_page"]["Player"].tolist() == ["A"]
+
+
+# ---------------------------------------------------------------------------
+# _resolve / _resolve_single_question orchestration
+# ---------------------------------------------------------------------------
+#
+# These tests drive the full row-by-row resolution path (mask gating, hash lookup,
+# PAGES question_type dispatch, ffill, combo branch, nullification) and assert the
+# exact resolved_to / resolved against a hand-computed oracle. _resolve() takes the
+# already-source-filtered df and returns (df, warnings). The df is shaped like the
+# ResolveReadyFrame rows that BaseSource.resolve() hands down: id, source, direction,
+# forecast_due_date, resolution_date, resolved, resolved_to.
+#
+# id_root -> QuestionType (from helpers.wikipedia.PAGES), used as the oracle:
+#   FIDE_rankings_elo_rating         -> ONE_PERCENT_MORE (res >= due * 1.01)
+#   FIDE_rankings_ranking            -> SAME_OR_LESS      (res <= due)
+#   List_of_world_records_in_swimming-> SAME              (res == due)
+#   List_of_infectious_diseases      -> MORE              (res > due)
+
+
+def _make_wiki_resolve_df(rows: list[dict]) -> pd.DataFrame:
+    """Build a ResolveReadyFrame-shaped df for WikipediaSource._resolve().
+
+    Each row dict needs ``id``, ``forecast_due_date``, ``resolution_date``; ``direction``
+    defaults to ``()`` (single question). ``source`` is stamped to ``"wikipedia"`` and the
+    resolution-output columns (``resolved`` / ``resolved_to``) are seeded as
+    BaseSource.resolve() seeds them before delegating.
+
+    Args:
+        rows (list): Row dicts (id, forecast_due_date, resolution_date, optional direction).
+    """
+    df = pd.DataFrame(rows)
+    if "direction" not in df.columns:
+        df["direction"] = [() for _ in range(len(df))]
+    df["source"] = "wikipedia"
+    df["forecast_due_date"] = pd.to_datetime(df["forecast_due_date"])
+    df["resolution_date"] = pd.to_datetime(df["resolution_date"])
+    df["resolved"] = False
+    df["resolved_to"] = np.nan
+    return df
+
+
+def _wiki_source(hash_mapping: dict) -> WikipediaSource:
+    """Return a WikipediaSource with the given hash_mapping populated."""
+    src = WikipediaSource()
+    src.hash_mapping = hash_mapping
+    return src
+
+
+class TestWikipediaResolveSingle:
+    """Exact-oracle resolution of single (non-combo) Wikipedia questions."""
+
+    def test_one_percent_more_resolves_true(self, freeze_today):
+        """ONE_PERCENT_MORE: 100 -> 102 satisfies 102 >= 100 * 1.01, so resolved_to is 1.0."""
+        freeze_today(date(2025, 1, 10))  # yesterday = 2025-01-09
+        src = _wiki_source(
+            {"hA": {"id_root": "FIDE_rankings_elo_rating", "id_field_value": "Player A"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hA", "date": "2025-01-01", "value": 100.0},
+                {"id": "hA", "date": "2025-01-05", "value": 102.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hA", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, warnings = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert warnings == []
+        assert bool(out["resolved"].iloc[0]) is True
+        assert out["resolved_to"].iloc[0] == 1.0
+
+    def test_one_percent_more_resolves_false(self, freeze_today):
+        """ONE_PERCENT_MORE: 100 -> 100 fails 100 >= 100 * 1.01, so resolved_to is 0.0."""
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hA": {"id_root": "FIDE_rankings_elo_rating", "id_field_value": "Player A"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hA", "date": "2025-01-01", "value": 100.0},
+                {"id": "hA", "date": "2025-01-05", "value": 100.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hA", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert bool(out["resolved"].iloc[0]) is True
+        assert out["resolved_to"].iloc[0] == 0.0
+
+    def test_more_resolves_true(self, freeze_today):
+        """MORE (List_of_infectious_diseases): 0 -> 1 satisfies 1 > 0, so resolved_to is 1.0."""
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hD": {"id_root": "List_of_infectious_diseases", "id_field_value": "Disease D"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hD", "date": "2025-01-01", "value": 0.0},
+                {"id": "hD", "date": "2025-01-05", "value": 1.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hD", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert out["resolved_to"].iloc[0] == 1.0
+
+    def test_more_resolves_false(self, freeze_today):
+        """MORE: 1 -> 1 fails 1 > 1, so resolved_to is 0.0."""
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hD": {"id_root": "List_of_infectious_diseases", "id_field_value": "Disease D"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hD", "date": "2025-01-01", "value": 1.0},
+                {"id": "hD", "date": "2025-01-05", "value": 1.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hD", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert out["resolved_to"].iloc[0] == 0.0
+
+    def test_same_resolves_true(self, freeze_today):
+        """SAME (swimming WR): 1 -> 1 satisfies 1 == 1, so resolved_to is 1.0."""
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hS": {"id_root": "List_of_world_records_in_swimming", "id_field_value": "Swimmer S"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hS", "date": "2025-01-01", "value": 1.0},
+                {"id": "hS", "date": "2025-01-05", "value": 1.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hS", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert out["resolved_to"].iloc[0] == 1.0
+
+    def test_same_resolves_false(self, freeze_today):
+        """SAME: 1 -> 0 fails 0 == 1 (record lost), so resolved_to is 0.0."""
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hS": {"id_root": "List_of_world_records_in_swimming", "id_field_value": "Swimmer S"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hS", "date": "2025-01-01", "value": 1.0},
+                {"id": "hS", "date": "2025-01-05", "value": 0.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hS", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert out["resolved_to"].iloc[0] == 0.0
+
+    def test_same_or_less_resolves_true(self, freeze_today):
+        """SAME_OR_LESS (FIDE ranking): rank 5 -> 3 satisfies 3 <= 5, so resolved_to is 1.0."""
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hR": {"id_root": "FIDE_rankings_ranking", "id_field_value": "Player R"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hR", "date": "2025-01-01", "value": 5.0},
+                {"id": "hR", "date": "2025-01-05", "value": 3.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hR", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert out["resolved_to"].iloc[0] == 1.0
+
+    def test_ffilled_interpolated_days_drive_comparison(self, freeze_today):
+        """due/resolution dates falling on ffilled days read the carried-forward value.
+
+        With observations only at Jan 1 (=100) and Jan 10 (=200), _ffill_dfr carries
+        100 forward through Jan 9. Due date Jan 3 and resolution date Jan 8 both read the
+        ffilled 100, so ONE_PERCENT_MORE (100 >= 100 * 1.01) is False -> resolved_to is 0.0.
+        """
+        freeze_today(date(2025, 1, 13))  # yesterday = 2025-01-12, mask admits Jan 8
+        src = _wiki_source(
+            {"hF": {"id_root": "FIDE_rankings_elo_rating", "id_field_value": "Player F"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hF", "date": "2025-01-01", "value": 100.0},
+                {"id": "hF", "date": "2025-01-10", "value": 200.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hF", "forecast_due_date": "2025-01-03", "resolution_date": "2025-01-08"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert bool(out["resolved"].iloc[0]) is True
+        assert out["resolved_to"].iloc[0] == 0.0
+
+
+class TestWikipediaResolveCombo:
+    """Exact-oracle resolution of combo (tuple-id) Wikipedia questions."""
+
+    def _combo_setup(self):
+        """Build a source + dfr where sub-question A resolves True and B resolves False.
+
+        Both are ONE_PERCENT_MORE: A goes 100 -> 102 (>= 101, True); B goes 100 -> 100
+        (< 101, False).
+        """
+        src = _wiki_source(
+            {
+                "cA": {"id_root": "FIDE_rankings_elo_rating", "id_field_value": "A"},
+                "cB": {"id_root": "FIDE_rankings_elo_rating", "id_field_value": "B"},
+            }
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "cA", "date": "2025-01-01", "value": 100.0},
+                {"id": "cA", "date": "2025-01-05", "value": 102.0},  # True
+                {"id": "cB", "date": "2025-01-01", "value": 100.0},
+                {"id": "cB", "date": "2025-01-05", "value": 100.0},  # False
+            ]
+        )
+        return src, dfr
+
+    def test_combo_both_positive_direction(self, freeze_today):
+        """With direction (1, 1): combo_to = True * False = 1.0 * 0.0 = 0.0."""
+        freeze_today(date(2025, 1, 10))
+        src, dfr = self._combo_setup()
+        df = _make_wiki_resolve_df(
+            [
+                {
+                    "id": ("cA", "cB"),
+                    "direction": (1, 1),
+                    "forecast_due_date": "2025-01-01",
+                    "resolution_date": "2025-01-05",
+                }
+            ]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert bool(out["resolved"].iloc[0]) is True
+        assert out["resolved_to"].iloc[0] == 0.0
+
+    def test_combo_negated_second_direction(self, freeze_today):
+        """With direction (1, -1): combo_to = True * (1 - False) = 1.0 * 1.0 = 1.0."""
+        freeze_today(date(2025, 1, 10))
+        src, dfr = self._combo_setup()
+        df = _make_wiki_resolve_df(
+            [
+                {
+                    "id": ("cA", "cB"),
+                    "direction": (1, -1),
+                    "forecast_due_date": "2025-01-01",
+                    "resolution_date": "2025-01-05",
+                }
+            ]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert out["resolved_to"].iloc[0] == 1.0
+
+
+class TestWikipediaResolveEdgeCases:
+    """Mask gating, missing-due-value nullification, and unknown id_root paths."""
+
+    def test_missing_due_date_value_nullifies_to_nan(self, freeze_today):
+        """No value on/before the forecast due date -> nullification path returns np.nan.
+
+        The first (and only) observation is on the resolution date, so there is no value at
+        the earlier forecast_due_date and ffill cannot back-fill before the first observation.
+        _resolve_single_question sees a NaN forecast_due_date_value and returns np.nan; the row
+        is flagged resolved so ``resolve_all`` drops it with a warning (the nullified-row
+        convention of ``BaseSource.resolve``) rather than carrying it as pending forever.
+        """
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hM": {"id_root": "FIDE_rankings_elo_rating", "id_field_value": "Player M"}}
+        )
+        dfr = make_resolution_df([{"id": "hM", "date": "2025-01-05", "value": 102.0}])
+        df = _make_wiki_resolve_df(
+            [{"id": "hM", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert bool(out["resolved"].iloc[0]) is True
+        assert pd.isna(out["resolved_to"].iloc[0])
+
+    def test_resolution_date_equal_to_yesterday_resolves(self, freeze_today):
+        """A resolution_date equal to yesterday is inside the mask (inclusive) and resolves now.
+
+        yesterday = 2025-01-09; the series is forward-filled to yesterday, so the Jan 5 value 102
+        stands for Jan 9: 102 >= 100 * 1.01 -> 1.0. An exclusive mask would delay every Wikipedia
+        resolution by a day.
+        """
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hY": {"id_root": "FIDE_rankings_elo_rating", "id_field_value": "Player Y"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hY", "date": "2025-01-01", "value": 100.0},
+                {"id": "hY", "date": "2025-01-05", "value": 102.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hY", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-09"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert bool(out["resolved"].iloc[0]) is True
+        assert out["resolved_to"].iloc[0] == 1.0
+
+    def test_resolution_date_after_yesterday_stays_unresolved(self, freeze_today):
+        """A resolution_date strictly after yesterday is gated out by the mask: row unresolved.
+
+        yesterday = 2025-01-09; resolution_date = 2025-01-20 fails ``resolution_date <= yesterday``,
+        so the row is never iterated. It retains the seeded resolved=False / resolved_to=NaN even
+        though the underlying values would otherwise resolve it True.
+        """
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hU": {"id_root": "FIDE_rankings_elo_rating", "id_field_value": "Player U"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hU", "date": "2025-01-01", "value": 100.0},
+                {"id": "hU", "date": "2025-01-05", "value": 102.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hU", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-20"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert bool(out["resolved"].iloc[0]) is False
+        assert pd.isna(out["resolved_to"].iloc[0])
+
+    def test_unknown_id_root_question_type_nullifies_to_nan(self, freeze_today):
+        """An id_root with no matching PAGES entry yields !=1 matches -> np.nan.
+
+        The hash unmaps to an id_root absent from PAGES, so the question_type lookup finds zero
+        matches (len != 1) and returns np.nan; the row is flagged resolved with resolved_to NaN,
+        so ``resolve_all`` drops it with a warning rather than treating it as pending.
+        """
+        freeze_today(date(2025, 1, 10))
+        src = _wiki_source(
+            {"hX": {"id_root": "NOT_A_REAL_PAGE_ROOT", "id_field_value": "Player X"}}
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "hX", "date": "2025-01-01", "value": 100.0},
+                {"id": "hX", "date": "2025-01-05", "value": 102.0},
+            ]
+        )
+        df = _make_wiki_resolve_df(
+            [{"id": "hX", "forecast_due_date": "2025-01-01", "resolution_date": "2025-01-05"}]
+        )
+
+        out, _ = src._resolve(df, pd.DataFrame(), dfr)
+
+        assert bool(out["resolved"].iloc[0]) is True
+        assert pd.isna(out["resolved_to"].iloc[0])
