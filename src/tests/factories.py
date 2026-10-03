@@ -6,6 +6,8 @@ row dicts (or **overrides) and fill sensible defaults so a test only specifies t
 it cares about.
 """
 
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 
@@ -148,6 +150,173 @@ def make_acled_fetch_df(rows: list[dict]) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Wikipedia-specific factories
+# ---------------------------------------------------------------------------
+
+
+def make_wikipedia_fetch_result(**pages: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Build a ``WikipediaFetchResult`` with every configured page present.
+
+    ``WikipediaSource.update()`` requires an entry per page in ``_PAGES`` and skips the pages whose
+    frame is empty, so pages not named in ``pages`` get an empty frame.
+
+    Args:
+        **pages: ``id_root`` -> raw table frame (the page's id/value columns plus ``date``).
+    """
+    from sources.wikipedia import _PAGES
+
+    return {p["id_root"]: pages.get(p["id_root"], pd.DataFrame()) for p in _PAGES}
+
+
+# ---------------------------------------------------------------------------
+# Forecast-set factories (raw input to func_resolve; processed input to leaderboard)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_FORECAST_DUE_DATE = "2025-01-01"
+
+
+def make_raw_forecast_set(forecasts: list[dict], **overrides: object) -> dict:
+    """Build a raw forecast-set dict as a forecaster uploads it to ``FORECAST_SETS_BUCKET``.
+
+    ``func_resolve`` reads ``organization``/``model``/``model_organization``/``question_set`` and the
+    ``forecasts`` list, then resolves them. Each forecast row needs at least ``id``, ``source``,
+    ``forecast``, ``resolution_date``; ``direction`` is optional (defaults to ``()`` downstream).
+
+    Args:
+        forecasts (list): Forecast row dicts.
+        **overrides: Top-level field overrides (e.g. ``leaderboard_eligible=False``). Pass
+            ``forecast_due_date`` to set the default ``question_set`` filename.
+    """
+    due = overrides.pop("forecast_due_date", _DEFAULT_FORECAST_DUE_DATE)
+    base = {
+        "organization": "OrgA",
+        "model": "ModelA",
+        "model_organization": "OrgA",
+        "question_set": f"{due}-llm.json",
+        "leaderboard_eligible": True,
+        "forecasts": forecasts,
+    }
+    base.update(overrides)
+    return base
+
+
+def make_processed_forecast_set(forecasts: list[dict], **overrides: object) -> dict:
+    """Build a processed forecast-set dict as ``func_resolve`` writes to the processed bucket.
+
+    Each forecast row is filled with the resolution fields the leaderboard compile path reads
+    (``resolved``/``resolved_to``/``imputed``/``resolution_date``); the top level carries
+    ``forecast_due_date``. Pass per-row dicts to override (e.g. ``resolved=False`` for an open
+    market, ``imputed=True`` for an imputed row).
+
+    Args:
+        forecasts (list): Forecast row dicts (id, source, plus any field overrides).
+        **overrides: Top-level field overrides (``organization``, ``model``,
+            ``leaderboard_eligible``, ``forecast_due_date``, ...).
+    """
+    due = overrides.pop("forecast_due_date", _DEFAULT_FORECAST_DUE_DATE)
+    rows = []
+    for row in forecasts:
+        merged = {
+            "direction": None,
+            "forecast": 0.5,
+            "resolution_date": due,
+            "resolved": True,
+            "resolved_to": 1.0,
+            "imputed": False,
+            "market_value_on_due_date": None,
+            "market_value_on_due_date_minus_one": None,
+        }
+        merged.update(row)
+        rows.append(merged)
+    base = {
+        "organization": "OrgA",
+        "model": "ModelA",
+        "model_organization": "OrgA",
+        "question_set": f"{due}-llm.json",
+        "forecast_due_date": due,
+        "leaderboard_eligible": True,
+        "forecasts": rows,
+    }
+    base.update(overrides)
+    return base
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard-scoring factory (real-data-shaped, for the 2FE / bootstrap path)
+# ---------------------------------------------------------------------------
+
+# Mean Brier per model is driven by a base error; a per-question wiggle gives the two-way
+# fixed-effects regression enough variation to be identifiable (not rank-deficient). "Always 0.5"
+# forecasts exactly 0.5 (Brier 0.25) — the rescale anchor; ``None`` marks that special case.
+_LEADERBOARD_MODELS = {
+    "Good Model": 0.1,  # skilled  → low Brier  → ranks best
+    "Bad Model": 0.7,  # poor     → high Brier → ranks worst
+    "Naive Forecaster": 0.5,  # baseline (FE + brier-skill reference)
+    "Imputed Forecaster": 0.5,  # baseline (market question fixed effect under MARKET_BRIER)
+    "Always 0.5": None,  # baseline (difficulty rescale anchor)
+}
+
+
+def make_leaderboard_entries(
+    *, n_dataset: int = 225, n_market: int = 50, forecast_due_date: str = "2024-01-01"
+) -> pd.DataFrame:
+    """Build a real-data-shaped combined leaderboard frame for 2FE / bootstrap scoring.
+
+    Produces the ForecastBench baselines (Naive Forecaster, Imputed Forecaster, Always 0.5) plus a
+    skilled and a poor model, each forecasting every dataset + market question, with per-question
+    difficulty so ``two_way_fixed_effects`` is identifiable. 2FE is degenerate on tiny input, so the
+    defaults approximate the production shape (``MIN_NUM_DATASET_QUESTIONS`` dataset questions).
+
+    Args:
+        n_dataset (int): Number of resolved dataset questions (fred).
+        n_market (int): Number of resolved market questions (metaculus).
+        forecast_due_date (str): The single forecast due date stamped on every row.
+
+    Returns:
+        pd.DataFrame: One row per (model, question), with the columns ``score_models`` consumes.
+    """
+    org = "ForecastBench"
+    questions = [("fred", f"dataset_{i}", 7, i) for i in range(n_dataset)] + [
+        ("metaculus", f"market_{i}", None, i) for i in range(n_market)
+    ]
+    rows = []
+    for model, base_error in _LEADERBOARD_MODELS.items():
+        model_pk = f"{org}_{org}_{model}"
+        for source, qid, horizon, j in questions:
+            truth = float(j % 2)
+            if base_error is None:
+                forecast = 0.5
+            else:
+                err = min(base_error + (j % 7) * 0.01, 0.95)
+                forecast = (1.0 - err) if truth == 1.0 else err
+            if horizon is None:
+                question_pk = f"{forecast_due_date}_{source}_{qid}"
+            else:
+                question_pk = f"{forecast_due_date}_{source}_{qid}_{horizon}"
+            rows.append(
+                {
+                    "organization": org,
+                    "model": model,
+                    "model_organization": org,
+                    "model_pk": model_pk,
+                    "source": source,
+                    "id": qid,
+                    "forecast_due_date": forecast_due_date,
+                    "resolution_date": forecast_due_date,
+                    "horizon": np.nan if horizon is None else horizon,
+                    "question_pk": question_pk,
+                    "forecast": forecast,
+                    "resolved_to": truth,
+                    "resolved": True,
+                    "imputed": False,
+                    "model_age_at_due_date": 0,
+                    "external_submission": False,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
 # Yfinance-specific factories
 # ---------------------------------------------------------------------------
 
@@ -178,6 +347,58 @@ def make_yfinance_fetch_df(rows: list[dict]) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = default
     return df
+
+
+# ---------------------------------------------------------------------------
+# SerpAPI-specific factories
+# ---------------------------------------------------------------------------
+
+
+def make_serpapi_fetch_df(rows: list[dict]) -> pd.DataFrame:
+    """Build a DataFrame matching SerpapiFetchFrame: one dated measurement per row.
+
+    Each row should have at least 'id'. Missing columns get defaults (a finite value measured on
+    the requested date).
+    """
+    defaults = {
+        "date": "2026-03-18",
+        "value": 10.0,
+        "fetch_datetime": "2026-03-18T00:05:00+00:00",
+        "requested_date": "2026-03-18",
+    }
+    df = pd.DataFrame(rows)
+    for col, default in defaults.items():
+        if col not in df.columns:
+            df[col] = default
+    return df
+
+
+class FakeJevClient:
+    """Stand-in for the Jev (``typesafe_sdk``) language classifier used by ``tag_questions``.
+
+    ``answers`` maps a question's text to the choice it should get (``"english"`` /
+    ``"not_english"``) or to an exception to raise for it; unlisted questions get ``default``.
+    Records every classified question text in ``asked``.
+    """
+
+    def __init__(self, answers: dict | None = None, default: str = "english") -> None:
+        self.answers = answers or {}
+        self.default = default
+        self.asked: list[str] = []
+
+    async def __aenter__(self) -> "FakeJevClient":
+        return self
+
+    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> bool:
+        return False
+
+    async def system_one(self, state: dict, questions: dict) -> SimpleNamespace:
+        self.asked.append(state["question"])
+        outcome = self.answers.get(state["question"], self.default)
+        if isinstance(outcome, Exception):
+            raise outcome
+        answer = SimpleNamespace(choice=outcome, probabilities={"english": 0.9, "not_english": 0.1})
+        return SimpleNamespace(choices={"language": answer})
 
 
 # ---------------------------------------------------------------------------
