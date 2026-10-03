@@ -2,6 +2,8 @@ import ast
 import json
 import re
 
+import pytest
+
 from llm_forecaster import fb_model_runs, output, runner
 from llm_forecaster import question_set as question_set_module
 from llm_forecaster.forecast_variants import ZERO_SHOT, ZERO_SHOT_WITH_FREEZE_VALUES
@@ -45,6 +47,7 @@ def _row_key(row: dict) -> tuple[str, str, str | None]:
     return row["source"], row["id"], row["resolution_date"]
 
 
+@pytest.mark.live  # reads the published question set over the network, which the guard blocks
 def test_real_2026_05_24_question_set_writes_example_forecasts_without_provider_calls(
     monkeypatch,
     tmp_path,
