@@ -400,19 +400,26 @@ class TestBuildResolutionDf:
 # ---------------------------------------------------------------------------
 
 
+def _fetch_result(**pages):
+    """Build a fetch result with every page present: empty unless given in `pages`."""
+    from sources.wikipedia import _PAGES
+
+    return {p["id_root"]: pages.get(p["id_root"], pd.DataFrame()) for p in _PAGES}
+
+
 class TestUpdate:
     """Behavioral tests for WikipediaSource.update()."""
 
     def test_creates_question_and_resolution_file(self, wikipedia_source):
-        dff = {
-            "FIDE_rankings_elo_rating": pd.DataFrame(
+        dff = _fetch_result(
+            FIDE_rankings_elo_rating=pd.DataFrame(
                 {
                     "Player": ["Magnus Carlsen", "Magnus Carlsen"],
                     "Rating": [2839, 2850],
                     "date": ["2024-06-01", "2024-07-01"],
                 }
             )
-        }
+        )
         dfq = make_question_df([{"id": "seed"}]).iloc[0:0]
         result = wikipedia_source.update(dfq, dff)
 
@@ -435,17 +442,25 @@ class TestUpdate:
         # Hash mapping populated so the id can be unhashed back to its root.
         assert result.hash_mapping[wid]["id_root"] == "FIDE_rankings_elo_rating"
 
-    def test_skips_pages_absent_from_fetch(self, wikipedia_source):
+    def test_skips_pages_with_empty_fetch_data(self, wikipedia_source):
         dfq = make_question_df([{"id": "seed"}]).iloc[0:0]
-        result = wikipedia_source.update(dfq, {})
-        # No fetch data -> no questions added, no resolution files.
+        result = wikipedia_source.update(dfq, _fetch_result())
+        # Every page fetched but empty -> no questions added, no resolution files.
         assert result.resolution_files == {}
+
+    def test_raises_when_a_page_fetch_file_is_missing(self, wikipedia_source):
+        """A missing fetch file fails the update instead of leaving that page's questions stale."""
+        dff = _fetch_result()
+        del dff["List_of_infectious_diseases"]
+        dfq = make_question_df([{"id": "seed"}]).iloc[0:0]
+        with pytest.raises(ValueError, match="List_of_infectious_diseases"):
+            wikipedia_source.update(dfq, dff)
 
     def test_resolves_questions_for_dropped_pages(self, wikipedia_source):
         # A pre-existing question whose id is not in the hash mapping / not a current page
         # is marked resolved.
         dfq = make_question_df([{"id": "unknown_id", "resolved": False}])
-        result = wikipedia_source.update(dfq, {})
+        result = wikipedia_source.update(dfq, _fetch_result())
         assert result.dfq[result.dfq["id"] == "unknown_id"]["resolved"].iloc[0]
 
     def test_resolves_questions_for_id_transformations(self):
@@ -463,15 +478,15 @@ class TestUpdate:
 
     def test_infectious_disease_uses_is_resolved_and_value_funcs(self, wikipedia_source):
         """The is_resolved_func / value_func path: vaccine=Yes -> resolved, freeze value 'Yes'."""
-        dff = {
-            "List_of_infectious_diseases": pd.DataFrame(
+        dff = _fetch_result(
+            List_of_infectious_diseases=pd.DataFrame(
                 {
                     "Common name": ["Measles", "DiseaseX"],
                     "Vaccine(s)": ["Yes", "No"],
                     "date": ["2024-06-01", "2024-06-01"],
                 }
             )
-        }
+        )
         dfq = make_question_df([{"id": "seed"}]).iloc[0:0]
         result = wikipedia_source.update(dfq, dff)
 
@@ -490,15 +505,15 @@ class TestUpdate:
             id_root="FIDE_rankings_elo_rating", id_field_value="Magnus Carlsen"
         )
         dfq = make_question_df([{"id": wid, "question": "STALE QUESTION", "resolved": False}])
-        dff = {
-            "FIDE_rankings_elo_rating": pd.DataFrame(
+        dff = _fetch_result(
+            FIDE_rankings_elo_rating=pd.DataFrame(
                 {
                     "Player": ["Magnus Carlsen"],
                     "Rating": [2850],
                     "date": ["2024-07-01"],
                 }
             )
-        }
+        )
         result = wikipedia_source.update(dfq, dff)
         matching = result.dfq[result.dfq["id"] == wid]
         assert len(matching) == 1  # updated in place, not appended
@@ -714,3 +729,47 @@ class TestResolve:
         )
         # Both sub-questions resolve True; direction (1, 1) -> 1.0 * 1.0 = 1.0.
         assert resolved.iloc[0]["resolved_to"] == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Fetch-file IO (orchestration/_source_io)
+# ---------------------------------------------------------------------------
+
+
+def test_read_wikipedia_fetch_files_keeps_empty_pages_and_skips_non_jsonl():
+    """An empty fetch file comes back as an empty frame, so update() can tell it from a missing one."""
+    import os
+    import uuid
+
+    from orchestration import _source_io
+
+    prefix = f"test_{uuid.uuid4().hex[:8]}"
+    contents = {
+        f"wikipedia/fetch/{prefix}_page.jsonl": '{"Player": "A", "Rating": 2800}\n',
+        f"wikipedia/fetch/{prefix}_empty.jsonl": "",
+    }
+
+    def fake_download(bucket_name, filename, local_filename):
+        with open(local_filename, "w", encoding="utf-8") as f:
+            f.write(contents[filename])
+
+    try:
+        with patch.object(
+            _source_io.gcp.storage,
+            "list_with_prefix",
+            return_value=[*contents, f"wikipedia/fetch/{prefix}_notes.txt"],
+        ), patch.object(
+            _source_io.gcp.storage,
+            "download_no_error_message_on_404",
+            side_effect=fake_download,
+        ):
+            result = _source_io.read_wikipedia_fetch_files()
+    finally:
+        for path in contents:
+            local = f"/tmp/{os.path.basename(path)}"
+            if os.path.exists(local):
+                os.remove(local)
+
+    assert set(result) == {f"{prefix}_page", f"{prefix}_empty"}
+    assert result[f"{prefix}_empty"].empty
+    assert result[f"{prefix}_page"]["Player"].tolist() == ["A"]
