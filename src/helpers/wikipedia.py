@@ -51,11 +51,6 @@ def _get_source():
     return _source
 
 
-def transform_id(wid):
-    """Transform old id to new id."""
-    return _get_source()._transform_id(wid)
-
-
 def populate_hash_mapping():
     """Download and load hash mapping into source singleton."""
     from orchestration._io import load_hash_mapping
@@ -63,23 +58,9 @@ def populate_hash_mapping():
     _get_source().populate_hash_mapping(load_hash_mapping(source))
 
 
-def upload_hash_mapping():
-    """Dump and upload hash mapping from source singleton."""
-    from orchestration._io import upload_hash_mapping as _upload
-
-    raw_json = _get_source().dump_hash_mapping()
-    if raw_json:
-        _upload(raw_json, source)
-
-
 def ffill_dfr(dfr):
     """Forward fill dfr to yesterday."""
     return _get_source()._ffill_dfr(dfr)
-
-
-def id_hash(id_root: str, id_field_value: str) -> str:
-    """Encode wikipedia Ids."""
-    return _get_source()._id_hash(id_root=id_root, id_field_value=id_field_value)
 
 
 def id_unhash(hash_key: str) -> tuple:
