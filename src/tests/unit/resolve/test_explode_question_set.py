@@ -93,6 +93,22 @@ class TestExplodeQuestionSet:
         dates = set(result["resolution_date"].dt.strftime("%Y-%m-%d"))
         assert dates == {"2025-01-08"}
 
+    def test_today_is_excluded_yesterday_included_strict_inequality(self, freeze_today):
+        # The filter is `resolution_date < today` (strict): today itself is not yet resolvable.
+        freeze_today(date(2025, 1, 15))
+        df = make_question_set_df(
+            [
+                {
+                    "id": "q1",
+                    "source": "fred",
+                    "resolution_dates": ["2025-01-14", "2025-01-15", "2025-01-16"],
+                },
+            ]
+        )
+        result = explode_question_set(df, "2025-01-01")
+        dates = set(result["resolution_date"].dt.strftime("%Y-%m-%d"))
+        assert dates == {"2025-01-14"}  # yesterday in; today (==) and tomorrow out
+
     def test_combo_questions_get_direction_permutations(self, freeze_today):
         freeze_today(date(2025, 3, 1))
 

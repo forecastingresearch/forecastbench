@@ -4,12 +4,13 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 import backoff._sync
+import numpy as np
 import pandas as pd
 import pytest
 import requests
 
 from _schemas import AcledFetchFrame
-from helpers import constants
+from helpers import acled, constants
 from sources.acled import FETCH_COLUMN_DTYPE, FETCH_COLUMNS, AcledSource
 from tests.factories import (
     make_acled_api_auth_response,
@@ -17,6 +18,7 @@ from tests.factories import (
     make_acled_event,
     make_acled_fetch_df,
     make_acled_resolution_df,
+    make_forecast_df,
     make_question_df,
 )
 
@@ -973,3 +975,339 @@ class TestQuestionGenerationCountrySpellings:
             )
             freeze_value = dfq.loc[dfq["id"] == qid, "freeze_datetime_value"].item()
             assert float(freeze_value) == pytest.approx(1 / 12)
+
+
+# ---------------------------------------------------------------------------
+# resolve() / _resolve() orchestration end-to-end
+# ---------------------------------------------------------------------------
+
+_KEY = "last30Days.gt.30DayAvgOverPast360Days"
+
+
+def _resolve_dfr():
+    """Build a resolution frame: 60 days (Nov 1 - Dec 30, 2024) for two countries.
+
+    CountryA has Battles=2/day, Riots=1/day; CountryB has Battles=5/day, Riots=3/day.
+    max(event_date) is therefore 2024-12-30.
+    """
+    rows = []
+    base = date(2024, 11, 1)
+    for day_offset in range(60):
+        d = base + timedelta(days=day_offset)
+        rows.append({"country": "CountryA", "event_date": d, "Battles": 2, "Riots": 1})
+        rows.append({"country": "CountryB", "event_date": d, "Battles": 5, "Riots": 3})
+    return make_acled_resolution_df(rows)
+
+
+def _hash_question(source, country, event_type, key=_KEY):
+    """Hash an ACLED question dict into ``source.hash_mapping`` and return the hash id."""
+    return source._id_hash({"key": key, "country": country, "event_type": event_type})
+
+
+class TestAcledResolveOrchestration:
+    """Test AcledSource.resolve()/_resolve() against exact resolved_to/resolved oracles.
+
+    The frame from ``_resolve_dfr`` makes the comparison oracle hand-computable:
+    ``resolved_to = int(30-day sum at resolution_date > 30-day avg over 360 days at due date)``.
+    """
+
+    def test_resolves_positive(self, acled_source):
+        """A single question whose 30-day sum exceeds the baseline resolves to 1.0.
+
+        CountryA Battles, resolution_date=2024-12-15: 30-day sum = 30 * 2 = 60.
+        forecast_due_date=2024-11-05: 360-day avg = (4 days * 2) / 12 = 0.667.
+        60 > 0.667, so resolved_to is 1.0.
+        """
+        dfr = _resolve_dfr()
+        h = _hash_question(acled_source, "CountryA", "Battles")
+        dfq = make_question_df([{"id": h}])
+        df = make_forecast_df(
+            [
+                {
+                    "id": h,
+                    "source": "acled",
+                    "forecast_due_date": "2024-11-05",
+                    "resolution_date": "2024-12-15",
+                }
+            ]
+        )
+
+        out, warnings = acled_source.resolve(df, dfq, dfr, forecast_due_date=date(2024, 11, 5))
+
+        assert warnings == []
+        assert len(out) == 1
+        assert bool(out.iloc[0]["resolved"]) is True
+        assert out.iloc[0]["resolved_to"] == 1.0
+
+    def test_resolves_on_the_last_data_day(self, acled_source):
+        """A question whose resolution_date equals the newest ACLED event date resolves now.
+
+        The nightly run resolves on the data's last day: the mask is ``resolution_date <= max
+        (event_date)`` inclusive. CountryA Battles at 2024-12-30: 30-day sum = 30 * 2 = 60 > the
+        0.667 baseline, so 1.0. An exclusive mask would delay every such question until the next
+        ACLED release.
+        """
+        dfr = _resolve_dfr()
+        h = _hash_question(acled_source, "CountryA", "Battles")
+        dfq = make_question_df([{"id": h}])
+        df = make_forecast_df(
+            [
+                {
+                    "id": h,
+                    "source": "acled",
+                    "forecast_due_date": "2024-11-05",
+                    "resolution_date": "2024-12-30",
+                }
+            ]
+        )
+
+        out, _ = acled_source.resolve(df, dfq, dfr, forecast_due_date=date(2024, 11, 5))
+
+        assert bool(out.iloc[0]["resolved"]) is True
+        assert out.iloc[0]["resolved_to"] == 1.0
+
+    def test_resolves_negative(self, acled_source):
+        """A single question whose 30-day sum is below the baseline resolves to 0.0.
+
+        CountryA Battles, resolution_date=2024-11-03: 30-day sum = 2 days (Nov 1-2) * 2 = 4.
+        forecast_due_date=2024-12-30: 360-day avg = (59 days * 2) / 12 = 9.833.
+        4 < 9.833, so resolved_to is 0.0.
+        """
+        dfr = _resolve_dfr()
+        h = _hash_question(acled_source, "CountryA", "Battles")
+        dfq = make_question_df([{"id": h}])
+        df = make_forecast_df(
+            [
+                {
+                    "id": h,
+                    "source": "acled",
+                    "forecast_due_date": "2024-12-30",
+                    "resolution_date": "2024-11-03",
+                }
+            ]
+        )
+
+        out, _ = acled_source.resolve(df, dfq, dfr, forecast_due_date=date(2024, 12, 30))
+
+        assert bool(out.iloc[0]["resolved"]) is True
+        assert out.iloc[0]["resolved_to"] == 0.0
+
+    def test_combo_resolves_via_change_sign(self, acled_source):
+        """A combo row combines both legs through ``_combo_change_sign``.
+
+        Both legs resolve positive (1). With direction (1, -1) the combo value is
+        ``1 * (1 - 1) == 0.0``; flipping to direction (1, 1) gives ``1 * 1 == 1.0``.
+        """
+        dfr = _resolve_dfr()
+        h_a = _hash_question(acled_source, "CountryA", "Battles")
+        h_b = _hash_question(acled_source, "CountryB", "Battles")
+        dfq = make_question_df([{"id": h_a}, {"id": h_b}])
+
+        df_flip = make_forecast_df(
+            [
+                {
+                    "id": (h_a, h_b),
+                    "source": "acled",
+                    "direction": (1, -1),
+                    "forecast_due_date": "2024-11-05",
+                    "resolution_date": "2024-12-15",
+                }
+            ]
+        )
+        out_flip, _ = acled_source.resolve(df_flip, dfq, dfr, forecast_due_date=date(2024, 11, 5))
+        assert bool(out_flip.iloc[0]["resolved"]) is True
+        assert out_flip.iloc[0]["resolved_to"] == 0.0
+
+        df_same = make_forecast_df(
+            [
+                {
+                    "id": (h_a, h_b),
+                    "source": "acled",
+                    "direction": (1, 1),
+                    "forecast_due_date": "2024-11-05",
+                    "resolution_date": "2024-12-15",
+                }
+            ]
+        )
+        out_same, _ = acled_source.resolve(df_same, dfq, dfr, forecast_due_date=date(2024, 11, 5))
+        assert out_same.iloc[0]["resolved_to"] == 1.0
+
+    def test_resolution_date_beyond_data_stays_unresolved(self, acled_source):
+        """A resolution_date past max(event_date) is excluded by the mask and stays unresolved.
+
+        max(event_date) is 2024-12-30; a resolution_date of 2025-06-01 is outside the mask, so
+        the row keeps its input defaults (resolved == False, resolved_to is NaN).
+        """
+        dfr = _resolve_dfr()
+        h = _hash_question(acled_source, "CountryA", "Battles")
+        dfq = make_question_df([{"id": h}])
+        df = make_forecast_df(
+            [
+                {
+                    "id": h,
+                    "source": "acled",
+                    "forecast_due_date": "2024-11-05",
+                    "resolution_date": "2025-06-01",
+                }
+            ]
+        )
+
+        out, _ = acled_source.resolve(df, dfq, dfr, forecast_due_date=date(2024, 11, 5))
+
+        assert bool(out.iloc[0]["resolved"]) is False
+        assert pd.isna(out.iloc[0]["resolved_to"])
+
+    def test_question_missing_from_dfq_is_nan_but_marked_resolved(self, acled_source):
+        """An id absent from dfq yields resolved_to=NaN and is flagged resolved.
+
+        As with nullified rows, ``resolve_all`` then drops it with a "resolved to NaN" warning
+        instead of carrying it as pending forever.
+        """
+        dfr = _resolve_dfr()
+        # The hash is in hash_mapping, but its id is not in dfq.
+        h = _hash_question(acled_source, "CountryA", "Battles")
+        dfq = make_question_df([{"id": "some-other-id"}])
+        df = make_forecast_df(
+            [
+                {
+                    "id": h,
+                    "source": "acled",
+                    "forecast_due_date": "2024-11-05",
+                    "resolution_date": "2024-12-15",
+                }
+            ]
+        )
+
+        out, _ = acled_source.resolve(df, dfq, dfr, forecast_due_date=date(2024, 11, 5))
+
+        assert pd.isna(out.iloc[0]["resolved_to"])
+        assert bool(out.iloc[0]["resolved"]) is True
+
+    def test_unhashable_id_is_nan_but_marked_resolved(self, acled_source):
+        """An id absent from hash_mapping is NaN and flagged resolved, like a missing question."""
+        dfr = _resolve_dfr()
+        unhashable_id = "not-in-hash-mapping"
+        dfq = make_question_df([{"id": unhashable_id}])
+        df = make_forecast_df(
+            [
+                {
+                    "id": unhashable_id,
+                    "source": "acled",
+                    "forecast_due_date": "2024-11-05",
+                    "resolution_date": "2024-12-15",
+                }
+            ]
+        )
+
+        out, _ = acled_source.resolve(df, dfq, dfr, forecast_due_date=date(2024, 11, 5))
+
+        assert pd.isna(out.iloc[0]["resolved_to"])
+        assert bool(out.iloc[0]["resolved"]) is True
+
+
+# ---------------------------------------------------------------------------
+# helpers.acled.get_forecast (naive forecaster; stochastic but seedable)
+# ---------------------------------------------------------------------------
+
+
+def _forecast_dfr(yhat=5.0, spread=1.0, periods=30):
+    """Build a Prophet-style frame (ds/yhat/yhat_upper/yhat_lower) for get_forecast."""
+    dates = pd.date_range("2024-01-01", periods=periods, freq="D")
+    return pd.DataFrame(
+        {
+            "ds": dates,
+            "yhat": [yhat] * periods,
+            "yhat_upper": [yhat + spread] * periods,
+            "yhat_lower": [yhat - spread] * periods,
+        }
+    )
+
+
+@pytest.fixture()
+def restore_global_rng():
+    """Leave NumPy's global RNG as it was: ``get_forecast`` draws from it, so tests seed it."""
+    state = np.random.get_state()
+    yield
+    np.random.set_state(state)
+
+
+@pytest.mark.usefixtures("restore_global_rng")
+class TestGetForecast:
+    """Test the naive forecaster's Monte-Carlo probability estimate (seeded for determinism)."""
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "helpers.acled.get_forecast stamps its draws on ref_date - i for i in range(30), so the"
+            " draw dated ref_date is excluded by sum_over_past_30_days ([ref-30, ref)): the"
+            " '30-day' sum is a 29-draw sum. Pre-existing upstream behaviour; flagged for the author."
+        ),
+    )
+    def test_zero_spread_forecast_sums_all_thirty_days(self):
+        """With no spread the simulated 30-day sum is exactly 30 * yhat = 150 (seed-free oracle)."""
+        kwargs = dict(
+            dfr=_forecast_dfr(spread=0.0),
+            country="Aruba",
+            col="Battles",
+            ref_date=date(2024, 1, 31),
+        )
+        assert acled.get_forecast(comparison_value=149, **kwargs) == 1.0
+        assert acled.get_forecast(comparison_value=151, **kwargs) == 0.0
+
+    def test_deterministic_under_fixed_seed(self):
+        """Two calls with the same np.random seed produce exactly the same probability.
+
+        get_forecast draws 1000 normal samples; seeding numpy makes it reproducible.
+        """
+        np.random.seed(0)
+        first = acled.get_forecast(
+            comparison_value=150,
+            dfr=_forecast_dfr(),
+            country="Aruba",
+            col="Battles",
+            ref_date=date(2024, 1, 31),
+        )
+        np.random.seed(0)
+        second = acled.get_forecast(
+            comparison_value=150,
+            dfr=_forecast_dfr(),
+            country="Aruba",
+            col="Battles",
+            ref_date=date(2024, 1, 31),
+        )
+        assert first == second
+        assert 0.0 <= first <= 1.0
+
+    def test_probability_decreases_as_comparison_value_rises(self):
+        """P(30-day sum > comparison_value) is monotonically non-increasing in comparison_value.
+
+        With 30 days of yhat=5 the simulated 30-day sum centers near 150. A threshold below the
+        center (130) must give a probability >= a threshold at the center (150) >= one well above
+        it (170); the extremes saturate toward 1.0 and 0.0. Seeded so the comparison is exact.
+        """
+        np.random.seed(123)
+        p_low = acled.get_forecast(
+            comparison_value=130,
+            dfr=_forecast_dfr(),
+            country="Aruba",
+            col="Battles",
+            ref_date=date(2024, 1, 31),
+        )
+        np.random.seed(123)
+        p_mid = acled.get_forecast(
+            comparison_value=150,
+            dfr=_forecast_dfr(),
+            country="Aruba",
+            col="Battles",
+            ref_date=date(2024, 1, 31),
+        )
+        np.random.seed(123)
+        p_high = acled.get_forecast(
+            comparison_value=170,
+            dfr=_forecast_dfr(),
+            country="Aruba",
+            col="Battles",
+            ref_date=date(2024, 1, 31),
+        )
+        assert p_low >= p_mid >= p_high
+        assert p_low > 0.5 > p_high
