@@ -333,14 +333,12 @@ class WikipediaSource(DatasetSource):
     def _make_session() -> requests.Session:
         """Create an HTTP session with retry logic."""
         # NB: requests/bs4 are imported lazily here (and in _get_edit_history) rather than at module
-        # top level so that importing `sources.wikipedia` stays light. `helpers.wikipedia` and
-        # `sources.registry` both import this module, and those are pulled (directly or via
-        # `helpers.question_curation`) by ~13 jobs that never scrape Wikipedia (resolve, metaculus,
-        # metadata, curate, leaderboard, nightly, base_eval). A top-level import would force
-        # beautifulsoup4/lxml into all of their images.
-        # TODO: revisit once requirements are refactored — if those consumers stop importing this
-        # module at load time (e.g. question_curation rewired to sources._metadata), these can move
-        # back to module-level imports.
+        # top level so that importing `sources.wikipedia` stays light. `helpers.wikipedia` (imported
+        # by the `base_eval` naive forecaster) and `sources.registry` (imported by resolve) both
+        # import this module, and neither job scrapes Wikipedia. A top-level import would force
+        # beautifulsoup4/lxml into their images.
+        # TODO: revisit once base_eval and resolve are refactored — if they stop importing this
+        # module at load time, these can move back to module-level imports.
         import requests
         from requests.adapters import HTTPAdapter
         from urllib3.util.retry import Retry

@@ -2,13 +2,12 @@
 """Wikipedia shared helpers.
 
 Light home of Wikipedia's naive-forecast computation (scipy/numpy/pandas) plus the hash-mapping
-and identity access used by the still-unrefactored ``base_eval`` naive forecaster and by
-``question_curation``. Hash-mapping access routes through a lazily-instantiated ``WikipediaSource``
-(see ``_get_source``); ``sources.wikipedia`` lazy-imports its scraping deps (requests/bs4) inside
-fetch, so importing this module — and the many modules that import it — stays light.
+access used by the still-unrefactored ``base_eval`` naive forecaster. Hash-mapping access routes
+through a lazily-instantiated ``WikipediaSource`` (see ``_get_source``); ``sources.wikipedia``
+lazy-imports its scraping deps (requests/bs4) inside fetch, so importing this module stays light.
 
 When ``base_eval`` is refactored to call ``WikipediaSource.get_naive_forecast()`` this computation
-can move onto the source class (Phase 1 plan) and this module shrinks to a metadata-only shim.
+can move onto the source class (Phase 1 plan) and this module can be deleted.
 """
 
 import logging
@@ -22,17 +21,10 @@ from scipy.stats import norm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from sources._metadata import SOURCE_METADATA  # noqa: E402
 from sources.wikipedia import _PAGES as PAGES  # noqa: E402
-from sources.wikipedia import (  # noqa: F401, E402
-    _TRANSFORM_ID_MAPPING as transform_id_mapping,
-)
 from sources.wikipedia import QuestionType  # noqa: E402
 
 from . import constants  # noqa: E402
-
-SOURCE_INTRO = SOURCE_METADATA["wikipedia"]["source_intro"]
-RESOLUTION_CRITERIA = SOURCE_METADATA["wikipedia"]["resolution_criteria"]
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
