@@ -271,6 +271,7 @@ class WikipediaSource(DatasetSource):
         """
 
         def _download_page(page):
+            logger.info(f"Downloading data for {page['id_root']}.")
             session = self._make_session()
             return page["id_root"], self._download_tables(page, session)
 
@@ -444,6 +445,7 @@ class WikipediaSource(DatasetSource):
     @staticmethod
     def _download_tables(page: dict, session: requests.Session) -> pd.DataFrame | None:
         """Download all historical changes for the tables on the page."""
+        id_root = page["id_root"]
         page_title = page.get("page_title")
         n_rows_to_keep = page.get("table_keep_first_n_rows")
         table_index = page.get("table_index", 0)
@@ -451,12 +453,15 @@ class WikipediaSource(DatasetSource):
 
         edit_history = WikipediaSource._get_edit_history(page_title=page_title, session=session)
         edit_history.sort(reverse=True, key=lambda x: x[0])
+        n_revisions = len(edit_history)
+        logger.info(f"{id_root}: downloading tables for {n_revisions} daily revisions.")
+        start = time.monotonic()
 
         value_col = page["fields"]["value"]
         value_col_dtype = page["resolution_file_value_column_dtype"]
 
         df_list = []
-        for edit_date, revid in edit_history:
+        for i, (edit_date, revid) in enumerate(edit_history, start=1):
             try:
                 dfw = WikipediaSource._download_wikipedia_table(
                     page_title=page_title,
@@ -480,6 +485,15 @@ class WikipediaSource(DatasetSource):
                 df_list.append(dfw.dropna())
             except Exception as e:
                 logger.error(f"In {edit_date} {revid}\n{e}\n")
+            if i % 100 == 0:  # periodic progress log
+                logger.info(
+                    f"{id_root}: {i}/{n_revisions} revisions processed "
+                    f"({time.monotonic() - start:.0f}s elapsed)."
+                )
+        logger.info(
+            f"{id_root}: downloaded {len(df_list)}/{n_revisions} revisions in "
+            f"{time.monotonic() - start:.0f}s."
+        )
         df = pd.concat(df_list, ignore_index=True) if df_list else None
         return df
 

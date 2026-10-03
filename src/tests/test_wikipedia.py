@@ -530,6 +530,23 @@ class TestDownloadTables:
         assert result["Rating"].dtype.kind in "iu"
         assert result["date"].iloc[0] == "2024-06-01"
 
+    def test_logs_per_page_progress(self, caplog):
+        """A long fetch reports, per page, how many revisions are done and how long it took."""
+        page = _fide_elo_page()
+        edit_history = [(datetime(2024, 6, 1, 12, 0), f"rev{i}") for i in range(250)]
+        raw = pd.DataFrame({"Player": ["A"], "Rating": ["2800"]})
+        with patch.object(
+            WikipediaSource, "_get_edit_history", return_value=edit_history
+        ), patch.object(WikipediaSource, "_download_wikipedia_table", return_value=raw.copy()):
+            with caplog.at_level("INFO", logger="sources.wikipedia"):
+                WikipediaSource._download_tables(page, session=object())
+
+        messages = [r.getMessage() for r in caplog.records]
+        id_root = page["id_root"]
+        assert any(m.startswith(f"{id_root}: 100/250 revisions processed") for m in messages)
+        assert any(m.startswith(f"{id_root}: 200/250 revisions processed") for m in messages)
+        assert any(m.startswith(f"{id_root}: downloaded 250/250 revisions in") for m in messages)
+
 
 # ---------------------------------------------------------------------------
 # fetch()
