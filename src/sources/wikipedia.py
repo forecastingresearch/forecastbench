@@ -538,7 +538,9 @@ class WikipediaSource(DatasetSource):
 
             Sometimes values drop out of the table then reappear. This could be for valid reasons,
             e.g. someone had a world record, lost it, then got it again. Either way, fill these with
-            nan. Invalid reasons (e.g. name changes) need to be caught by hand and nullified.
+            nan. Invalid reasons (e.g. name changes) need to be caught by hand and nullified by
+            adding a `NullifiedQuestion` to the wikipedia `nullified_questions` list in
+            `src/sources/_metadata.py`.
             """
             all_dates = dff["date"].sort_values().unique()
             all_dates = all_dates[all_dates >= constants.QUESTION_BANK_DATA_STORAGE_START_DATETIME]
