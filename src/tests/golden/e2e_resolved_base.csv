@@ -1,0 +1,5 @@
+id,source,resolution_date,resolved,resolved_to
+fred1,fred,2025-01-08,True,1.0
+fred1,fred,2025-01-31,True,0.0
+metaculus1,metaculus,2025-01-31,True,1.0
+polymarket1,polymarket,2025-01-31,False,0.71
