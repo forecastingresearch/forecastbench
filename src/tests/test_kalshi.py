@@ -9,7 +9,7 @@ import pytest
 
 from _fb_types import NullifiedQuestion, SourceQuestionBank
 from _schemas import KalshiFetchFrame, QuestionFrame, ResolutionFrame
-from curate_questions.create_question_set import main as create_question_set
+from question_sampling._prepare import drop_questions_that_resolve_too_soon
 from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
 from resolve.explode_question_set import explode_question_set, get_resolution_dates
@@ -1370,7 +1370,7 @@ class TestUpdate:
     @patch.object(KalshiSource, "_build_resolution_df")
     @patch.object(KalshiSource, "_get_market")
     def test_persists_earliest_resolution_for_shared_curation_filter(
-        self, mock_market, mock_build, kalshi_source, monkeypatch
+        self, mock_market, mock_build, kalshi_source
     ):
         """The existing close-field filter sees Kalshi's earliest plausible resolution."""
         mock_market.return_value = make_kalshi_api_market(
@@ -1390,20 +1390,17 @@ class TestUpdate:
         row = result.dfq.loc[result.dfq["id"] == "KXSPORTS-001"].iloc[0]
 
         assert row["market_info_close_datetime"] == "2026-07-25T05:00:00+00:00"
-        monkeypatch.setattr(
-            create_question_set.question_curation,
-            "FORECAST_DATETIME",
-            datetime(2026, 8, 2, tzinfo=timezone.utc),
-        )
-        curated = create_question_set.drop_questions_that_resolve_too_soon(
-            source="kalshi", dfq=result.dfq
+        curated = drop_questions_that_resolve_too_soon(
+            source="kalshi",
+            dfq=result.dfq,
+            forecast_datetime=datetime(2026, 8, 2, tzinfo=timezone.utc),
         )
         assert curated.empty
 
     @patch.object(KalshiSource, "_build_resolution_df")
     @patch.object(KalshiSource, "_get_market")
     def test_closed_market_remains_unresolved_but_is_ineligible_for_curation(
-        self, mock_market, mock_build, kalshi_source, monkeypatch
+        self, mock_market, mock_build, kalshi_source
     ):
         """A closed market stays in the bank while its refreshed close time excludes it."""
         mock_market.return_value = make_kalshi_api_market(
@@ -1425,13 +1422,10 @@ class TestUpdate:
 
         assert bool(row["resolved"]) is False
         assert row["market_info_close_datetime"] == "2026-07-24T05:00:00+00:00"
-        monkeypatch.setattr(
-            create_question_set.question_curation,
-            "FORECAST_DATETIME",
-            datetime(2026, 8, 2, tzinfo=timezone.utc),
-        )
-        curated = create_question_set.drop_questions_that_resolve_too_soon(
-            source="kalshi", dfq=result.dfq
+        curated = drop_questions_that_resolve_too_soon(
+            source="kalshi",
+            dfq=result.dfq,
+            forecast_datetime=datetime(2026, 8, 2, tzinfo=timezone.utc),
         )
         assert curated.empty
 

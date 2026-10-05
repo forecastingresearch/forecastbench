@@ -1,11 +1,15 @@
 """Market questions resolving within the minimum after the forecast due date are not sampled."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from curate_questions.create_question_set import main as create_question_set
-from helpers import question_curation
+from question_sampling._prepare import (
+    MIN_DAYS_TO_MARKET_RESOLUTION,
+    drop_questions_that_resolve_too_soon,
+)
+
+FORECAST_DATETIME = datetime(2026, 10, 13, tzinfo=timezone.utc)
 
 
 def _market_frame(rows: dict[str, tuple[timedelta | None, timedelta | None]]) -> pd.DataFrame:
@@ -14,9 +18,7 @@ def _market_frame(rows: dict[str, tuple[timedelta | None, timedelta | None]]) ->
     Offsets are measured from the end of the forecast due date. None stands for "N/A", which is
     what the question bank stores before a market resolves.
     """
-    due_end_of_day = question_curation.FORECAST_DATETIME.replace(
-        hour=23, minute=59, second=59, microsecond=999999
-    )
+    due_end_of_day = FORECAST_DATETIME.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     def _iso(offset: timedelta | None) -> str:
         return "N/A" if offset is None else (due_end_of_day + offset).isoformat()
@@ -33,7 +35,7 @@ def _market_frame(rows: dict[str, tuple[timedelta | None, timedelta | None]]) ->
 
 
 def test_market_questions_resolving_within_the_minimum_are_dropped():
-    minimum = timedelta(days=create_question_set.MIN_DAYS_TO_MARKET_RESOLUTION)
+    minimum = timedelta(days=MIN_DAYS_TO_MARKET_RESOLUTION)
     dfq = _market_frame(
         {
             "before_due": (timedelta(days=-1), None),
@@ -46,7 +48,9 @@ def test_market_questions_resolving_within_the_minimum_are_dropped():
             "both_after_minimum": (minimum + timedelta(days=30), minimum + timedelta(days=60)),
         }
     )
-    result = create_question_set.drop_questions_that_resolve_too_soon(source="polymarket", dfq=dfq)
+    result = drop_questions_that_resolve_too_soon(
+        source="polymarket", dfq=dfq, forecast_datetime=FORECAST_DATETIME
+    )
     assert result["id"].tolist() == [
         "just_after_minimum",
         "well_after_minimum",
@@ -56,11 +60,15 @@ def test_market_questions_resolving_within_the_minimum_are_dropped():
 
 def test_empty_market_frame_stays_empty():
     dfq = _market_frame({})
-    result = create_question_set.drop_questions_that_resolve_too_soon(source="polymarket", dfq=dfq)
+    result = drop_questions_that_resolve_too_soon(
+        source="polymarket", dfq=dfq, forecast_datetime=FORECAST_DATETIME
+    )
     assert result.empty
 
 
 def test_data_questions_without_horizons_are_dropped():
     dfq = pd.DataFrame({"id": ["a", "b", "c"], "forecast_horizons": [[], "N/A", [7]]})
-    result = create_question_set.drop_questions_that_resolve_too_soon(source="acled", dfq=dfq)
+    result = drop_questions_that_resolve_too_soon(
+        source="acled", dfq=dfq, forecast_datetime=FORECAST_DATETIME
+    )
     assert result["id"].tolist() == ["c"]
