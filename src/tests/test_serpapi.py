@@ -1527,8 +1527,8 @@ def test_constant_prediction_has_finite_probability(baseline, value, prediction,
     assert result.iloc[0]["forecast"] == expected
 
 
-def test_flight_baseline_uses_each_horizons_prior_median(baseline):
-    """A latest-delay outlier must not replace either horizon's rolling median."""
+def test_flight_baseline_uses_same_due_date_median_for_every_horizon(baseline):
+    """Later predictions must not change the comparison median across horizons."""
     id = "flight_departure_delay__example"
     history = [(day, 0) for day in pd.date_range("2026-01-18", "2026-01-23")]
     history += [("2026-01-24", 100), ("2026-01-25", 999), ("2026-01-31", 999)]
@@ -1537,14 +1537,15 @@ def test_flight_baseline_uses_each_horizons_prior_median(baseline):
     days = pd.date_range("2026-01-18", "2026-02-25")
     values = [0 if day < pd.Timestamp("2026-02-01") else 40 for day in days]
     predictions = pd.DataFrame({"ds": days, "yhat": values})
-    predictions.loc[predictions["ds"].isin(["2026-02-01", "2026-02-24"]), "yhat"] = 20
+    targets = pd.to_datetime(["2026-02-01", "2026-02-24"])
+    predictions.loc[predictions["ds"].isin(targets), "yhat"] = 20
     predictions["yhat_lower"] = predictions["yhat"] - 2.56
     predictions["yhat_upper"] = predictions["yhat"] + 2.56
     baseline.Prophet.return_value.predict.return_value = predictions
 
     result = baseline.get_dataset_forecasts("serpapi", df, dfr, pd.Timestamp("2026-01-25"))
 
-    assert result["forecast"].tolist() == pytest.approx([0.95, 0.05])
+    assert result["forecast"].tolist() == pytest.approx([0.95, 0.95])
     fitted = baseline.Prophet.return_value.fit.call_args.args[0]
     assert fitted["ds"].max() == pd.Timestamp("2026-01-24")
     assert 999 not in fitted["y"].values
@@ -1555,7 +1556,7 @@ def test_flight_baseline_floors_delays_and_omits_missing_past(baseline, target, 
     """Use available observations, not fitted replacements for past missing delays."""
     df, dfr = inputs(
         "flight_departure_delay__example",
-        [("2026-01-17", 500), ("2026-01-18", -5), ("2026-01-24", "N/A")],
+        [("2026-01-11", 500), ("2026-01-18", -5), ("2026-01-24", "N/A")],
     )
     days = pd.date_range("2026-01-17", "2026-02-01")
     # Fitted past values are deliberately wrong; they must not enter the median.
@@ -1569,6 +1570,28 @@ def test_flight_baseline_floors_delays_and_omits_missing_past(baseline, target, 
 
     assert result.iloc[0]["forecast"] == expected
     assert baseline.Prophet.return_value.fit.call_args.args[0]["y"].tolist() == [500, 0]
+
+
+@pytest.mark.parametrize("due_delay,target,expected", [(0, 3, 0.95), (100, 7, 0.05), (6, 6, 0.05)])
+def test_flight_baseline_includes_both_due_date_window_endpoints(
+    baseline, due_delay, target, expected
+):
+    """Use days due-13 through due, predicting only the unobserved due-date delay."""
+    df, dfr = inputs(
+        "flight_departure_delay__example",
+        [("2026-01-11", 1000), ("2026-01-12", 2), ("2026-01-24", 10)],
+    )
+    days = pd.date_range("2026-01-11", "2026-02-01")
+    predictions = pd.DataFrame({"ds": days, "yhat": 1000})
+    predictions.loc[predictions["ds"] == pd.Timestamp("2026-01-25"), "yhat"] = due_delay
+    predictions.loc[predictions["ds"] == pd.Timestamp("2026-02-01"), "yhat"] = target
+    predictions["yhat_lower"] = predictions["yhat"]
+    predictions["yhat_upper"] = predictions["yhat"]
+    baseline.Prophet.return_value.predict.return_value = predictions
+
+    result = baseline.get_dataset_forecasts("serpapi", df, dfr, pd.Timestamp("2026-01-25"))
+
+    assert result.iloc[0]["forecast"] == expected
 
 
 def test_registered_for_curation_and_resolution():

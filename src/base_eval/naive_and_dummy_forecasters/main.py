@@ -99,16 +99,20 @@ def get_prophet_forecast(
         future = model.make_future_dataframe(periods=periods)
         forecast = model.predict(future)
         if flight:
-            # Preserve observed past delays and omit missing past dates. Only dates from
-            # the forecast due date onward use predictions, never future observations.
+            due_date = pd.Timestamp(day_before_forecast_due_date) + pd.Timedelta(days=1)
+            # Preserve observed past delays and omit missing past dates. The due-date
+            # delay is not yet observed, so use its prediction in the fixed baseline.
             delays = pd.concat(
                 [
                     dfr_mid.set_index("date")["value"],
-                    forecast.loc[forecast["ds"] > day_before_forecast_due_date].set_index("ds")[
-                        "yhat"
-                    ],
+                    forecast.loc[forecast["ds"] == due_date].set_index("ds")["yhat"],
                 ]
             ).clip(lower=0)
+            # Match the resolver's inclusive 14-day window for every horizon.
+            # This plug-in median does not model uncertainty in the due-date delay.
+            comparison_value = delays.loc[
+                (delays.index >= due_date - pd.Timedelta(days=13)) & (delays.index <= due_date)
+            ].median()
         for resolution_date in resolution_dates:
             row = forecast[forecast["ds"].dt.date == resolution_date]
 
@@ -116,16 +120,6 @@ def get_prophet_forecast(
             lower = row["yhat_lower"].values[0]
             upper = row["yhat_upper"].values[0]
             forecast_std = (upper - lower) / (2 * 1.28)
-
-            if flight:
-                target_date = pd.Timestamp(resolution_date)
-                # A plug-in median is a simple baseline: its uncertainty is not modeled.
-                comparison_value = delays.loc[
-                    (delays.index >= target_date - pd.Timedelta(days=14))
-                    & (delays.index < target_date)
-                ].median()
-                # For a nonnegative threshold, P(max(0, delay) > threshold) equals
-                # P(delay > threshold), so the normal approximation also applies.
 
             if source == "serpapi" and forecast_std <= 0:
                 prob_increase = float(forecast_mean > comparison_value)
