@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from curate_questions.create_question_set import main as create_question_set
+from question_sampling.create_question_set import stratified_sample_questions
 
 
 def _pool(bin_weights: dict[str, float], available: dict[str, int] | int) -> pd.DataFrame:
@@ -20,7 +20,7 @@ def _pool(bin_weights: dict[str, float], available: dict[str, int] | int) -> pd.
 def test_small_bins_share_the_leftover_slots():
     """Ten bins at 0.04 each have a target of 0.4 at n=10; rounding each on its own gave them nothing."""
     weights = {"big": 0.6, **{f"small{i}": 0.04 for i in range(10)}}
-    sampled = create_question_set.stratified_sample_questions(
+    sampled = stratified_sample_questions(
         _pool(weights, available=20), n_target=10, random_state=np.random.RandomState(0)
     )
     counts = sampled["composite_bin"].value_counts()
@@ -32,7 +32,7 @@ def test_small_bins_share_the_leftover_slots():
 def test_leftover_slots_go_to_the_largest_remainders_first():
     """Targets 3.7, 3.2, 3.1 at n=10 floor to 9; the one spare slot goes to the 0.7 remainder."""
     weights = {"a": 0.37, "b": 0.32, "c": 0.31}
-    sampled = create_question_set.stratified_sample_questions(
+    sampled = stratified_sample_questions(
         _pool(weights, available=20), n_target=10, random_state=np.random.RandomState(0)
     )
     counts = sampled["composite_bin"].value_counts()
@@ -42,7 +42,7 @@ def test_leftover_slots_go_to_the_largest_remainders_first():
 def test_bin_that_runs_out_hands_its_slots_to_bins_with_room():
     """A half-weight bin with one row contributes one; the other bin fills the rest."""
     weights = {"thin": 0.5, "deep": 0.5}
-    sampled = create_question_set.stratified_sample_questions(
+    sampled = stratified_sample_questions(
         _pool(weights, available={"thin": 1, "deep": 20}),
         n_target=10,
         random_state=np.random.RandomState(0),
