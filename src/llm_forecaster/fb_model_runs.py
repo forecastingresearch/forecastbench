@@ -11,8 +11,6 @@ from helpers.openai_safety import get_openai_safety_identifier
 ModelRun = shared_model_runs.ModelRun
 
 FB_MODEL_RUN_KEYS = [
-    "gpt-5-nano-2025-08-07-run-variant-01",
-    "gpt-5-mini-2025-08-07-run-variant-01",
     "gpt-5.4-nano-2026-03-17-run-variant-01",
     "gpt-5.4-mini-2026-03-17-run-variant-01",
     "gpt-5.4-2026-03-05-run-variant-01",
@@ -20,13 +18,12 @@ FB_MODEL_RUN_KEYS = [
     "gpt-5.6-sol-run-variant-01",
     "gpt-6-luna-run-variant-01",
     "gpt-6-sol-run-variant-01",
+    "gpt-6.1-sol-run-variant-01",
     "kimi-k3-run-variant-01",
     "muse-spark-1.3-run-variant-01",
-    "claude-haiku-4-5-20251001-run-variant-01",
-    "claude-sonnet-4-5-20250929-run-variant-01",
-    "claude-sonnet-4-6-run-variant-01",
     "claude-sonnet-4-6-run-variant-03",
     "claude-sonnet-5-run-variant-01",
+    "claude-sonnet-5-5-run-variant-01",
     "claude-opus-4-7-run-variant-01",
     "claude-opus-5-5-run-variant-01",
     "claude-fable-5-1-run-variant-01",
