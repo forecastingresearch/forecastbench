@@ -319,7 +319,7 @@ class SerpapiSource(DatasetSource):
         dfq: DataFrame[QuestionFrame],
         dfr: DataFrame[ResolutionFrame],
     ) -> tuple[DataFrame[ResolveReadyFrame], list[str]]:
-        """Apply snapshot fallback and compare flight delays with their prior 14-day median."""
+        """Apply snapshot fallback and compare flight delays with their due-date 14-day median."""
         # Select fallback values only for resolution; keep their actual dates in history.
         # Preserve existing date rules for retired categories; live specs take precedence.
         # Retain new categories here before removing their specs from collection.
@@ -347,14 +347,12 @@ class SerpapiSource(DatasetSource):
             name = row["id"].split("__", 1)[0]
             if name == "flight_departure_delay":
                 history = valid_by_id.get(row["id"], valid.iloc[:0])
-                resolution = row["resolution_date"]
-                prior = history[
-                    history["date"].between(
-                        resolution - pd.Timedelta(days=14), resolution, inclusive="left"
-                    )
-                ]["value"]
+                due, resolution = row["forecast_due_date"], row["resolution_date"]
+                # The baseline is fixed at the due date so every horizon resolves against the
+                # median the forecaster was asked about: the 14 days ending on the due date.
+                prior = history[history["date"].between(due - pd.Timedelta(days=13), due)]["value"]
                 target = history.loc[history["date"] == resolution, "value"]
-                # Report the observed due-date delay, not the median (it can include later dates).
+                # Report the observed due-date delay, not the baseline median.
                 result.at[index, "resolved_to"] = (
                     float(target.iloc[0] > prior.median())
                     if not target.empty and not prior.empty

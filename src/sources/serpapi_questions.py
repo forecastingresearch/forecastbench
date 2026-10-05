@@ -814,10 +814,10 @@ QUESTION_SPECS = {
     "flight_departure_delay": {
         "question_template": (
             "Will the departure delay in minutes of flight {flight_id} ({origin} to "
-            "{destination}) scheduled for local departure date {resolution_date} be greater "
-            "than the median of available departure-delay observations for the same flight "
-            "and route over the preceding 14 calendar days, counting "
-            "early and on-time departures as zero delay?"
+            "{destination}), scheduled to depart on {resolution_date}, be greater "
+            "than the median departure delay for the same flight and route over the 14 days "
+            "ending on {forecast_due_date}, counting early and on-time departures as zero "
+            "delay?"
         ),
         "question_background": (
             "The departure delay in minutes for flight {flight_id} ({origin} to {destination}), "
@@ -834,10 +834,11 @@ QUESTION_SPECS = {
             "Each median uses all available observations in its 14-calendar-day window; "
             "one observation is sufficient. Missing days are omitted without replacement. "
             "For an even number of observations, the two middle values are averaged. "
-            "The freeze median covers the 14 days before the UTC bank update; the resolution "
-            "median precedes the resolution date. Both windows exclude their reference date "
-            "and use scheduled local departure dates. No separate forecast-due-date "
-            "observation is required. Missing resolution-date data or an empty comparison "
+            "The freeze median covers the 14 days before the UTC bank update, excluding that "
+            "day; the resolution median covers the 14 days ending on the forecast due date, "
+            "including it. Both use scheduled local departure dates. No separate "
+            "forecast-due-date observation is required. Missing resolution-date data or an "
+            "empty comparison "
             "window leaves the horizon unresolved and unscored until qualifying data arrive. "
             "See: {url}"
         ),
@@ -845,7 +846,7 @@ QUESTION_SPECS = {
             "Uses only ForecastBench's saved SerpAPI google engine measurements "
             "as ground truth, following the background's rules. "
             "Resolves Yes if the exact resolution-date delay is strictly greater than the "
-            "same flight/route's median over the preceding 14 calendar days, excluding that "
+            "same flight/route's median over the 14 calendar days ending on the forecast due "
             "date; equal or lower resolves No. Dates are scheduled local departure dates."
         ),
         "engine": "google",

@@ -278,7 +278,10 @@ def test_flight_freeze_value_uses_available_prior_14_days(
         assert (
             "freeze median covers the 14 days before the UTC bank update" in question["background"]
         )
-        assert "resolution median precedes the resolution date" in question["background"]
+        assert (
+            "resolution median covers the 14 days ending on the forecast due date"
+            in question["background"]
+        )
     assert len(result.resolution_files[id]) == len(observations)
 
 
@@ -381,8 +384,8 @@ def test_flight_requests_resolve_on_departure_dates(
     assert history["value"].tolist() == expected_values
     question = bank.iloc[0]
     assert "{resolution_date}" in question["question"]
-    assert "median of available departure-delay observations" in question["question"]
-    assert "preceding 14 calendar days" in question["question"]
+    assert "median departure delay" in question["question"]
+    assert "over the 14 days ending on {forecast_due_date}" in question["question"]
     assert "scheduled local departure date" in question["background"]
     assert "departure delay in minutes" in question["question"]
     forecast = make_forecast_df(
@@ -685,14 +688,15 @@ def test_saved_signed_flight_delays_resolve_as_lateness(source, baseline, target
 @pytest.mark.parametrize(
     "prior,target,expected",
     [
-        ([(14, 2), (1, 10)], 7, 1),  # Both window endpoints; even median is 6.
-        ([(14, 2), (1, 10)], 6, 0),
-        ([(14, 2), (1, 10)], 5, 0),
-        ([(15, 100), (14, 2)], 3, 1),  # Older measurements never enter the window.
-        ([(15, 0)], 3, None),  # Do not extend the window to find a baseline.
+        ([(13, 2), (0, 10)], 7, 1),  # Both window endpoints; even median is 6.
+        ([(13, 2), (0, 10)], 6, 0),
+        ([(13, 2), (0, 10)], 5, 0),
+        ([(14, 100), (13, 2)], 3, 1),  # Older measurements never enter the window.
+        ([(14, 0)], 3, None),  # Do not extend the window to find a baseline.
+        ([(0, 2)], 3, 1),  # The due date itself is inside the window.
         ([(2, 4)], 5, 1),  # One measurement is sufficient.
         ([(3, 0), (2, 10), (1, 100)], 11, 1),  # Median, not mean.
-        ([(day, day) for day in range(1, 15)], 8, 1),  # Complete 14-day window.
+        ([(day, day) for day in range(14)], 7, 1),  # Complete 14-day window.
         ([(2, -10), (1, 10)], 3, 0),  # Clamp before calculating the median.
         ([(2, -10), (1, -5)], -2, 0),  # Early target also counts as zero.
         ([(4, "N/A"), (3, float("inf")), (2, float("-inf")), (1, 10)], 9, 0),
@@ -701,43 +705,43 @@ def test_saved_signed_flight_delays_resolve_as_lateness(source, baseline, target
         ([(1, 0)], "N/A", None),
     ],
 )
-def test_flight_resolution_uses_available_prior_14_day_median(source, prior, target, expected):
+def test_flight_resolution_uses_the_14_day_median_ending_on_the_due_date(
+    source, prior, target, expected
+):
+    """The baseline is fixed at the forecast due date; later observations never enter it."""
     id = question_id(
         "flight_departure_delay", QUESTION_SPECS["flight_departure_delay"]["variables"][0]
     )
+    due = pd.Timestamp("2026-09-01")
     resolution = pd.Timestamp("2026-09-15")
     forecast = make_forecast_df(
-        [dict(id=id, source="serpapi", forecast_due_date="2026-08-01", resolution_date=resolution)]
+        [dict(id=id, source="serpapi", forecast_due_date=due, resolution_date=resolution)]
     )
     history = make_resolution_df(
-        [
-            {"id": id, "date": resolution - pd.Timedelta(days=days), "value": value}
-            for days, value in prior
-        ]
+        [{"id": id, "date": due - pd.Timedelta(days=days), "value": value} for days, value in prior]
         + [
+            {"id": id, "date": resolution - pd.Timedelta(days=1), "value": 1000},
             {"id": id, "date": resolution, "value": target},
             {"id": id, "date": resolution + pd.Timedelta(days=1), "value": 1000},
             {
                 "id": "flight_departure_delay__other",
-                "date": resolution - pd.Timedelta(days=1),
+                "date": due - pd.Timedelta(days=1),
                 "value": 1000,
             },
         ]
     )
     original = history.copy(deep=True)
-    result, _ = source.resolve(forecast, empty_bank(), history, forecast_due_date=date(2026, 8, 1))
+    result, _ = source.resolve(forecast, empty_bank(), history, forecast_due_date=date(2026, 9, 1))
     row = result.iloc[0]
     assert bool(row["resolved"]) == (expected is not None)
     if expected is None:
         assert pd.isna(row["resolved_to"])
     else:
         assert row["resolved_to"] == expected
-    # Resolution must not require a due-date measurement or leak the future median into it.
-    assert pd.isna(row["market_value_on_due_date"])
     pd.testing.assert_frame_equal(history, original)
 
 
-def test_flight_medians_are_per_horizon_and_used_in_negated_conjunctions(source):
+def test_flight_baseline_is_shared_across_horizons_and_used_in_negated_conjunctions(source):
     flight = "flight_departure_delay__example"
     other = "other_measurement__example"
     forecast = make_forecast_df(
@@ -755,22 +759,25 @@ def test_flight_medians_are_per_horizon_and_used_in_negated_conjunctions(source)
     )
     history = make_resolution_df(
         [
-            {"id": flight, "date": "2026-08-01", "value": 100},
+            {"id": flight, "date": "2026-07-18", "value": 100},  # Outside the window.
+            {"id": flight, "date": "2026-07-31", "value": 2},
+            {"id": flight, "date": "2026-08-01", "value": 4},
             {"id": flight, "date": "2026-08-31", "value": 2},
-            {"id": flight, "date": "2026-09-01", "value": 10},
-            {"id": flight, "date": "2026-09-15", "value": 7},
+            {"id": flight, "date": "2026-09-01", "value": 3},
+            {"id": flight, "date": "2026-09-15", "value": 4},
             {"id": other, "date": "2026-08-01", "value": 0},
             {"id": other, "date": "2026-09-01", "value": 1},
             {"id": other, "date": "2026-09-15", "value": 1},
         ]
     )
     result, _ = source.resolve(forecast, empty_bank(), history, forecast_due_date=date(2026, 8, 1))
-    for day, expected in (("2026-09-01", 1), ("2026-09-15", 0)):
+    # Baseline is the median of 2 and 4, so 3 resolves No and 4 resolves Yes at both horizons.
+    for day, expected in (("2026-09-01", 0), ("2026-09-15", 1)):
         rows = result[result["resolution_date"] == pd.Timestamp(day)]
         flight_row = rows[rows["id"] == flight].iloc[0]
         combo_row = rows[rows["id"].apply(lambda id: isinstance(id, tuple))].iloc[0]
         assert flight_row["resolved_to"] == expected
-        assert flight_row["market_value_on_due_date"] == 100
+        assert flight_row["market_value_on_due_date"] == 4
         assert combo_row["resolved_to"] == 1 - expected
 
 
@@ -1450,6 +1457,7 @@ def baseline():
         "base_eval.naive_and_dummy_forecasters.main",
         {
             "helpers.question_sets": SimpleNamespace(),
+            "pandas_market_calendars": SimpleNamespace(),
             "prophet": SimpleNamespace(Prophet=Mock()),
         },
     ) as module:
