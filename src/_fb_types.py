@@ -53,6 +53,18 @@ WikipediaFetchResult = dict[str, pd.DataFrame]
 
 
 @dataclass
+class QuestionSetResult:
+    """Return value of question sampling.
+
+    Each question set is the JSON-ready dict that is published, with keys
+    ``forecast_due_date``, ``question_set`` (its filename) and ``questions``.
+    """
+
+    llm_question_set: dict
+    human_question_set: dict
+
+
+@dataclass
 class UpdateResult:
     """Return value of a source's update() method.
 

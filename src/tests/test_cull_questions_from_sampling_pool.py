@@ -1,10 +1,19 @@
 """Question curation culls weather, ACLED, single-ticker yfinance, and Metaculus wide-gap questions."""
 
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 
-from curate_questions.create_question_set import main as create_question_set
+import question_sampling
+from _fb_types import NullifiedQuestion
+from question_sampling.create_question_set import (
+    drop_culled_questions,
+    drop_nullified_questions,
+)
+from sources.registry import SOURCES
+
+_SAMPLING_DIR = Path(question_sampling.__file__).parent
 
 
 def test_drop_dbnomics_weather_questions():
@@ -14,7 +23,7 @@ def test_drop_dbnomics_weather_questions():
             "question": ["temp at Abbeville?", "ECB deposit rate?"],
         }
     )
-    result = create_question_set.drop_culled_questions(source="dbnomics", dfq=dfq)
+    result = drop_culled_questions(source="dbnomics", dfq=dfq)
     assert result["id"].tolist() == ["ECB_FM_M.U2.EUR.4F.KR.DFR.LEV"]
 
 
@@ -29,7 +38,7 @@ def test_drop_acled_x10_questions():
             "freeze_datetime_value": ["11.5", "10.5"],
         }
     )
-    result = create_question_set.drop_culled_questions(source="acled", dfq=dfq)
+    result = drop_culled_questions(source="acled", dfq=dfq)
     assert result["id"].tolist() == ["b"]
 
 
@@ -46,7 +55,7 @@ def test_drop_acled_questions_with_a_zero_baseline():
             "freeze_datetime_value": ["0.0", "0.08333333333333333", "325.75"],
         }
     )
-    result = create_question_set.drop_culled_questions(source="acled", dfq=dfq)
+    result = drop_culled_questions(source="acled", dfq=dfq)
     assert result["id"].tolist() == ["small", "large"]
 
 
@@ -62,7 +71,7 @@ def test_drop_acled_questions_under_a_retired_country_spelling():
             "freeze_datetime_value": ["1.5", "1.5"],
         }
     )
-    result = create_question_set.drop_culled_questions(source="acled", dfq=dfq)
+    result = drop_culled_questions(source="acled", dfq=dfq)
     assert result["id"].tolist() == ["current"]
 
 
@@ -73,7 +82,7 @@ def test_other_sources_untouched():
             "question": ["Will there be more than ten times as many ... in Nauru for the 30 days"],
         }
     )
-    result = create_question_set.drop_culled_questions(source="polymarket", dfq=dfq)
+    result = drop_culled_questions(source="polymarket", dfq=dfq)
     assert len(result) == 1
 
 
@@ -85,13 +94,13 @@ def test_drop_retired_single_ticker_yfinance_questions():
             "question": ["Will AAPL go up?", "Will AAPL beat MSFT?", "Will MSFT go up?"],
         }
     )
-    result = create_question_set.drop_culled_questions(source="yfinance", dfq=dfq)
+    result = drop_culled_questions(source="yfinance", dfq=dfq)
     assert result["id"].tolist() == ["AAPL_MSFT"]
 
 
 def test_drop_metaculus_questions_that_resolve_too_long_after_close():
     """Every listed id is dropped; a question not on the list stays."""
-    ids_file = Path(create_question_set.__file__).parent / "metaculus_culled_ids.txt"
+    ids_file = _SAMPLING_DIR / "metaculus_culled_ids.txt"
     culled = ids_file.read_text().split()
     assert culled, "the culled id set must not be empty"
     dfq = pd.DataFrame(
@@ -100,13 +109,13 @@ def test_drop_metaculus_questions_that_resolve_too_long_after_close():
             "question": ["Will it?"] * (len(culled) + 1),
         }
     )
-    result = create_question_set.drop_culled_questions(source="metaculus", dfq=dfq)
+    result = drop_culled_questions(source="metaculus", dfq=dfq)
     assert result["id"].tolist() == ["kept"]
 
 
 def test_drop_kalshi_questions_that_settle_before_the_due_date():
     """Every listed id is dropped; a question not on the list stays."""
-    ids_file = Path(create_question_set.__file__).parent / "kalshi_culled_ids.txt"
+    ids_file = _SAMPLING_DIR / "kalshi_culled_ids.txt"
     culled = ids_file.read_text().split()
     assert culled, "the culled id set must not be empty"
     dfq = pd.DataFrame(
@@ -115,13 +124,13 @@ def test_drop_kalshi_questions_that_settle_before_the_due_date():
             "question": ["Will it?"] * (len(culled) + 1),
         }
     )
-    result = create_question_set.drop_culled_questions(source="kalshi", dfq=dfq)
+    result = drop_culled_questions(source="kalshi", dfq=dfq)
     assert result["id"].tolist() == ["kept"]
 
 
 def test_drop_polymarket_questions_that_settle_before_the_due_date():
     """Every listed id is dropped; a question not on the list stays."""
-    ids_file = Path(create_question_set.__file__).parent / "polymarket_culled_ids.txt"
+    ids_file = _SAMPLING_DIR / "polymarket_culled_ids.txt"
     culled = ids_file.read_text().split()
     assert culled, "the culled id set must not be empty"
     dfq = pd.DataFrame(
@@ -130,13 +139,13 @@ def test_drop_polymarket_questions_that_settle_before_the_due_date():
             "question": ["Will it?"] * (len(culled) + 1),
         }
     )
-    result = create_question_set.drop_culled_questions(source="polymarket", dfq=dfq)
+    result = drop_culled_questions(source="polymarket", dfq=dfq)
     assert result["id"].tolist() == ["kept"]
 
 
 def test_drop_fred_series_retired_from_sampling():
     """Every listed id is dropped; a series not on the list stays."""
-    ids_file = Path(create_question_set.__file__).parent / "fred_culled_ids.txt"
+    ids_file = _SAMPLING_DIR / "fred_culled_ids.txt"
     culled = ids_file.read_text().split()
     assert culled, "the culled id set must not be empty"
     dfq = pd.DataFrame(
@@ -145,26 +154,21 @@ def test_drop_fred_series_retired_from_sampling():
             "question": ["Will it?"] * (len(culled) + 1),
         }
     )
-    result = create_question_set.drop_culled_questions(source="fred", dfq=dfq)
+    result = drop_culled_questions(source="fred", dfq=dfq)
     assert result["id"].tolist() == ["kept"]
 
 
 def test_drop_nullified_questions_whatever_their_start_date(monkeypatch):
     """A nullified question is never sampled again, even when its nullification starts later."""
-    from datetime import date
-
-    from _fb_types import NullifiedQuestion
-
-    monkeypatch.setitem(
-        create_question_set.SOURCE_METADATA,
-        "metaculus",
-        {
-            "nullified_questions": [
-                NullifiedQuestion(id="gone", nullification_start_date=date(2020, 1, 1)),
-                NullifiedQuestion(id="later", nullification_start_date=date(2999, 1, 1)),
-            ]
-        },
+    source = SOURCES["metaculus"]
+    monkeypatch.setattr(
+        type(source),
+        "nullified_questions",
+        [
+            NullifiedQuestion(id="gone", nullification_start_date=date(2020, 1, 1)),
+            NullifiedQuestion(id="later", nullification_start_date=date(2999, 1, 1)),
+        ],
     )
     dfq = pd.DataFrame({"id": ["gone", "later", "kept"], "question": ["a", "b", "c"]})
-    result = create_question_set.drop_nullified_questions(source="metaculus", dfq=dfq)
+    result = drop_nullified_questions(dfq=dfq, source=source)
     assert result["id"].tolist() == ["kept"]

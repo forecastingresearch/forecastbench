@@ -366,6 +366,38 @@ def upload_forecast_file(local_filename: str | os.PathLike, filename: str) -> No
 
 
 # ---------------------------------------------------------------------------
+# Question set upload
+# ---------------------------------------------------------------------------
+
+
+def write_question_set_file(local_filename: str | os.PathLike, question_set: dict) -> None:
+    """Write a question set JSON file as raw UTF-8, not ASCII escapes."""
+    path = Path(local_filename)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(question_set, f, indent=4, ensure_ascii=False)
+
+
+def upload_question_set(
+    local_filename: str | os.PathLike, filename: str, latest_filename: str
+) -> None:
+    """Upload a question set to the question-sets bucket, also as the latest set of its kind.
+
+    Args:
+        local_filename (str | os.PathLike): The local question set file
+        filename (str): Its name in the bucket, e.g. ``2026-10-13-llm.json``
+        latest_filename (str): The name of the copy that always points at the latest set, e.g.
+            ``latest-llm.json``
+    """
+    for destination in (filename, latest_filename):
+        gcp.storage.upload(
+            bucket_name=env.QUESTION_SETS_BUCKET,
+            local_filename=str(local_filename),
+            filename=destination,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Question set download
 # ---------------------------------------------------------------------------
 

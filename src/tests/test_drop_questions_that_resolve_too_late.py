@@ -1,11 +1,15 @@
 """Market questions resolving more than the cap after the forecast due date are not sampled."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pandas as pd
 
-from curate_questions.create_question_set import main as create_question_set
-from helpers import question_curation
+from question_sampling.create_question_set import (
+    MAX_DAYS_TO_MARKET_RESOLUTION,
+    drop_questions_that_resolve_too_late,
+)
+
+FORECAST_DATETIME = datetime(2026, 10, 13)
 
 
 def _market_frame(rows: dict[str, tuple[int | None, int | None]]) -> pd.DataFrame:
@@ -13,7 +17,7 @@ def _market_frame(rows: dict[str, tuple[int | None, int | None]]) -> pd.DataFram
 
     None stands for "N/A", which is what the question bank stores before a market resolves.
     """
-    due = question_curation.FORECAST_DATETIME
+    due = FORECAST_DATETIME
 
     def _iso(days_after_due: int | None) -> str:
         return (
@@ -32,7 +36,7 @@ def _market_frame(rows: dict[str, tuple[int | None, int | None]]) -> pd.DataFram
 
 
 def test_market_questions_resolving_after_the_cap_are_dropped():
-    cap = create_question_set.MAX_DAYS_TO_MARKET_RESOLUTION
+    cap = MAX_DAYS_TO_MARKET_RESOLUTION
     dfq = _market_frame(
         {
             "early": (30, None),
@@ -44,13 +48,17 @@ def test_market_questions_resolving_after_the_cap_are_dropped():
             "both_under_cap": (30, 60),
         }
     )
-    result = create_question_set.drop_questions_that_resolve_too_late(source="polymarket", dfq=dfq)
+    result = drop_questions_that_resolve_too_late(
+        source="polymarket", dfq=dfq, forecast_datetime=FORECAST_DATETIME
+    )
     assert result["id"].tolist() == ["early", "under_cap", "at_cap", "both_under_cap"]
 
 
 def test_empty_market_frame_stays_empty():
     dfq = _market_frame({})
-    result = create_question_set.drop_questions_that_resolve_too_late(source="polymarket", dfq=dfq)
+    result = drop_questions_that_resolve_too_late(
+        source="polymarket", dfq=dfq, forecast_datetime=FORECAST_DATETIME
+    )
     assert result.empty
 
 
@@ -62,5 +70,7 @@ def test_data_questions_are_untouched():
             "market_info_resolution_datetime": ["N/A"],
         }
     )
-    result = create_question_set.drop_questions_that_resolve_too_late(source="acled", dfq=dfq)
+    result = drop_questions_that_resolve_too_late(
+        source="acled", dfq=dfq, forecast_datetime=FORECAST_DATETIME
+    )
     assert result["id"].tolist() == ["a"]
