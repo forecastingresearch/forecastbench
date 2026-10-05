@@ -884,48 +884,42 @@ def stratified_sample_questions(
     if len(dfq_weighted) == 0:
         raise ValueError("No questions with nonzero bin weight available for sampling.")
 
-    # Calculate how many samples we want from each composite bin
-    bin_samples = {}
+    # Apportion the quota across composite bins by largest remainder: each bin gets the floor of
+    # its fractional target, then the leftover slots go one at a time to the bins with the largest
+    # fractional parts. Rounding each bin on its own gives nothing to a bin whose target is below
+    # one half, and with about a hundred composite bins and n_target near 80 that is every
+    # long-horizon bin.
+    bin_weight_for = {}
+    available_for = {}
     for bin_name in dfq_weighted["composite_bin"].unique():
         bin_df = dfq_weighted[dfq_weighted["composite_bin"] == bin_name]
-        bin_weight = bin_df["bin_weight"].iloc[0]
-        # Target number of samples from this bin
-        target_samples = round(n_target * bin_weight)
-        # Can't sample more than available
-        available = len(bin_df)
-        bin_samples[bin_name] = min(target_samples, available)
-
-    # Adjust for rounding errors - add/remove samples to match n_target
-    bin_weight_for = {
-        name: dfq_weighted[dfq_weighted["composite_bin"] == name]["bin_weight"].iloc[0]
-        for name in bin_samples
+        bin_weight_for[bin_name] = bin_df["bin_weight"].iloc[0]
+        available_for[bin_name] = len(bin_df)
+    fractional_target = {name: n_target * weight for name, weight in bin_weight_for.items()}
+    bin_samples = {
+        name: min(int(target), available_for[name]) for name, target in fractional_target.items()
     }
-    total_samples = sum(bin_samples.values())
-    if total_samples < n_target:
-        # Add samples to highest-weighted bins first
+    bins_by_remainder_desc = sorted(
+        bin_samples,
+        key=lambda name: (fractional_target[name] % 1, bin_weight_for[name]),
+        reverse=True,
+    )
+    for bin_name in bins_by_remainder_desc:
+        if sum(bin_samples.values()) == n_target:
+            break
+        if bin_samples[bin_name] < available_for[bin_name]:
+            bin_samples[bin_name] += 1
+
+    # Bins that ran out of questions leave a shortage; fill it from the highest-weighted bins first
+    shortage = n_target - sum(bin_samples.values())
+    if shortage > 0:
         bins_by_weight_desc = sorted(bin_samples, key=lambda x: bin_weight_for[x], reverse=True)
-        shortage = n_target - total_samples
         for bin_name in bins_by_weight_desc:
-            bin_df = dfq_weighted[dfq_weighted["composite_bin"] == bin_name]
-            available = len(bin_df)
-            current = bin_samples[bin_name]
-            if current < available:
-                add = min(shortage, available - current)
-                bin_samples[bin_name] += add
-                shortage -= add
-                if shortage == 0:
-                    break
-    elif total_samples > n_target:
-        # Remove samples from lowest-weighted bins first
-        bins_by_weight_asc = sorted(bin_samples, key=lambda x: bin_weight_for[x])
-        excess = total_samples - n_target
-        for bin_name in bins_by_weight_asc:
-            if bin_samples[bin_name] > 0:
-                remove = min(excess, bin_samples[bin_name])
-                bin_samples[bin_name] -= remove
-                excess -= remove
-                if excess == 0:
-                    break
+            add = min(shortage, available_for[bin_name] - bin_samples[bin_name])
+            bin_samples[bin_name] += add
+            shortage -= add
+            if shortage == 0:
+                break
 
     # Sample from each bin
     sampled_dfs = []
