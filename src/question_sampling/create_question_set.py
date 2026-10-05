@@ -3,8 +3,8 @@
 This module samples questions for LLM and human question sets.
 
 Sampling strategies:
-- Sources: Each question type's target is split across its sources by `sampling_share`
-  (see `helpers/question_curation.py`)
+- Sources: Each question type's target is split across its sources by their sampling share
+  (`FREEZE_QUESTION_SOURCES` in `helpers/question_curation.py`)
 - Market questions: Multi-dimensional binning across market value and time horizon
 - Data questions: Even distribution across categories
 - Human questions: Random sampling from the LLM question set
@@ -12,38 +12,49 @@ Sampling strategies:
 Market question sampling aims to achieve balanced representation across:
 1. Market probability values (0-10%, ..., 90-100%)
 2. Time horizons (0-7 days, 8-30 days, ..., >365 days)
+
+The module is pure: it takes the question bank data and returns the question sets. Reading the
+question bank and writing the question sets is done by the orchestration layer.
 """
 
-import json
 import logging
 import math
-import os
-import sys
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta
 from enum import Enum
 from fractions import Fraction
+from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
-from utils import gcp
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import (  # noqa: E402
-    constants,
-    data_utils,
-    decorator,
-    env,
-    question_curation,
-    yfinance,
-)
-from sources import SOURCE_METADATA  # noqa: E402
+from _fb_types import QuestionSetResult
+from helpers import constants, yfinance
+from sources import MARKET_SOURCE_NAMES
 
-logging.basicConfig(level=logging.INFO)
+if TYPE_CHECKING:
+    from sources._base import BaseSource
+
 logger = logging.getLogger(__name__)
+
+NUM_LLM_QUESTIONS = 500
+NUM_HUMAN_QUESTIONS = 200
+
+# How each question set is split between market and dataset questions. Dataset questions resolve
+# at several horizons, so the human set leans toward market questions to gain power (issue #310).
+NUM_LLM_QUESTIONS_BY_TYPE = {"market": 250, "dataset": 250}
+NUM_HUMAN_QUESTIONS_BY_TYPE = {"market": 130, "dataset": 70}
+
+assert sum(NUM_LLM_QUESTIONS_BY_TYPE.values()) == NUM_LLM_QUESTIONS
+assert sum(NUM_HUMAN_QUESTIONS_BY_TYPE.values()) == NUM_HUMAN_QUESTIONS
+
+# Assumed in the code: human questions are sampled from the LLM set.
+assert all(
+    NUM_HUMAN_QUESTIONS_BY_TYPE[t] < NUM_LLM_QUESTIONS_BY_TYPE[t] for t in NUM_LLM_QUESTIONS_BY_TYPE
+)
 
 MARKET_VALUE_CONFIG = [
     {"min": 0.00, "max": 0.01, "weight": 0},
@@ -96,12 +107,49 @@ MAX_DAYS_TO_MARKET_RESOLUTION = 365
 # Market questions resolving within this many days after the forecast due date are not sampled.
 MIN_DAYS_TO_MARKET_RESOLUTION = 7
 
+# Column order of the questions in the published question set files.
+QUESTION_SET_COLUMNS = [
+    "id",
+    "source",
+    "question",
+    "resolution_criteria",
+    "background",
+    "market_info_open_datetime",
+    "market_info_close_datetime",
+    "market_info_resolution_criteria",
+    "url",
+    "freeze_datetime",
+    "freeze_datetime_value",
+    "freeze_datetime_value_explanation",
+    "source_intro",
+    "resolution_dates",
+]
+
 
 class QuestionSetTarget(str, Enum):
     """Question set targets used throughout sampling and writing."""
 
     LLM = "llm"
     HUMAN = "human"
+
+
+def question_set_filename(target: QuestionSetTarget, forecast_datetime: datetime) -> str:
+    """Return the filename of a question set, e.g. ``2026-10-13-llm.json``.
+
+    Args:
+        target (QuestionSetTarget): Question set target ("llm" or "human")
+        forecast_datetime (datetime): The forecast due date of the question set
+    """
+    return f"{forecast_datetime.date().isoformat()}-{target.value}.json"
+
+
+def is_market_source(source: str) -> bool:
+    """Tell whether `source` is a market source (otherwise it is a dataset source).
+
+    Args:
+        source (str): Source name
+    """
+    return source in MARKET_SOURCE_NAMES
 
 
 def validate_bin_weights():
@@ -128,6 +176,7 @@ def process_questions(
     single_generation_func: Callable,
     show_plots: bool,
     question_set_target: QuestionSetTarget,
+    forecast_datetime: datetime,
     random_state: int | np.random.RandomState | None = None,
 ) -> dict:
     """Sample from `questions` to get the number of questions needed.
@@ -139,6 +188,8 @@ def process_questions(
             returning a DataFrame
         show_plots (bool): Whether to display distribution plots
         question_set_target (QuestionSetTarget): Target question set ("llm" or "human")
+        forecast_datetime (datetime): The forecast due date, used to bin market questions by time
+            horizon in the sampling logs and plots
         random_state: Seed/``np.random.RandomState`` threaded to ``single_generation_func`` for
             reproducibility. ``None`` (default) samples without a fixed seed.
 
@@ -162,21 +213,26 @@ def process_questions(
 
         # Log per-source compact table (skip for human set which is random sampling)
         if question_set_target != QuestionSetTarget.HUMAN:
-            shortfalls = log_source_sampling(source, df_sampled, df_available, num_single)
+            shortfalls = log_source_sampling(
+                source, df_sampled, df_available, num_single, forecast_datetime
+            )
         else:
             shortfalls = []
         source_summaries.append((source, len(df_sampled), num_single, shortfalls))
 
-        is_market_source = source in question_curation.MARKET_SOURCES
-        if is_market_source:
+        if is_market_source(source):
             # Keep aggregate market-source data for combined summary/logging.
             market_available.append(df_available)
             market_sampled.append(df_sampled.copy())
 
-        if show_plots and is_market_source and question_set_target != QuestionSetTarget.HUMAN:
+        if (
+            show_plots
+            and is_market_source(source)
+            and question_set_target != QuestionSetTarget.HUMAN
+        ):
             # Plot per-source distribution
-            available_with_bins = add_bin_columns(df_available)
-            sampled_with_bins = add_bin_columns(df_sampled.copy())
+            available_with_bins = add_bin_columns(df_available, forecast_datetime)
+            sampled_with_bins = add_bin_columns(df_sampled.copy(), forecast_datetime)
             plot_sampling_distribution(
                 sampled_with_bins,
                 available_with_bins,
@@ -187,15 +243,17 @@ def process_questions(
     assert len(market_sampled) > 0, "Should not arrive here."
 
     total_market_requested = sum(
-        to_questions[s]["num_questions_to_sample"]
-        for s in to_questions
-        if s in question_curation.MARKET_SOURCES
+        to_questions[s]["num_questions_to_sample"] for s in to_questions if is_market_source(s)
     )
 
     if show_plots:
         # Plot overall market distribution
-        df_all_sampled = add_bin_columns(pd.concat(market_sampled, ignore_index=True))
-        df_all_available = add_bin_columns(pd.concat(market_available, ignore_index=True))
+        df_all_sampled = add_bin_columns(
+            pd.concat(market_sampled, ignore_index=True), forecast_datetime
+        )
+        df_all_available = add_bin_columns(
+            pd.concat(market_available, ignore_index=True), forecast_datetime
+        )
         plot_sampling_distribution(
             df_all_sampled,
             df_all_available,
@@ -213,6 +271,7 @@ def process_questions(
         df_available=pd.concat(market_available, ignore_index=True),
         n_target=total_market_requested,
         question_set_target=question_set_target,
+        forecast_datetime=forecast_datetime,
     )
 
     return processed_questions
@@ -293,11 +352,12 @@ def get_market_value_bin(value: float | str | None) -> str:
     return "unknown"
 
 
-def get_time_horizon_bin(close_datetime: str | None) -> str:
+def get_time_horizon_bin(close_datetime: str | None, forecast_datetime: datetime) -> str:
     """Assign question to a time horizon bin based on market close date.
 
     Args:
         close_datetime (str | None): ISO format datetime string of market close
+        forecast_datetime (datetime): The forecast due date the horizon is measured from
 
     Returns
         bin_label (str): Time bin like "31-90d" or "unknown"
@@ -307,8 +367,7 @@ def get_time_horizon_bin(close_datetime: str | None) -> str:
 
     try:
         close_date = datetime.fromisoformat(close_datetime)
-        forecast_due_date = question_curation.FORECAST_DATETIME
-        days_until_close = (close_date - forecast_due_date).days
+        days_until_close = (close_date - forecast_datetime).days
         for horizon_config in TIME_HORIZON_CONFIG:
             if horizon_config["min"] <= days_until_close <= horizon_config["max"]:
                 return get_bin_label(horizon_config, "time_horizon")
@@ -317,18 +376,21 @@ def get_time_horizon_bin(close_datetime: str | None) -> str:
         return "unknown"
 
 
-def add_bin_columns(dfq: pd.DataFrame) -> pd.DataFrame:
+def add_bin_columns(dfq: pd.DataFrame, forecast_datetime: datetime) -> pd.DataFrame:
     """Add bin columns to dataframe for market value and time horizon.
 
     Args:
         dfq (pd.DataFrame): Market questions
+        forecast_datetime (datetime): The forecast due date the time horizon is measured from
 
     Returns
         dfq (pd.DataFrame): Copy with market_value_bin and time_horizon_bin columns
     """
     dfq = dfq.copy()
     dfq["market_value_bin"] = dfq["freeze_datetime_value"].apply(get_market_value_bin)
-    dfq["time_horizon_bin"] = dfq["market_info_close_datetime"].apply(get_time_horizon_bin)
+    dfq["time_horizon_bin"] = dfq["market_info_close_datetime"].apply(
+        get_time_horizon_bin, forecast_datetime=forecast_datetime
+    )
 
     n_unknown = (
         (dfq["time_horizon_bin"] == "unknown") | (dfq["market_value_bin"] == "unknown")
@@ -444,6 +506,7 @@ def log_source_sampling(
     df_sampled: pd.DataFrame,
     df_available: pd.DataFrame,
     n_target: int,
+    forecast_datetime: datetime,
 ) -> list[tuple[str, int, int]]:
     """Log compact sampling results for a single source.
 
@@ -455,6 +518,7 @@ def log_source_sampling(
         df_sampled (pd.DataFrame): Sampled questions
         df_available (pd.DataFrame): All available questions for this source
         n_target (int): Number of questions targeted for this source
+        forecast_datetime (datetime): The forecast due date the time horizon is measured from
 
     Returns
         shortfalls (list[tuple[str, int, int]]): (label, got, want) for bins below target
@@ -465,9 +529,9 @@ def log_source_sampling(
     logger.info("")
     logger.info(f"{source}  {got}/{n_target} sampled from {len(df_available):,} available")
 
-    if source in question_curation.MARKET_SOURCES:
-        df_sampled_bins = add_bin_columns(df_sampled.copy())
-        df_available_bins = add_bin_columns(df_available.copy())
+    if is_market_source(source):
+        df_sampled_bins = add_bin_columns(df_sampled.copy(), forecast_datetime)
+        df_available_bins = add_bin_columns(df_available.copy(), forecast_datetime)
 
         shortfalls.extend(
             _log_bin_dimension(
@@ -524,8 +588,17 @@ def log_all_market_source_sampling(
     df_available: pd.DataFrame,
     n_target: int,
     question_set_target: QuestionSetTarget,
+    forecast_datetime: datetime,
 ) -> None:
-    """Log market-value/time-horizon sampling results across all market sources combined."""
+    """Log market-value/time-horizon sampling results across all market sources combined.
+
+    Args:
+        df_sampled (pd.DataFrame): Sampled market questions
+        df_available (pd.DataFrame): All available market questions
+        n_target (int): Number of market questions targeted
+        question_set_target (QuestionSetTarget): Question set target
+        forecast_datetime (datetime): The forecast due date the time horizon is measured from
+    """
     separator_len = 65
     logger.info("")
     logger.info(f"{'=' * separator_len}")
@@ -535,8 +608,8 @@ def log_all_market_source_sampling(
     )
     logger.info(f"{'=' * separator_len}")
 
-    df_sampled_bins = add_bin_columns(df_sampled.copy())
-    df_available_bins = add_bin_columns(df_available.copy())
+    df_sampled_bins = add_bin_columns(df_sampled.copy(), forecast_datetime)
+    df_available_bins = add_bin_columns(df_available.copy(), forecast_datetime)
 
     _log_bin_dimension(
         "Market Value",
@@ -608,7 +681,8 @@ def plot_sampling_distribution(
     """Plot the realized vs expected distribution for market question sampling.
 
     Creates line charts comparing Available, Selected, and Target distributions
-    for both market value bins and time horizon bins.
+    for both market value bins and time horizon bins. Meant for local runs only; plotly is
+    imported here so that it is not a dependency of the deployed job.
 
     Args:
         df_sampled (pd.DataFrame): Sampled questions (must include bin columns)
@@ -618,9 +692,6 @@ def plot_sampling_distribution(
         source_counts (list[tuple[str, int, int]] | None): (source, sampled, target) per source,
             charted as an extra row when given
     """
-    if not env.RUNNING_LOCALLY:
-        return
-
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
@@ -941,7 +1012,10 @@ def stratified_sample_questions(
 
 
 def sample_market_questions(
-    dfq: pd.DataFrame, n_target: int, random_state: int | np.random.RandomState | None = None
+    dfq: pd.DataFrame,
+    n_target: int,
+    forecast_datetime: datetime,
+    random_state: int | np.random.RandomState | None = None,
 ) -> pd.DataFrame:
     """Sample market questions using multi-dimensional binning strategy.
 
@@ -950,6 +1024,7 @@ def sample_market_questions(
     Args:
         dfq (pd.DataFrame): Market questions
         n_target (int): Number of questions to sample
+        forecast_datetime (datetime): The forecast due date the time horizon is measured from
         random_state: Seed/``np.random.RandomState`` threaded to ``stratified_sample_questions``
             for reproducibility. ``None`` (default) samples without a fixed seed.
 
@@ -961,7 +1036,7 @@ def sample_market_questions(
 
     random_state = _as_random_state(random_state)
     dfq = thin_pool_by_category(dfq=dfq, random_state=random_state)
-    dfq = add_bin_columns(dfq=dfq)
+    dfq = add_bin_columns(dfq=dfq, forecast_datetime=forecast_datetime)
     dfq = create_composite_bins(dfq=dfq)
     dfq = calculate_bin_weights(dfq=dfq)
     df_result = stratified_sample_questions(
@@ -981,7 +1056,11 @@ def sample_market_questions(
 
 
 def llm_sample_questions(
-    values: dict, n_single: int, random_state: int | np.random.RandomState | None = None
+    values: dict,
+    n_single: int,
+    random_state: int | np.random.RandomState | None = None,
+    *,
+    forecast_datetime: datetime,
 ) -> pd.DataFrame:
     """Generate questions for the LLM question set.
 
@@ -993,6 +1072,8 @@ def llm_sample_questions(
         n_single (int): Number of questions to sample
         random_state: Seed/``np.random.RandomState`` threaded to the market/category samplers for
             reproducibility. ``None`` (default) samples without a fixed seed.
+        forecast_datetime (datetime): The forecast due date the market time horizon is measured
+            from
 
     Returns
         df (pd.DataFrame): Sampled questions
@@ -1001,9 +1082,11 @@ def llm_sample_questions(
     source = dfq["source"].iloc[0]
     random_state = _as_random_state(random_state)
 
-    if source in question_curation.MARKET_SOURCES:
+    if is_market_source(source):
         # Use binning-based sampling for market questions
-        return sample_market_questions(dfq, n_single, random_state=random_state)
+        return sample_market_questions(
+            dfq, n_single, forecast_datetime=forecast_datetime, random_state=random_state
+        )
     else:
         # Use existing category-based sampling for data sources
         allocation = allocate_across_categories(num_questions=n_single, dfq=dfq)
@@ -1150,18 +1233,26 @@ def get_resolution_criteria(dfq: pd.DataFrame, source_template: str) -> pd.Serie
     return criteria
 
 
-def write_questions(questions: dict, question_set_target: QuestionSetTarget) -> None:
-    """Write questions to JSON file and upload to GCS.
+def build_question_set(
+    questions: dict, question_set_target: QuestionSetTarget, forecast_datetime: datetime
+) -> dict:
+    """Assemble the sampled questions into the JSON-ready question set.
 
     Args:
         questions (dict): Source data keyed by source name, each with "dfq" DataFrame
         question_set_target (QuestionSetTarget): Question set target ("llm" or "human")
+        forecast_datetime (datetime): The forecast due date, from which the resolution dates of
+            dataset questions are computed
+
+    Returns
+        question_set (dict): With keys `forecast_due_date`, `question_set` (the filename) and
+            `questions` (one record per question, columns `QUESTION_SET_COLUMNS`)
     """
 
     def forecast_horizons_to_resolution_dates(forecast_horizons: list | str) -> list | str:
         return (
             [
-                (question_curation.FORECAST_DATETIME + timedelta(days=day)).date().isoformat()
+                (forecast_datetime + timedelta(days=day)).date().isoformat()
                 for day in forecast_horizons
             ]
             if forecast_horizons != "N/A"
@@ -1169,63 +1260,24 @@ def write_questions(questions: dict, question_set_target: QuestionSetTarget) -> 
         )
 
     dfs = []
-    for _, values in tqdm(questions.items(), "Writing questions"):
+    for _, values in questions.items():
         df_source = values["dfq"]
         # Order columns consistently for writing
         df_source = deepcopy(
-            df_source[
-                [
-                    "id",
-                    "source",
-                    "question",
-                    "resolution_criteria",
-                    "background",
-                    "market_info_open_datetime",
-                    "market_info_close_datetime",
-                    "market_info_resolution_criteria",
-                    "url",
-                    "freeze_datetime",
-                    "freeze_datetime_value",
-                    "freeze_datetime_value_explanation",
-                    "source_intro",
-                    "forecast_horizons",
-                ]
-            ]
+            df_source[[c for c in QUESTION_SET_COLUMNS if c != "resolution_dates"]]
         )
-        df_source["resolution_dates"] = df_source["forecast_horizons"].apply(
+        df_source["resolution_dates"] = values["dfq"]["forecast_horizons"].apply(
             forecast_horizons_to_resolution_dates
         )
-        df_source = df_source.drop(columns="forecast_horizons")
         dfs.append(df_source)
 
     df = pd.concat(dfs, ignore_index=True)
 
-    forecast_date_str = question_curation.FORECAST_DATE.isoformat()
-    filename = f"{forecast_date_str}-{question_set_target.value}.json"
-    latest_filename = f"latest-{question_set_target.value}.json"
-    local_filename = f"/tmp/{filename}"
-
-    json_data = {
-        "forecast_due_date": forecast_date_str,
-        "question_set": filename,
+    return {
+        "forecast_due_date": forecast_datetime.date().isoformat(),
+        "question_set": question_set_filename(question_set_target, forecast_datetime),
         "questions": df.to_dict(orient="records"),
     }
-
-    with open(local_filename, "w", encoding="utf-8") as json_file:
-        json.dump(json_data, json_file, indent=4, ensure_ascii=False)
-
-    if not env.RUNNING_LOCALLY:
-        gcp.storage.upload(
-            bucket_name=env.QUESTION_SETS_BUCKET,
-            local_filename=local_filename,
-            filename=filename,
-        )
-
-        gcp.storage.upload(
-            bucket_name=env.QUESTION_SETS_BUCKET,
-            local_filename=local_filename,
-            filename=latest_filename,
-        )
 
 
 def drop_invalid_questions(dfq: pd.DataFrame, dfmeta: pd.DataFrame) -> pd.DataFrame:
@@ -1262,6 +1314,24 @@ def drop_questions_not_in_english(dfq: pd.DataFrame) -> pd.DataFrame:
         dfq (pd.DataFrame): Only questions marked English in metadata
     """
     return dfq[dfq["english"]].drop(columns="english")
+
+
+def drop_nullified_questions(dfq: pd.DataFrame, source: "BaseSource") -> pd.DataFrame:
+    """Drop questions that the source has nullified.
+
+    Nullified questions are never sampled into question sets, see `NullifiedQuestion`.
+
+    Args:
+        dfq (pd.DataFrame): Questions to filter
+        source (BaseSource): The source of the questions
+
+    Returns
+        dfq (pd.DataFrame): Questions that are not nullified
+    """
+    nullified_ids = source.get_nullified_ids()
+    if not nullified_ids:
+        return dfq
+    return dfq[~dfq["id"].isin(nullified_ids)]
 
 
 def drop_missing_freeze_datetime(dfq: pd.DataFrame) -> pd.DataFrame:
@@ -1303,7 +1373,9 @@ def keep_current_forecast_horizons(dfq: pd.DataFrame) -> pd.DataFrame:
     return dfq
 
 
-def drop_questions_that_resolve_too_soon(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
+def drop_questions_that_resolve_too_soon(
+    source: str, dfq: pd.DataFrame, forecast_datetime: datetime
+) -> pd.DataFrame:
     """Drop questions that resolve too soon.
 
     Given the freeze date:
@@ -1316,18 +1388,17 @@ def drop_questions_that_resolve_too_soon(source: str, dfq: pd.DataFrame) -> pd.D
     Args:
         source (str): Source name
         dfq (pd.DataFrame): Questions to filter
+        forecast_datetime (datetime): The forecast due date
 
     Returns
         dfq (pd.DataFrame): Questions that don't resolve too soon
     """
-    if source in question_curation.DATA_SOURCES:
+    if not is_market_source(source):
         empty_horizons = dfq["forecast_horizons"].apply(lambda x: len(x) == 0)
         is_na = dfq["forecast_horizons"] == "N/A"
         return dfq[~(empty_horizons | is_na)]
 
-    forecast_due_date = question_curation.FORECAST_DATETIME.replace(
-        hour=23, minute=59, second=59, microsecond=999999
-    )
+    forecast_due_date = forecast_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
     cutoff_date = forecast_due_date + timedelta(days=MIN_DAYS_TO_MARKET_RESOLUTION)
     resolves_too_soon = dfq.apply(
         lambda row: any(dt <= cutoff_date for dt in market_datetimes(row)),
@@ -1390,26 +1461,6 @@ def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
     return dfq
 
 
-def drop_nullified_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
-    """Drop nullified questions.
-
-    Nullification (`NullifiedQuestion` in `sources._metadata`) makes the resolver write null for a
-    question from its start date on; a nullified question is never sampled again, whatever that
-    date is.
-
-    Args:
-        source (str): Source name
-        dfq (pd.DataFrame): Questions to filter
-
-    Returns
-        dfq (pd.DataFrame): Questions that are not nullified
-    """
-    nullified_ids = {nq.id for nq in SOURCE_METADATA[source].get("nullified_questions", [])}
-    if not nullified_ids:
-        return dfq
-    return dfq[~dfq["id"].isin(nullified_ids)]
-
-
 def market_datetimes(row: pd.Series) -> list[datetime]:
     """Return the known close and resolution datetimes of a market question.
 
@@ -1429,7 +1480,9 @@ def market_datetimes(row: pd.Series) -> list[datetime]:
     ]
 
 
-def drop_questions_that_resolve_too_late(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
+def drop_questions_that_resolve_too_late(
+    source: str, dfq: pd.DataFrame, forecast_datetime: datetime
+) -> pd.DataFrame:
     """Drop market questions that resolve more than `MAX_DAYS_TO_MARKET_RESOLUTION` after the due date.
 
     A market resolves too late if its close datetime or its resolution datetime is after the cutoff.
@@ -1438,15 +1491,14 @@ def drop_questions_that_resolve_too_late(source: str, dfq: pd.DataFrame) -> pd.D
     Args:
         source (str): Source name
         dfq (pd.DataFrame): Questions to filter
+        forecast_datetime (datetime): The forecast due date
 
     Returns
         dfq (pd.DataFrame): Questions that resolve within the cap
     """
-    if source in question_curation.DATA_SOURCES:
+    if not is_market_source(source):
         return dfq
-    cutoff_date = question_curation.FORECAST_DATETIME + timedelta(
-        days=MAX_DAYS_TO_MARKET_RESOLUTION
-    )
+    cutoff_date = forecast_datetime + timedelta(days=MAX_DAYS_TO_MARKET_RESOLUTION)
     resolves_in_time = dfq.apply(
         lambda row: all(dt <= cutoff_date for dt in market_datetimes(row)),
         axis=1,
@@ -1455,90 +1507,139 @@ def drop_questions_that_resolve_too_late(source: str, dfq: pd.DataFrame) -> pd.D
     return dfq[resolves_in_time]
 
 
-@decorator.log_runtime
-def driver(_: None) -> None:
-    """Create question set."""
-    if not env.RUNNING_LOCALLY and not question_curation.is_today_question_curation_date():
-        logger.info("Today is NOT the question set creation date.")
-        return
+def prepare_source_questions(
+    source: "BaseSource",
+    dfq: pd.DataFrame,
+    dfmeta: pd.DataFrame,
+    freeze_datetime: datetime,
+    forecast_datetime: datetime,
+) -> pd.DataFrame:
+    """Filter one source's question bank down to the questions eligible for sampling.
 
+    Adds the `source`, `source_intro`, `resolution_criteria` and `freeze_datetime` columns the
+    question set needs and drops the columns it does not.
+
+    Args:
+        source (BaseSource): The source of the questions
+        dfq (pd.DataFrame): The source's question bank (`QuestionFrame`)
+        dfmeta (pd.DataFrame): Question metadata with `category`, `valid_question` and `english`
+            columns
+        freeze_datetime (datetime): The datetime the question bank values were frozen at
+        forecast_datetime (datetime): The forecast due date
+
+    Returns
+        dfq (pd.DataFrame): Questions eligible for sampling
+    """
+    dfq = dfq.copy()
+    dfq["source"] = source.name
+    dfq = drop_invalid_questions(dfq=dfq, dfmeta=dfmeta)
+    dfq = drop_questions_not_in_english(dfq)
+    dfq = drop_missing_freeze_datetime(dfq)
+    dfq = dfq[dfq["category"] != "Other"]
+    dfq = dfq[~dfq["resolved"]]
+    if not is_market_source(source.name):
+        dfq = keep_current_forecast_horizons(dfq)
+    dfq = drop_questions_that_resolve_too_soon(
+        source=source.name, dfq=dfq, forecast_datetime=forecast_datetime
+    )
+    dfq = drop_questions_that_resolve_too_late(
+        source=source.name, dfq=dfq, forecast_datetime=forecast_datetime
+    )
+    dfq = drop_culled_questions(source=source.name, dfq=dfq)
+    dfq = drop_nullified_questions(dfq=dfq, source=source)
+    dfq["source_intro"] = source.source_intro
+    dfq["resolution_criteria"] = get_resolution_criteria(dfq, source.resolution_criteria)
+    dfq["freeze_datetime"] = freeze_datetime.isoformat()
+    dfq = dfq.drop(columns=["market_info_resolution_datetime", "resolved"])
+    return dfq.reset_index(drop=True)
+
+
+def create_question_set(
+    dfmeta: pd.DataFrame,
+    questions: dict[str, pd.DataFrame],
+    sources: dict[str, "BaseSource"],
+    *,
+    sampling_shares: dict[str, float],
+    freeze_datetime: datetime,
+    forecast_datetime: datetime,
+    num_llm_questions_by_type: dict[str, int] = NUM_LLM_QUESTIONS_BY_TYPE,
+    num_human_questions_by_type: dict[str, int] = NUM_HUMAN_QUESTIONS_BY_TYPE,
+    random_state: int | np.random.RandomState | None = None,
+    show_plots: bool = False,
+) -> QuestionSetResult:
+    """Sample the LLM and human question sets from the question bank.
+
+    Args:
+        dfmeta (pd.DataFrame): Question metadata with columns `constants.META_DATA_FILE_COLUMNS`
+        questions (dict[str, pd.DataFrame]): The question bank of each source to sample from,
+            keyed by source name (`QuestionFrame`). A source with no questions is skipped.
+        sources (dict[str, BaseSource]): The sources to sample from, keyed by source name
+        sampling_shares (dict[str, float]): Each source's share of its question type's target,
+            keyed by source name. The shares of the sources of one question type sum to 1; they
+            are renormalised over the sources that have questions.
+        freeze_datetime (datetime): The datetime the question bank values were frozen at
+        forecast_datetime (datetime): The forecast due date of the question set
+        num_llm_questions_by_type (dict[str, int]): Number of LLM questions to sample per
+            question type ("market" and "dataset")
+        num_human_questions_by_type (dict[str, int]): Number of human questions to sample per
+            question type; the human set is sampled from the LLM set
+        random_state: Seed/``np.random.RandomState`` threaded through both sampling passes for
+            reproducibility. ``None`` (default) samples without a fixed seed.
+        show_plots (bool): Whether to display the sampling distribution plots (local runs only)
+
+    Returns
+        result (QuestionSetResult): The LLM and human question sets, ready to be written as JSON
+    """
     validate_bin_weights()
 
-    dfmeta = data_utils.download_and_read(
-        filename=constants.META_DATA_FILENAME,
-        local_filename=f"/tmp/{constants.META_DATA_FILENAME}",
-        df_tmp=pd.DataFrame(columns=constants.META_DATA_FILE_COLUMNS).astype(
-            constants.META_DATA_FILE_COLUMN_DTYPE
-        ),
-        dtype=constants.META_DATA_FILE_COLUMN_DTYPE,
-    )
-
-    QUESTIONS = deepcopy(question_curation.FREEZE_QUESTION_SOURCES)
-    sources_to_remove = []
-    for source in QUESTIONS:
-        dfq = data_utils.get_data_from_cloud_storage(
-            source=source,
-            return_question_data=True,
-        )
+    QUESTIONS = {}
+    for source_name, dfq in questions.items():
         if dfq.empty:
-            sources_to_remove.append(source)
-            logger.warning(f"Found 0 questions from {source}.")
-        else:
-            dfq["source"] = source
-            dfq = drop_invalid_questions(dfq=dfq, dfmeta=dfmeta)
-            dfq = drop_questions_not_in_english(dfq)
-            dfq = drop_missing_freeze_datetime(dfq)
-            dfq = dfq[dfq["category"] != "Other"]
-            dfq = dfq[~dfq["resolved"]]
-            if source in question_curation.DATA_SOURCES:
-                dfq = keep_current_forecast_horizons(dfq)
-            dfq = drop_questions_that_resolve_too_soon(source=source, dfq=dfq)
-            dfq = drop_questions_that_resolve_too_late(source=source, dfq=dfq)
-            dfq = drop_culled_questions(source=source, dfq=dfq)
-            dfq = drop_nullified_questions(source=source, dfq=dfq)
-            dfq["source_intro"] = QUESTIONS[source]["source_intro"]
-            dfq["resolution_criteria"] = get_resolution_criteria(
-                dfq, QUESTIONS[source]["resolution_criteria"]
-            )
-            dfq["freeze_datetime"] = question_curation.FREEZE_DATETIME.isoformat()
-            dfq = dfq.drop(columns=["market_info_resolution_datetime", "resolved"])
-
-            num_questions = len(dfq)
-            QUESTIONS[source]["dfq"] = dfq.reset_index(drop=True)
-            QUESTIONS[source]["num_questions_available"] = num_questions
-            logger.info(f"Found {num_questions:,} single questions from {source}.")
-
-    QUESTIONS = {key: value for key, value in QUESTIONS.items() if key not in sources_to_remove}
+            logger.warning(f"Found 0 questions from {source_name}.")
+            continue
+        dfq = prepare_source_questions(
+            source=sources[source_name],
+            dfq=dfq,
+            dfmeta=dfmeta,
+            freeze_datetime=freeze_datetime,
+            forecast_datetime=forecast_datetime,
+        )
+        num_questions = len(dfq)
+        QUESTIONS[source_name] = {
+            "dfq": dfq,
+            "num_questions_available": num_questions,
+            "sampling_share": sampling_shares[source_name],
+        }
+        logger.info(f"Found {num_questions:,} single questions from {source_name}.")
 
     # Find allocations of questions
+    question_type_sources = {
+        "market": [s for s in QUESTIONS if is_market_source(s)],
+        "dataset": [s for s in QUESTIONS if not is_market_source(s)],
+    }
     LLM_QUESTIONS, HUMAN_QUESTIONS = {}, {}
-    for question_type, sources in question_curation.QUESTION_TYPE_SOURCES.items():
-        questions_of_question_type = {k: v for k, v in QUESTIONS.items() if k in sources}
+    for question_type, type_sources in question_type_sources.items():
+        questions_of_question_type = {k: v for k, v in QUESTIONS.items() if k in type_sources}
         llm_questions_of_question_type = allocate_across_sources(
             questions=questions_of_question_type,
-            num_questions=question_curation.FREEZE_NUM_LLM_QUESTIONS_BY_TYPE[question_type],
+            num_questions=num_llm_questions_by_type[question_type],
         )
         LLM_QUESTIONS.update(llm_questions_of_question_type)
         human_questions_of_question_type = allocate_across_sources(
             questions=llm_questions_of_question_type,
-            num_questions=question_curation.FREEZE_NUM_HUMAN_QUESTIONS_BY_TYPE[question_type],
+            num_questions=num_human_questions_by_type[question_type],
         )
         HUMAN_QUESTIONS.update(human_questions_of_question_type)
-
-    # For testing/reproducibility only: when `env.RANDOM_SEED` is set, thread a single RandomState
-    # through both sampling passes so the sampled set is deterministic. It is unset in deployment,
-    # which preserves the historical unseeded behaviour.
-    seed = env.RANDOM_SEED
-    random_state = None if seed is None else np.random.RandomState(seed)
 
     # Sample questions
     logger.info("LLM SET")
     LLM_QUESTIONS = process_questions(
         questions=QUESTIONS,
         to_questions=LLM_QUESTIONS,
-        single_generation_func=llm_sample_questions,
-        show_plots=env.RUNNING_LOCALLY,
+        single_generation_func=partial(llm_sample_questions, forecast_datetime=forecast_datetime),
+        show_plots=show_plots,
         question_set_target=QuestionSetTarget.LLM,
+        forecast_datetime=forecast_datetime,
         random_state=random_state,
     )
 
@@ -1547,16 +1648,17 @@ def driver(_: None) -> None:
         questions=LLM_QUESTIONS,
         to_questions=HUMAN_QUESTIONS,
         single_generation_func=human_sample_questions,
-        show_plots=env.RUNNING_LOCALLY,
+        show_plots=show_plots,
         question_set_target=QuestionSetTarget.HUMAN,
+        forecast_datetime=forecast_datetime,
         random_state=random_state,
     )
 
-    write_questions(LLM_QUESTIONS, question_set_target=QuestionSetTarget.LLM)
-    write_questions(HUMAN_QUESTIONS, question_set_target=QuestionSetTarget.HUMAN)
-
-    logger.info("Done.")
-
-
-if __name__ == "__main__":
-    driver(None)
+    return QuestionSetResult(
+        llm_question_set=build_question_set(
+            LLM_QUESTIONS, QuestionSetTarget.LLM, forecast_datetime
+        ),
+        human_question_set=build_question_set(
+            HUMAN_QUESTIONS, QuestionSetTarget.HUMAN, forecast_datetime
+        ),
+    )
