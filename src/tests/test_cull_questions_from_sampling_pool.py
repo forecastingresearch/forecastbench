@@ -1,4 +1,6 @@
-"""Question curation culls DBnomics weather, ACLED x10 and zero-baseline, and yfinance single tickers."""
+"""Question curation culls weather, ACLED, single-ticker yfinance, and Metaculus wide-gap questions."""
+
+from pathlib import Path
 
 import pandas as pd
 
@@ -69,3 +71,18 @@ def test_drop_retired_single_ticker_yfinance_questions():
     )
     result = create_question_set.drop_culled_questions(source="yfinance", dfq=dfq)
     assert result["id"].tolist() == ["AAPL_MSFT"]
+
+
+def test_drop_metaculus_questions_that_resolve_too_long_after_close():
+    """Every listed id is dropped; a question not on the list stays."""
+    ids_file = Path(create_question_set.__file__).parent / "metaculus_culled_ids.txt"
+    culled = ids_file.read_text().split()
+    assert culled, "the culled id set must not be empty"
+    dfq = pd.DataFrame(
+        {
+            "id": culled + ["kept"],
+            "question": ["Will it?"] * (len(culled) + 1),
+        }
+    )
+    result = create_question_set.drop_culled_questions(source="metaculus", dfq=dfq)
+    assert result["id"].tolist() == ["kept"]

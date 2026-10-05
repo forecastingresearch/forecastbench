@@ -338,6 +338,8 @@ def make_metaculus_search_result(**overrides):
         "nr_forecasters": 50,
         "question": {
             "cp_reveal_time": "2025-01-01T00:00:00Z",
+            "scheduled_close_time": "2026-06-01T00:00:00Z",
+            "scheduled_resolve_time": "2026-06-10T00:00:00Z",
         },
     }
     question_overrides = overrides.pop("question", None)

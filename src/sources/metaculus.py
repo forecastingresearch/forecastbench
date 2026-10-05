@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 _METACULUS_API_BASE = "https://www.metaculus.com/api"
 _MIN_NUM_FORECASTERS = 5
 _MAX_RESOLUTION_DATE_IN_DAYS = 365 * 2
+_MAX_DAYS_FROM_CLOSE_TO_RESOLVE = 50
 _QUESTION_LIMIT = 2000
 _MAX_PANDAS_TS = pd.Timestamp.max.tz_localize("UTC")
 
@@ -47,6 +48,25 @@ _CATEGORIES = [
 ]
 
 
+def resolves_too_long_after_close(question: dict) -> bool:
+    """Return True when the question resolves more than the cap after it closes.
+
+    Some questions close long before they resolve, e.g. an election question that closes on
+    election day and resolves when the winner is sworn in. ForecastBench stores only the close
+    time, so such a question would be scored as if it resolved at close. A question with either
+    scheduled time missing also returns True.
+
+    Args:
+        question (dict): The nested ``question`` object of a Metaculus post.
+    """
+    close = question.get("scheduled_close_time")
+    resolve = question.get("scheduled_resolve_time")
+    if close is None or resolve is None:
+        return True
+    gap = dates.convert_zulu_to_datetime(resolve) - dates.convert_zulu_to_datetime(close)
+    return gap > timedelta(days=_MAX_DAYS_FROM_CLOSE_TO_RESOLVE)
+
+
 class MetaculusSource(MarketSource):
     """Metaculus prediction market source."""
 
@@ -61,8 +81,8 @@ class MetaculusSource(MarketSource):
         """Discover eligible Metaculus question IDs via the search endpoint.
 
         Calls the search endpoint once without a category and once per category,
-        filters by forecaster count and cp_reveal_time, and returns a DataFrame
-        of IDs.
+        filters by forecaster count, cp_reveal_time, and the close-to-resolve gap, and returns a
+        DataFrame of IDs.
 
         Args:
             today (date | None): Reference date for the resolution window and
@@ -200,7 +220,8 @@ class MetaculusSource(MarketSource):
         """Discover eligible question IDs via the Metaculus search endpoint.
 
         Calls GET /api/posts/ with filters for open binary questions in the
-        resolution window. Filters results by forecaster count and cp_reveal_time.
+        resolution window. Filters results by forecaster count, cp_reveal_time, and the
+        close-to-resolve gap.
 
         Args:
             today (date): Reference date for the resolution window and cp_reveal filters.
@@ -237,7 +258,9 @@ class MetaculusSource(MarketSource):
                 if "cp_reveal_time" in market["question"]:
                     cp_reveal_date = market["question"]["cp_reveal_time"]
                     cp_reveal_date = datetime.strptime(cp_reveal_date[:10], "%Y-%m-%d").date()
-                    if cp_reveal_date < today:
+                    if cp_reveal_date < today and not resolves_too_long_after_close(
+                        market["question"]
+                    ):
                         ids.add(str(market["id"]))
 
         return ids

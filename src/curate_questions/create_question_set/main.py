@@ -21,6 +21,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from enum import Enum
 from fractions import Fraction
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -1309,6 +1310,8 @@ def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
     * acled: all questions whose freeze value, the 30-day average over the past 360 days, is zero
     * yfinance: all single-ticker questions ("will X go up"). Retired in favor of the pair
       questions (id ``X_Y``); the rows stay in the bank so published sets keep resolving.
+    * metaculus: the ids in ``metaculus_culled_ids.txt``, questions that resolve more than 50 days
+      after they close and were ingested before fetch started skipping them
 
     Args:
         source (str): Source name
@@ -1327,6 +1330,11 @@ def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
         return dfq[~(is_x10 | is_zero_baseline)]
     if source == "yfinance":
         return dfq[dfq["id"].apply(yfinance.is_pair_id)]
+    if source == "metaculus":
+        # Ingested before the close-to-resolve gap rule existed. See metaculus-culled-questions.txt
+        # at the repository root for the urls and titles.
+        culled_ids = (Path(__file__).parent / "metaculus_culled_ids.txt").read_text().split()
+        return dfq[~dfq["id"].isin(culled_ids)]
     return dfq
 
 

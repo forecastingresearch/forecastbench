@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from _schemas import MetaculusFetchFrame, QuestionFrame, ResolutionFrame
-from sources.metaculus import MetaculusSource
+from sources.metaculus import MetaculusSource, resolves_too_long_after_close
 
 from .conftest import (
     make_metaculus_fetch_df,
@@ -433,6 +433,26 @@ class TestCallSearchEndpoint:
         assert ids == set()
 
     @patch("sources.metaculus.requests.get")
+    def test_filters_wide_close_to_resolve_gap(self, mock_get, metaculus_source, freeze_today):
+        """Markets that resolve more than 50 days after they close are excluded."""
+        freeze_today(date(2026, 3, 1))
+        mock_get.return_value = self._mock_response(
+            [
+                make_metaculus_search_result(id=100),
+                make_metaculus_search_result(
+                    id=200,
+                    question={
+                        "scheduled_close_time": "2026-11-03T05:00:00Z",
+                        "scheduled_resolve_time": "2027-01-20T17:00:00Z",
+                    },
+                ),
+                make_metaculus_search_result(id=300, question={"scheduled_resolve_time": None}),
+            ]
+        )
+        ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
+        assert ids == {"100"}
+
+    @patch("sources.metaculus.requests.get")
     def test_additional_params_merged(self, mock_get, metaculus_source, freeze_today):
         """Additional params are merged into the request."""
         freeze_today(date(2026, 3, 1))
@@ -471,6 +491,38 @@ class TestCallSearchEndpoint:
         )
         ids = metaculus_source._call_search_endpoint(today=date(2026, 3, 1))
         assert ids == {"100"}
+
+
+class TestResolvesTooLongAfterClose:
+    """Tests for the close-to-resolve gap rule."""
+
+    def _question(self, close, resolve):
+        return {"scheduled_close_time": close, "scheduled_resolve_time": resolve}
+
+    def test_gap_at_the_cap_is_kept(self):
+        """Exactly 50 days from close to resolve is not too long."""
+        q = self._question("2026-11-03T05:00:00Z", "2026-12-23T05:00:00Z")
+        assert resolves_too_long_after_close(q) is False
+
+    def test_gap_over_the_cap_is_too_long(self):
+        """One second more than 50 days is too long."""
+        q = self._question("2026-11-03T05:00:00Z", "2026-12-23T05:00:01Z")
+        assert resolves_too_long_after_close(q) is True
+
+    def test_missing_close_time_is_too_long(self):
+        """A question without a scheduled close time is skipped."""
+        q = {"scheduled_resolve_time": "2026-12-23T05:00:00Z"}
+        assert resolves_too_long_after_close(q) is True
+
+    def test_missing_resolve_time_is_too_long(self):
+        """A question without a scheduled resolve time is skipped."""
+        q = {"scheduled_close_time": "2026-11-03T05:00:00Z"}
+        assert resolves_too_long_after_close(q) is True
+
+    def test_null_time_is_too_long(self):
+        """The API sends null for an unset time; that counts as missing."""
+        q = self._question("2026-11-03T05:00:00Z", None)
+        assert resolves_too_long_after_close(q) is True
 
 
 # ---------------------------------------------------------------------------
