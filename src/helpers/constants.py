@@ -71,6 +71,7 @@ META_DATA_FILE_COLUMN_DTYPE = {
     "id": str,
     "category": str,
     "valid_question": bool,
+    "english": bool,
 }
 META_DATA_FILE_COLUMNS = list(META_DATA_FILE_COLUMN_DTYPE.keys())
 META_DATA_FILENAME = "question_metadata.jsonl"

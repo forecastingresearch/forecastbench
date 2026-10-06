@@ -5,3 +5,5 @@ functions-framework==3.*
 scipy
 termcolor
 pandera
+typesafe-sdk==0.7.2
+httpx2
