@@ -46,18 +46,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 MARKET_VALUE_CONFIG = [
-    {"min": 0.00, "max": 0.01, "weight": 0.02},
-    {"min": 0.01, "max": 0.10, "weight": 0.096},
-    {"min": 0.10, "max": 0.20, "weight": 0.096},
-    {"min": 0.20, "max": 0.30, "weight": 0.096},
-    {"min": 0.30, "max": 0.40, "weight": 0.096},
-    {"min": 0.40, "max": 0.50, "weight": 0.096},
-    {"min": 0.50, "max": 0.60, "weight": 0.096},
-    {"min": 0.60, "max": 0.70, "weight": 0.096},
-    {"min": 0.70, "max": 0.80, "weight": 0.096},
-    {"min": 0.80, "max": 0.90, "weight": 0.096},
-    {"min": 0.90, "max": 0.99, "weight": 0.096},
-    {"min": 0.99, "max": 1.00, "weight": 0.02, "inclusive_max": True},
+    {"min": 0.00, "max": 0.01, "weight": 0},
+    {"min": 0.01, "max": 0.10, "weight": 0},
+    {"min": 0.10, "max": 0.20, "weight": 0.125},
+    {"min": 0.20, "max": 0.30, "weight": 0.125},
+    {"min": 0.30, "max": 0.40, "weight": 0.125},
+    {"min": 0.40, "max": 0.50, "weight": 0.125},
+    {"min": 0.50, "max": 0.60, "weight": 0.125},
+    {"min": 0.60, "max": 0.70, "weight": 0.125},
+    {"min": 0.70, "max": 0.80, "weight": 0.125},
+    {"min": 0.80, "max": 0.90, "weight": 0.125, "inclusive_max": True},
+    {"min": 0.90, "max": 0.99, "weight": 0},
+    {"min": 0.99, "max": 1.00, "weight": 0},
 ]
 
 TIME_HORIZON_CONFIG = [
