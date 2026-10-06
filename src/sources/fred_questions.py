@@ -308,14 +308,6 @@ FRED_QUESTIONS = [
         "id": "GVZCLS",
         "series_name": "the Chicago Board Options Exchange's Gold ETF Volatility Index",
     },
-    {
-        "id": "H41RESPPALDKNWW",
-        "series_name": "the amount of money loaned as part of the Bank Term Funding Program",
-    },
-    {
-        "id": "H41RESPPALDKXAWNWW",
-        "series_name": "the weekly average of the amount of money loaned as part of the Bank Term Funding Program",
-    },
     {"id": "IC4WSA", "series_name": "the 4-week moving average of initial unemployment claims"},
     {"id": "ICSA", "series_name": "the weekly number of initial unemployment claims"},
     {"id": "IHLIDXUS", "series_name": "the number of US job postings on Indeed"},

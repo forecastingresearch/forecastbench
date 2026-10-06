@@ -52,6 +52,15 @@ SOURCE_METADATA = {
                 id="CURRCIR",
                 nullification_start_date=date(2025, 11, 1),
             ),
+            # Bank Term Funding Program loans; FRED marked both series discontinued on May 21, 2026.
+            NullifiedQuestion(
+                id="H41RESPPALDKNWW",
+                nullification_start_date=date(2026, 5, 21),
+            ),
+            NullifiedQuestion(
+                id="H41RESPPALDKXAWNWW",
+                nullification_start_date=date(2026, 5, 21),
+            ),
         ],
     },
     "infer": {
