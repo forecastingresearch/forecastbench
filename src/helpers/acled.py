@@ -67,6 +67,25 @@ FETCH_COLUMN_DTYPE = {
 }
 FETCH_COLUMNS = list(FETCH_COLUMN_DTYPE.keys())
 
+# ACLED has served some countries under more than one spelling, so the question bank holds
+# questions under each of them. A question resolves on the events recorded under any spelling of
+# its country. See issue #303.
+COUNTRY_SPELLINGS = [
+    {"Akrotiri and Dekhelia", "Akrotiri and Dhekelia"},
+]
+
+
+def country_mask(dfr: pd.DataFrame, country: str) -> pd.Series:
+    """Return a mask selecting the rows of dfr recorded under any spelling of country.
+
+    Args:
+      dfr (pd.DataFrame): ACLED events, with a `country` column.
+      country (str): Country name as it appears in the question.
+    """
+    spellings = next((s for s in COUNTRY_SPELLINGS if country in s), {country})
+    return dfr["country"].isin(spellings)
+
+
 BACKGROUND = """
 ACLED classifies events into six distinct categories:
 
@@ -163,7 +182,13 @@ def read_dff(local_question_bank_dir=None) -> pd.DataFrame:
 def download_dff_and_prepare_dfr(local_question_bank_dir: str = None) -> tuple:
     """Prepare ACLED data for resolution."""
     df, dfr = read_dff(local_question_bank_dir=local_question_bank_dir)
-    countries = df["country"].unique()
+    countries = set(df["country"].unique())
+    # Also include every other spelling ACLED has served for these countries, so that the questions
+    # the bank already holds under those spellings keep current freeze values.
+    for spellings in COUNTRY_SPELLINGS:
+        if countries & spellings:
+            countries |= spellings
+    countries = sorted(countries)
     event_types = list(df["event_type"].unique()) + ["fatalities"]
     return (
         dfr,
@@ -246,7 +271,7 @@ def get_freeze_value(key, dfr, country, event_type, today):
 
 def sum_over_past_30_days(dfr, country, col, ref_date):
     """Sum over the 30 days before the ref_date."""
-    dfc = dfr[dfr["country"] == country].copy()
+    dfc = dfr[country_mask(dfr, country)].copy()
     if dfc.empty:
         return 0
 
@@ -257,7 +282,7 @@ def sum_over_past_30_days(dfr, country, col, ref_date):
 
 def thirty_day_avg_over_past_360_days(dfr, country, col, ref_date):
     """Get the 30 day average over the 360 days before the ref_date."""
-    dfc = dfr[dfr["country"] == country].copy()
+    dfc = dfr[country_mask(dfr, country)].copy()
     if dfc.empty:
         return 0
 

@@ -231,7 +231,7 @@ def get_acled_forecast(df, dfr, day_before_forecast_due_date, forecast_due_date_
         )
 
         # Fill dfr_country with 0s for event type on days where no events ocurred
-        dfr_country = dfr[dfr["country"] == country]
+        dfr_country = dfr[acled.country_mask(dfr, country)]
         start_date = dfr["event_date"].min()
 
         date_range = pd.date_range(start=start_date, end=end_date, freq="D")
