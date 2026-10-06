@@ -1252,6 +1252,21 @@ def drop_invalid_questions(dfq: pd.DataFrame, dfmeta: pd.DataFrame) -> pd.DataFr
     return dfq[dfq["valid_question"]].drop(columns="valid_question")
 
 
+def drop_questions_not_in_english(dfq: pd.DataFrame) -> pd.DataFrame:
+    """Drop questions whose metadata does not mark them as English.
+
+    A question with no language classification yet is dropped too, the same way an
+    unvalidated question is dropped by `drop_invalid_questions`.
+
+    Args:
+        dfq (pd.DataFrame): Questions merged with metadata, with an `english` column
+
+    Returns
+        dfq (pd.DataFrame): Only questions marked English in metadata
+    """
+    return dfq[dfq["english"]].drop(columns="english")
+
+
 def drop_missing_freeze_datetime(dfq: pd.DataFrame) -> pd.DataFrame:
     """Drop questions with missing values in the freeze_datetime_value column.
 
@@ -1469,6 +1484,7 @@ def driver(_: None) -> None:
         else:
             dfq["source"] = source
             dfq = drop_invalid_questions(dfq=dfq, dfmeta=dfmeta)
+            dfq = drop_questions_not_in_english(dfq)
             dfq = drop_missing_freeze_datetime(dfq)
             dfq = dfq[dfq["category"] != "Other"]
             dfq = dfq[~dfq["resolved"]]
