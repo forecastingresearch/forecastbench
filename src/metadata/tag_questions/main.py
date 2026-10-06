@@ -63,6 +63,9 @@ def get_categories_from_llm(dfq):
     """Get category for questions using concurrent API calls."""
     n_to_tag = len(dfq[dfq["category"] == ""])
     logger.info(f"Tagging {n_to_tag} questions.")
+    # Fetch the API keys once here; the cache has no lock, so the first batch of
+    # concurrent calls would each fetch every secret from Secret Manager.
+    metadata_llm._get_metadata_model_run()
     results = asyncio.run(_get_categories_async(dfq))
 
     for index, category in results:

@@ -68,6 +68,9 @@ def validate_questions(dfq):
     """Validate questions using concurrent API calls."""
     n_to_validate = len(dfq[dfq["valid_question"] == ""])
     logger.info(f"Validating {n_to_validate} questions.")
+    # Fetch the API keys once here; the cache has no lock, so the first batch of
+    # concurrent calls would each fetch every secret from Secret Manager.
+    metadata_llm._get_metadata_model_run()
     results = asyncio.run(_validate_questions_async(dfq))
 
     invalid_questions = []
