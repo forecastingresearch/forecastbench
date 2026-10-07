@@ -97,7 +97,11 @@ def test_write_final_forecast_file_rejects_raw_forecast_records(tmp_path):
         ],
     )
 
-    with pytest.raises(pa.errors.BackendNotFoundError, match="Backend not found"):
+    # Pandera 0.34+ raises TypeError; older versions raise BackendNotFoundError.
+    with pytest.raises(
+        (TypeError, pa.errors.BackendNotFoundError),
+        match=r"expected pd\.DataFrame|Backend not found",
+    ):
         _llm_forecaster_io.write_final_forecast_file(
             model_run=FakeRun(),
             question_set=_question_set(),
