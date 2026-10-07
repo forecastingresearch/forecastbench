@@ -54,12 +54,11 @@ def _pair_question_text(x: str, y: str) -> str:
     return (
         f"Will {x} have a higher rate of return than {y} between {{forecast_due_date}} and "
         "{resolution_date}?\n\n"
-        "A stock's rate of return is its market close price on the resolution date divided by its "
-        "market close price on the forecast due date, minus one. If the market is closed on either "
-        "date, the most recent prior market close price is used. Prices are adjusted for stock "
-        "splits and reverse splits. Dividends are not included. If either stock is delisted (e.g., "
-        "through acquisition, merger, or bankruptcy), the most recent market close price before "
-        "delisting is used for all subsequent resolution dates."
+        "For each resolution date, a stock's rate of return is calculated as its market close "
+        "price on that date divided by its market close price on {forecast_due_date}, minus one. "
+        "Prices are adjusted for stock splits and reverse splits. Dividends are not included. If "
+        "either stock is delisted (e.g., through acquisition, merger, or bankruptcy), the most "
+        "recent market close price before delisting is used for all subsequent resolution dates."
     )
 
 

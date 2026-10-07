@@ -38,7 +38,10 @@ class TestPairQuestionText:
             "{forecast_due_date} and {resolution_date}?"
         )
         assert text.count("{resolution_date}") == 1
-        assert text.count("{forecast_due_date}") == 1
+        assert text.count("{forecast_due_date}") == 2
+        assert "market close price on {forecast_due_date}, minus one" in text
+        # The shared yfinance resolution criteria already state the closed-market rule.
+        assert "If the market is closed" not in text
 
     def test_background_leads_each_summary_with_its_ticker(self):
         text = yfinance._pair_background("AAPL", "Phones.", "MSFT", "PCs.")
