@@ -21,6 +21,7 @@ FB_MODEL_RUN_KEYS = [
     "gpt-6.1-sol-run-variant-01",
     "kimi-k3-run-variant-01",
     "muse-spark-1.3-run-variant-01",
+    "claude-haiku-5-5-run-variant-01",
     "claude-sonnet-4-6-run-variant-03",
     "claude-sonnet-5-run-variant-01",
     "claude-sonnet-5-5-run-variant-01",
