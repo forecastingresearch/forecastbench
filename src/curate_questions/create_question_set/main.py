@@ -37,6 +37,7 @@ from helpers import (  # noqa: E402
     question_curation,
     yfinance,
 )
+from sources import SOURCE_METADATA  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1338,6 +1339,26 @@ def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
     return dfq
 
 
+def drop_nullified_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
+    """Drop nullified questions.
+
+    Nullification (`NullifiedQuestion` in `sources._metadata`) makes the resolver write null for a
+    question from its start date on; a nullified question is never sampled again, whatever that
+    date is.
+
+    Args:
+        source (str): Source name
+        dfq (pd.DataFrame): Questions to filter
+
+    Returns
+        dfq (pd.DataFrame): Questions that are not nullified
+    """
+    nullified_ids = {nq.id for nq in SOURCE_METADATA[source].get("nullified_questions", [])}
+    if not nullified_ids:
+        return dfq
+    return dfq[~dfq["id"].isin(nullified_ids)]
+
+
 def market_datetimes(row: pd.Series) -> list[datetime]:
     """Return the known close and resolution datetimes of a market question.
 
@@ -1422,6 +1443,7 @@ def driver(_: None) -> None:
             dfq = drop_questions_that_resolve_too_soon(source=source, dfq=dfq)
             dfq = drop_questions_that_resolve_too_late(source=source, dfq=dfq)
             dfq = drop_culled_questions(source=source, dfq=dfq)
+            dfq = drop_nullified_questions(source=source, dfq=dfq)
             dfq["source_intro"] = QUESTIONS[source]["source_intro"]
             dfq["resolution_criteria"] = get_resolution_criteria(
                 dfq, QUESTIONS[source]["resolution_criteria"]

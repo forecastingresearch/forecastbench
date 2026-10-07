@@ -86,3 +86,24 @@ def test_drop_metaculus_questions_that_resolve_too_long_after_close():
     )
     result = create_question_set.drop_culled_questions(source="metaculus", dfq=dfq)
     assert result["id"].tolist() == ["kept"]
+
+
+def test_drop_nullified_questions_whatever_their_start_date(monkeypatch):
+    """A nullified question is never sampled again, even when its nullification starts later."""
+    from datetime import date
+
+    from _fb_types import NullifiedQuestion
+
+    monkeypatch.setitem(
+        create_question_set.SOURCE_METADATA,
+        "metaculus",
+        {
+            "nullified_questions": [
+                NullifiedQuestion(id="gone", nullification_start_date=date(2020, 1, 1)),
+                NullifiedQuestion(id="later", nullification_start_date=date(2999, 1, 1)),
+            ]
+        },
+    )
+    dfq = pd.DataFrame({"id": ["gone", "later", "kept"], "question": ["a", "b", "c"]})
+    result = create_question_set.drop_nullified_questions(source="metaculus", dfq=dfq)
+    assert result["id"].tolist() == ["kept"]
