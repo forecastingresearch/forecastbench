@@ -191,7 +191,12 @@ SOURCE_METADATA = {
             "resolve as 'Yes'."
         ),
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
-        "nullified_questions": [],
+        "nullified_questions": [
+            # Resolves to the median probability of a panel of evaluators, not to Yes or No.
+            NullifiedQuestion(
+                id="40925", nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE
+            ),
+        ],
     },
     "polymarket": {
         "source_type": SourceType.MARKET,
