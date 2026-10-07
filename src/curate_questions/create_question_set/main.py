@@ -173,7 +173,7 @@ def process_questions(
             market_available.append(df_available)
             market_sampled.append(df_sampled.copy())
 
-        if show_plots and is_market_source:
+        if show_plots and is_market_source and question_set_target != QuestionSetTarget.HUMAN:
             # Plot per-source distribution
             available_with_bins = add_bin_columns(df_available)
             sampled_with_bins = add_bin_columns(df_sampled.copy())
@@ -200,7 +200,7 @@ def process_questions(
             df_all_sampled,
             df_all_available,
             total_market_requested,
-            source_name="ALL SOURCES",
+            source_name=f"ALL SOURCES ({question_set_target.value.upper()} SET)",
             source_counts=[(source, got, want) for source, got, want, _ in source_summaries],
         )
 
@@ -1545,7 +1545,7 @@ def driver(_: None) -> None:
         questions=LLM_QUESTIONS,
         to_questions=HUMAN_QUESTIONS,
         single_generation_func=human_sample_questions,
-        show_plots=False,
+        show_plots=env.RUNNING_LOCALLY,
         question_set_target=QuestionSetTarget.HUMAN,
         random_state=random_state,
     )
