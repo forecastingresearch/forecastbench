@@ -111,11 +111,12 @@ def empty_bank():
     return pd.DataFrame(columns=constants.QUESTION_FILE_COLUMNS)
 
 
-def assert_flight_median_explanation(explanation, days):
-    assert "reference median delay (minutes)" in explanation
-    # Match "day" so a later singular/plural wording fix does not break the check.
-    assert f"uses {days} observed day" in explanation
-    assert "within 14 days before the bank update" in explanation
+def assert_flight_median_explanation(explanation, days, today):
+    expected = f"Median departure delay in minutes during the 14 days before {today} (UTC)."
+    if days < 14:
+        unit = "observation is" if days == 1 else "observations are"
+        expected += f" Only {days} {unit} available because of data-collection constraints."
+    assert explanation == expected
 
 
 @pytest.mark.parametrize("name", EXPECTED)
@@ -162,7 +163,8 @@ def test_each_api_fetches_updates_and_serializes(source, monkeypatch, tmp_path, 
     criteria = saved["resolution_criteria"]
     assert criteria.strip() and "{" not in criteria
     assert "strictly" in criteria and "equal or lower resolves No" in criteria
-    assert f"saved SerpAPI {spec['engine']} engine measurements as ground truth" in criteria
+    assert "saved SerpApi measurements" in criteria
+    assert spec["engine"] in criteria
 
     # The persisted question's custom criteria must reach the published set and prompt.
     published = saved.to_frame().T.assign(
@@ -244,6 +246,7 @@ def test_amazon_question_preserves_product_name_and_links_exact_asin(source, mon
         ([(14, 2), (7, 8), (1, 30), (2, "N/A")], 8, 3),
         ([(2, -10), (1, 10)], 5, 2),
         ([(1, 12)], 12, 1),
+        ([(age, age) for age in range(1, 15)], 7.5, 14),
         ([(1, "N/A"), (15, 100)], None, None),
         ([(8, 12)], None, None),  # Preserve the seven-day sampling freshness limit.
     ],
@@ -274,13 +277,12 @@ def test_flight_freeze_value_uses_available_prior_14_days(
     else:
         assert float(question["freeze_datetime_value"]) == expected
         assert not question["resolved"]
-        assert_flight_median_explanation(question["freeze_datetime_value_explanation"], days)
-        assert (
-            "freeze median covers the 14 days before the UTC bank update" in question["background"]
+        assert_flight_median_explanation(
+            question["freeze_datetime_value_explanation"], days, "2026-09-16"
         )
         assert (
-            "resolution median covers the 14 days ending on the forecast due date"
-            in question["background"]
+            "14 days ending on and including the forecast due date"
+            in question["resolution_criteria"]
         )
     assert len(result.resolution_files[id]) == len(observations)
 
@@ -319,7 +321,9 @@ def test_update_refreshes_metadata_without_refetching(source, monkeypatch, freez
     assert saved["background"] == (
         f"Revised background for {variables['flight_id']}. " f"See: {saved['url']}"
     )
-    assert_flight_median_explanation(second.dfq.iloc[0]["freeze_datetime_value_explanation"], 1)
+    assert_flight_median_explanation(
+        second.dfq.iloc[0]["freeze_datetime_value_explanation"], 1, "2026-09-20"
+    )
     id = fetched.iloc[0]["id"]
     pd.testing.assert_frame_equal(first.resolution_files[id], second.resolution_files[id])
     get.assert_called_once()
@@ -385,7 +389,7 @@ def test_flight_requests_resolve_on_departure_dates(
     question = bank.iloc[0]
     assert "{resolution_date}" in question["question"]
     assert "median departure delay" in question["question"]
-    assert "over the 14 days ending on {forecast_due_date}" in question["question"]
+    assert "over the 14 days ending on and including {forecast_due_date}" in question["question"]
     assert "scheduled local departure date" in question["background"]
     assert "departure delay in minutes" in question["question"]
     forecast = make_forecast_df(
@@ -504,7 +508,7 @@ def test_later_fetch_recovers_departed_flights_on_original_dates(
     assert not question["resolved"]
     assert float(question["freeze_datetime_value"]) == (6 if departed else 12)
     assert_flight_median_explanation(
-        question["freeze_datetime_value_explanation"], 2 if departed else 1
+        question["freeze_datetime_value_explanation"], 2 if departed else 1, "2026-09-17"
     )
     forecast = make_forecast_df(
         [
@@ -1727,7 +1731,9 @@ def test_replayed_fetch_keeps_latest_bank_value_and_availability(
         assert float(question["freeze_datetime_value"]) == expected
     explanation = question["freeze_datetime_value_explanation"]
     if name == "flight_departure_delay":
-        assert_flight_median_explanation(explanation, 1 if latest_value == "N/A" else 2)
+        assert_flight_median_explanation(
+            explanation, 1 if latest_value == "N/A" else 2, "2026-09-16"
+        )
     else:
         assert "2026-09-15" in explanation
     assert result.resolution_files[id]["date"].max() == "2026-09-15"

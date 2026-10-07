@@ -1,4 +1,4 @@
-"""SerpAPI questions and declarative request specifications.
+"""SerpApi questions and declarative request specifications.
 
 Add an entity to a spec's variables with an explicit, permanent id. Add a new API
 to QUESTION_SPECS with retrieval configuration, variables, and question metadata.
@@ -23,13 +23,16 @@ from .serpapi_helpers import (
 )
 
 # Flight departure delays use exact dates instead of snapshot fallback.
-COMMON_SNAPSHOT_BACKGROUND = (
-    "\n\nData collection runs around 00:00 UTC; timing varies. Keep each UTC day's first valid "
-    "snapshot. For either comparison date, replace missing data with the earliest valid "
-    "snapshot within the next 7 calendar days, inclusive. Choose the due-date replacement "
-    "per horizon, strictly before the resolution date. Without both snapshots, the horizon "
-    "remains unresolved and unscored until qualifying data arrive. Freeze values use the "
-    "latest saved date without replacement (N/A if missing)."
+_AMAZON_WALMART_SNAPSHOT_BACKGROUND = (
+    "\n\n"
+    "We first collect data around 00:00 UTC and keep only the first valid price collected each UTC "
+    "day. If a price is unavailable on either the forecast due date or the resolution date "
+    "(e.g., a product is out of stock), we use the first valid price collected in the following "
+    "7 calendar days. A replacement for the forecast due date price must come strictly before "
+    "the resolution date being evaluated. "
+    "If no replacement price is found that meets the above criteria, the "
+    "question remains unresolved. We display the reference price from the latest saved date "
+    "without applying this replacement rule, or N/A when unavailable."
 )
 
 QUESTION_SPECS = {
@@ -39,25 +42,25 @@ QUESTION_SPECS = {
             "be higher on {resolution_date} than on {forecast_due_date}?"
         ),
         "question_background": (
-            "The listed price in USD for {product} (ASIN {asin}), in new condition and sold "
-            "directly by Amazon.com, collected in English for delivery to "
-            "ZIP 10001. Other sellers, product variants, Amazon Resale, and used or "
-            "refurbished items do not qualify. Shipping, taxes, coupons, subscriptions, "
-            "member-only prices, per-unit prices and crossed-out prices are excluded. "
-            "Measurements require confirmation of the product, new condition, Amazon.com "
-            "seller and listed price; missing or conflicting evidence makes the measurement "
-            "unavailable. Amazon fulfillment alone does not establish the seller. Product "
-            "titles may change; the ASIN identifies the product. Returned offers may be "
-            "incomplete, and checkout prices are not verified. See: {url}. "
-            "When checking Amazon manually, stay signed out and select ZIP 10001; "
-            "the URL does not set it."
+            "This question tracks the listed USD price of a new {product} (ASIN {asin}), "
+            "sold directly by Amazon.com for delivery to ZIP 10001. For manual checks, "
+            "stay signed out and select ZIP 10001 on Amazon: {url}; the URL does not set it."
+            "\n\nResults are collected in English. Other sellers, product "
+            "variants, Amazon Resale, and used or refurbished items do not qualify. Shipping, "
+            "taxes, coupons, subscriptions, member-only prices, per-unit prices and crossed-out "
+            "prices are excluded. The product, condition, seller and price must all be "
+            "confirmed; missing or conflicting evidence makes the measurement unavailable. "
+            "Amazon fulfillment alone does not establish the seller. Product titles may "
+            "change; the ASIN identifies the product. Returned offers may be incomplete, "
+            "and checkout prices are not verified."
         )
-        + COMMON_SNAPSHOT_BACKGROUND,
+        + _AMAZON_WALMART_SNAPSHOT_BACKGROUND,
         "resolution_criteria": (
-            "Uses only ForecastBench's saved SerpAPI amazon_product engine measurements "
-            "as ground truth, following the background's rules. "
-            "Resolves Yes if the resolution-date price is strictly higher than the "
-            "forecast-due-date price; equal or lower resolves No."
+            "We compare the qualifying price on the resolution date with its price on the "
+            "forecast due date. A strictly higher price resolves Yes; equal or lower resolves No."
+            "\n\nOnly saved SerpApi measurements from "
+            "the Amazon product API (amazon_product) determine the outcome, following the "
+            "background's rules."
         ),
         "engine": "amazon_product",
         "date_offset": 0,
@@ -326,27 +329,29 @@ QUESTION_SPECS = {
     },
     "walmart_food_drink_price": {
         "question_template": (
-            "Will the listed price in USD of '{brand} {product}', sold by Walmart.com at "
-            "{store_name} (store {store_id}), be higher "
+            "Will the listed price in USD of '{brand} {product}', sold by Walmart.com "
+            "for {store_name} (store {store_id}), be higher "
             "on {resolution_date} than on {forecast_due_date}?"
         ),
         "question_background": (
-            "The listed price in USD for '{brand} {product}' (item {us_item_id}), sold "
-            "directly by Walmart.com at {store_name} (store {store_id}), {store_address}. "
-            "Only in-stock items with a positive price in the primary product result qualify. "
-            "Other sellers, product variants and alternative offers do not qualify. Shipping, "
-            "taxes, per-unit prices and previous prices are excluded. Measurements require "
-            "confirmation of the item, selected store, availability, Walmart.com seller and "
-            "listed price; missing or conflicting evidence makes the measurement unavailable. "
-            "Walmart fulfillment does not establish the seller. See: {url}. "
-            "When checking Walmart, select the store manually; the URL does not set it."
+            "This question tracks the listed USD price of '{brand} {product}' "
+            "(Walmart item ID {us_item_id}), sold directly by Walmart.com and listed for "
+            "{store_name} ({store_address}, store {store_id}). For manual checks, "
+            "select the store manually on Walmart: {url}; the URL does not set it."
+            "\n\nOnly in-stock items with a positive price in the primary "
+            "product result qualify. Other sellers, product variants and alternative offers "
+            "do not qualify. Shipping, taxes, per-unit prices and previous prices are excluded. "
+            "The item, store, availability, seller and price must all be confirmed; missing "
+            "or conflicting evidence makes the measurement unavailable. "
+            "Walmart fulfillment does not establish the seller."
         )
-        + COMMON_SNAPSHOT_BACKGROUND,
+        + _AMAZON_WALMART_SNAPSHOT_BACKGROUND,
         "resolution_criteria": (
-            "Uses only ForecastBench's saved SerpAPI walmart_product engine measurements "
-            "as ground truth, following the background's rules. "
-            "Resolves Yes if the resolution-date price is strictly higher than the "
-            "forecast-due-date price; equal or lower resolves No."
+            "We compare the qualifying price on the resolution date with its price on the "
+            "forecast due date. A strictly higher price resolves Yes; equal or lower resolves No."
+            "\n\nOnly saved SerpApi measurements from "
+            "the Walmart product API (walmart_product) determine the outcome, following the "
+            "background's rules."
         ),
         "engine": "walmart_product",
         "date_offset": 0,
@@ -815,39 +820,37 @@ QUESTION_SPECS = {
         "question_template": (
             "Will the departure delay in minutes of flight {flight_id} ({origin} to "
             "{destination}), scheduled to depart on {resolution_date}, be greater "
-            "than the median departure delay for the same flight and route over the 14 days "
-            "ending on {forecast_due_date}, counting early and on-time departures as zero "
-            "delay?"
+            "than its median departure delay over the 14 days ending on and including "
+            "{forecast_due_date}, counting early and on-time departures as zero delay?"
         ),
         "question_background": (
-            "The departure delay in minutes for flight {flight_id} ({origin} to {destination}), "
-            "as reported by Google. Only flights that have departed or arrived qualify. "
-            "Measurements require a single matching flight, route and scheduled local "
-            "departure date; missing or ambiguous evidence makes the measurement unavailable. "
-            "Early and on-time departures count as zero; positive delays are unchanged. "
-            "Canceled flights and flights that have not yet departed do not qualify. "
-            "Data collection runs around 00:00 UTC and collects available departed flights "
-            "with scheduled local departure dates on or before the UTC date when each request "
-            "starts. Each observation retains its scheduled local departure date. "
-            "Missing data can be recovered only while Google makes "
-            "them available. The latest valid measurements are used, including revisions. "
-            "Each median uses all available observations in its 14-calendar-day window; "
-            "one observation is sufficient. Missing days are omitted without replacement. "
-            "For an even number of observations, the two middle values are averaged. "
-            "The freeze median covers the 14 days before the UTC bank update, excluding that "
-            "day; the resolution median covers the 14 days ending on the forecast due date, "
-            "including it. Both use scheduled local departure dates. No separate "
-            "forecast-due-date observation is required. Missing resolution-date data or an "
-            "empty comparison "
-            "window leaves the horizon unresolved and unscored until qualifying data arrive. "
-            "See: {url}"
+            "This question tracks flight {flight_id} from {origin_name} ({origin}) to "
+            "{destination_name} ({destination}), using Google's reported departure delay "
+            "in minutes. Early and on-time departures count as zero. If the comparison "
+            "median is zero, any positive delay resolves Yes. See: {url}."
+            "\n\nOnly departed or arrived flights qualify; canceled flights "
+            "and flights that have not yet departed are excluded. A single matching flight, "
+            "route and scheduled local departure date must be confirmed; missing or ambiguous "
+            "evidence makes the measurement unavailable. Collection runs around 00:00 UTC "
+            "and retrieves available departures scheduled on or before the request's UTC "
+            "date. Observations keep their scheduled local departure dates. Missing data can "
+            "be recovered only while Google makes them available; the latest valid "
+            "measurements, including revisions, are used."
         ),
         "resolution_criteria": (
-            "Uses only ForecastBench's saved SerpAPI google engine measurements "
-            "as ground truth, following the background's rules. "
-            "Resolves Yes if the exact resolution-date delay is strictly greater than the "
-            "same flight/route's median over the 14 calendar days ending on the forecast due "
-            "date; equal or lower resolves No. Dates are scheduled local departure dates."
+            "We compare the delay on the resolution date with the median delay for the same "
+            "flight and route over the 14 days ending on and including the forecast due date. "
+            "A strictly greater delay resolves Yes; equal or lower resolves No."
+            "\n\nOnly saved SerpApi measurements from "
+            "Google flight-status search results (google API) determine the outcome, following "
+            "the background's rules. Dates refer to scheduled local departures. The median "
+            "uses all observed days in the window; one is sufficient, though a small sample "
+            "may be unrepresentative. Missing days are omitted without replacement, and the "
+            "two middle values are averaged for an even number of observations. An observation "
+            "on the submission deadline itself is not required. The resolution-date delay "
+            "must match that date exactly. If it is missing or the comparison window has no "
+            "observations, the comparison remains unresolved and unscored until qualifying "
+            "data arrive."
         ),
         "engine": "google",
         # Record yesterday even when missing; also collect other available departed dates.
@@ -856,56 +859,406 @@ QUESTION_SPECS = {
         # Daily winter/summer schedules checked 2026-10-03 at flight.info/{flight_id},
         # through at least 2027-08-31. Recheck future timetables as airlines revise them.
         "variables": [
-            {"id": "ba117-lhr-jfk", "flight_id": "BA117", "origin": "LHR", "destination": "JFK"},
-            {"id": "ek203-dxb-jfk", "flight_id": "EK203", "origin": "DXB", "destination": "JFK"},
-            {"id": "sq308-sin-lhr", "flight_id": "SQ308", "origin": "SIN", "destination": "LHR"},
-            {"id": "lh400-fra-jfk", "flight_id": "LH400", "origin": "FRA", "destination": "JFK"},
-            {"id": "af6-cdg-jfk", "flight_id": "AF6", "origin": "CDG", "destination": "JFK"},
-            {"id": "kl601-ams-lax", "flight_id": "KL601", "origin": "AMS", "destination": "LAX"},
-            {"id": "qf35-mel-sin", "flight_id": "QF35", "origin": "MEL", "destination": "SIN"},
-            {"id": "nz6-akl-lax", "flight_id": "NZ6", "origin": "AKL", "destination": "LAX"},
-            {"id": "jl6-hnd-jfk", "flight_id": "JL6", "origin": "HND", "destination": "JFK"},
-            {"id": "qr701-doh-jfk", "flight_id": "QR701", "origin": "DOH", "destination": "JFK"},
-            {"id": "aa72-syd-lax", "flight_id": "AA72", "origin": "SYD", "destination": "LAX"},
-            {"id": "ey1-auh-jfk", "flight_id": "EY1", "origin": "AUH", "destination": "JFK"},
-            {"id": "nh102-hnd-iad", "flight_id": "NH102", "origin": "HND", "destination": "IAD"},
-            {"id": "ua1-sfo-sin", "flight_id": "UA1", "origin": "SFO", "destination": "SIN"},
-            {"id": "dl30-atl-lhr", "flight_id": "DL30", "origin": "ATL", "destination": "LHR"},
-            {"id": "ba178-jfk-lhr", "flight_id": "BA178", "origin": "JFK", "destination": "LHR"},
-            {"id": "kq100-nbo-lhr", "flight_id": "KQ100", "origin": "NBO", "destination": "LHR"},
-            {"id": "et602-add-dxb", "flight_id": "ET602", "origin": "ADD", "destination": "DXB"},
-            {"id": "cx253-hkg-lhr", "flight_id": "CX253", "origin": "HKG", "destination": "LHR"},
-            {"id": "la2478-lim-lax", "flight_id": "LA2478", "origin": "LIM", "destination": "LAX"},
-            {"id": "ba283-lhr-lax", "flight_id": "BA283", "origin": "LHR", "destination": "LAX"},
-            {"id": "nh114-hnd-iah", "flight_id": "NH114", "origin": "HND", "destination": "IAH"},
-            {"id": "ek1-dxb-lhr", "flight_id": "EK1", "origin": "DXB", "destination": "LHR"},
-            {"id": "sq228-mel-sin", "flight_id": "SQ228", "origin": "MEL", "destination": "SIN"},
-            {"id": "lh760-fra-del", "flight_id": "LH760", "origin": "FRA", "destination": "DEL"},
-            {"id": "lh430-fra-ord", "flight_id": "LH430", "origin": "FRA", "destination": "ORD"},
-            {"id": "lh454-fra-sfo", "flight_id": "LH454", "origin": "FRA", "destination": "SFO"},
-            {"id": "lh456-fra-lax", "flight_id": "LH456", "origin": "FRA", "destination": "LAX"},
-            {"id": "lx14-zrh-jfk", "flight_id": "LX14", "origin": "ZRH", "destination": "JFK"},
-            {"id": "ek406-dxb-mel", "flight_id": "EK406", "origin": "DXB", "destination": "MEL"},
-            {"id": "nh108-hnd-sfo", "flight_id": "NH108", "origin": "HND", "destination": "SFO"},
-            {"id": "sq24-sin-jfk", "flight_id": "SQ24", "origin": "SIN", "destination": "JFK"},
-            {"id": "sq322-sin-lhr", "flight_id": "SQ322", "origin": "SIN", "destination": "LHR"},
-            {"id": "sq221-sin-syd", "flight_id": "SQ221", "origin": "SIN", "destination": "SYD"},
-            {"id": "sq232-syd-sin", "flight_id": "SQ232", "origin": "SYD", "destination": "SIN"},
-            {"id": "cx880-hkg-lax", "flight_id": "CX880", "origin": "HKG", "destination": "LAX"},
-            {"id": "cx840-hkg-jfk", "flight_id": "CX840", "origin": "HKG", "destination": "JFK"},
-            {"id": "nh110-hnd-jfk", "flight_id": "NH110", "origin": "HND", "destination": "JFK"},
-            {"id": "nh106-hnd-lax", "flight_id": "NH106", "origin": "HND", "destination": "LAX"},
-            {"id": "nh211-hnd-lhr", "flight_id": "NH211", "origin": "HND", "destination": "LHR"},
-            {"id": "jl2-hnd-sfo", "flight_id": "JL2", "origin": "HND", "destination": "SFO"},
-            {"id": "jl16-hnd-lax", "flight_id": "JL16", "origin": "HND", "destination": "LAX"},
-            {"id": "jl10-hnd-ord", "flight_id": "JL10", "origin": "HND", "destination": "ORD"},
-            {"id": "ke81-icn-jfk", "flight_id": "KE81", "origin": "ICN", "destination": "JFK"},
-            {"id": "ke11-icn-lax", "flight_id": "KE11", "origin": "ICN", "destination": "LAX"},
-            {"id": "la8084-gru-lhr", "flight_id": "LA8084", "origin": "GRU", "destination": "LHR"},
-            {"id": "br32-tpe-jfk", "flight_id": "BR32", "origin": "TPE", "destination": "JFK"},
-            {"id": "ci8-tpe-lax", "flight_id": "CI8", "origin": "TPE", "destination": "LAX"},
-            {"id": "tk1-ist-jfk", "flight_id": "TK1", "origin": "IST", "destination": "JFK"},
-            {"id": "ek215-dxb-lax", "flight_id": "EK215", "origin": "DXB", "destination": "LAX"},
+            {
+                "id": "ba117-lhr-jfk",
+                "flight_id": "BA117",
+                "origin": "LHR",
+                "destination": "JFK",
+                "origin_name": "London Heathrow Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "ek203-dxb-jfk",
+                "flight_id": "EK203",
+                "origin": "DXB",
+                "destination": "JFK",
+                "origin_name": "Dubai International Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "sq308-sin-lhr",
+                "flight_id": "SQ308",
+                "origin": "SIN",
+                "destination": "LHR",
+                "origin_name": "Singapore Changi Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "lh400-fra-jfk",
+                "flight_id": "LH400",
+                "origin": "FRA",
+                "destination": "JFK",
+                "origin_name": "Frankfurt Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "af6-cdg-jfk",
+                "flight_id": "AF6",
+                "origin": "CDG",
+                "destination": "JFK",
+                "origin_name": "Paris Charles de Gaulle Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "kl601-ams-lax",
+                "flight_id": "KL601",
+                "origin": "AMS",
+                "destination": "LAX",
+                "origin_name": "Amsterdam Airport Schiphol",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "qf35-mel-sin",
+                "flight_id": "QF35",
+                "origin": "MEL",
+                "destination": "SIN",
+                "origin_name": "Melbourne Airport",
+                "destination_name": "Singapore Changi Airport",
+            },
+            {
+                "id": "nz6-akl-lax",
+                "flight_id": "NZ6",
+                "origin": "AKL",
+                "destination": "LAX",
+                "origin_name": "Auckland Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "jl6-hnd-jfk",
+                "flight_id": "JL6",
+                "origin": "HND",
+                "destination": "JFK",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "qr701-doh-jfk",
+                "flight_id": "QR701",
+                "origin": "DOH",
+                "destination": "JFK",
+                "origin_name": "Hamad International Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "aa72-syd-lax",
+                "flight_id": "AA72",
+                "origin": "SYD",
+                "destination": "LAX",
+                "origin_name": "Sydney Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "ey1-auh-jfk",
+                "flight_id": "EY1",
+                "origin": "AUH",
+                "destination": "JFK",
+                "origin_name": "Zayed International Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "nh102-hnd-iad",
+                "flight_id": "NH102",
+                "origin": "HND",
+                "destination": "IAD",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "Washington Dulles International Airport",
+            },
+            {
+                "id": "ua1-sfo-sin",
+                "flight_id": "UA1",
+                "origin": "SFO",
+                "destination": "SIN",
+                "origin_name": "San Francisco International Airport",
+                "destination_name": "Singapore Changi Airport",
+            },
+            {
+                "id": "dl30-atl-lhr",
+                "flight_id": "DL30",
+                "origin": "ATL",
+                "destination": "LHR",
+                "origin_name": "Hartsfield-Jackson Atlanta International Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "ba178-jfk-lhr",
+                "flight_id": "BA178",
+                "origin": "JFK",
+                "destination": "LHR",
+                "origin_name": "John F. Kennedy International Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "kq100-nbo-lhr",
+                "flight_id": "KQ100",
+                "origin": "NBO",
+                "destination": "LHR",
+                "origin_name": "Jomo Kenyatta International Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "et602-add-dxb",
+                "flight_id": "ET602",
+                "origin": "ADD",
+                "destination": "DXB",
+                "origin_name": "Addis Ababa Bole International Airport",
+                "destination_name": "Dubai International Airport",
+            },
+            {
+                "id": "cx253-hkg-lhr",
+                "flight_id": "CX253",
+                "origin": "HKG",
+                "destination": "LHR",
+                "origin_name": "Hong Kong International Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "la2478-lim-lax",
+                "flight_id": "LA2478",
+                "origin": "LIM",
+                "destination": "LAX",
+                "origin_name": "Jorge Chavez International Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "ba283-lhr-lax",
+                "flight_id": "BA283",
+                "origin": "LHR",
+                "destination": "LAX",
+                "origin_name": "London Heathrow Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "nh114-hnd-iah",
+                "flight_id": "NH114",
+                "origin": "HND",
+                "destination": "IAH",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "George Bush Intercontinental Airport",
+            },
+            {
+                "id": "ek1-dxb-lhr",
+                "flight_id": "EK1",
+                "origin": "DXB",
+                "destination": "LHR",
+                "origin_name": "Dubai International Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "sq228-mel-sin",
+                "flight_id": "SQ228",
+                "origin": "MEL",
+                "destination": "SIN",
+                "origin_name": "Melbourne Airport",
+                "destination_name": "Singapore Changi Airport",
+            },
+            {
+                "id": "lh760-fra-del",
+                "flight_id": "LH760",
+                "origin": "FRA",
+                "destination": "DEL",
+                "origin_name": "Frankfurt Airport",
+                "destination_name": "Indira Gandhi International Airport",
+            },
+            {
+                "id": "lh430-fra-ord",
+                "flight_id": "LH430",
+                "origin": "FRA",
+                "destination": "ORD",
+                "origin_name": "Frankfurt Airport",
+                "destination_name": "Chicago O'Hare International Airport",
+            },
+            {
+                "id": "lh454-fra-sfo",
+                "flight_id": "LH454",
+                "origin": "FRA",
+                "destination": "SFO",
+                "origin_name": "Frankfurt Airport",
+                "destination_name": "San Francisco International Airport",
+            },
+            {
+                "id": "lh456-fra-lax",
+                "flight_id": "LH456",
+                "origin": "FRA",
+                "destination": "LAX",
+                "origin_name": "Frankfurt Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "lx14-zrh-jfk",
+                "flight_id": "LX14",
+                "origin": "ZRH",
+                "destination": "JFK",
+                "origin_name": "Zurich Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "ek406-dxb-mel",
+                "flight_id": "EK406",
+                "origin": "DXB",
+                "destination": "MEL",
+                "origin_name": "Dubai International Airport",
+                "destination_name": "Melbourne Airport",
+            },
+            {
+                "id": "nh108-hnd-sfo",
+                "flight_id": "NH108",
+                "origin": "HND",
+                "destination": "SFO",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "San Francisco International Airport",
+            },
+            {
+                "id": "sq24-sin-jfk",
+                "flight_id": "SQ24",
+                "origin": "SIN",
+                "destination": "JFK",
+                "origin_name": "Singapore Changi Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "sq322-sin-lhr",
+                "flight_id": "SQ322",
+                "origin": "SIN",
+                "destination": "LHR",
+                "origin_name": "Singapore Changi Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "sq221-sin-syd",
+                "flight_id": "SQ221",
+                "origin": "SIN",
+                "destination": "SYD",
+                "origin_name": "Singapore Changi Airport",
+                "destination_name": "Sydney Airport",
+            },
+            {
+                "id": "sq232-syd-sin",
+                "flight_id": "SQ232",
+                "origin": "SYD",
+                "destination": "SIN",
+                "origin_name": "Sydney Airport",
+                "destination_name": "Singapore Changi Airport",
+            },
+            {
+                "id": "cx880-hkg-lax",
+                "flight_id": "CX880",
+                "origin": "HKG",
+                "destination": "LAX",
+                "origin_name": "Hong Kong International Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "cx840-hkg-jfk",
+                "flight_id": "CX840",
+                "origin": "HKG",
+                "destination": "JFK",
+                "origin_name": "Hong Kong International Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "nh110-hnd-jfk",
+                "flight_id": "NH110",
+                "origin": "HND",
+                "destination": "JFK",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "nh106-hnd-lax",
+                "flight_id": "NH106",
+                "origin": "HND",
+                "destination": "LAX",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "nh211-hnd-lhr",
+                "flight_id": "NH211",
+                "origin": "HND",
+                "destination": "LHR",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "jl2-hnd-sfo",
+                "flight_id": "JL2",
+                "origin": "HND",
+                "destination": "SFO",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "San Francisco International Airport",
+            },
+            {
+                "id": "jl16-hnd-lax",
+                "flight_id": "JL16",
+                "origin": "HND",
+                "destination": "LAX",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "jl10-hnd-ord",
+                "flight_id": "JL10",
+                "origin": "HND",
+                "destination": "ORD",
+                "origin_name": "Tokyo Haneda Airport",
+                "destination_name": "Chicago O'Hare International Airport",
+            },
+            {
+                "id": "ke81-icn-jfk",
+                "flight_id": "KE81",
+                "origin": "ICN",
+                "destination": "JFK",
+                "origin_name": "Incheon International Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "ke11-icn-lax",
+                "flight_id": "KE11",
+                "origin": "ICN",
+                "destination": "LAX",
+                "origin_name": "Incheon International Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "la8084-gru-lhr",
+                "flight_id": "LA8084",
+                "origin": "GRU",
+                "destination": "LHR",
+                "origin_name": "Sao Paulo/Guarulhos International Airport",
+                "destination_name": "London Heathrow Airport",
+            },
+            {
+                "id": "br32-tpe-jfk",
+                "flight_id": "BR32",
+                "origin": "TPE",
+                "destination": "JFK",
+                "origin_name": "Taiwan Taoyuan International Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "ci8-tpe-lax",
+                "flight_id": "CI8",
+                "origin": "TPE",
+                "destination": "LAX",
+                "origin_name": "Taiwan Taoyuan International Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
+            {
+                "id": "tk1-ist-jfk",
+                "flight_id": "TK1",
+                "origin": "IST",
+                "destination": "JFK",
+                "origin_name": "Istanbul Airport",
+                "destination_name": "John F. Kennedy International Airport",
+            },
+            {
+                "id": "ek215-dxb-lax",
+                "flight_id": "EK215",
+                "origin": "DXB",
+                "destination": "LAX",
+                "origin_name": "Dubai International Airport",
+                "destination_name": "Los Angeles International Airport",
+            },
         ],
         "params": lambda variables, requested_date: {
             # Including a date can suppress Google's flight-status result; validate returned dates.
