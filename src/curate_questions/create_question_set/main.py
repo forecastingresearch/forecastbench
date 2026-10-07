@@ -72,10 +72,10 @@ TIME_HORIZON_CONFIG = [
     {"min": 366, "max": float("inf"), "weight": 0},
 ]
 
-# Draw weights by question category inside each sampling bin. Every category in
-# `constants.QUESTION_CATEGORIES` must be listed, and weights must be positive. With weight 0.03 a
-# Sports question is about 33 times less likely to be picked than another question competing for the
-# same bin slot.
+# Probability that a market question of each category is kept in the pool before binning. Every
+# category in `constants.QUESTION_CATEGORIES` must be listed, with a weight in (0, 1]. Thinning
+# happens before the bins are built, so a bin that would hold only Sports questions comes out
+# nearly empty and its quota moves to other bins instead of being filled with Sports.
 CATEGORY_SAMPLING_WEIGHTS = {
     "Science & Tech": 1.0,
     "Healthcare & Biology": 1.0,
@@ -118,8 +118,8 @@ def validate_bin_weights():
             raise ValueError(f"{name} weights sum to {float(total)}, expected 1")
     if set(CATEGORY_SAMPLING_WEIGHTS) != set(constants.QUESTION_CATEGORIES):
         raise ValueError("CATEGORY_SAMPLING_WEIGHTS must list every category exactly once")
-    if any(weight <= 0 for weight in CATEGORY_SAMPLING_WEIGHTS.values()):
-        raise ValueError("CATEGORY_SAMPLING_WEIGHTS must all be positive")
+    if any(not 0 < weight <= 1 for weight in CATEGORY_SAMPLING_WEIGHTS.values()):
+        raise ValueError("CATEGORY_SAMPLING_WEIGHTS must all be probabilities in (0, 1]")
 
 
 def process_questions(
@@ -844,18 +844,24 @@ def _as_random_state(
     return np.random.RandomState(random_state)
 
 
-def category_draw_weights(dfq: pd.DataFrame) -> pd.Series | None:
-    """Per-row draw weights from `CATEGORY_SAMPLING_WEIGHTS`, or None for a uniform draw.
+def thin_pool_by_category(
+    dfq: pd.DataFrame, random_state: int | np.random.RandomState | None = None
+) -> pd.DataFrame:
+    """Keep each question with the probability `CATEGORY_SAMPLING_WEIGHTS` gives its category.
 
     Args:
-        dfq (pd.DataFrame): Questions in one composite bin
+        dfq (pd.DataFrame): Market questions with a category column
+        random_state: Seed/``np.random.RandomState`` for a reproducible draw. ``None`` (default)
+            draws without a fixed seed.
 
     Returns
-        weights (pd.Series | None): One weight per row; None when there is no category column
+        dfq (pd.DataFrame): The rows that survived the draw, in their original order
     """
     if "category" not in dfq.columns:
-        return None
-    return dfq["category"].map(CATEGORY_SAMPLING_WEIGHTS)
+        return dfq
+    rng = _as_random_state(random_state) or np.random
+    keep_probability = dfq["category"].map(CATEGORY_SAMPLING_WEIGHTS).to_numpy()
+    return dfq[rng.random_sample(len(dfq)) < keep_probability]
 
 
 def stratified_sample_questions(
@@ -926,12 +932,7 @@ def stratified_sample_questions(
     for bin_name, n_samples in bin_samples.items():
         if n_samples > 0:
             bin_df = dfq_weighted[dfq_weighted["composite_bin"] == bin_name]
-            sampled = bin_df.sample(
-                n=n_samples,
-                replace=False,
-                random_state=random_state,
-                weights=category_draw_weights(bin_df),
-            )
+            sampled = bin_df.sample(n=n_samples, replace=False, random_state=random_state)
             sampled_dfs.append(sampled)
 
     if not sampled_dfs:
@@ -958,6 +959,8 @@ def sample_market_questions(
     if len(dfq) == 0:
         raise ValueError("No market questions available for sampling.")
 
+    random_state = _as_random_state(random_state)
+    dfq = thin_pool_by_category(dfq=dfq, random_state=random_state)
     dfq = add_bin_columns(dfq=dfq)
     dfq = create_composite_bins(dfq=dfq)
     dfq = calculate_bin_weights(dfq=dfq)
