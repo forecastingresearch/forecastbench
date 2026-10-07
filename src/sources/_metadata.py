@@ -132,9 +132,24 @@ SOURCE_METADATA = {
             "resolve as 'Yes'."
         ),
         "resolution_criteria": "Resolves to the outcome of the question found at {url}.",
-        # Add a ticker only after confirming that it remains absent from both Kalshi's live and
-        # historical APIs. A live 404 alone usually means the market has been archived.
-        "nullified_questions": [],
+        # For missing markets, confirm absence from both live and historical APIs before adding
+        # a ticker. A live 404 alone usually means the market has been archived.
+        # These questions had conflicting deadlines in their titles and appended Yes labels.
+        # Exclude all three conservatively, including the Powell titles later corrected upstream.
+        "nullified_questions": [
+            NullifiedQuestion(
+                id="KXLEAVEPOWELLGOV-27JUN01",
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+            ),
+            NullifiedQuestion(
+                id="KXLEAVEPOWELLGOV-28JAN31",
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+            ),
+            NullifiedQuestion(
+                id="KXSOTHLEAVE-26-NOV",
+                nullification_start_date=BENCHMARK_START_DATE_DATETIME_DATE,
+            ),
+        ],
     },
     "manifold": {
         "source_type": SourceType.MARKET,
