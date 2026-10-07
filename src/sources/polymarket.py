@@ -677,8 +677,8 @@ class PolymarketSource(MarketSource):
         return {
             "id": market["conditionId"],
             "question": market["question"],
-            "background": market["description"],
-            "market_info_resolution_criteria": "N/A",
+            "background": "N/A",
+            "market_info_resolution_criteria": market["description"],
             "market_info_open_datetime": PolymarketSource._get_market_open_date_str(market),
             "market_info_close_datetime": market_closed_datetime_str,
             "url": "https://polymarket.com/market/" + market["slug"],

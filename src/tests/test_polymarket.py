@@ -269,7 +269,8 @@ class TestTransformQuestion:
         assert result is not None
         assert result["id"] == "0xabc123"
         assert result["question"] == "Will X happen by 2026?"
-        assert result["background"] == "Background text."
+        assert result["background"] == "N/A"
+        assert result["market_info_resolution_criteria"] == "Background text."
         assert result["url"] == "https://polymarket.com/market/will-x-happen-by-2026"
         assert result["resolved"] is False
         assert result["fetch_datetime"] == self.FETCH_DT
