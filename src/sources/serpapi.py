@@ -227,9 +227,15 @@ class SerpapiSource(DatasetSource):
                 if not completed.empty and completed.index[-1] >= cutoff:
                     value = completed.median()
                     question["freeze_datetime_value_explanation"] = (
-                        "Due to data-collection constraints, this reference median delay (minutes) "
-                        f"uses {len(completed)} observed days within 14 days before the bank update."
+                        "Median departure delay in minutes during the 14 days "
+                        f"before {today.isoformat()} (UTC)."
                     )
+                    if len(completed) < 14:
+                        unit = "observation is" if len(completed) == 1 else "observations are"
+                        question["freeze_datetime_value_explanation"] += (
+                            f" Only {len(completed)} {unit} available because of "
+                            "data-collection constraints."
+                        )
             if snapshot:
                 question["freeze_datetime_value_explanation"] = (
                     f"The listed item price in USD saved for {observation_date} (UTC)."

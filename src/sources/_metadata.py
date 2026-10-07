@@ -238,12 +238,10 @@ SOURCE_METADATA = {
     "serpapi": {
         "source_type": SourceType.DATASET,
         "source_intro": (
-            "SerpApi retrieves live results from search engines and online stores. ForecastBench "
-            "uses it to record daily measurements: prices of products sold by Amazon.com and "
-            "Walmart.com, and flight departure delays from Google's flight status results. "
-            "You're going to predict how these measurements change over time."
+            "SerpApi retrieves live results from search engines, online stores, and other public "
+            "websites. You're going to predict how questions based on this data will resolve."
         ),
-        # SerpAPI question types use different APIs and resolution rules, so each
+        # SerpApi question types use different APIs and resolution rules, so each
         # entry in serpapi_questions.QUESTION_SPECS supplies custom resolution_criteria.
         "resolution_criteria": "",
         "nullified_questions": [],
