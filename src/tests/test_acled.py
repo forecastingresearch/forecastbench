@@ -627,74 +627,90 @@ class TestGetAccessToken:
 
 
 class TestGetEvents:
-    """Test event pagination, dedup, and retry semantics."""
+    """Test cursor pagination, dedup, and retry semantics."""
+
+    def test_follows_next_cursor_until_null(self, monkeypatch, acled_source_with_creds):
+        """Pagination starts at cursor=0, follows next_cursor, and keeps the last page's rows."""
+        requested_cursors = []
+
+        def fake_get(_endpoint, headers=None, params=None, timeout=None):
+            del headers
+            assert timeout == 100
+            assert "page" not in params
+            cursor = params["cursor"]
+            requested_cursors.append(cursor)
+
+            if cursor == 0:
+                return _FakeResponse(
+                    make_acled_api_data_response(
+                        [make_acled_event(event_id_cnty="evt-1")], next_cursor=2343256
+                    )
+                )
+            if cursor == 2343256:
+                return _FakeResponse(
+                    make_acled_api_data_response(
+                        [make_acled_event(event_id_cnty="evt-2")], next_cursor=None
+                    )
+                )
+            raise AssertionError(f"Unexpected cursor request: {cursor}")
+
+        monkeypatch.setattr("sources.acled.requests.get", fake_get)
+
+        df = acled_source_with_creds._get_events(access_token="token")
+
+        assert requested_cursors == [0, 2343256]
+        assert list(df["event_id_cnty"]) == ["evt-1", "evt-2"]
 
     def test_page_scoped_retry_does_not_restart_pagination(
         self, monkeypatch, acled_source_with_creds
     ):
-        """Regression: a failing page is retried alone, not from page 1 (prod fix 2da4643)."""
+        """Regression: a failing page is retried alone, not from the start (prod fix 2da4643)."""
         monkeypatch.setattr(backoff._sync.time, "sleep", lambda _: None)
-        requested_pages = []
-        page_attempts = {}
+        requested_cursors = []
+        cursor_attempts = {}
 
         def fake_get(_endpoint, headers=None, params=None, timeout=None):
             del headers
             assert timeout == 100
-            page = params["page"]
-            requested_pages.append(page)
-            page_attempts[page] = page_attempts.get(page, 0) + 1
+            cursor = params["cursor"]
+            requested_cursors.append(cursor)
+            cursor_attempts[cursor] = cursor_attempts.get(cursor, 0) + 1
 
-            if page == 1:
-                return _FakeResponse(
-                    make_acled_api_data_response([make_acled_event(event_id_cnty="evt-1")])
-                )
-            if page == 2 and page_attempts[page] == 1:
-                error = requests.exceptions.HTTPError("524 Server Error")
-                return _FakeResponse({}, error=error)
-            if page == 2:
-                return _FakeResponse(
-                    make_acled_api_data_response([make_acled_event(event_id_cnty="evt-2")])
-                )
-            if page == 3:
-                return _FakeResponse(make_acled_api_data_response([]))
-            raise AssertionError(f"Unexpected page request: {page}")
-
-        monkeypatch.setattr("sources.acled.requests.get", fake_get)
-
-        df = acled_source_with_creds._get_events(access_token="token")
-
-        assert requested_pages == [1, 2, 2, 3]
-        assert list(df["event_id_cnty"]) == ["evt-1", "evt-2"]
-
-    def test_empty_data_page_stops_pagination_when_count_is_null(
-        self, monkeypatch, acled_source_with_creds
-    ):
-        """Regression: pagination stops on an empty data list even when count is not 0
-        (prod fix b833376)."""
-        requested_pages = []
-
-        def fake_get(_endpoint, headers=None, params=None, timeout=None):
-            del headers
-            assert timeout == 100
-            page = params["page"]
-            requested_pages.append(page)
-
-            if page == 1:
+            if cursor == 0:
                 return _FakeResponse(
                     make_acled_api_data_response(
-                        [make_acled_event(event_id_cnty="evt-1")], count=None
+                        [make_acled_event(event_id_cnty="evt-1")], next_cursor=100
                     )
                 )
-            if page == 2:
-                return _FakeResponse(make_acled_api_data_response([], count=None))
-            raise AssertionError(f"Unexpected page request: {page}")
+            if cursor == 100 and cursor_attempts[cursor] == 1:
+                error = requests.exceptions.HTTPError("524 Server Error")
+                return _FakeResponse({}, error=error)
+            if cursor == 100:
+                return _FakeResponse(
+                    make_acled_api_data_response(
+                        [make_acled_event(event_id_cnty="evt-2")], next_cursor=None
+                    )
+                )
+            raise AssertionError(f"Unexpected cursor request: {cursor}")
 
         monkeypatch.setattr("sources.acled.requests.get", fake_get)
 
         df = acled_source_with_creds._get_events(access_token="token")
 
-        assert requested_pages == [1, 2]
-        assert list(df["event_id_cnty"]) == ["evt-1"]
+        assert requested_cursors == [0, 100, 100]
+        assert list(df["event_id_cnty"]) == ["evt-1", "evt-2"]
+
+    def test_missing_next_cursor_fails_instead_of_truncating(
+        self, monkeypatch, acled_source_with_creds
+    ):
+        """A response without next_cursor (e.g. offset-style) must fail, not stop after one page."""
+        payload = make_acled_api_data_response([make_acled_event(event_id_cnty="evt-1")])
+        del payload["next_cursor"]
+        responses = iter([_FakeResponse(payload)])
+        monkeypatch.setattr("sources.acled.requests.get", lambda *args, **kwargs: next(responses))
+
+        with pytest.raises(KeyError, match="next_cursor"):
+            acled_source_with_creds._get_events(access_token="token")
 
     def test_deduplicates_by_event_id_across_pages(self, monkeypatch, acled_source_with_creds):
         responses = iter(
@@ -704,13 +720,15 @@ class TestGetEvents:
                         [
                             make_acled_event(event_id_cnty="DUP1"),
                             make_acled_event(event_id_cnty="UNIQUE"),
-                        ]
+                        ],
+                        next_cursor=1,
                     )
                 ),
                 _FakeResponse(
-                    make_acled_api_data_response([make_acled_event(event_id_cnty="DUP1")])
+                    make_acled_api_data_response(
+                        [make_acled_event(event_id_cnty="DUP1")], next_cursor=None
+                    )
                 ),
-                _FakeResponse(make_acled_api_data_response([])),
             ]
         )
         monkeypatch.setattr("sources.acled.requests.get", lambda *args, **kwargs: next(responses))
@@ -727,10 +745,10 @@ class TestGetEvents:
                         [
                             make_acled_event(event_id_cnty="ZZZ"),
                             make_acled_event(event_id_cnty="AAA"),
-                        ]
+                        ],
+                        next_cursor=None,
                     )
-                ),
-                _FakeResponse(make_acled_api_data_response([])),
+                )
             ]
         )
         monkeypatch.setattr("sources.acled.requests.get", lambda *args, **kwargs: next(responses))
@@ -739,16 +757,16 @@ class TestGetEvents:
 
         assert list(df["event_id_cnty"]) == ["AAA", "ZZZ"]
 
-    def test_empty_first_page_raises(self, monkeypatch, acled_source_with_creds):
+    def test_no_events_raises(self, monkeypatch, acled_source_with_creds):
         """No events on any page fails the job instead of writing an empty fetch file.
 
         An empty ACLED response means the API or our request is broken. Failing stops the nightly
         worker from running the update job on last week's fetch file.
         """
-        monkeypatch.setattr(
-            "sources.acled.requests.get",
-            lambda *args, **kwargs: _FakeResponse(make_acled_api_data_response([], count=0)),
+        responses = iter(
+            [_FakeResponse(make_acled_api_data_response([], count=0, next_cursor=None))]
         )
+        monkeypatch.setattr("sources.acled.requests.get", lambda *args, **kwargs: next(responses))
 
         with pytest.raises(RuntimeError, match="No ACLED events were downloaded"):
             acled_source_with_creds._get_events(access_token="token")
