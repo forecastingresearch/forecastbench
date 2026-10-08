@@ -261,12 +261,7 @@ class KalshiSource(MarketSource):
 
             # Assign market details to dfq row
             routing = routing_by_id.get(question_id)
-            include_yes_label = (
-                routing is not None and bool(routing["needs_yes_label"])
-            ) or " [Yes: " in str(row["question"])
-            dfq.at[index, "question"] = self._question_text(
-                market, include_yes_label=include_yes_label
-            )
+            dfq.at[index, "question"] = self._question_text(market)
             dfq.at[index, "background"] = "N/A"
             settlement_sources = routing["settlement_sources"] if routing is not None else None
             dfq.at[index, "market_info_resolution_criteria"] = self._resolution_criteria(
@@ -907,11 +902,18 @@ class KalshiSource(MarketSource):
         return market.get("status") in _RESOLVED_STATUSES
 
     @staticmethod
-    def _question_text(market: dict, *, include_yes_label: bool) -> str:
-        """Add the child Yes label only when sibling market titles repeat."""
-        if include_yes_label:
-            return f'{market["title"]} [Yes: {market["yes_sub_title"]}]'
-        return market["title"]
+    def _question_text(market: dict) -> str:
+        """Append the Yes label: titles alone can omit or contradict the Yes condition.
+
+        Kalshi templates titles per series, so a title may read "win 193 seats" for a market whose
+        Yes outcome is "Below 193", or "above or below $4.20" for "Above $4.20". The
+        ``yes_sub_title`` can clarify the intended outcome. Missing or blank labels and labels
+        that just say "Yes" add nothing to the title, so they are left off.
+        """
+        yes_sub_title = (market.get("yes_sub_title") or "").strip()
+        if not yes_sub_title or yes_sub_title.lower() == "yes":
+            return market["title"]
+        return f'{market["title"]} [Yes: {yes_sub_title}]'
 
     @staticmethod
     def _market_url(series_ticker: str, event_ticker: str) -> str:

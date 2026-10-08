@@ -111,6 +111,16 @@ class TestMarketHelpers:
         ]:
             assert KalshiSource._is_resolved(make_kalshi_api_market(status=status)) is False
 
+    def test_question_text_appends_the_yes_label(self):
+        """The Yes label states the condition the title may omit or contradict."""
+        market = make_kalshi_api_market(title="Will X happen?", yes_sub_title="Above 120")
+        assert KalshiSource._question_text(market) == "Will X happen? [Yes: Above 120]"
+
+    def test_question_text_omits_a_bare_yes_label(self):
+        """A label that just says Yes adds nothing to a clear title, so it is left off."""
+        market = make_kalshi_api_market(title="Will X happen?", yes_sub_title="Yes")
+        assert KalshiSource._question_text(market) == "Will X happen?"
+
     def test_series_ticker(self):
         """Series ticker is the prefix before the first dash."""
         assert KalshiSource._series_ticker("KXWCSPREAD-26JUN18CANQAT-CAN6") == "KXWCSPREAD"
@@ -1188,11 +1198,54 @@ class TestUpdate:
         result = kalshi_source.update(dfq, dff)
 
         row = result.dfq[result.dfq["id"] == "KXTEST-001"].iloc[0]
-        assert row["question"] == "Updated question text"
+        assert row["question"] == "Updated question text [Yes: Specific Yes outcome]"
         assert row["market_info_resolution_criteria"] == (
             "New rules Outcome verified from Library of Congress " "(https://www.congress.gov/)."
         )
         assert row["url"] == "https://kalshi.com/markets/kxtest/x/kxtest"
+
+    @pytest.mark.parametrize("is_new", [False, True])
+    @pytest.mark.parametrize(
+        "label_fields, suffix",
+        [
+            ({"yes_sub_title": "Below 193"}, " [Yes: Below 193]"),
+            ({"yes_sub_title": "Hike >25bps"}, " [Yes: Hike >25bps]"),
+            ({"yes_sub_title": "  <193  "}, " [Yes: <193]"),
+            ({"yes_sub_title": "Yes"}, ""),
+            ({"yes_sub_title": "  yEs  "}, ""),
+            ({"yes_sub_title": ""}, ""),
+            ({"yes_sub_title": "   "}, ""),
+            ({"yes_sub_title": None}, ""),
+            ({}, ""),
+        ],
+    )
+    @patch.object(KalshiSource, "_build_resolution_df")
+    @patch.object(KalshiSource, "_get_market")
+    def test_yes_labels_on_new_and_existing_questions(
+        self, mock_market, mock_build, kalshi_source, label_fields, suffix, is_new
+    ):
+        """Updates preserve titles and label symbols without empty or duplicate suffixes."""
+        market = make_kalshi_api_market(ticker="KXTEST-001")
+        market.pop("yes_sub_title")
+        market.update(label_fields)
+        mock_market.return_value = market
+        mock_build.return_value = make_resolution_df(
+            [{"id": "KXTEST-001", "date": "2024-06-01", "value": 0.65}]
+        )
+        dfq = make_question_df(
+            [{"id": "existing", "resolved": True}]
+            if is_new
+            else [{"id": "KXTEST-001", "resolved": False}]
+        )
+        dff = make_kalshi_fetch_df([{"id": "KXTEST-001"}] if is_new else [])
+
+        result = kalshi_source.update(dfq, dff, existing_resolution_ids={"existing"})
+        result = kalshi_source.update(
+            result.dfq, make_kalshi_fetch_df([]), existing_resolution_ids={"existing"}
+        )
+
+        question = result.dfq.set_index("id").at["KXTEST-001", "question"]
+        assert question == market["title"] + suffix
 
     @patch.object(KalshiSource, "_build_resolution_df")
     @patch.object(KalshiSource, "_get_market")
@@ -1330,10 +1383,10 @@ class TestUpdate:
 
     @patch.object(KalshiSource, "_build_resolution_df")
     @patch.object(KalshiSource, "_get_market")
-    def test_distinct_sibling_titles_omit_participant_labels(
+    def test_distinct_sibling_titles_still_get_yes_labels(
         self, mock_market, mock_build, kalshi_source
     ):
-        """Complete sibling titles are not narrowed by non-binding participant labels."""
+        """Every market carries its Yes label, even when sibling titles differ."""
         markets = {
             "GOVPARTYAZ-26-D": make_kalshi_api_market(
                 ticker="GOVPARTYAZ-26-D",
@@ -1370,10 +1423,10 @@ class TestUpdate:
 
         rows = result.dfq.set_index("id")
         assert rows.at["GOVPARTYAZ-26-D", "question"] == (
-            "Will the Democratic party win the governorship in Arizona"
+            "Will the Democratic party win the governorship in Arizona [Yes: Katie Hobbs]"
         )
         assert rows.at["GOVPARTYAZ-26-R", "question"] == (
-            "Will the Republican party win the governorship in Arizona"
+            "Will the Republican party win the governorship in Arizona [Yes: Andy Biggs]"
         )
 
     @patch.object(KalshiSource, "_build_resolution_df")
@@ -1479,7 +1532,7 @@ class TestUpdate:
         questions = result.dfq.set_index("id")
         assert questions.at["invalid", "question"] == "Persisted invalid question"
         assert questions.at["invalid", "freeze_datetime_value"] == "N/A"
-        assert questions.at["valid", "question"] == "Updated valid question"
+        assert questions.at["valid", "question"] == "Updated valid question [Yes: X happens]"
         assert float(questions.at["valid", "freeze_datetime_value"]) == 0.6
         assert "new-invalid" not in questions.index
         assert set(result.resolution_files) == {"valid"}
