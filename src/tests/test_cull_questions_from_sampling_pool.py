@@ -50,6 +50,22 @@ def test_drop_acled_questions_with_a_zero_baseline():
     assert result["id"].tolist() == ["small", "large"]
 
 
+def test_drop_acled_questions_under_a_retired_country_spelling():
+    """ACLED served Akrotiri and Dhekelia under two spellings; only the current one is sampled."""
+    dfq = pd.DataFrame(
+        {
+            "id": ["old", "current"],
+            "question": [
+                "Will there be more 'Protests' in Akrotiri and Dekhelia for the 30 days before...",
+                "Will there be more 'Protests' in Akrotiri and Dhekelia for the 30 days before...",
+            ],
+            "freeze_datetime_value": ["1.5", "1.5"],
+        }
+    )
+    result = create_question_set.drop_culled_questions(source="acled", dfq=dfq)
+    assert result["id"].tolist() == ["current"]
+
+
 def test_other_sources_untouched():
     dfq = pd.DataFrame(
         {

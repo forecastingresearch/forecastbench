@@ -1309,6 +1309,8 @@ def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
       question file stores ids with ``/`` replaced by ``_``.
     * acled: all "ten times as many" (x10) questions
     * acled: all questions whose freeze value, the 30-day average over the past 360 days, is zero
+    * acled: all questions under a country spelling ACLED has since replaced (the bank keeps both
+      so published questions resolve)
     * yfinance: all single-ticker questions ("will X go up"). Retired in favor of the pair
       questions (id ``X_Y``); the rows stay in the bank so published sets keep resolving.
     * metaculus: the ids in ``metaculus_culled_ids.txt``, questions that resolve more than 50 days
@@ -1326,9 +1328,15 @@ def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
     if source == "acled":
         # A zero 30-day average over the past 360 days turns "more than the average" into "will any
         # event happen at all", which almost always resolves No.
+        # ACLED has served a country under more than one spelling. The question bank keeps
+        # questions under each spelling so published ones resolve; only the current one is sampled.
+        retired_country_spellings = ["Akrotiri and Dekhelia"]
         is_x10 = dfq["question"].str.contains("more than ten times as many", regex=False)
         is_zero_baseline = dfq["freeze_datetime_value"].astype(float) == 0
-        return dfq[~(is_x10 | is_zero_baseline)]
+        is_retired_spelling = dfq["question"].str.contains(
+            "|".join(f" in {spelling} for the 30 days" for spelling in retired_country_spellings)
+        )
+        return dfq[~(is_x10 | is_zero_baseline | is_retired_spelling)]
     if source == "yfinance":
         return dfq[dfq["id"].apply(yfinance.is_pair_id)]
     if source == "metaculus":
