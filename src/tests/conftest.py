@@ -217,14 +217,18 @@ def make_acled_api_auth_response(**overrides):
     return base
 
 
-def make_acled_api_data_response(data, count=None, **overrides):
-    """Build a realistic ACLED data API page response dict."""
+def make_acled_api_data_response(data, count=None, next_cursor=None, **overrides):
+    """Build a realistic ACLED data API page response dict.
+
+    `next_cursor` is None on the last page, as in the API's cursor-based pagination.
+    """
     base = {
         "status": 200,
         "success": True,
         "count": count if count is not None else len(data),
         "data": data,
         "filename": "results.json",
+        "next_cursor": next_cursor,
     }
     base.update(overrides)
     return base

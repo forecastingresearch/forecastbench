@@ -154,8 +154,8 @@ class AcledSource(DatasetSource):
     def fetch(self, **kwargs: Any) -> DataFrame[AcledFetchFrame]:
         """Fetch all ACLED events since _ACLED_START_YEAR.
 
-        Authenticates via OAuth2, then paginates through the events endpoint,
-        deduplicating events by event_id_cnty.
+        Authenticates via OAuth2, then paginates through the events endpoint with
+        cursor-based pagination, deduplicating events by event_id_cnty.
         """
         self._require_credentials()
         logger.info("Downloading ACLED data.")
@@ -278,31 +278,34 @@ class AcledSource(DatasetSource):
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
         }
+        # ACLED deprecates offset (`page`) pagination on 2026-10-27; follow `next_cursor` instead.
         params = {
             "fields": "|".join(FETCH_COLUMNS),
             "year": _ACLED_START_YEAR,
             "year_where": ">",
-            "page": 0,
+            "cursor": 0,
         }
 
         seen_ids: set[str] = set()
         dfs: list[pd.DataFrame] = []
         while True:
-            params["page"] += 1
-            logger.info(f"Downloading page {params['page']}")
+            logger.info(f"Downloading page at cursor {params['cursor']}")
             data = self._get_page(endpoint=endpoint, headers=headers, params=params)
             rows = data.get("data", [])
 
-            if not rows:
-                logger.info(
-                    f"No ACLED rows returned on page {params['page']}; stopping pagination."
-                )
-                break
+            if rows:
+                df_tmp = pd.DataFrame(rows).astype(FETCH_COLUMN_DTYPE)
+                df_new_rows = df_tmp[~df_tmp["event_id_cnty"].isin(seen_ids)]
+                seen_ids.update(df_new_rows["event_id_cnty"])
+                dfs.append(df_new_rows)
 
-            df_tmp = pd.DataFrame(rows).astype(FETCH_COLUMN_DTYPE)
-            df_new_rows = df_tmp[~df_tmp["event_id_cnty"].isin(seen_ids)]
-            seen_ids.update(df_new_rows["event_id_cnty"])
-            dfs.append(df_new_rows)
+            # Hard-access: a response without `next_cursor` must fail rather than silently
+            # truncate the download to the pages fetched so far.
+            next_cursor = data["next_cursor"]
+            if next_cursor is None:
+                logger.info("Reached the last ACLED page; stopping pagination.")
+                break
+            params["cursor"] = next_cursor
 
         if not dfs:
             raise RuntimeError("No ACLED events were downloaded.")
