@@ -205,10 +205,10 @@ def parse_amazon_seller_price(response: dict, variables: dict, requested_date: s
 def parse_google_flight_departure_delay(
     response: dict, variables: dict, requested_date: str
 ) -> float | None:
-    """Return nonnegative departure delay in minutes for the exact departed flight.
+    """Return signed departure delay in minutes for the exact departed flight.
 
     Match the departure date, flight designator, and airport pair. Early departures
-    count as zero delay; missing or not-yet-departed flights return None.
+    retain negative values; missing or not-yet-departed flights return None.
     Google only supplies a limited set of dates, not a historical archive.
     """
     # Status prefixes after departure, when the departure delay is final. Airborne flights report
@@ -247,4 +247,4 @@ def parse_google_flight_departure_delay(
         return None
     delay = matches[0].get("departure_delay")
     # SerpApi documents departure_delay as integer minutes; reject other types.
-    return float(max(0, delay)) if type(delay) is int else None
+    return float(delay) if type(delay) is int else None
