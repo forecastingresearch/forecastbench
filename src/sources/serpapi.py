@@ -236,7 +236,7 @@ class SerpapiSource(DatasetSource):
                     if len(completed) < 14:
                         unit = "observation is" if len(completed) == 1 else "observations are"
                         question["freeze_datetime_value_explanation"] += (
-                            f" Only {len(completed)} {unit} available because of "
+                            f" Only {len(completed)} {unit} available over this period because of "
                             "data-collection constraints."
                         )
                     question["freeze_datetime_value_explanation"] += (

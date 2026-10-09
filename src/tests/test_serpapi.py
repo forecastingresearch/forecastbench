@@ -115,7 +115,10 @@ def assert_flight_median_explanation(explanation, days, today, history):
     expected = f"Median departure delay in minutes during the 14 days before {today} (UTC)."
     if days < 14:
         unit = "observation is" if days == 1 else "observations are"
-        expected += f" Only {days} {unit} available because of data-collection constraints."
+        expected += (
+            f" Only {days} {unit} available over this period because of data-collection "
+            "constraints."
+        )
     expected += (
         " Observed departure delays in minutes by scheduled local departure date: "
         f"{history}. Early and on-time departures count as zero. "
