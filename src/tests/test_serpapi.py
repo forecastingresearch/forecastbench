@@ -86,7 +86,7 @@ def response_for(name, variables, requested_date, params):
 EXPECTED = {
     "amazon_minimum_product_price": (12, "2026-09-16"),
     "walmart_food_drink_price": (9, "2026-09-16"),
-    "flight_departure_delay": (0, "2026-09-15"),
+    "flight_departure_delay": (-5, "2026-09-15"),
 }
 
 
@@ -199,7 +199,10 @@ def test_each_api_fetches_updates_and_serializes(source, monkeypatch, tmp_path, 
     if name == "flight_departure_delay":
         assert "&hl=en&gl=us" in saved["url"]
         assert "early and on-time departures" in saved["question"]
-        assert "Early and on-time departures count as zero" in saved["background"]
+        assert "early departures count as zero minutes of delay" in saved["background"]
+        assert "2026-09-15: -5" in question["freeze_datetime_value_explanation"]
+        assert "2026-09-15: -5" in prompt
+        assert float(question["freeze_datetime_value"]) == 0
         assert "following the background's rules" in criteria
     elif name == "amazon_minimum_product_price":
         assert "stay signed out and select ZIP 10001" in saved["background"]
@@ -238,18 +241,35 @@ def test_amazon_question_preserves_product_name_and_links_exact_asin(source, mon
 
 
 @pytest.mark.parametrize(
-    "observations,expected,days",
+    "observations,expected,days,displayed_history",
     [
-        ([(14, 2), (1, 10), (15, 100), (0, 200), (-1, 300)], 6, 2),
-        ([(14, 2), (7, 8), (1, 30), (2, "N/A")], 8, 3),
-        ([(2, -10), (1, 10)], 5, 2),
-        ([(1, 12)], 12, 1),
-        ([(1, "N/A"), (15, 100)], None, None),
-        ([(8, 12)], None, None),  # Preserve the seven-day sampling freshness limit.
+        (
+            [(14, 2), (1, 10), (15, 100), (0, 200), (-1, 300)],
+            6,
+            2,
+            "2026-09-02: 2; 2026-09-15: 10",
+        ),
+        (
+            [(14, 2), (7, 8), (1, 30), (2, "N/A")],
+            8,
+            3,
+            "2026-09-02: 2; 2026-09-09: 8; 2026-09-15: 30",
+        ),
+        ([(2, -10), (1, 10)], 5, 2, "2026-09-14: -10; 2026-09-15: 10"),
+        (
+            [(3, -10), (2, -5), (1, 12)],
+            0,
+            3,
+            "2026-09-13: -10; 2026-09-14: -5; 2026-09-15: 12",
+        ),
+        ([(2, 0), (1, 3)], 1.5, 2, "2026-09-14: 0; 2026-09-15: 3"),
+        ([(1, 12)], 12, 1, "2026-09-15: 12"),
+        ([(1, "N/A"), (15, 100)], None, None, None),
+        ([(8, 12)], None, None, None),  # Preserve the seven-day sampling freshness limit.
     ],
 )
 def test_flight_freeze_value_uses_available_prior_14_days(
-    source, monkeypatch, observations, expected, days
+    source, monkeypatch, observations, expected, days, displayed_history
 ):
     """The reference median uses only valid prior-window delays, even with sparse history."""
     spec = configure(monkeypatch, "flight_departure_delay")
@@ -275,6 +295,17 @@ def test_flight_freeze_value_uses_available_prior_14_days(
         assert float(question["freeze_datetime_value"]) == expected
         assert not question["resolved"]
         assert_flight_median_explanation(question["freeze_datetime_value_explanation"], days)
+        explanation = question["freeze_datetime_value_explanation"]
+        assert (
+            "Observed departure delays (minutes), by scheduled local departure date: "
+            f"{displayed_history}. Median: {expected:g} minutes."
+        ) in explanation
+        assert (
+            "For the median, early and on-time departures count as zero minutes of delay."
+            in explanation
+        )
+        assert "Negative values indicate early departures." in explanation
+        assert "Missing days are omitted." in explanation
         assert (
             "freeze median covers the 14 days before the UTC bank update" in question["background"]
         )
@@ -333,20 +364,20 @@ def test_update_refreshes_metadata_without_refetching(source, monkeypatch, freez
 @pytest.mark.parametrize(
     "baseline,target,expected_values,expected",
     [
-        (-5, -10, [0, 0], 0),
-        (-5, -5, [0, 0], 0),
-        (-5, -2, [0, 0], 0),
-        (-5, 0, [0, 0], 0),
-        (-5, 3, [0, 3], 1),
-        (0, -5, [0, 0], 0),
+        (-5, -10, [-5, -10], 0),
+        (-5, -5, [-5, -5], 0),
+        (-5, -2, [-5, -2], 0),
+        (-5, 0, [-5, 0], 0),
+        (-5, 3, [-5, 3], 1),
+        (0, -5, [0, -5], 0),
         (0, 0, [0, 0], 0),
         (0, 3, [0, 3], 1),
-        (5, -3, [5, 0], 0),
+        (5, -3, [5, -3], 0),
         (5, 5, [5, 5], 0),
         (5, 8, [5, 8], 1),
         (5, 3, [5, 3], 0),
         ("N/A", 3, ["N/A", 3], None),
-        (-5, "N/A", [0, "N/A"], None),
+        (-5, "N/A", [-5, "N/A"], None),
     ],
 )
 def test_flight_requests_resolve_on_departure_dates(
@@ -407,7 +438,7 @@ def test_flight_requests_resolve_on_departure_dates(
     if expected_values[0] == "N/A":
         assert pd.isna(result.iloc[0]["market_value_on_due_date"])
     else:
-        assert result.iloc[0]["market_value_on_due_date"] == expected_values[0]
+        assert result.iloc[0]["market_value_on_due_date"] == max(0, expected_values[0])
     assert bool(result.iloc[0]["resolved"]) == (expected is not None)
     if expected is None:
         assert pd.isna(result.iloc[0]["resolved_to"])
@@ -427,11 +458,11 @@ def test_flight_requests_resolve_on_departure_dates(
         ("DEPARTED_DELAYED", 76, 76),
         # Status Google returned for SQ322 and CI8 while airborne (live check, 2026-10-04).
         ("IN_AIR_ON_TIME", 3, 3),
-        ("IN_AIR_ON_TIME", -4, 0),
+        ("IN_AIR_ON_TIME", -4, -4),
         ("ON_THE_RUNWAY_AT_DESTINATION_DELAYED", 76, 76),
         ("ARRIVED", 76, 76),
-        ("DEPARTED", -5, 0),
-        ("LANDED", -5, 0),
+        ("DEPARTED", -5, -5),
+        ("LANDED", -5, -5),
         ("ARRIVED", None, "N/A"),
         ("ARRIVED", False, "N/A"),
         ("ARRIVED", "-5", "N/A"),
@@ -499,7 +530,7 @@ def test_later_fetch_recovers_departed_flights_on_original_dates(
     history = second.resolution_files[id]
     assert history["date"].tolist() == ["2026-09-15", "2026-09-16", "2026-09-17"]
     departed = latest_status == "DEPARTED_DELAYED"
-    assert history["value"].tolist() == [12, 0 if departed else "N/A", 100]
+    assert history["value"].tolist() == [12, -3 if departed else "N/A", 100]
     question = second.dfq.iloc[0]
     assert not question["resolved"]
     assert float(question["freeze_datetime_value"]) == (6 if departed else 12)
@@ -597,7 +628,7 @@ def test_malformed_flight_date_preserves_recovered_measurements(source, monkeypa
         question_id(name, spec["variables"][1]),
     ]
     assert fetched["date"].tolist() == ["2026-09-14", "2026-09-15", "2026-09-15"]
-    assert fetched["value"].tolist() == [0, "N/A", 0]
+    assert fetched["value"].tolist() == [-5, "N/A", -5]
 
 
 def test_malformed_entity_does_not_discard_other_measurements(source, monkeypatch):
@@ -782,7 +813,7 @@ def test_flight_baseline_is_shared_across_horizons_and_used_in_negated_conjuncti
 
 
 @pytest.mark.parametrize("name", ["flight_departure_delay", "amazon_minimum_product_price"])
-def test_update_normalizes_only_saved_flight_delays(source, monkeypatch, name):
+def test_update_preserves_signed_observations(source, monkeypatch, name):
     spec = configure(monkeypatch, name)
     id = question_id(name, spec["variables"][0])
     history = pd.DataFrame(
@@ -792,7 +823,6 @@ def test_update_normalizes_only_saved_flight_delays(source, monkeypatch, name):
             {"id": id, "date": "2026-09-14", "value": float("-inf")},
         ]
     )
-    # Retained fetch files can also contain signed delays from earlier test runs.
     fetched = pd.DataFrame([{"id": id, "date": "2026-09-15", "value": -3}]).assign(
         requested_date="2026-09-15", fetch_datetime="2026-09-16T00:00:00Z"
     )
@@ -800,10 +830,10 @@ def test_update_normalizes_only_saved_flight_delays(source, monkeypatch, name):
     updated = source.update(empty_bank(), fetched, existing_resolution_files={id: history})
     is_flight = name == "flight_departure_delay"
     assert updated.resolution_files[id]["value"].tolist() == [
-        0 if is_flight else -5,
+        -5,
         "N/A",
         "N/A",
-        0 if is_flight else -3,
+        -3,
     ]
     assert float(updated.dfq.iloc[0]["freeze_datetime_value"]) == (0 if is_flight else -3)
     assert not updated.dfq.iloc[0]["resolved"]
@@ -2070,7 +2100,7 @@ def test_fetch_warns_for_empty_categories_after_saving_data(
     ]
     history = saved[saved["id"].str.startswith("flight_departure_delay__")]
     assert history["date"].tolist() == ["2026-09-14", "2026-09-15"]
-    assert history["value"].tolist() == [0, "N/A"]
+    assert history["value"].tolist() == [-5, "N/A"]
     assert len(messages) == bool(empty_categories)
     if messages:
         assert "amazon_minimum_product_price (2 attempted IDs)" in messages[0]

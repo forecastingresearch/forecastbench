@@ -189,9 +189,6 @@ class SerpapiSource(DatasetSource):
             )
             history["value"] = pd.to_numeric(history["value"], errors="coerce")
             history.loc[~np.isfinite(history["value"]), "value"] = np.nan
-            if name == "flight_departure_delay":
-                # Also normalize signed values in saved histories and retained fetches.
-                history["value"] = history["value"].clip(lower=0)
             history["date"] = pd.to_datetime(history["date"])
             snapshot = spec["engine"] in TODAY_ONLY_ENGINES
             if not snapshot:
@@ -225,10 +222,18 @@ class SerpapiSource(DatasetSource):
                     "N/A: no sufficiently recent valid measurement is available."
                 )
                 if not completed.empty and completed.index[-1] >= cutoff:
-                    value = completed.median()
+                    value = completed.clip(lower=0).median()
+                    observations = "; ".join(
+                        f"{day:%Y-%m-%d}: {delay:g}" for day, delay in completed.items()
+                    )
                     question["freeze_datetime_value_explanation"] = (
                         "Due to data-collection constraints, this reference median delay (minutes) "
-                        f"uses {len(completed)} observed days within 14 days before the bank update."
+                        f"uses {len(completed)} observed days within 14 days before the bank update. "
+                        "Observed departure delays (minutes), by scheduled local departure date: "
+                        f"{observations}. Median: {value:g} minutes. "
+                        "Negative values indicate early departures. For the median, early and "
+                        "on-time departures count as zero minutes of delay. "
+                        "Missing days are omitted."
                     )
             if snapshot:
                 question["freeze_datetime_value_explanation"] = (
@@ -336,7 +341,7 @@ class SerpapiSource(DatasetSource):
         dfr = dfr[["id", "date", "value"]].copy()
         numeric = pd.to_numeric(dfr["value"], errors="coerce")
         dfr["value"] = numeric.where(np.isfinite(numeric), np.nan)
-        # Resolution can read signed histories before their next update.
+        # Convert signed observations to lateness only for resolution.
         flights = dfr["id"].str.startswith("flight_departure_delay__")
         dfr.loc[flights, "value"] = dfr.loc[flights, "value"].clip(lower=0)
         valid = dfr[dfr["value"].notna()].sort_values("date")
