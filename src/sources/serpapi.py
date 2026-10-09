@@ -226,6 +226,9 @@ class SerpapiSource(DatasetSource):
                 )
                 if not completed.empty and completed.index[-1] >= cutoff:
                     value = completed.median()
+                    observations = "; ".join(
+                        f"{day:%Y-%m-%d}: {delay:g}" for day, delay in completed.items()
+                    )
                     question["freeze_datetime_value_explanation"] = (
                         "Median departure delay in minutes during the 14 days "
                         f"before {today.isoformat()} (UTC)."
@@ -236,6 +239,11 @@ class SerpapiSource(DatasetSource):
                             f" Only {len(completed)} {unit} available because of "
                             "data-collection constraints."
                         )
+                    question["freeze_datetime_value_explanation"] += (
+                        " Observed departure delays in minutes by scheduled local departure date: "
+                        f"{observations}. Early and on-time departures count as zero. "
+                        "Days with no observation are omitted."
+                    )
             if snapshot:
                 question["freeze_datetime_value_explanation"] = (
                     f"The listed item price in USD saved for {observation_date} (UTC)."
