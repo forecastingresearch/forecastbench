@@ -238,18 +238,29 @@ def test_amazon_question_preserves_product_name_and_links_exact_asin(source, mon
 
 
 @pytest.mark.parametrize(
-    "observations,expected,days",
+    "observations,expected,days,displayed_history",
     [
-        ([(14, 2), (1, 10), (15, 100), (0, 200), (-1, 300)], 6, 2),
-        ([(14, 2), (7, 8), (1, 30), (2, "N/A")], 8, 3),
-        ([(2, -10), (1, 10)], 5, 2),
-        ([(1, 12)], 12, 1),
-        ([(1, "N/A"), (15, 100)], None, None),
-        ([(8, 12)], None, None),  # Preserve the seven-day sampling freshness limit.
+        (
+            [(14, 2), (1, 10), (15, 100), (0, 200), (-1, 300)],
+            6,
+            2,
+            "2026-09-02: 2; 2026-09-15: 10",
+        ),
+        (
+            [(14, 2), (7, 8), (1, 30), (2, "N/A")],
+            8,
+            3,
+            "2026-09-02: 2; 2026-09-09: 8; 2026-09-15: 30",
+        ),
+        ([(2, -10), (1, 10)], 5, 2, "2026-09-14: 0; 2026-09-15: 10"),
+        ([(2, 0), (1, 3)], 1.5, 2, "2026-09-14: 0; 2026-09-15: 3"),
+        ([(1, 12)], 12, 1, "2026-09-15: 12"),
+        ([(1, "N/A"), (15, 100)], None, None, None),
+        ([(8, 12)], None, None, None),  # Preserve the seven-day sampling freshness limit.
     ],
 )
 def test_flight_freeze_value_uses_available_prior_14_days(
-    source, monkeypatch, observations, expected, days
+    source, monkeypatch, observations, expected, days, displayed_history
 ):
     """The reference median uses only valid prior-window delays, even with sparse history."""
     spec = configure(monkeypatch, "flight_departure_delay")
@@ -275,6 +286,15 @@ def test_flight_freeze_value_uses_available_prior_14_days(
         assert float(question["freeze_datetime_value"]) == expected
         assert not question["resolved"]
         assert_flight_median_explanation(question["freeze_datetime_value_explanation"], days)
+        explanation = question["freeze_datetime_value_explanation"]
+        assert (
+            "Observed departure delays (minutes), by scheduled local departure date: "
+            f"{displayed_history}. Median: {expected:g} minutes."
+        ) in explanation
+        assert (
+            "Early and on-time departures are represented as zero minutes of delay." in explanation
+        )
+        assert "Missing days are omitted." in explanation
         assert (
             "freeze median covers the 14 days before the UTC bank update" in question["background"]
         )

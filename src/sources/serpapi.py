@@ -226,9 +226,16 @@ class SerpapiSource(DatasetSource):
                 )
                 if not completed.empty and completed.index[-1] >= cutoff:
                     value = completed.median()
+                    observations = "; ".join(
+                        f"{day:%Y-%m-%d}: {delay:g}" for day, delay in completed.items()
+                    )
                     question["freeze_datetime_value_explanation"] = (
                         "Due to data-collection constraints, this reference median delay (minutes) "
-                        f"uses {len(completed)} observed days within 14 days before the bank update."
+                        f"uses {len(completed)} observed days within 14 days before the bank update. "
+                        "Observed departure delays (minutes), by scheduled local departure date: "
+                        f"{observations}. Median: {value:g} minutes. "
+                        "Early and on-time departures are represented as zero minutes of delay. "
+                        "Missing days are omitted."
                     )
             if snapshot:
                 question["freeze_datetime_value_explanation"] = (
