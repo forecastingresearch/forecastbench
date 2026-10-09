@@ -119,6 +119,21 @@ def test_drop_kalshi_questions_that_settle_before_the_due_date():
     assert result["id"].tolist() == ["kept"]
 
 
+def test_drop_polymarket_questions_that_settle_before_the_due_date():
+    """Every listed id is dropped; a question not on the list stays."""
+    ids_file = Path(create_question_set.__file__).parent / "polymarket_culled_ids.txt"
+    culled = ids_file.read_text().split()
+    assert culled, "the culled id set must not be empty"
+    dfq = pd.DataFrame(
+        {
+            "id": culled + ["kept"],
+            "question": ["Will it?"] * (len(culled) + 1),
+        }
+    )
+    result = create_question_set.drop_culled_questions(source="polymarket", dfq=dfq)
+    assert result["id"].tolist() == ["kept"]
+
+
 def test_drop_nullified_questions_whatever_their_start_date(monkeypatch):
     """A nullified question is never sampled again, even when its nullification starts later."""
     from datetime import date
