@@ -826,7 +826,9 @@ QUESTION_SPECS = {
         "question_background": (
             "This question tracks flight {flight_id} from {origin_name} ({origin}) to "
             "{destination_name} ({destination}), using Google's reported departure delay "
-            "in minutes. Early and on-time departures count as zero. If the comparison "
+            "in minutes. Saved and displayed observations retain negative values for early "
+            "departures. For both medians and the resolution-date comparison, early and "
+            "on-time departures count as zero. If the comparison "
             "median is zero, any positive delay resolves Yes. See: {url}."
             "\n\nOnly departed or arrived flights qualify; canceled flights "
             "and flights that have not yet departed are excluded. A single matching flight, "

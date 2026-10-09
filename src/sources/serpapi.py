@@ -189,9 +189,6 @@ class SerpapiSource(DatasetSource):
             )
             history["value"] = pd.to_numeric(history["value"], errors="coerce")
             history.loc[~np.isfinite(history["value"]), "value"] = np.nan
-            if name == "flight_departure_delay":
-                # Also normalize signed values in saved histories and retained fetches.
-                history["value"] = history["value"].clip(lower=0)
             history["date"] = pd.to_datetime(history["date"])
             snapshot = spec["engine"] in TODAY_ONLY_ENGINES
             if not snapshot:
@@ -225,7 +222,7 @@ class SerpapiSource(DatasetSource):
                     "N/A: no sufficiently recent valid measurement is available."
                 )
                 if not completed.empty and completed.index[-1] >= cutoff:
-                    value = completed.median()
+                    value = completed.clip(lower=0).median()
                     observations = "; ".join(
                         f"{day:%Y-%m-%d}: {delay:g}" for day, delay in completed.items()
                     )
@@ -241,7 +238,8 @@ class SerpapiSource(DatasetSource):
                         )
                     question["freeze_datetime_value_explanation"] += (
                         " Observed departure delays in minutes by scheduled local departure date: "
-                        f"{observations}. Early and on-time departures count as zero. "
+                        f"{observations}. Negative values indicate early departures. "
+                        "For the median, early and on-time departures count as zero. "
                         "Days with no observation are omitted."
                     )
             if snapshot:
