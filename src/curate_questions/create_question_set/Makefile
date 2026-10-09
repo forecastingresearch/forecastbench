@@ -8,7 +8,7 @@ UPLOAD_DIR = upload
 
 include $(ROOT_DIR)deploy_config.mk
 
-deploy : main.py metaculus_culled_ids.txt .gcloudignore requirements.txt Dockerfile
+deploy : main.py metaculus_culled_ids.txt kalshi_culled_ids.txt polymarket_culled_ids.txt fred_culled_ids.txt .gcloudignore requirements.txt Dockerfile
 	rm -rf $(UPLOAD_DIR)
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
