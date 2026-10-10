@@ -33,7 +33,6 @@ FB_MODEL_RUN_KEYS = [
     "grok-4.7-run-variant-01",
     "gemini-3.8-flash-run-variant-01",
     "gemini-3.7-flash-run-variant-01",
-    "gemini-3.5-flash-run-variant-01",
     "gemini-3.1-pro-preview-run-variant-01",
     "gemini-3.1-pro-preview-run-variant-02",
     "gemini-3.1-flash-lite-run-variant-01",
