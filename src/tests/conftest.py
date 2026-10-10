@@ -14,6 +14,7 @@ from sources.kalshi import KalshiSource
 from sources.manifold import ManifoldSource
 from sources.metaculus import MetaculusSource
 from sources.polymarket import PolymarketSource
+from sources.wikipedia import WikipediaSource
 from sources.yfinance import YfinanceSource
 
 # ---------------------------------------------------------------------------
@@ -97,6 +98,12 @@ def kalshi_source():
 def polymarket_source():
     """Return a PolymarketSource instance."""
     return PolymarketSource()
+
+
+@pytest.fixture()
+def wikipedia_source():
+    """Return a WikipediaSource instance."""
+    return WikipediaSource()
 
 
 @pytest.fixture()

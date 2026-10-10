@@ -47,6 +47,11 @@ class SourceQuestionBank:
 QuestionBank = dict[str, SourceQuestionBank]
 
 
+# Wikipedia's fetch() returns one DataFrame per page, keyed by id_root (columns vary per page).
+# Shared between WikipediaSource.fetch()/update() and the orchestration fetch IO.
+WikipediaFetchResult = dict[str, pd.DataFrame]
+
+
 @dataclass
 class UpdateResult:
     """Return value of a source's update() method.
