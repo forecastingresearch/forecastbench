@@ -852,6 +852,7 @@ SOURCE_METADATA = {
             NullifiedQuestion(id="CTRA", nullification_start_date=date(2026, 5, 7)),
             NullifiedQuestion(id="EA", nullification_start_date=date(2026, 8, 5)),
             NullifiedQuestion(id="AVB", nullification_start_date=date(2026, 8, 15)),
+            NullifiedQuestion(id="QRVO", nullification_start_date=date(2026, 10, 3)),
         ],
         # Tickers that were renamed on yfinance while still in the question pool. yfinance serves
         # all price history under the replacement ticker; the original ticker returns no data. The

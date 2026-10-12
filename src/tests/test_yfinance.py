@@ -67,6 +67,7 @@ class TestDelistedStocksDefinition:
             "CTRA",
             "EA",
             "AVB",
+            "QRVO",
         }
         assert ids == expected
 
@@ -97,7 +98,7 @@ class TestYfinanceSourceNullification:
         return YfinanceSource()
 
     def test_source_has_nullified_questions(self, source):
-        assert len(source.nullified_questions) == 15
+        assert len(source.nullified_questions) == 16
 
     def test_pre_delisting_question_not_nullified(self, source):
         """JNPR in the 2025-03-30 question set should NOT be nullified (delisted 2025-07-02)."""
