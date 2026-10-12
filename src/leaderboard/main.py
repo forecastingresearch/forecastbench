@@ -154,6 +154,9 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Yhat Labs": "yhat-labs.svg",
     "NeuroFusion": "neurofusion.svg",
     "Afterflow": "afterflow.svg",
+    "Valory": "valory.png",
+    "Gougu": "gougu.png",
+    "CortexAlpha": "cortexalpha.svg",
 }
 
 ORG_TO_LOGO = {
