@@ -267,21 +267,40 @@ class WikipediaSource(DatasetSource):
     def fetch(self, **kwargs) -> WikipediaFetchResult:
         """Fetch Wikipedia table data for all configured pages.
 
-        Returns a dict mapping id_root -> DataFrame of raw table data.
+        A page whose download raises or returns no data is skipped and recorded in
+        ``self.failed_pages`` so the job can alert on it; the other pages are still returned, and
+        the failed page's previous fetch file stays in place for the update job. Raises only if
+        every page fails, since there is then nothing to write.
+
+        Returns:
+            WikipediaFetchResult: id_root -> DataFrame of raw table data for each page that
+                succeeded.
         """
 
         def _download_page(page):
-            logger.info(f"Downloading data for {page['id_root']}.")
-            session = self._make_session()
-            return page["id_root"], self._download_tables(page, session)
+            id_root = page["id_root"]
+            logger.info(f"Downloading data for {id_root}.")
+            try:
+                session = self._make_session()
+                df = self._download_tables(page, session)
+            except Exception as e:
+                logger.exception(f"Failed to download {id_root}.")
+                return id_root, None, f"{id_root}: {type(e).__name__}: {e}"
+            if df is None or df.empty:
+                return id_root, None, f"{id_root}: no data was downloaded"
+            return id_root, df, None
 
+        self.failed_pages: list[str] = []
         results: WikipediaFetchResult = {}
         with ThreadPoolExecutor(max_workers=len(_PAGES)) as ex:
-            for id_root, df in ex.map(_download_page, _PAGES):
-                if df is None or df.empty:
-                    raise ValueError(f"No Wikipedia data was downloaded for {id_root}.")
+            for id_root, df, failure in ex.map(_download_page, _PAGES):
+                if failure is not None:
+                    self.failed_pages.append(failure)
+                    continue
                 results[id_root] = df
 
+        if not results:
+            raise RuntimeError("No Wikipedia data was downloaded for any page.")
         return results
 
     # ------------------------------------------------------------------

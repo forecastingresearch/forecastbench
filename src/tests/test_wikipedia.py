@@ -588,29 +588,68 @@ class TestFetch:
         for df in result.values():
             assert not df.empty
 
-    def test_raises_when_page_returns_no_rows(self, wikipedia_source):
-        def fake_download_tables(page, session):
-            if page["id_root"] == "List_of_infectious_diseases":
-                return pd.DataFrame({"Common name": ["X"], "Vaccine(s)": ["No"], "date": ["x"]})
-            return None
+    def test_skips_failed_page_and_records_it(self, wikipedia_source):
+        """One broken page must not block the others: they are returned, the failure is recorded."""
+        good = pd.DataFrame({"Common name": ["X"], "Vaccine(s)": ["No"], "date": ["x"]})
 
-        with patch.object(WikipediaSource, "_make_session", return_value=object()), patch.object(
-            WikipediaSource, "_download_tables", side_effect=fake_download_tables
-        ):
-            with pytest.raises(ValueError, match="No Wikipedia data was downloaded"):
-                wikipedia_source.fetch()
-
-    def test_raises_when_page_returns_empty_dataframe(self, wikipedia_source):
         def fake_download_tables(page, session):
+            if page["id_root"] == "List_of_world_records_in_swimming":
+                raise ConnectionError("boom")
             if page["id_root"] == "List_of_infectious_diseases":
                 return pd.DataFrame()
-            return pd.DataFrame({"Common name": ["X"], "Vaccine(s)": ["No"], "date": ["x"]})
+            return good.copy()
 
         with patch.object(WikipediaSource, "_make_session", return_value=object()), patch.object(
             WikipediaSource, "_download_tables", side_effect=fake_download_tables
         ):
-            with pytest.raises(ValueError, match="No Wikipedia data was downloaded"):
+            result = wikipedia_source.fetch()
+
+        assert set(result) == {"FIDE_rankings_elo_rating", "FIDE_rankings_ranking"}
+        assert len(wikipedia_source.failed_pages) == 2
+        assert any(
+            f.startswith("List_of_world_records_in_swimming: ")
+            for f in wikipedia_source.failed_pages
+        )
+        assert any(
+            f.startswith("List_of_infectious_diseases: ") for f in wikipedia_source.failed_pages
+        )
+
+    def test_raises_when_every_page_fails(self, wikipedia_source):
+        with patch.object(WikipediaSource, "_make_session", return_value=object()), patch.object(
+            WikipediaSource, "_download_tables", return_value=None
+        ):
+            with pytest.raises(RuntimeError, match="No Wikipedia data was downloaded"):
                 wikipedia_source.fetch()
+
+
+class TestFetchJob:
+    """The fetch job writes what was fetched and alerts on pages that failed."""
+
+    def _run_driver(self, failed_pages):
+        from orchestration.func_wikipedia_fetch import main as fetch_main
+
+        fetch_result = {"FIDE_rankings_elo_rating": pd.DataFrame({"Player": ["A"]})}
+        with patch.object(fetch_main, "WikipediaSource") as mock_source_class, patch.object(
+            fetch_main._source_io, "write_wikipedia_fetch_output"
+        ) as mock_write, patch.object(fetch_main.slack, "send_message") as mock_slack:
+            mock_source_class.return_value.fetch.return_value = fetch_result
+            mock_source_class.return_value.failed_pages = failed_pages
+            fetch_main.driver(None)
+        return fetch_result, mock_write, mock_slack
+
+    def test_alerts_on_failed_pages_after_writing_the_rest(self):
+        fetch_result, mock_write, mock_slack = self._run_driver(
+            ["List_of_infectious_diseases: no data was downloaded"]
+        )
+        mock_write.assert_called_once_with(fetch_result)
+        message = mock_slack.call_args.kwargs["message"]
+        assert "1 page(s) failed" in message
+        assert "List_of_infectious_diseases" in message
+
+    def test_no_alert_when_all_pages_succeed(self):
+        _, mock_write, mock_slack = self._run_driver([])
+        mock_write.assert_called_once()
+        mock_slack.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
