@@ -334,7 +334,7 @@ class WikipediaSource(DatasetSource):
             page_dff = page_dff.copy()
             page_dff["date"] = pd.to_datetime(page_dff["date"])
             if "clean_func" in page:
-                page_dff = eval(f"WikipediaSource.{page['clean_func']}(page_dff)")
+                page_dff = getattr(WikipediaSource, page["clean_func"])(page_dff)
 
             dfq, page_res = self._update_page_questions(page=page, dfq=dfq, dff=page_dff)
             resolution_files.update(page_res)
@@ -618,10 +618,10 @@ class WikipediaSource(DatasetSource):
 
         resolved = value is None
         if "is_resolved_func" in page.keys():
-            resolved = eval(f"WikipediaSource.{page['is_resolved_func']}(value)")
+            resolved = getattr(WikipediaSource, page["is_resolved_func"])(value)
 
         if "value_func" in page.keys():
-            value = eval(f"WikipediaSource.{page['value_func']}(value)")
+            value = getattr(WikipediaSource, page["value_func"])(value)
 
         values = {
             "id": id_field_value,
