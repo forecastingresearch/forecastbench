@@ -370,7 +370,15 @@ class AcledSource(DatasetSource):
             .reset_index()
         )
 
-        countries = list(df["country"].unique())
+        from helpers.acled import COUNTRY_SPELLINGS
+
+        countries = set(df["country"].unique())
+        # Also include every other spelling ACLED has served for these countries, so that the
+        # questions the bank already holds under those spellings keep current freeze values.
+        for spellings in COUNTRY_SPELLINGS:
+            if countries & spellings:
+                countries |= spellings
+        countries = sorted(countries)
         event_types = list(df["event_type"].unique()) + ["fatalities"]
 
         return dfr, countries, event_types

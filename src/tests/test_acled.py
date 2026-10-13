@@ -908,3 +908,68 @@ class TestFetchColumnDtypeMatchesSchema:
         df = make_acled_fetch_df([make_acled_event()]).astype(FETCH_COLUMN_DTYPE)
         validated = AcledFetchFrame.validate(df)
         pd.testing.assert_frame_equal(validated, df)
+
+
+# ---------------------------------------------------------------------------
+# Country spellings (issue #303)
+# ---------------------------------------------------------------------------
+
+
+class TestAcledResolveCountrySpellings:
+    """Questions resolve the same under every spelling ACLED has served for their country."""
+
+    @pytest.mark.parametrize("data_country", ["Akrotiri and Dhekelia", "Akrotiri and Dekhelia"])
+    @pytest.mark.parametrize("question_country", ["Akrotiri and Dhekelia", "Akrotiri and Dekhelia"])
+    def test_resolves_on_data_under_either_spelling(self, question_country, data_country):
+        # One protest in the 360 days before the forecast due date (baseline 1/12) and one in the
+        # 30 days before the resolution date (1 > 1/12), as in issue #303.
+        dfr = make_acled_resolution_df(
+            [
+                {"country": data_country, "event_date": date(2026, 1, 31), "Protests": 1},
+                {"country": data_country, "event_date": date(2026, 8, 8), "Protests": 1},
+            ]
+        )
+        result = AcledSource._acled_resolve(
+            key="last30Days.gt.30DayAvgOverPast360Days",
+            dfr=dfr,
+            country=question_country,
+            event_type="Protests",
+            forecast_due_date=date(2026, 8, 30),
+            resolution_date=date(2026, 9, 6),
+        )
+        assert result == 1
+
+
+class TestQuestionGenerationCountrySpellings:
+    """Question generation keeps questions under every spelling of a country current."""
+
+    def test_other_spelling_gets_current_freeze_value(self):
+        # ACLED serves only "Dhekelia", but the question bank also holds "Dekhelia" questions.
+        today = date(2026, 8, 30)
+        dff = make_acled_fetch_df(
+            [
+                {
+                    "event_id_cnty": "XAD1",
+                    "event_date": (today - timedelta(days=10)).isoformat(),
+                    "country": "Akrotiri and Dhekelia",
+                    "event_type": "Protests",
+                    "fatalities": 0,
+                }
+            ]
+        )
+        source = AcledSource()
+        dfr, countries, event_types = source._prepare_resolution_data(dff)
+        dfq = source._generate_questions(
+            dfq=pd.DataFrame(), dfr=dfr, countries=countries, event_types=event_types, today=today
+        )
+
+        for country in ["Akrotiri and Dhekelia", "Akrotiri and Dekhelia"]:
+            qid = source._id_hash(
+                {
+                    "key": "last30Days.gt.30DayAvgOverPast360Days",
+                    "event_type": "Protests",
+                    "country": country,
+                }
+            )
+            freeze_value = dfq.loc[dfq["id"] == qid, "freeze_datetime_value"].item()
+            assert float(freeze_value) == pytest.approx(1 / 12)
