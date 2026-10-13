@@ -13,7 +13,6 @@ can move onto the source class (Phase 1 plan) and this module can be deleted.
 import logging
 import os
 import sys
-from datetime import timedelta
 
 import numpy as np
 import pandas as pd
@@ -21,20 +20,17 @@ from scipy.stats import norm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
+# Private imports from the source module are deliberate: this helper only exists until
+# `base_eval` is refactored to call `WikipediaSource.get_naive_forecast()`, after which it is
+# deleted and nothing outside `sources.wikipedia` needs these.
 from sources.wikipedia import _PAGES as PAGES  # noqa: E402
+from sources.wikipedia import (  # noqa: E402
+    _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE as WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
+)
 from sources.wikipedia import QuestionType  # noqa: E402
-
-from . import constants  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATETIME = (
-    constants.QUESTION_BANK_DATA_STORAGE_START_DATETIME - timedelta(days=360 * 4)
-)
-WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE = (
-    WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATETIME.date()
-)
 
 source = "wikipedia"
 
