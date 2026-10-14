@@ -1,9 +1,8 @@
 google-cloud-storage
 google-cloud-secret-manager
-beautifulsoup4
+slack_sdk
 pandas>=2.2.2,<3.0
-tqdm
-lxml
-scipy
 pandera
-termcolor
+requests
+beautifulsoup4
+lxml
