@@ -75,6 +75,15 @@ def acled_source():
 
 
 @pytest.fixture()
+def acled_source_with_creds():
+    """Return an AcledSource instance with fake API credentials."""
+    src = AcledSource()
+    src.api_email = "test@example.com"
+    src.api_password = "test-password"
+    return src
+
+
+@pytest.fixture()
 def manifold_source():
     """Return a ManifoldSource instance."""
     return ManifoldSource()
@@ -202,6 +211,67 @@ def make_acled_resolution_df(rows, event_columns=None):
 def make_question_set_df(rows):
     """Build a DataFrame with [id, source, resolution_dates] for explode_question_set."""
     return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# ACLED-specific factories
+# ---------------------------------------------------------------------------
+
+
+def make_acled_api_auth_response(**overrides):
+    """Build a realistic ACLED OAuth token response dict."""
+    base = {
+        "token_type": "Bearer",
+        "expires_in": 86400,
+        "access_token": "test-token-abc123",
+        "refresh_token": "test-refresh-xyz",
+    }
+    base.update(overrides)
+    return base
+
+
+def make_acled_api_data_response(data, count=None, next_cursor=None, **overrides):
+    """Build a realistic ACLED data API page response dict.
+
+    `next_cursor` is None on the last page, as in the API's cursor-based pagination.
+    """
+    base = {
+        "status": 200,
+        "success": True,
+        "count": count if count is not None else len(data),
+        "data": data,
+        "filename": "results.json",
+        "next_cursor": next_cursor,
+    }
+    base.update(overrides)
+    return base
+
+
+def make_acled_event(**overrides):
+    """Build a single ACLED event dict as returned by the API."""
+    base = {
+        "event_id_cnty": "TST001",
+        "event_date": "2025-06-15",
+        "iso": 706,
+        "region": "Eastern Africa",
+        "country": "Somalia",
+        "admin1": "Banadir",
+        "event_type": "Battles",
+        "fatalities": 1,
+        "timestamp": "1750000000",
+    }
+    base.update(overrides)
+    return base
+
+
+def make_acled_fetch_df(rows):
+    """Build a DataFrame matching AcledFetchFrame from partial row dicts."""
+    defaults = make_acled_event()
+    df = pd.DataFrame(rows)
+    for col, default in defaults.items():
+        if col not in df.columns:
+            df[col] = default
+    return df
 
 
 # ---------------------------------------------------------------------------
