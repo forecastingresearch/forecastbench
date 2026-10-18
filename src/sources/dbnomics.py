@@ -119,6 +119,7 @@ class DbnomicsSource(DatasetSource):
     """DBnomics economic data source."""
 
     name: ClassVar[str] = "dbnomics"
+    question_types: ClassVar[frozenset[str]] = frozenset(_PROVIDER_NAMES)
 
     def __init__(self) -> None:
         """Initialize the source and its per-update freshness warnings."""
@@ -259,6 +260,21 @@ class DbnomicsSource(DatasetSource):
         logger.info(f"Found {len(dfq):,} questions of {len(DBNOMICS_QUESTIONS):,} possible.")
 
         return UpdateResult(dfq=dfq, resolution_files=resolution_files)
+
+    # ------------------------------------------------------------------
+    # Public: sampling
+    # ------------------------------------------------------------------
+
+    def get_question_types(self, dfq: pd.DataFrame) -> pd.Series:
+        """Return each question's DBnomics provider code, e.g. ``meteofrance``.
+
+        Question ids are the series codes ``<provider>/<dataset>/<series>`` with ``/`` replaced
+        by ``_``, so the provider is the part before the first ``_``.
+
+        Args:
+          dfq (pd.DataFrame): DBnomics questions
+        """
+        return dfq["id"].str.split("_", n=1).str[0]
 
     # ------------------------------------------------------------------
     # Private: API calls
