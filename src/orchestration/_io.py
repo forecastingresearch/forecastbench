@@ -417,7 +417,8 @@ def publish_question_set(forecast_due_date: str, local_dir: str | os.PathLike) -
 
     The set is read from the root of the question-sets bucket, where `upload_question_set` put
     it, and lands in `datasets/question_sets/` of the repo under its own name and as the
-    `latest-llm.json` symlink that `get_latest_llm_question_set_metadata` follows.
+    `latest-llm.json` symlink that `get_latest_llm_question_set_metadata` follows. Under
+    `RUNNING_LOCALLY` the files are staged but not pushed.
 
     Args:
         forecast_due_date (str): The forecast due date as an ISO date, e.g. ``2026-10-13``, which
@@ -450,6 +451,10 @@ def publish_question_set(forecast_due_date: str, local_dir: str | os.PathLike) -
     if os.path.exists(latest_filename):
         os.remove(latest_filename)
     os.symlink(question_set, latest_filename)
+
+    if env.RUNNING_LOCALLY:
+        logger.info(f"Running locally; not pushing {question_set} to git.")
+        return
 
     mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
     mirrors = [mirrors] if mirrors else []

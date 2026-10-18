@@ -207,6 +207,7 @@ def test_raw_question_set_readers_do_not_require_gitpython():
 def publish_stubs(monkeypatch):
     """Stub the bucket and the git push around `publish_question_set` and record what it did."""
     monkeypatch.setenv("QUESTION_SETS_BUCKET", "question-sets")
+    monkeypatch.setenv("RUNNING_LOCALLY", "0")
     seen = {
         "bucket": ["2026-09-27-llm.json", "2026-10-11-llm.json", "latest-llm.json"],
         "mirror": None,
@@ -296,6 +297,20 @@ def test_publish_question_set_without_a_mirror_pushes_only_to_the_dataset_repo(
 
     (push,) = publish_stubs["pushes"]
     assert push["mirrors"] == []
+
+
+def test_publish_question_set_stages_but_does_not_push_when_running_locally(
+    publish_stubs, tmp_path, monkeypatch
+):
+    """A local run checks the set is in the bucket and shows what it would push, without pushing."""
+    monkeypatch.setenv("RUNNING_LOCALLY", "1")
+
+    _io.publish_question_set("2026-10-11", local_dir=tmp_path)
+
+    local_folder = tmp_path / "datasets" / "question_sets"
+    assert publish_stubs["downloads"] == ["2026-10-11-llm.json"]
+    assert os.readlink(local_folder / "latest-llm.json") == "2026-10-11-llm.json"
+    assert publish_stubs["pushes"] == []
 
 
 def test_publish_question_set_fails_when_the_set_is_not_in_the_bucket(publish_stubs, tmp_path):
