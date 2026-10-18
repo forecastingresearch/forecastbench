@@ -28,7 +28,6 @@ via Cloud Run entrypoints under `src/orchestration/func_llm_forecaster_*`.
 ├── paper/                        # Inputs to the paper: https://arxiv.org/abs/2409.19839
 ├── src
 │   ├── base_eval/                # Naive forecasts and baseline forecasting experiments
-│   ├── curate_questions/         # Publish the question set
 │   ├── helpers/                  # Helper functions that are used across the codebase
 │   ├── leaderboard/              # Generate the leaderboard
 │   ├── llm_forecaster/           # ForecastBench LLM forecast generation
