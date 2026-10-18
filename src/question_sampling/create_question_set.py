@@ -1584,14 +1584,16 @@ def create_question_set(
             question type ("market" and "dataset")
         num_human_questions_by_type (dict[str, int]): Number of human questions to sample per
             question type; the human set is sampled from the LLM set
-        random_state: Seed/``np.random.RandomState`` threaded through both sampling passes for
-            reproducibility. ``None`` (default) samples without a fixed seed.
+        random_state: Seed or ``np.random.RandomState`` for reproducibility. An int seeds one
+            generator that every draw of the run shares, LLM and human pass alike, so sources
+            draw independently of each other. ``None`` (default) samples without a fixed seed.
         show_plots (bool): Whether to display the sampling distribution plots (local runs only)
 
     Returns
         result (QuestionSetResult): The LLM and human question sets, ready to be written as JSON
     """
     validate_bin_weights()
+    random_state = _as_random_state(random_state)
 
     QUESTIONS = {}
     for source_name, dfq in questions.items():
