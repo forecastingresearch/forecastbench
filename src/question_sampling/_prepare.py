@@ -1,12 +1,11 @@
 """Keep a source's eligible questions and add the columns the question set needs."""
 
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from helpers import constants, yfinance
+from helpers import constants
 from sources import MARKET_SOURCE_NAMES
 
 if TYPE_CHECKING:
@@ -176,57 +175,20 @@ def drop_questions_that_resolve_too_soon(
     return dfq[~resolves_too_soon]
 
 
-def drop_culled_questions(source: str, dfq: pd.DataFrame) -> pd.DataFrame:
-    """Drop question families we no longer want in the sampling pool.
+def drop_retired_questions(dfq: pd.DataFrame, source: "BaseSource") -> pd.DataFrame:
+    """Drop the questions the source has retired from the sampling pool.
 
-    HACK: matches on id prefix / question text instead of a proper per-question flag.
-    * dbnomics: all Météo-France weather questions. Ids start with ``meteofrance_`` because the
-      question file stores ids with ``/`` replaced by ``_``.
-    * acled: all "ten times as many" (x10) questions
-    * acled: all questions whose freeze value, the 30-day average over the past 360 days, is zero
-    * acled: all questions under a country spelling ACLED has since replaced (the bank keeps both
-      so published questions resolve)
-    * yfinance: all single-ticker questions ("will X go up"). Retired in favor of the pair
-      questions (id ``X_Y``); the rows stay in the bank so published sets keep resolving.
-    * metaculus: the ids in ``metaculus_culled_ids.txt``, questions that resolve more than 50 days
-      after they close and were ingested before fetch started skipping them
-    * kalshi: the ids in ``kalshi_culled_ids.txt``, markets that settle before the forecast due
-      date although the API reports a later close (earnings calls, first hurricane of the season)
-    * polymarket: the ids in ``polymarket_culled_ids.txt``, markets that are likely to settle
-      before the forecast due date although the API reports a later close (touch markets on
-      prices and front lines, "by date" events already in motion)
-    * fred: the ids in ``fred_culled_ids.txt``, series retired from sampling; the rows stay in
-      the bank so published sets keep resolving
+    Retirement only affects sampling: the bank keeps the rows and published questions keep
+    resolving. See `BaseSource.is_retired`.
 
     Args:
-        source (str): Source name
         dfq (pd.DataFrame): Questions to filter
+        source (BaseSource): The source of the questions
 
     Returns
-        dfq (pd.DataFrame): Questions not in a culled family
+        dfq (pd.DataFrame): Questions that are not retired
     """
-    if source == "dbnomics":
-        return dfq[~dfq["id"].str.startswith("meteofrance_")]
-    if source == "acled":
-        # A zero 30-day average over the past 360 days turns "more than the average" into "will any
-        # event happen at all", which almost always resolves No.
-        # ACLED has served a country under more than one spelling. The question bank keeps
-        # questions under each spelling so published ones resolve; only the current one is sampled.
-        retired_country_spellings = ["Akrotiri and Dekhelia"]
-        is_x10 = dfq["question"].str.contains("more than ten times as many", regex=False)
-        is_zero_baseline = dfq["freeze_datetime_value"].astype(float) == 0
-        is_retired_spelling = dfq["question"].str.contains(
-            "|".join(f" in {spelling} for the 30 days" for spelling in retired_country_spellings)
-        )
-        return dfq[~(is_x10 | is_zero_baseline | is_retired_spelling)]
-    if source == "yfinance":
-        return dfq[dfq["id"].apply(yfinance.is_pair_id)]
-    if source in ("metaculus", "kalshi", "polymarket", "fred"):
-        # Metaculus ids were ingested before the close-to-resolve gap rule existed. See
-        # metaculus-culled-questions.txt at the repository root for the urls and titles.
-        culled_ids = (Path(__file__).parent / f"{source}_culled_ids.txt").read_text().split()
-        return dfq[~dfq["id"].isin(culled_ids)]
-    return dfq
+    return dfq[~source.is_retired(dfq)]
 
 
 def market_datetimes(row: pd.Series) -> list[datetime]:
@@ -313,7 +275,7 @@ def prepare_source_questions(
     dfq = drop_questions_that_resolve_too_late(
         source=source.name, dfq=dfq, forecast_datetime=forecast_datetime
     )
-    dfq = drop_culled_questions(source=source.name, dfq=dfq)
+    dfq = drop_retired_questions(dfq=dfq, source=source)
     dfq = drop_nullified_questions(dfq=dfq, source=source)
     dfq["source_intro"] = source.source_intro
     dfq["resolution_criteria"] = get_resolution_criteria(dfq, source.resolution_criteria)

@@ -32,6 +32,9 @@ def driver(_: Any) -> None:
     )
 
     sources = {name: SOURCES[name] for name in question_curation.FREEZE_QUESTION_SOURCES}
+    # ACLED reads its question types from its hash mapping, see `BaseSource.is_retired()`.
+    for name, source in sources.items():
+        source.populate_hash_mapping(_io.load_hash_mapping(name))
     sampling_shares = {
         name: config["sampling_share"]
         for name, config in question_curation.FREEZE_QUESTION_SOURCES.items()

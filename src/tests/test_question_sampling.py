@@ -1,15 +1,14 @@
 """End-to-end tests of question set creation: filtering, allocation, sampling and output shape."""
 
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
-import question_sampling
 from helpers import constants, question_curation
 from question_sampling import create_question_set
+from sources import SOURCE_METADATA
 from sources.registry import SOURCES
 from tests.conftest import make_question_df
 
@@ -36,8 +35,6 @@ PUBLISHED_QUESTION_KEYS = [
     "source_intro",
     "resolution_dates",
 ]
-
-_SAMPLING_DIR = Path(question_sampling.__file__).parent
 
 
 def _iso_after_due(days: int) -> str:
@@ -97,6 +94,20 @@ def _shares(*names: str) -> dict:
     return {
         name: question_curation.FREEZE_QUESTION_SOURCES[name]["sampling_share"] for name in names
     }
+
+
+@pytest.fixture(autouse=True)
+def acled_hash_mapping(monkeypatch):
+    """ACLED types its questions through its hash mapping, so map the ids the tests mint."""
+    mapping = {
+        f"acled{i}": {
+            "key": "last30Days.gt.30DayAvgOverPast360Days",
+            "event_type": "Battles",
+            "country": "Yemen",
+        }
+        for i in range(100)
+    }
+    monkeypatch.setattr(SOURCES["acled"], "hash_mapping", mapping)
 
 
 def _ids(question_set: dict) -> set[tuple[str, str]]:
@@ -236,11 +247,11 @@ class TestEligibilityFilters:
                 **overrides,
             }
 
-        culled_id = (_SAMPLING_DIR / "fred_culled_ids.txt").read_text().split()[0]
+        retired_id = sorted(SOURCE_METADATA["fred"]["retired_question_ids"])[0]
         extra_dataset = make_question_df(
             [
                 dataset_row("AMERIBOR"),  # nullified in sources/_metadata.py
-                dataset_row(culled_id),
+                dataset_row(retired_id),
                 dataset_row("no_horizons", forecast_horizons=[]),
                 dataset_row("no_freeze", freeze_datetime_value="N/A"),
             ]

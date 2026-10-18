@@ -128,6 +128,7 @@ class YfinanceSource(DatasetSource):
 
     name: ClassVar[str] = "yfinance"
     additional_required_metadata_keys: ClassVar[set[str]] = {"ticker_renames"}
+    question_types: ClassVar[frozenset[str]] = frozenset({"single", "pair"})
     # The committed pair list. An instance attribute of the same name overrides it (tests).
     pairs: ClassVar[list[tuple[str, str]]] = YFINANCE_PAIRS
 
@@ -398,6 +399,32 @@ class YfinanceSource(DatasetSource):
         return UpdateResult(
             dfq=dfq,
             resolution_files=resolution_files,
+        )
+
+    # ------------------------------------------------------------------
+    # Public: sampling
+    # ------------------------------------------------------------------
+
+    def get_question_types(self, dfq: pd.DataFrame) -> pd.Series:
+        """Tell the pair questions (id ``X_Y``) from the single-ticker ones.
+
+        Args:
+          dfq (pd.DataFrame): yfinance questions
+        """
+        return dfq["id"].map(lambda qid: "pair" if self._is_pair_id(qid) else "single")
+
+    def _is_retired(self, dfq: pd.DataFrame) -> pd.Series:
+        """Retire a pair when either of its tickers is in `retired_question_ids`.
+
+        The base class only matches the pair id itself, so retiring a ticker would otherwise
+        leave every pair it is in available for sampling.
+
+        Args:
+          dfq (pd.DataFrame): yfinance questions
+        """
+        return dfq["id"].map(
+            lambda qid: self._is_pair_id(qid)
+            and any(t in self.retired_question_ids for t in self._split_pair_id(qid))
         )
 
     # ------------------------------------------------------------------

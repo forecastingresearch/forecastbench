@@ -36,6 +36,15 @@ class BaseSource(ABC):
     nullified_questions: ClassVar[list[NullifiedQuestion]]
     resolution_schema: ClassVar[type] = ResolutionFrame
 
+    # Questions retired from the sampling pool, see `is_retired()`. Both come from SOURCE_METADATA,
+    # which defaults them to empty; the class defaults only serve test stubs without an entry.
+    retired_question_ids: ClassVar[frozenset[str]] = frozenset()
+    retired_question_types: ClassVar[frozenset[str]] = frozenset()
+    # The kinds of question a source mints, when there is more than one to tell apart (e.g. the
+    # DBnomics providers). A source that lists any overrides `get_question_types()`, and
+    # `retired_question_types` may only name kinds listed here.
+    question_types: ClassVar[frozenset[str]] = frozenset()
+
     # Source-specific metadata keys this source needs to even run, beyond the globally required set.
     # Declared on the concrete subclass (e.g. yfinance -> {"ticker_renames"}) so a missing/typo'd key
     # in SOURCE_METADATA fails loudly at class-definition time rather than late at runtime.
@@ -60,12 +69,13 @@ class BaseSource(ABC):
         return self.api_key
 
     def __init_subclass__(cls, **kwargs):
-        """Enforce required ClassVars and auto-populate from _metadata.
+        """Enforce required ClassVars, auto-populate from _metadata and check retirement.
 
         Concrete subclasses must define ``name`` and ``source_type``. After
         enforcement, any keys present in ``SOURCE_METADATA[cls.name]`` are set
         as class attributes automatically (source_intro, resolution_criteria,
-        nullified_questions, etc.) so source files only need ``name``.
+        nullified_questions, etc.) so source files only need ``name``. A source may only
+        retire question types it declares in ``question_types`` and can classify.
         """
         super().__init_subclass__(**kwargs)
         # Skip enforcement for DatasetSource / MarketSource (they're still abstract)
@@ -83,19 +93,34 @@ class BaseSource(ABC):
             "nullified_questions",
         }
         name = getattr(cls, "name", None)
-        if name not in SOURCE_METADATA:
-            if cls._allow_missing_metadata:
-                return
+        if name in SOURCE_METADATA:
+            meta = SOURCE_METADATA[name]
+            missing = (
+                _REQUIRED_METADATA_KEYS | cls.additional_required_metadata_keys
+            ) - meta.keys()
+            if missing:
+                raise TypeError(
+                    f"SOURCE_METADATA['{name}'] missing required keys: {sorted(missing)}"
+                )
+            for key, value in meta.items():
+                setattr(cls, key, value)
+        elif not cls._allow_missing_metadata:
             raise TypeError(
                 f"Concrete source {cls.__name__} (name={name!r}) has no entry in SOURCE_METADATA. "
                 "Add one in sources/_metadata.py."
             )
-        meta = SOURCE_METADATA[name]
-        missing = (_REQUIRED_METADATA_KEYS | cls.additional_required_metadata_keys) - meta.keys()
-        if missing:
-            raise TypeError(f"SOURCE_METADATA['{name}'] missing required keys: {sorted(missing)}")
-        for key, value in meta.items():
-            setattr(cls, key, value)
+
+        unknown = cls.retired_question_types - cls.question_types
+        if unknown:
+            raise TypeError(
+                f"{cls.__name__} retires question types it does not declare in "
+                f"`question_types`: {sorted(unknown)}"
+            )
+        if cls.question_types and cls.get_question_types is BaseSource.get_question_types:
+            raise TypeError(
+                f"{cls.__name__} declares `question_types` but does not override "
+                "`get_question_types()`"
+            )
 
     # ------------------------------------------------------------------
     # Public resolve interface
@@ -165,6 +190,54 @@ class BaseSource(ABC):
         if isinstance(id_val, tuple):
             return any(sub_id in nullified_ids for sub_id in id_val)
         return id_val in nullified_ids
+
+    # ------------------------------------------------------------------
+    # Public sampling interface
+    # ------------------------------------------------------------------
+
+    def is_retired(self, dfq: pd.DataFrame) -> pd.Series:
+        """Flag the questions of dfq that are retired from the sampling pool.
+
+        Retirement keeps a question out of new question sets and does nothing else: the question
+        bank keeps the row and published questions keep resolving, unlike nullification. It is
+        decided in code and metadata rather than in the question files (issue #317), so it can be
+        reversed and can depend on the data as of the freeze date.
+
+        A question is retired when its id is in `retired_question_ids`, when its type
+        (`get_question_types()`) is in `retired_question_types`, or when the source's own
+        `_is_retired()` says so.
+
+        Args:
+          dfq (pd.DataFrame): This source's questions (`QuestionFrame`)
+
+        Returns:
+          retired (pd.Series): Boolean mask aligned with dfq
+        """
+        retired = dfq["id"].isin(self.retired_question_ids)
+        if self.retired_question_types:
+            retired |= self.get_question_types(dfq).isin(self.retired_question_types)
+        return retired | self._is_retired(dfq)
+
+    def get_question_types(self, dfq: pd.DataFrame) -> pd.Series:
+        """Return the type of each question of dfq, one of `question_types`.
+
+        A source that mints several kinds of question overrides this. The default mints one kind
+        and types nothing.
+
+        Args:
+          dfq (pd.DataFrame): This source's questions (`QuestionFrame`)
+        """
+        return pd.Series(None, index=dfq.index, dtype=object)
+
+    def _is_retired(self, dfq: pd.DataFrame) -> pd.Series:
+        """Retire questions on source-specific grounds, e.g. their current freeze values.
+
+        Called by is_retired() on top of the retired ids and types. The default retires nothing.
+
+        Args:
+          dfq (pd.DataFrame): This source's questions (`QuestionFrame`)
+        """
+        return pd.Series(False, index=dfq.index)
 
     # ------------------------------------------------------------------
     # Abstract
