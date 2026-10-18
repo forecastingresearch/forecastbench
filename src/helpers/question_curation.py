@@ -4,74 +4,25 @@ import math
 import os
 from datetime import timedelta
 
-from . import (
-    acled,
-    constants,
-    dates,
-    dbnomics,
-    fred,
-    kalshi,
-    metaculus,
-    polymarket,
-    serpapi,
-    yfinance,
-)
+from . import constants, dates
 
+# The sources we sample questions from, with each source's share of its question type's target.
+# Dropping a source here stops sampling it without affecting resolution: `helpers/resolution.py`
+# takes its source lists from `sources/_metadata.py`, which holds every source we've ever published
+# questions for. A source's intro and resolution criteria come from `sources/_metadata.py` too,
+# through the source registry.
 FREEZE_QUESTION_MARKET_SOURCES = {
-    # The market sources we sample questions from. Dropping a source here stops sampling it
-    # without affecting resolution: `helpers/resolution.py` takes its source lists from
-    # `sources/_metadata.py`, which holds every market source we've ever published questions for.
-    "metaculus": {
-        "name": "Metaculus",
-        "source_intro": metaculus.SOURCE_INTRO,
-        "resolution_criteria": metaculus.RESOLUTION_CRITERIA,
-        "sampling_share": 1 / 6,
-    },
-    "kalshi": {
-        "name": "Kalshi",
-        "source_intro": kalshi.SOURCE_INTRO,
-        "resolution_criteria": kalshi.RESOLUTION_CRITERIA,
-        "sampling_share": 5 / 12,
-    },
-    "polymarket": {
-        "name": "Polymarket",
-        "source_intro": polymarket.SOURCE_INTRO,
-        "resolution_criteria": polymarket.RESOLUTION_CRITERIA,
-        "sampling_share": 5 / 12,
-    },
+    "metaculus": {"sampling_share": 1 / 6},
+    "kalshi": {"sampling_share": 5 / 12},
+    "polymarket": {"sampling_share": 5 / 12},
 }
 
 FREEZE_QUESTION_DATA_SOURCES = {
-    "acled": {
-        "name": "ACLED",
-        "source_intro": acled.SOURCE_INTRO,
-        "resolution_criteria": acled.RESOLUTION_CRITERIA,
-        "sampling_share": 0.2,
-    },
-    "dbnomics": {
-        "name": "DBnomics",
-        "source_intro": dbnomics.SOURCE_INTRO,
-        "resolution_criteria": dbnomics.RESOLUTION_CRITERIA,
-        "sampling_share": 0.1,
-    },
-    "fred": {
-        "name": "FRED",
-        "source_intro": fred.SOURCE_INTRO,
-        "resolution_criteria": fred.RESOLUTION_CRITERIA,
-        "sampling_share": 0.2,
-    },
-    "serpapi": {
-        "name": "SerpAPI",
-        "source_intro": serpapi.SOURCE_INTRO,
-        "resolution_criteria": serpapi.RESOLUTION_CRITERIA,
-        "sampling_share": 0.3,
-    },
-    "yfinance": {
-        "name": "Yahoo Finance",
-        "source_intro": yfinance.SOURCE_INTRO,
-        "resolution_criteria": yfinance.RESOLUTION_CRITERIA,
-        "sampling_share": 0.2,
-    },
+    "acled": {"sampling_share": 0.2},
+    "dbnomics": {"sampling_share": 0.1},
+    "fred": {"sampling_share": 0.2},
+    "serpapi": {"sampling_share": 0.3},
+    "yfinance": {"sampling_share": 0.2},
 }
 
 FREEZE_QUESTION_SOURCES = {**FREEZE_QUESTION_MARKET_SOURCES, **FREEZE_QUESTION_DATA_SOURCES}
