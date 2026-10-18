@@ -24,18 +24,15 @@ jobs:
       with:
         version: "0.13.1"
         enable-cache: true
-        cache-dependency-glob: |
-          requirements.txt
-          requirements.runtime.txt
-          src/**/requirements.txt
+
+    - name: Check that uv.lock is up to date
+      run: uv lock --check
 
     - name: Install Python dependencies
       run: make setup-python-env
 
     - name: Run lint
-      run: |
-        . .venv/bin/activate
-        make lint MAKE_LINT_ERROR_OUT=1
+      run: make lint MAKE_LINT_ERROR_OUT=1
 
     - name: Run tests
       run: make test

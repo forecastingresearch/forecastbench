@@ -43,24 +43,21 @@ export BUCKET_MOUNT_POINT := /mnt
 
 export DEFAULT_CLOUD_FUNCTION_ENV_VARS=CLOUD_PROJECT=$(CLOUD_PROJECT),GOOGLE_CLOUD_PROJECT=$(CLOUD_PROJECT),QUESTION_BANK_BUCKET=$(QUESTION_BANK_BUCKET),QUESTION_SETS_BUCKET=$(QUESTION_SETS_BUCKET),FORECAST_SETS_BUCKET=$(FORECAST_SETS_BUCKET),FORECAST_SETS_TRANSCRIPTS_BUCKET=$(FORECAST_SETS_TRANSCRIPTS_BUCKET),PROCESSED_FORECAST_SETS_BUCKET=$(PROCESSED_FORECAST_SETS_BUCKET),PUBLIC_RELEASE_BUCKET=$(PUBLIC_RELEASE_BUCKET),WEBSITE_BUCKET=$(WEBSITE_BUCKET),WEBSITE_STAGING_ASSETS_BUCKET=$(WEBSITE_STAGING_ASSETS_BUCKET),CLOUD_DEPLOY_REGION=$(CLOUD_DEPLOY_REGION),LLM_BASELINE_DOCKER_IMAGE_NAME=$(LLM_BASELINE_DOCKER_IMAGE_NAME),LLM_BASELINE_DOCKER_REPO_NAME=$(LLM_BASELINE_DOCKER_REPO_NAME),LLM_BASELINE_STAGING_BUCKET=$(LLM_BASELINE_STAGING_BUCKET),LLM_BASELINE_SERVICE_ACCOUNT=$(LLM_BASELINE_SERVICE_ACCOUNT),LLM_BASELINE_PUB_SUB_TOPIC_NAME=$(LLM_BASELINE_PUB_SUB_TOPIC_NAME),RUNNING_LOCALLY=0,BUCKET_MOUNT_POINT=$(BUCKET_MOUNT_POINT),WORKSPACE_BUCKET=$(WORKSPACE_BUCKET)
 
-.PHONY: all clean lint test deploy install-requirements setup-python-env
+.PHONY: all clean lint test deploy setup-python-env
 
 MAKE_LINT_ERROR_OUT ?= 0
 RUFF_CHECK_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),,--fix)
 RUFF_FORMAT_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check,)
-VENV_PYTHON := .venv/bin/python
 UV ?= uv
-ROOT_REQUIREMENTS_STAMP := .venv/.root-requirements-installed
-ALL_REQUIREMENTS_STAMP := .venv/.all-requirements-installed
-ROOT_REQUIREMENTS_NO_RUNTIME := .venv/.root-requirements-no-runtime.txt
-SRC_REQUIREMENTS := $(shell find src -type f -name requirements.txt ! -path '*/upload/*')
+# Extra flags for `uv sync`, e.g. `UV_SYNC_FLAGS=--locked` to fail on a stale `uv.lock`.
+UV_SYNC_FLAGS ?=
 
-lint:
-	ruff check $(RUFF_CHECK_FLAGS) .
-	ruff format $(RUFF_FORMAT_FLAGS) .
+lint: setup-python-env
+	$(UV) run --no-sync ruff check $(RUFF_CHECK_FLAGS) .
+	$(UV) run --no-sync ruff format $(RUFF_FORMAT_FLAGS) .
 
 test: setup-python-env
-	@. ${ROOT_DIR}.venv/bin/activate && python -m pytest src/tests/ $(ARGS)
+	$(UV) run --no-sync python -m pytest src/tests/ $(ARGS)
 
 clean:
 	@find src -type d -mindepth 1 | while read dir; do \
@@ -71,36 +68,14 @@ clean:
 		fi ; \
 	done
 
-$(VENV_PYTHON):
+# Create the project environment (`.venv`, or `$UV_PROJECT_ENVIRONMENT` when set) on the Python
+# version in `.python-version` and install every dependency group from `uv.lock`.
+setup-python-env:
 	@command -v $(UV) >/dev/null 2>&1 || { \
-		echo "uv is required to manage .venv: https://docs.astral.sh/uv/getting-started/installation/"; \
+		echo "uv is required: https://docs.astral.sh/uv/getting-started/installation/"; \
 		exit 1; \
 	}
-	rm -rf .venv
-	$(UV) venv --seed .venv
-
-.venv: $(VENV_PYTHON)
-
-$(ROOT_REQUIREMENTS_STAMP): Makefile requirements.txt requirements.runtime.txt | $(VENV_PYTHON)
-	@grep -v -x -- "-r requirements.runtime.txt" requirements.txt > $(ROOT_REQUIREMENTS_NO_RUNTIME)
-	@$(UV) pip install --python $(VENV_PYTHON) -r requirements.runtime.txt
-	@$(UV) pip install --python $(VENV_PYTHON) -r $(ROOT_REQUIREMENTS_NO_RUNTIME)
-	@touch $@
-
-$(ALL_REQUIREMENTS_STAMP): Makefile $(ROOT_REQUIREMENTS_STAMP) $(SRC_REQUIREMENTS)
-	@find src -type d | sort | while read dir; do \
-		if [ -f "$$dir/Makefile" ] && [ -f "$$dir/requirements.txt" ]; then \
-			echo "\nInstalling requirements in $$dir"; \
-			$(UV) pip install --python $(VENV_PYTHON) -r $$dir/requirements.txt || exit $$?; \
-			echo "Installation complete in $$dir\n"; \
-		fi; \
-	done
-	@touch $@
-
-install-requirements: $(ALL_REQUIREMENTS_STAMP)
-
-setup-python-env: install-requirements
-	@:
+	$(UV) sync $(UV_SYNC_FLAGS)
 
 check-failures:
 	@echo "Checking for failures..."

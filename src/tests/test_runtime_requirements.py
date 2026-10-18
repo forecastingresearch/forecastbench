@@ -1,5 +1,6 @@
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -140,35 +141,67 @@ def test_root_make_test_bootstraps_python_env_before_pytest():
     )
     dry_run_output = result.stdout + result.stderr
 
-    runtime_install = dry_run_output.index(
-        "install --python .venv/bin/python -r requirements.runtime.txt"
-    )
-    root_install = dry_run_output.index(
-        "install --python .venv/bin/python -r .venv/.root-requirements-no-runtime.txt"
-    )
+    sync = dry_run_output.index("uv sync")
     pytest_invocation = dry_run_output.index("python -m pytest src/tests/ --version")
 
-    assert runtime_install < root_install < pytest_invocation
+    assert sync < pytest_invocation
 
 
-def test_root_install_requirements_uses_deployed_utils_pin():
+def pyproject() -> dict:
+    return tomllib.loads((ROOT / "pyproject.toml").read_text())
+
+
+def requirement_lines(path: Path) -> list[str]:
+    return [
+        line.strip()
+        for line in path.read_text().splitlines()
+        if line.strip() and not line.startswith(("#", "-r"))
+    ]
+
+
+def dependency_group_for(requirements_path: Path) -> str:
+    job_dir = requirements_path.parent
+    name = job_dir.name.replace("_", "-")
+    if job_dir.parent.name == "nightly_update_workflow":
+        name = f"nightly-{name}"
+    return name
+
+
+def test_shared_utils_is_pinned_to_a_git_revision():
     makefile = (ROOT / "Makefile").read_text()
+    fri_utils = pyproject()["tool"]["uv"]["sources"]["fri-utils"]
 
-    assert "ROOT_REQUIREMENTS_NO_RUNTIME := .venv/.root-requirements-no-runtime.txt" in makefile
+    assert fri_utils["git"] == "https://github.com/forecastingresearch/utils"
+    assert re.fullmatch(r"[0-9a-f]{40}", fri_utils["rev"])
+    assert "path" not in fri_utils
+    assert "editable" not in fri_utils
     assert "LOCAL_UTILS_PATH" not in makefile
-    assert (
-        "$(ROOT_REQUIREMENTS_STAMP): requirements.txt requirements.runtime.txt | $(VENV_PYTHON)"
-        not in makefile
-    )
-    assert (
-        "$(ROOT_REQUIREMENTS_STAMP): Makefile requirements.txt requirements.runtime.txt |"
-        in makefile
-    )
-    assert (
-        "$(ALL_REQUIREMENTS_STAMP): Makefile $(ROOT_REQUIREMENTS_STAMP) $(SRC_REQUIREMENTS)"
-        in makefile
-    )
     assert "install -e" not in makefile
     assert "--editable" not in makefile
-    assert "install --python $(VENV_PYTHON) -r requirements.runtime.txt" in makefile
-    assert "install --python $(VENV_PYTHON) -r $(ROOT_REQUIREMENTS_NO_RUNTIME)" in makefile
+
+
+def test_runtime_and_dev_groups_match_root_requirements():
+    """Until deployment reads `uv.lock`, the staged pin must equal the locked one."""
+    groups = pyproject()["dependency-groups"]
+    rev = pyproject()["tool"]["uv"]["sources"]["fri-utils"]["rev"]
+
+    assert groups["runtime"] == ["fri-utils"]
+    assert (ROOT / "requirements.runtime.txt").read_text().strip() == (
+        f"git+https://github.com/forecastingresearch/utils@{rev}#egg=fri-utils"
+    )
+    assert [entry for entry in groups["dev"] if isinstance(entry, str)] == requirement_lines(
+        ROOT / "requirements.txt"
+    )
+
+
+def test_dependency_groups_mirror_job_requirements():
+    """Until deployment reads `uv.lock`, each job group must equal its `requirements.txt`."""
+    groups = pyproject()["dependency-groups"]
+
+    for requirements_path, _makefile_path in iter_deploy_requirements():
+        group = groups[dependency_group_for(requirements_path)]
+
+        assert {"include-group": "runtime"} in group, requirements_path
+        assert [entry for entry in group if isinstance(entry, str)] == requirement_lines(
+            requirements_path
+        ), requirements_path

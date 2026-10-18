@@ -50,9 +50,10 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 $ make setup-python-env
 ```
 
-This creates `.venv` with the Python version in `.python-version` and installs every
-`requirements.txt` into it. Shared utilities are installed as the `fri-utils` package from root
-`requirements.runtime.txt`; this repository no longer has a root `utils` git submodule.
+This runs `uv sync`: it creates `.venv` with the Python version in `.python-version` and installs
+every dependency group in `uv.lock`. Shared utilities are the `fri-utils` package, a git revision
+pinned in `[tool.uv.sources]` in `pyproject.toml`; this repository no longer has a root `utils` git
+submodule.
 
 ### Before working
 
@@ -60,8 +61,13 @@ Set up and activate a Python virtual environment before running Python commands.
 
 For automated agents: treat the repository `.venv` directory as user-owned. Do not
 create it, delete it, install packages into it, or run Make targets that recreate or
-modify it. If `.venv` exists, leave it untouched and create your own environment
-outside the repository, for example with `uv venv --python 3.14 /tmp/forecastbench-agent-venv`.
+modify it. Point uv at your own environment outside the repository instead:
+
+```bash
+$ export UV_PROJECT_ENVIRONMENT=/tmp/forecastbench-agent-venv
+```
+
+With that set, `make setup-python-env`, `make lint` and `make test` leave `.venv` untouched.
 
 Authenticate with GCP (once/day):
 
@@ -83,6 +89,15 @@ For example, to run the leaderboard code:
 ```bash
 $ cd src/leaderboard && eval $(cat ../../variables.mk | xargs) python main.py
 ```
+
+#### Dependencies
+
+Dependencies are declared in `pyproject.toml` as dependency groups: `dev` for the lint and test
+tools, `runtime` for the shared `fri-utils` package, and one group per Cloud Run job, named after
+the job's directory under `src/`. A job group lists only what that job imports, directly or as a
+hard transitive import; derive it from the import graph rather than copying a sibling job. Until
+deployment reads `uv.lock`, each job group mirrors the job's `requirements.txt` and a test keeps
+them equal. After changing a group or the `fri-utils` revision, run `uv lock` and commit `uv.lock`.
 
 #### Serving the website
 
@@ -139,9 +154,9 @@ See `src/llm_forecaster/AGENTS.md` for package-specific LLM forecaster rules.
 ## Commits
 
 * Run `make lint` and fix any linting errors before committing
-* Run `make test` and fix any test errors before committing. Automated agents must
-  instead run the equivalent pytest command from their own external virtual
-  environment, because `make test` manages the repository `.venv`.
+* Run `make test` and fix any test errors before committing. Automated agents must set
+  `UV_PROJECT_ENVIRONMENT` first (see "Before working") so `make test` does not touch the
+  repository `.venv`.
 * When working on a branch, if you’re revising earlier work, amend the relevant existing commit instead of creating a new one.
 
 ### Commit messages
