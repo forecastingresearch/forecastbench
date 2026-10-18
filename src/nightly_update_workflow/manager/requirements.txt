@@ -5,7 +5,7 @@ slack_sdk
 pandas>=2.2.2,<3.0
 tqdm
 tabulate
-gcsfs==2024.3.1
+gcsfs==2025.7.0
 scipy
 pandera
 termcolor

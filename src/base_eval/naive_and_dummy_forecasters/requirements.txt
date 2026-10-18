@@ -1,6 +1,6 @@
 google-cloud-storage
 google-cloud-secret-manager
-gcsfs==2024.3.1
+gcsfs==2025.7.0
 backoff
 pandas>=2.2.2,<3.0
 pandas-market-calendars
