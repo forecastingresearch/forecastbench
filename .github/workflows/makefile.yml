@@ -19,6 +19,16 @@ jobs:
       with:
         python-version-file: '.python-version'
 
+    - name: Install uv
+      uses: astral-sh/setup-uv@v10.3.0
+      with:
+        version: "0.13.1"
+        enable-cache: true
+        cache-dependency-glob: |
+          requirements.txt
+          requirements.runtime.txt
+          src/**/requirements.txt
+
     - name: Install Python dependencies
       run: make setup-python-env
 

@@ -49,6 +49,7 @@ MAKE_LINT_ERROR_OUT ?= 0
 RUFF_CHECK_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),,--fix)
 RUFF_FORMAT_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check,)
 VENV_PYTHON := .venv/bin/python
+UV ?= uv
 ROOT_REQUIREMENTS_STAMP := .venv/.root-requirements-installed
 ALL_REQUIREMENTS_STAMP := .venv/.all-requirements-installed
 ROOT_REQUIREMENTS_NO_RUNTIME := .venv/.root-requirements-no-runtime.txt
@@ -71,22 +72,26 @@ clean:
 	done
 
 $(VENV_PYTHON):
+	@command -v $(UV) >/dev/null 2>&1 || { \
+		echo "uv is required to manage .venv: https://docs.astral.sh/uv/getting-started/installation/"; \
+		exit 1; \
+	}
 	rm -rf .venv
-	python3 -m venv .venv
+	$(UV) venv --seed .venv
 
 .venv: $(VENV_PYTHON)
 
 $(ROOT_REQUIREMENTS_STAMP): Makefile requirements.txt requirements.runtime.txt | $(VENV_PYTHON)
 	@grep -v -x -- "-r requirements.runtime.txt" requirements.txt > $(ROOT_REQUIREMENTS_NO_RUNTIME)
-	@. ${ROOT_DIR}.venv/bin/activate && python -m pip install -r requirements.runtime.txt
-	@. ${ROOT_DIR}.venv/bin/activate && python -m pip install -r $(ROOT_REQUIREMENTS_NO_RUNTIME)
+	@$(UV) pip install --python $(VENV_PYTHON) -r requirements.runtime.txt
+	@$(UV) pip install --python $(VENV_PYTHON) -r $(ROOT_REQUIREMENTS_NO_RUNTIME)
 	@touch $@
 
 $(ALL_REQUIREMENTS_STAMP): Makefile $(ROOT_REQUIREMENTS_STAMP) $(SRC_REQUIREMENTS)
-	@find src -type d | while read dir; do \
+	@find src -type d | sort | while read dir; do \
 		if [ -f "$$dir/Makefile" ] && [ -f "$$dir/requirements.txt" ]; then \
 			echo "\nInstalling requirements in $$dir"; \
-			(cd $$dir && . ${ROOT_DIR}/.venv/bin/activate && python -m pip install -r requirements.txt) || exit $$?; \
+			$(UV) pip install --python $(VENV_PYTHON) -r $$dir/requirements.txt || exit $$?; \
 			echo "Installation complete in $$dir\n"; \
 		fi; \
 	done

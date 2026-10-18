@@ -140,12 +140,15 @@ def test_root_make_test_bootstraps_python_env_before_pytest():
     )
     dry_run_output = result.stdout + result.stderr
 
-    assert "python -m pip install -r requirements.runtime.txt" in dry_run_output
-    assert "python -m pip install -r .venv/.root-requirements-no-runtime.txt" in dry_run_output
-    assert dry_run_output.index("python -m pip install") < dry_run_output.index(
-        "python -m pytest src/tests/ --version"
+    runtime_install = dry_run_output.index(
+        "install --python .venv/bin/python -r requirements.runtime.txt"
     )
-    assert "python -m pytest src/tests/ --version" in dry_run_output
+    root_install = dry_run_output.index(
+        "install --python .venv/bin/python -r .venv/.root-requirements-no-runtime.txt"
+    )
+    pytest_invocation = dry_run_output.index("python -m pytest src/tests/ --version")
+
+    assert runtime_install < root_install < pytest_invocation
 
 
 def test_root_install_requirements_uses_deployed_utils_pin():
@@ -165,6 +168,7 @@ def test_root_install_requirements_uses_deployed_utils_pin():
         "$(ALL_REQUIREMENTS_STAMP): Makefile $(ROOT_REQUIREMENTS_STAMP) $(SRC_REQUIREMENTS)"
         in makefile
     )
-    assert "python -m pip install -e" not in makefile
-    assert "python -m pip install -r requirements.runtime.txt" in makefile
-    assert "python -m pip install -r $(ROOT_REQUIREMENTS_NO_RUNTIME)" in makefile
+    assert "install -e" not in makefile
+    assert "--editable" not in makefile
+    assert "install --python $(VENV_PYTHON) -r requirements.runtime.txt" in makefile
+    assert "install --python $(VENV_PYTHON) -r $(ROOT_REQUIREMENTS_NO_RUNTIME)" in makefile

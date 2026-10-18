@@ -44,11 +44,14 @@ via Cloud Run entrypoints under `src/orchestration/func_llm_forecaster_*`.
 
 ### First time setup
 
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+
 ```bash
 $ make setup-python-env
 ```
 
-Shared utilities are installed as the `fri-utils` package from root
+This creates `.venv` with the Python version in `.python-version` and installs every
+`requirements.txt` into it. Shared utilities are installed as the `fri-utils` package from root
 `requirements.runtime.txt`; this repository no longer has a root `utils` git submodule.
 
 ### Before working
@@ -58,7 +61,7 @@ Set up and activate a Python virtual environment before running Python commands.
 For automated agents: treat the repository `.venv` directory as user-owned. Do not
 create it, delete it, install packages into it, or run Make targets that recreate or
 modify it. If `.venv` exists, leave it untouched and create your own environment
-outside the repository, for example under `/tmp/forecastbench-agent-venv`.
+outside the repository, for example with `uv venv --python 3.14 /tmp/forecastbench-agent-venv`.
 
 Authenticate with GCP (once/day):
 
