@@ -3,8 +3,6 @@
 Only consumed by ``sources.dbnomics``; kept in a separate file purely for maintainability.
 """
 
-# flake8: noqa: B950
-
 METEOFRANCE_STATIONS = [
     {"id": "07005", "station": "Abbeville"},
     {"id": "07015", "station": "Lille Airport"},

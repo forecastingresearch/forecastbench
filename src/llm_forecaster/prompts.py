@@ -60,7 +60,7 @@ Question resolution date: {resolution_date}
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal.
 Do not output anything else.
 Answer: {{ Insert answer here }}
-"""  # noqa: B950
+"""  # noqa: E501
 
 ZERO_SHOT_MARKET_WITH_FREEZE_VALUE_PROMPT = """
 You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can't answer, pick the base rate, but return a number between 0 and 1.
@@ -84,7 +84,7 @@ Question resolution date: {resolution_date}
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal.
 Do not output anything else.
 Answer: {{ Insert answer here }}
-"""  # noqa: B950
+"""  # noqa: E501
 
 
 ZERO_SHOT_DATASET_PROMPT = """
@@ -113,7 +113,7 @@ Question resolution dates: {list_of_resolution_dates}
 
 Output your answer (a number between 0 and 1) with an asterisk at the beginning and end of the decimal. (For example, if there are n resolution dates, you would output different *p* for each resolution date) Do not output anything else.
 Answer: {{ Insert answer here }}
-"""  # noqa: B950
+"""  # noqa: E501
 
 
 FORECAST_EXTRACTION_PROMPT = """
@@ -140,4 +140,4 @@ MODEL RESPONSE:
 ```text
 {model_response}
 ```
-"""  # noqa: B950
+"""  # noqa: E501

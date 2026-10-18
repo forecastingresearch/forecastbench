@@ -166,8 +166,7 @@ def _log_written_forecast_files(
         _written_forecast_file_summary(written_file) for written_file in written_files
     ]
     logger.info(
-        f"Wrote and uploaded {len(written_files)} LLM forecast files: "
-        f"{'; '.join(file_summaries)}"
+        f"Wrote and uploaded {len(written_files)} LLM forecast files: {'; '.join(file_summaries)}"
     )
 
 

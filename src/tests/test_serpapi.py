@@ -355,7 +355,7 @@ def test_update_refreshes_metadata_without_refetching(source, monkeypatch, freez
     saved = second.dfq.iloc[0]
     assert saved["resolution_criteria"] == f"Revised criteria for {variables['flight_id']}."
     assert saved["background"] == (
-        f"Revised background for {variables['flight_id']}. " f"See: {saved['url']}"
+        f"Revised background for {variables['flight_id']}. See: {saved['url']}"
     )
     assert_flight_median_explanation(
         second.dfq.iloc[0]["freeze_datetime_value_explanation"],

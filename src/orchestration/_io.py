@@ -267,7 +267,7 @@ def push_datasets_to_git() -> None:
     end of the run rather than having each of the parallel resolve and leaderboard jobs push
     its own files, which avoids the race condition of concurrent pushes to the repository.
     """
-    from helpers import git, keys  # noqa: E402
+    from helpers import git, keys
 
     if env.RUNNING_LOCALLY:
         logger.info("Running locally; not pushing datasets to git.")

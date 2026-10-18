@@ -100,7 +100,7 @@ def test_read_question_set_json_reads_published_raw_file(monkeypatch):
     assert data["forecast_due_date"] == "2026-05-10"
     assert calls == [
         (
-            (f"{_io.DATASETS_QUESTION_SETS_RAW_BASE_URL}" "/2026-05-10-llm.json"),
+            (f"{_io.DATASETS_QUESTION_SETS_RAW_BASE_URL}/2026-05-10-llm.json"),
             _io.QUESTION_SET_READ_TIMEOUT_SECONDS,
         )
     ]

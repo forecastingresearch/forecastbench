@@ -2,9 +2,8 @@ import ast
 import json
 import re
 
-from llm_forecaster import fb_model_runs, output
+from llm_forecaster import fb_model_runs, output, runner
 from llm_forecaster import question_set as question_set_module
-from llm_forecaster import runner
 from llm_forecaster.forecast_variants import ZERO_SHOT, ZERO_SHOT_WITH_FREEZE_VALUES
 from orchestration import _io, _llm_forecaster_io
 from sources import DATASET_SOURCE_NAMES

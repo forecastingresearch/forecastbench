@@ -1,9 +1,9 @@
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-ROOT_UTILS_EXCLUDE_PATTERN = "| " + "^" + "/utils/"
 ROOT_UTILS_COPY_COMMAND = " ".join(("cp", "-r", "$(ROOT_DIR)" + "utils"))
 
 
@@ -23,12 +23,14 @@ def test_root_utils_submodule_metadata_removed():
 
 
 def test_formatters_no_longer_exclude_root_utils():
-    setup_cfg = (ROOT / "setup.cfg").read_text()
-    pyproject = (ROOT / "pyproject.toml").read_text()
+    ruff_config = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["ruff"]
+    exclude_patterns = (
+        ruff_config.get("exclude", [])
+        + ruff_config.get("extend-exclude", [])
+        + ruff_config.get("format", {}).get("exclude", [])
+    )
 
-    assert "utils," not in setup_cfg
-    assert ROOT_UTILS_EXCLUDE_PATTERN not in pyproject
-    assert "match-dir = ^(?!(\\.venv|utils|" not in setup_cfg
+    assert not [pattern for pattern in exclude_patterns if "utils" in pattern]
 
 
 def test_deploy_makefiles_do_not_copy_root_utils():

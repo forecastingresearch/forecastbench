@@ -4,9 +4,9 @@ import os
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import cloud_run, dates, env, question_curation  # noqa: E402
-from orchestration import _io  # noqa: E402
-from sources import ALL_SOURCE_NAMES, SOURCE_METADATA  # noqa: E402
+from helpers import cloud_run, dates, env, question_curation
+from orchestration import _io
+from sources import ALL_SOURCE_NAMES, SOURCE_METADATA
 
 metadata = [
     [

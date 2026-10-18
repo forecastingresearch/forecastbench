@@ -78,7 +78,7 @@ def get_market_value_bin(value: float | str | None) -> str:
 
     try:
         val = float(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return "unknown"
 
     for bin_config in MARKET_VALUE_CONFIG:
@@ -115,7 +115,7 @@ def get_time_horizon_bin(close_datetime: str | None, forecast_datetime: datetime
             if horizon_config["min"] <= days_until_close <= horizon_config["max"]:
                 return get_bin_label(horizon_config, "time_horizon")
         return "unknown"
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return "unknown"
 
 

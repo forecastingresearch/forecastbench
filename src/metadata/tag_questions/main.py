@@ -15,7 +15,7 @@ from typesafe_sdk.constants import DEFAULT_TIMEOUT as JEV_DEFAULT_TIMEOUT
 from utils import gcp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import (  # noqa: E402
+from helpers import (
     constants,
     data_utils,
     decorator,

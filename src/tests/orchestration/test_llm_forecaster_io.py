@@ -143,7 +143,7 @@ def test_write_final_forecast_file_overwrites_existing_local_file(tmp_path):
         ),
     )
     existing_path = tmp_path / (
-        "TEST.2026-05-10.ForecastBench.OpenAI.Test Lab." "test-model-run-variant-01-zero-shot.json"
+        "TEST.2026-05-10.ForecastBench.OpenAI.Test Lab.test-model-run-variant-01-zero-shot.json"
     )
     existing_path.write_text("existing", encoding="utf-8")
 

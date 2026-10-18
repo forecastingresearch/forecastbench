@@ -423,8 +423,10 @@ class YfinanceSource(DatasetSource):
           dfq (pd.DataFrame): yfinance questions
         """
         return dfq["id"].map(
-            lambda qid: self._is_pair_id(qid)
-            and any(t in self.retired_question_ids for t in self._split_pair_id(qid))
+            lambda qid: (
+                self._is_pair_id(qid)
+                and any(t in self.retired_question_ids for t in self._split_pair_id(qid))
+            )
         )
 
     # ------------------------------------------------------------------

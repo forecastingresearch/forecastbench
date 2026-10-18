@@ -532,11 +532,14 @@ class TestDownloadTables:
     def test_coerces_value_dtype_and_drops_unparseable_rows(self):
         page = _fide_elo_page()  # fields Player/Rating, value dtype int
         raw = pd.DataFrame({"Player": ["A", "B"], "Rating": ["2800", "not-a-number"]})
-        with patch.object(
-            WikipediaSource,
-            "_get_edit_history",
-            return_value=[(datetime(2024, 6, 1, 12, 0), "rev1")],
-        ), patch.object(WikipediaSource, "_download_wikipedia_table", return_value=raw.copy()):
+        with (
+            patch.object(
+                WikipediaSource,
+                "_get_edit_history",
+                return_value=[(datetime(2024, 6, 1, 12, 0), "rev1")],
+            ),
+            patch.object(WikipediaSource, "_download_wikipedia_table", return_value=raw.copy()),
+        ):
             result = WikipediaSource._download_tables(page, session=object())
 
         # "not-a-number" -> NaN -> row dropped; A kept as an int; edit date stamped.
@@ -550,9 +553,10 @@ class TestDownloadTables:
         page = _fide_elo_page()
         edit_history = [(datetime(2024, 6, 1, 12, 0), f"rev{i}") for i in range(250)]
         raw = pd.DataFrame({"Player": ["A"], "Rating": ["2800"]})
-        with patch.object(
-            WikipediaSource, "_get_edit_history", return_value=edit_history
-        ), patch.object(WikipediaSource, "_download_wikipedia_table", return_value=raw.copy()):
+        with (
+            patch.object(WikipediaSource, "_get_edit_history", return_value=edit_history),
+            patch.object(WikipediaSource, "_download_wikipedia_table", return_value=raw.copy()),
+        ):
             with caplog.at_level("INFO", logger="sources.wikipedia"):
                 WikipediaSource._download_tables(page, session=object())
 
@@ -577,8 +581,9 @@ class TestFetch:
         def fake_download_tables(page, session):
             return fake_df.copy()
 
-        with patch.object(WikipediaSource, "_make_session", return_value=object()), patch.object(
-            WikipediaSource, "_download_tables", side_effect=fake_download_tables
+        with (
+            patch.object(WikipediaSource, "_make_session", return_value=object()),
+            patch.object(WikipediaSource, "_download_tables", side_effect=fake_download_tables),
         ):
             result = wikipedia_source.fetch()
 
@@ -599,8 +604,9 @@ class TestFetch:
                 return pd.DataFrame()
             return good.copy()
 
-        with patch.object(WikipediaSource, "_make_session", return_value=object()), patch.object(
-            WikipediaSource, "_download_tables", side_effect=fake_download_tables
+        with (
+            patch.object(WikipediaSource, "_make_session", return_value=object()),
+            patch.object(WikipediaSource, "_download_tables", side_effect=fake_download_tables),
         ):
             result = wikipedia_source.fetch()
 
@@ -615,8 +621,9 @@ class TestFetch:
         )
 
     def test_raises_when_every_page_fails(self, wikipedia_source):
-        with patch.object(WikipediaSource, "_make_session", return_value=object()), patch.object(
-            WikipediaSource, "_download_tables", return_value=None
+        with (
+            patch.object(WikipediaSource, "_make_session", return_value=object()),
+            patch.object(WikipediaSource, "_download_tables", return_value=None),
         ):
             with pytest.raises(RuntimeError, match="No Wikipedia data was downloaded"):
                 wikipedia_source.fetch()
@@ -629,9 +636,11 @@ class TestFetchJob:
         from orchestration.func_wikipedia_fetch import main as fetch_main
 
         fetch_result = {"FIDE_rankings_elo_rating": pd.DataFrame({"Player": ["A"]})}
-        with patch.object(fetch_main, "WikipediaSource") as mock_source_class, patch.object(
-            fetch_main._source_io, "write_wikipedia_fetch_output"
-        ) as mock_write, patch.object(fetch_main.slack, "send_message") as mock_slack:
+        with (
+            patch.object(fetch_main, "WikipediaSource") as mock_source_class,
+            patch.object(fetch_main._source_io, "write_wikipedia_fetch_output") as mock_write,
+            patch.object(fetch_main.slack, "send_message") as mock_slack,
+        ):
             mock_source_class.return_value.fetch.return_value = fetch_result
             mock_source_class.return_value.failed_pages = failed_pages
             fetch_main.driver(None)
@@ -793,14 +802,17 @@ def test_read_wikipedia_fetch_files_keeps_empty_pages_and_skips_non_jsonl():
             f.write(contents[filename])
 
     try:
-        with patch.object(
-            _source_io.gcp.storage,
-            "list_with_prefix",
-            return_value=[*contents, f"wikipedia/fetch/{prefix}_notes.txt"],
-        ), patch.object(
-            _source_io.gcp.storage,
-            "download_no_error_message_on_404",
-            side_effect=fake_download,
+        with (
+            patch.object(
+                _source_io.gcp.storage,
+                "list_with_prefix",
+                return_value=[*contents, f"wikipedia/fetch/{prefix}_notes.txt"],
+            ),
+            patch.object(
+                _source_io.gcp.storage,
+                "download_no_error_message_on_404",
+                side_effect=fake_download,
+            ),
         ):
             result = _source_io.read_wikipedia_fetch_files()
     finally:

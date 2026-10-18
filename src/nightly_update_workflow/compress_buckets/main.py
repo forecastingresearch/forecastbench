@@ -10,7 +10,7 @@ from typing import Any
 from termcolor import colored
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import decorator, env  # noqa: E402
+from helpers import decorator, env
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
