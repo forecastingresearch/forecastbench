@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from question_sampling.create_question_set import drop_questions_not_in_english
+from question_sampling._prepare import drop_questions_not_in_english
 
 
 def test_questions_not_in_english_are_dropped():

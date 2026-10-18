@@ -7,10 +7,7 @@ import pandas as pd
 
 import question_sampling
 from _fb_types import NullifiedQuestion
-from question_sampling.create_question_set import (
-    drop_culled_questions,
-    drop_nullified_questions,
-)
+from question_sampling._prepare import drop_culled_questions, drop_nullified_questions
 from sources.registry import SOURCES
 
 _SAMPLING_DIR = Path(question_sampling.__file__).parent

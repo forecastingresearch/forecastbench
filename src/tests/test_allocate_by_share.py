@@ -1,11 +1,8 @@
-"""Tests for share-based allocation in create_question_set."""
+"""Share-based allocation: targets follow the shares and are capped by what is available."""
 
 import pytest
 
-from question_sampling.create_question_set import (
-    _round_by_largest_remainder,
-    allocate_by_share,
-)
+from question_sampling._allocation import _round_by_largest_remainder, allocate_by_share
 
 DATASET_SHARES = {
     "acled": 0.95 / 3,
