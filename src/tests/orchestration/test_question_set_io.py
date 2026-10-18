@@ -35,6 +35,45 @@ def test_read_question_set_json_from_local_file(tmp_path):
     assert data["questions"] == [{"id": "q1", "source": "fred"}]
 
 
+def test_question_set_file_is_written_as_raw_utf8_not_ascii_escapes(tmp_path):
+    question_text = "Will the “Südmo – décor” index rise?"
+    question_set = {
+        "forecast_due_date": "2026-10-13",
+        "question_set": "2026-10-13-llm.json",
+        "questions": [{"id": "q1", "source": "dbnomics", "question": question_text}],
+    }
+    filename = tmp_path / question_set["question_set"]
+
+    _io.write_question_set_file(filename, question_set)
+
+    raw = filename.read_bytes()
+    assert b"\\u" not in raw
+    assert question_text.encode("utf-8") in raw
+    with open(filename, encoding="utf-8") as f:
+        assert json.load(f)["questions"][0]["question"] == question_text
+
+
+def test_question_set_is_uploaded_under_its_name_and_as_the_latest_of_its_kind(
+    monkeypatch, tmp_path
+):
+    """Both copies land at the root of the question-sets bucket, where the publish job looks."""
+    monkeypatch.setenv("QUESTION_SETS_BUCKET", "question-sets")
+    uploads = []
+    monkeypatch.setattr(_io.gcp.storage, "upload", lambda **kwargs: uploads.append(kwargs))
+    local_filename = tmp_path / "2026-10-13-human.json"
+    local_filename.write_text("{}")
+
+    _io.upload_question_set(local_filename, filename="2026-10-13-human.json", target="human")
+
+    assert [
+        (u["bucket_name"], u["local_filename"], u.get("destination_folder", ""), u["filename"])
+        for u in uploads
+    ] == [
+        ("question-sets", str(local_filename), "", "2026-10-13-human.json"),
+        ("question-sets", str(local_filename), "", "latest-human.json"),
+    ]
+
+
 def _json_response(data):
     return io.BytesIO(json.dumps(data).encode("utf-8"))
 

@@ -378,18 +378,27 @@ def write_question_set_file(local_filename: str | os.PathLike, question_set: dic
         json.dump(question_set, f, indent=4, ensure_ascii=False)
 
 
-def upload_question_set(
-    local_filename: str | os.PathLike, filename: str, latest_filename: str
-) -> None:
+def latest_question_set_filename(target: str) -> str:
+    """Return the name of the copy that always points at the latest question set of a kind.
+
+    Args:
+        target (str): The question set target, ``"llm"`` or ``"human"``
+    """
+    return f"latest-{target}.json"
+
+
+def upload_question_set(local_filename: str | os.PathLike, filename: str, target: str) -> None:
     """Upload a question set to the question-sets bucket, also as the latest set of its kind.
+
+    Both copies land at the root of the bucket, where the publish job looks for them.
 
     Args:
         local_filename (str | os.PathLike): The local question set file
         filename (str): Its name in the bucket, e.g. ``2026-10-13-llm.json``
-        latest_filename (str): The name of the copy that always points at the latest set, e.g.
-            ``latest-llm.json``
+        target (str): The question set target, ``"llm"`` or ``"human"``, which names the
+            ``latest-`` copy
     """
-    for destination in (filename, latest_filename):
+    for destination in (filename, latest_question_set_filename(target)):
         gcp.storage.upload(
             bucket_name=env.QUESTION_SETS_BUCKET,
             local_filename=str(local_filename),
@@ -433,7 +442,7 @@ def _read_published_question_set_json(filename: str) -> dict:
         return json.loads(content)
     except json.JSONDecodeError:
         pointer = content.decode("utf-8").strip()
-        if filename == "latest-llm.json" and pointer.endswith(".json"):
+        if filename == latest_question_set_filename("llm") and pointer.endswith(".json"):
             return _read_published_question_set_json(pointer)
         raise
 
@@ -459,7 +468,7 @@ def read_question_set_json(filename: str, run_locally: bool = False) -> dict:
 
 def get_latest_llm_question_set_metadata(run_locally: bool = False) -> dict[str, str]:
     """Return forecast due date and question set filename for the latest LLM set."""
-    data = read_question_set_json("latest-llm.json", run_locally=run_locally)
+    data = read_question_set_json(latest_question_set_filename("llm"), run_locally=run_locally)
     forecast_due_date = data.get("forecast_due_date")
     question_set = data.get("question_set")
     if not forecast_due_date or not question_set:
