@@ -14,5 +14,5 @@ define stage-orchestration-upload
 $(foreach package,$(ORCHESTRATION_EXTRA_PACKAGES),	cp -r $(ROOT_DIR)src/$(package) $(UPLOAD_DIR)/$(package)
 )
 	cp $^ $(UPLOAD_DIR)/
-	cat $(ROOT_DIR)requirements.runtime.txt requirements.txt > $(UPLOAD_DIR)/requirements.txt
+	$(call export-requirements,$(UPLOAD_DIR))
 endef

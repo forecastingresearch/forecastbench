@@ -1,7 +1,0 @@
-google-cloud-storage
-backoff
-pandas>=2.2.2,<3.0
-requests
-pandera
-numpy
-termcolor

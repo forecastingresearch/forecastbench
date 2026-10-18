@@ -1,4 +1,0 @@
-google-cloud-storage
-google-cloud-secret-manager
-termcolor
-pandera

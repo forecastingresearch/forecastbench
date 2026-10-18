@@ -419,7 +419,7 @@ package = false
 default-groups = "all"
 
 [tool.uv.sources]
-# Bump `rev` to update the shared utilities, then run `uv lock`.
+# Bump `rev` to update the shared utilities, then run `uv lock` and redeploy.
 fri-utils = { git = "https://github.com/forecastingresearch/utils", rev = "843ae21dc8d5a4a75402ef6b3e46168ef88747e2" }
 
 [tool.pytest.ini_options]

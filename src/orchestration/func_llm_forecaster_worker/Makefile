@@ -5,6 +5,7 @@ all:
 .PHONY: all clean deploy
 
 UPLOAD_DIR = upload
+DEPENDENCY_GROUP = func-llm-forecaster-worker
 ROOT_DIR ?= $(abspath ../../..)/
 include $(ROOT_DIR)orchestration_upload.mk
 
@@ -14,7 +15,7 @@ include $(ROOT_DIR)deploy_config.mk
 
 NUM_CPUS = 4
 
-deploy : main.py .gcloudignore requirements.txt Dockerfile
+deploy : main.py .gcloudignore Dockerfile
 	$(stage-orchestration-upload)
 	gcloud run jobs deploy \
 		func-llm-forecaster-worker \

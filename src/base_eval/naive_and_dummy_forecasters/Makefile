@@ -5,10 +5,11 @@ all :
 .PHONY : all clean deploy
 
 UPLOAD_DIR = upload
+DEPENDENCY_GROUP = naive-and-dummy-forecasters
 
 include $(ROOT_DIR)deploy_config.mk
 
-deploy : main.py .gcloudignore requirements.txt Dockerfile
+deploy : main.py .gcloudignore Dockerfile
 	rm -rf $(UPLOAD_DIR)
 	mkdir -p $(UPLOAD_DIR)
 	cp -r $(ROOT_DIR)src/helpers $(UPLOAD_DIR)/
@@ -19,7 +20,7 @@ deploy : main.py .gcloudignore requirements.txt Dockerfile
 	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
 	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
 	cp $^ $(UPLOAD_DIR)/
-	cat $(ROOT_DIR)requirements.runtime.txt requirements.txt > $(UPLOAD_DIR)/requirements.txt
+	$(call export-requirements,$(UPLOAD_DIR))
 	gcloud run jobs deploy \
 		func-baseline-naive-and-dummy-forecasters \
 		--project $(CLOUD_PROJECT) \

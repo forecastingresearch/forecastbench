@@ -95,9 +95,10 @@ $ cd src/leaderboard && eval $(cat ../../variables.mk | xargs) python main.py
 Dependencies are declared in `pyproject.toml` as dependency groups: `dev` for the lint and test
 tools, `runtime` for the shared `fri-utils` package, and one group per Cloud Run job, named after
 the job's directory under `src/`. A job group lists only what that job imports, directly or as a
-hard transitive import; derive it from the import graph rather than copying a sibling job. Until
-deployment reads `uv.lock`, each job group mirrors the job's `requirements.txt` and a test keeps
-them equal. After changing a group or the `fri-utils` revision, run `uv lock` and commit `uv.lock`.
+hard transitive import; derive it from the import graph rather than copying a sibling job. Deploying
+a job exports its group from `uv.lock` into the staged `requirements.txt`, so the image installs
+exactly the locked versions. After changing a group or the `fri-utils` revision, run `uv lock` and
+commit `uv.lock`.
 
 #### Serving the website
 

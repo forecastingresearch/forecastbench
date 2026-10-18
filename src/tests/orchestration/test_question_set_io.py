@@ -1,5 +1,6 @@
 import io
 import json
+import tomllib
 from pathlib import Path
 
 import pandas as pd
@@ -8,11 +9,11 @@ import pytest
 from orchestration import _io
 
 ROOT = Path(__file__).resolve().parents[3]
-RAW_QUESTION_SET_REQUIREMENTS_WITHOUT_GITPYTHON = [
-    ROOT / "requirements.txt",
-    ROOT / "src" / "orchestration" / "func_llm_forecaster_manager" / "requirements.txt",
-    ROOT / "src" / "orchestration" / "func_llm_forecaster_worker" / "requirements.txt",
-    ROOT / "src" / "base_eval" / "naive_and_dummy_forecasters" / "requirements.txt",
+RAW_QUESTION_SET_DEPENDENCY_GROUPS_WITHOUT_GITPYTHON = [
+    "dev",
+    "func-llm-forecaster-manager",
+    "func-llm-forecaster-worker",
+    "naive-and-dummy-forecasters",
 ]
 
 
@@ -157,6 +158,7 @@ def test_get_latest_llm_question_set_metadata_uses_latest_file(monkeypatch):
 
 
 def test_raw_question_set_readers_do_not_require_gitpython():
-    for requirements_path in RAW_QUESTION_SET_REQUIREMENTS_WITHOUT_GITPYTHON:
-        requirements = requirements_path.read_text()
-        assert "GitPython" not in requirements, requirements_path
+    groups = tomllib.loads((ROOT / "pyproject.toml").read_text())["dependency-groups"]
+    for group_name in RAW_QUESTION_SET_DEPENDENCY_GROUPS_WITHOUT_GITPYTHON:
+        requirements = [entry for entry in groups[group_name] if isinstance(entry, str)]
+        assert not [r for r in requirements if r.lower().startswith("gitpython")], group_name

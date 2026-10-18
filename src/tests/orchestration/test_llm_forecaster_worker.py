@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -366,7 +367,9 @@ def test_parse_env_selects_model_by_cloud_run_task_index(monkeypatch):
 def test_worker_deploy_stages_runtime_requirements_and_shared_code():
     deploy_dir = ROOT / "src/orchestration/func_llm_forecaster_worker"
     makefile = (deploy_dir / "Makefile").read_text()
-    requirements = (deploy_dir / "requirements.txt").read_text()
+    dependencies = tomllib.loads((ROOT / "pyproject.toml").read_text())["dependency-groups"][
+        "func-llm-forecaster-worker"
+    ]
     deploy_recipe = subprocess.check_output(
         ["make", "-n", "-C", str(deploy_dir), "deploy"],
         text=True,
@@ -376,8 +379,9 @@ def test_worker_deploy_stages_runtime_requirements_and_shared_code():
     assert "--service-account $(QUESTION_BANK_BUCKET_SERVICE_ACCOUNT)" in makefile
     assert "include $(ROOT_DIR)orchestration_upload.mk" in makefile
     assert "ORCHESTRATION_EXTRA_PACKAGES = llm_forecaster" in makefile
+    assert "DEPENDENCY_GROUP = func-llm-forecaster-worker" in makefile
     assert (
-        f"cat {ROOT}/requirements.runtime.txt requirements.txt > upload/requirements.txt"
+        f"--only-group func-llm-forecaster-worker --output-file {deploy_dir}/upload/requirements.txt"
         in deploy_recipe
     )
     assert f"cp -r {ROOT}/src/helpers upload/" in deploy_recipe
@@ -390,4 +394,5 @@ def test_worker_deploy_stages_runtime_requirements_and_shared_code():
     )
     assert f"cp {ROOT}/src/_fb_types.py upload/" in deploy_recipe
     assert f"cp {ROOT}/src/_schemas.py upload/" in deploy_recipe
-    assert UTILS_PIN not in requirements
+    assert {"include-group": "runtime"} in dependencies
+    assert not [entry for entry in dependencies if isinstance(entry, str) and UTILS_PIN in entry]

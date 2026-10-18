@@ -1,6 +1,7 @@
 import importlib
 import subprocess
 import sys
+import tomllib
 import types
 from pathlib import Path
 
@@ -169,7 +170,9 @@ def test_manager_fixture_replaces_stale_parent_cloud_run_attribute(
 def test_manager_deploy_stages_runtime_requirements_and_shared_code():
     deploy_dir = ROOT / "src/orchestration/func_llm_forecaster_manager"
     makefile = (deploy_dir / "Makefile").read_text()
-    requirements = (deploy_dir / "requirements.txt").read_text()
+    dependencies = tomllib.loads((ROOT / "pyproject.toml").read_text())["dependency-groups"][
+        "func-llm-forecaster-manager"
+    ]
     deploy_recipe = subprocess.check_output(
         ["make", "-n", "-C", str(deploy_dir), "deploy"],
         text=True,
@@ -181,8 +184,9 @@ def test_manager_deploy_stages_runtime_requirements_and_shared_code():
     assert "TEST_OR_PROD=$(if $(filter $(BUILD_ENV),prod),PROD,TEST)" in makefile
     assert "include $(ROOT_DIR)orchestration_upload.mk" in makefile
     assert "ORCHESTRATION_EXTRA_PACKAGES = llm_forecaster" in makefile
+    assert "DEPENDENCY_GROUP = func-llm-forecaster-manager" in makefile
     assert (
-        f"cat {ROOT}/requirements.runtime.txt requirements.txt > upload/requirements.txt"
+        f"--only-group func-llm-forecaster-manager --output-file {deploy_dir}/upload/requirements.txt"
         in deploy_recipe
     )
     assert f"cp -r {ROOT}/src/helpers upload/" in deploy_recipe
@@ -192,4 +196,5 @@ def test_manager_deploy_stages_runtime_requirements_and_shared_code():
     assert f"cp {ROOT}/src/orchestration/_source_io.py upload/orchestration/" in deploy_recipe
     assert f"cp {ROOT}/src/_fb_types.py upload/" in deploy_recipe
     assert f"cp {ROOT}/src/_schemas.py upload/" in deploy_recipe
-    assert UTILS_PIN not in requirements
+    assert {"include-group": "runtime"} in dependencies
+    assert not [entry for entry in dependencies if isinstance(entry, str) and UTILS_PIN in entry]
