@@ -5,7 +5,7 @@ import logging
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from . import keys  # noqa: E402
+from . import keys
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

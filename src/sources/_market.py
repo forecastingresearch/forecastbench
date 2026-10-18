@@ -183,7 +183,7 @@ class MarketSource(BaseSource):
         def to_date_or_max(s):
             try:
                 return dates.convert_zulu_to_datetime(s).date()
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 return date.max
 
         close_date = to_date_or_max(row["market_info_close_datetime"].iloc[0])

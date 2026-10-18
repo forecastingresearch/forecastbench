@@ -72,9 +72,9 @@ def test_deploy_requirements_do_not_duplicate_utils_owned_llm_provider_deps():
         requirement_names = {
             re.split(r"[<>=!~]", requirement, maxsplit=1)[0].strip() for requirement in requirements
         }
-        assert requirement_names.isdisjoint(
-            SHARED_LLM_PROVIDER_REQUIREMENT_NAMES
-        ), requirements_path
+        assert requirement_names.isdisjoint(SHARED_LLM_PROVIDER_REQUIREMENT_NAMES), (
+            requirements_path
+        )
 
 
 def test_metadata_deploy_requirements_keep_direct_gcp_deps():

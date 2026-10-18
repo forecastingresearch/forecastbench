@@ -2,12 +2,34 @@
 testpaths = ["src/tests"]
 pythonpath = ["src"]
 
-[tool.black]
+[tool.ruff]
 line-length = 100
-force-exclude = '''
-(
-    ^/.venv.*
-    | ^/experiments/stability-analysis/
-    | ^/experiments/ranking-simulation/
-)
-'''
+target-version = "py314"
+src = [".", "src"]
+extend-exclude = [
+    ".venv*",
+    "experiments/stability-analysis",
+    "experiments/ranking-simulation",
+    "upload*",
+]
+
+[tool.ruff.lint]
+# Parity with the previous isort + flake8 (+ bugbear B950) + pydocstyle setup.
+select = ["E", "W", "F", "B", "I", "D"]
+# E203/E701 are formatter-owned; B9xx is bugbear's opt-in set (B950 is emulated by E501 below).
+ignore = ["E203", "E701", "B9"]
+
+[tool.ruff.lint.pycodestyle]
+# E501 at 110 reproduces bugbear's B950 (line-length + 10 %).
+max-line-length = 110
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["D"]
+"src/sources/fred_questions.py" = ["E501"]
+"src/sources/wikipedia.py" = ["E501"]
+
+[tool.ruff.format]
+exclude = ["*.md"]

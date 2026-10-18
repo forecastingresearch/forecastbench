@@ -28,7 +28,7 @@ def convert_and_bound_dates(date_str):
     """Safely convert dates to datetime, setting max date for dates that are too large."""
     try:
         return pd.to_datetime(date_str)
-    except (OutOfBoundsDatetime, OverflowError):
+    except OutOfBoundsDatetime, OverflowError:
         return pd.Timestamp("2262-04-11")
 
 

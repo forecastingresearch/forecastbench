@@ -8,8 +8,8 @@ import pandas as pd
 from tabulate import tabulate
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import cloud_run, constants, env, question_curation, slack  # noqa: E402
-from sources import ALL_SOURCE_NAMES  # noqa: E402
+from helpers import cloud_run, constants, env, question_curation, slack
+from sources import ALL_SOURCE_NAMES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
