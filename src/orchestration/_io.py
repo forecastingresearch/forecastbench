@@ -32,9 +32,10 @@ from sources._base import BaseSource
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+DATASETS_QUESTION_SETS_GIT_FOLDER = "datasets/question_sets"
 DATASETS_QUESTION_SETS_RAW_BASE_URL = (
     "https://raw.githubusercontent.com/forecastingresearch/forecastbench-datasets"
-    "/refs/heads/main/datasets/question_sets"
+    f"/refs/heads/main/{DATASETS_QUESTION_SETS_GIT_FOLDER}"
 )
 QUESTION_SET_READ_TIMEOUT_SECONDS = 30
 
@@ -404,6 +405,68 @@ def upload_question_set(local_filename: str | os.PathLike, filename: str, target
             local_filename=str(local_filename),
             filename=destination,
         )
+
+
+# ---------------------------------------------------------------------------
+# Question set publication
+# ---------------------------------------------------------------------------
+
+
+def publish_question_set(forecast_due_date: str, local_dir: str | os.PathLike) -> None:
+    """Push the LLM question set due on a date to the dataset repo, also as the latest set.
+
+    The set is read from the root of the question-sets bucket, where `upload_question_set` put
+    it, and lands in `datasets/question_sets/` of the repo under its own name and as the
+    `latest-llm.json` symlink that `get_latest_llm_question_set_metadata` follows. Under
+    `RUNNING_LOCALLY` the files are staged but not pushed.
+
+    Args:
+        forecast_due_date (str): The forecast due date as an ISO date, e.g. ``2026-10-13``, which
+            names the question set
+        local_dir (str | os.PathLike): The directory the set is downloaded under, mirroring the
+            repo layout; the symlink is created next to it
+    """
+    from helpers import git, keys
+
+    question_set = f"{forecast_due_date}-llm.json"
+    question_sets = gcp.storage.list(bucket_name=env.QUESTION_SETS_BUCKET)
+    if question_set not in question_sets:
+        raise FileNotFoundError(
+            f"Question set {question_set} not found in bucket {env.QUESTION_SETS_BUCKET}."
+        )
+
+    logger.info(f"Found {question_set}. Downloading and pushing to git.")
+    local_folder = f"{local_dir}/{DATASETS_QUESTION_SETS_GIT_FOLDER}"
+    local_filename = f"{local_folder}/{question_set}"
+    os.makedirs(local_folder, exist_ok=True)
+    gcp.storage.download(
+        bucket_name=env.QUESTION_SETS_BUCKET,
+        filename=question_set,
+        local_filename=local_filename,
+    )
+
+    # The symlink is committed as one, so it must point at the bare name of its sibling.
+    latest_question_set = latest_question_set_filename("llm")
+    latest_filename = f"{local_folder}/{latest_question_set}"
+    if os.path.exists(latest_filename):
+        os.remove(latest_filename)
+    os.symlink(question_set, latest_filename)
+
+    if env.RUNNING_LOCALLY:
+        logger.info(f"Running locally; not pushing {question_set} to git.")
+        return
+
+    mirrors = keys.get_secret_that_may_not_exist("HUGGING_FACE_REPO_URL")
+    mirrors = [mirrors] if mirrors else []
+    git.clone_and_push_files(
+        repo_url=keys.API_GITHUB_DATASET_REPO_URL,
+        files={
+            local_filename: f"{DATASETS_QUESTION_SETS_GIT_FOLDER}/{question_set}",
+            latest_filename: f"{DATASETS_QUESTION_SETS_GIT_FOLDER}/{latest_question_set}",
+        },
+        commit_message=f"publish {question_set}.",
+        mirrors=mirrors,
+    )
 
 
 # ---------------------------------------------------------------------------
