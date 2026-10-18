@@ -1,7 +1,7 @@
 """Tests for assembling and writing the question set files."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
@@ -15,7 +15,7 @@ from question_sampling.create_question_set import (
     keep_current_forecast_horizons,
 )
 
-FORECAST_DATETIME = datetime(2026, 10, 13)
+FORECAST_DATETIME = datetime(2026, 10, 13, tzinfo=timezone.utc)
 
 _BANK_COLUMNS = [
     "id",

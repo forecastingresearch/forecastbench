@@ -1,20 +1,43 @@
 """End-to-end tests of question set creation: filtering, allocation, sampling and output shape."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import question_sampling
 from helpers import constants, question_curation
 from question_sampling import create_question_set
-from question_sampling.create_question_set import QUESTION_SET_COLUMNS
 from sources.registry import SOURCES
 from tests.conftest import make_question_df
 
-FREEZE_DATETIME = datetime(2026, 10, 3)
+# tz-aware UTC, like the question bank datetimes and `question_curation.FREEZE_DATETIME`.
+FREEZE_DATETIME = datetime(2026, 10, 3, tzinfo=timezone.utc)
 FORECAST_DATETIME = FREEZE_DATETIME + timedelta(days=10)
 CATEGORIES = ["Politics & Governance", "Economics & Business", "Science & Tech"]
+
+# The key order of a published question. Pinned literally so that dropping or reordering a column
+# of the question set files fails here rather than in the forecasters that read them.
+PUBLISHED_QUESTION_KEYS = [
+    "id",
+    "source",
+    "question",
+    "resolution_criteria",
+    "background",
+    "market_info_open_datetime",
+    "market_info_close_datetime",
+    "market_info_resolution_criteria",
+    "url",
+    "freeze_datetime",
+    "freeze_datetime_value",
+    "freeze_datetime_value_explanation",
+    "source_intro",
+    "resolution_dates",
+]
+
+_SAMPLING_DIR = Path(question_sampling.__file__).parent
 
 
 def _iso_after_due(days: int) -> str:
@@ -129,7 +152,7 @@ class TestQuestionSetShape:
         assert llm["question_set"] == "2026-10-13-llm.json"
         assert result.human_question_set["question_set"] == "2026-10-13-human.json"
         for question in llm["questions"]:
-            assert list(question) == QUESTION_SET_COLUMNS
+            assert list(question) == PUBLISHED_QUESTION_KEYS
             assert question["freeze_datetime"] == FREEZE_DATETIME.isoformat()
             source = SOURCES[question["source"]]
             assert question["source_intro"] == source.source_intro
@@ -158,42 +181,72 @@ class TestQuestionSetShape:
 
 class TestEligibilityFilters:
     def test_ineligible_questions_are_never_sampled(self, bank):
+        """The sampled set is exactly the eligible set, so a filter that stops working is caught.
+
+        The request equals the number of eligible questions, so a question that leaked through a
+        filter would be drawn and displace an eligible one. The ineligible market rows close
+        inside a sampled time-horizon bin (the too-soon/too-late dates are carried by the
+        resolution datetime) and each ineligible dataset row has a category of its own, so a leak
+        is drawn whatever the seed instead of being hidden by a zero-weight bin or by chance.
+        """
         questions, dfmeta = bank
         pm, fred = questions["polymarket"], questions["fred"]
 
+        def market_row(question_id: str, **overrides) -> dict:
+            return {
+                "id": question_id,
+                "resolved": False,
+                "freeze_datetime_value": "0.5",
+                "market_info_close_datetime": _iso_after_due(30),
+                "market_info_resolution_datetime": "N/A",
+                **overrides,
+            }
+
         extra_market = make_question_df(
             [
-                {"id": "resolved", "resolved": True, "freeze_datetime_value": "0.5"},
-                {"id": "no_freeze", "resolved": False, "freeze_datetime_value": "N/A"},
-                {"id": "too_soon", "resolved": False, "freeze_datetime_value": "0.5"},
-                {"id": "too_late", "resolved": False, "freeze_datetime_value": "0.5"},
-                {"id": "invalid", "resolved": False, "freeze_datetime_value": "0.5"},
-                {"id": "other_category", "resolved": False, "freeze_datetime_value": "0.5"},
+                market_row("resolved", resolved=True),
+                market_row("no_freeze", freeze_datetime_value="N/A"),
+                market_row("too_soon", market_info_resolution_datetime=_iso_after_due(3)),
+                market_row("too_late", market_info_resolution_datetime=_iso_after_due(400)),
+                market_row("invalid"),
+                market_row("not_english"),
+                market_row("other_category"),
             ]
         )
-        extra_market["market_info_close_datetime"] = [
-            _iso_after_due(30),
-            _iso_after_due(30),
-            _iso_after_due(3),
-            _iso_after_due(400),
-            _iso_after_due(30),
-            _iso_after_due(30),
-        ]
         questions["polymarket"] = pd.concat([pm, extra_market], ignore_index=True)
 
+        def dataset_row(question_id: str, **overrides) -> dict:
+            return {
+                "id": question_id,
+                "freeze_datetime_value": "5.0",
+                "forecast_horizons": [30],
+                **overrides,
+            }
+
+        culled_id = (_SAMPLING_DIR / "fred_culled_ids.txt").read_text().split()[0]
         extra_dataset = make_question_df(
             [
-                {"id": "AMERIBOR", "freeze_datetime_value": "5.0", "forecast_horizons": [30]},
-                {"id": "no_horizons", "freeze_datetime_value": "5.0", "forecast_horizons": []},
+                dataset_row("AMERIBOR"),  # nullified in sources/_metadata.py
+                dataset_row(culled_id),
+                dataset_row("no_horizons", forecast_horizons=[]),
+                dataset_row("no_freeze", freeze_datetime_value="N/A"),
             ]
         )
         questions["fred"] = pd.concat([fred, extra_dataset], ignore_index=True)
 
         dfmeta = _metadata(questions, invalid={"invalid"})
+        dfmeta.loc[dfmeta["id"] == "not_english", "english"] = False
         dfmeta.loc[dfmeta["id"] == "other_category", "category"] = "Other"
+        own_categories = [
+            "Healthcare & Biology",
+            "Environment & Energy",
+            "Arts & Recreation",
+            "Security & Defense",
+        ]
+        for question_id, category in zip(extra_dataset["id"], own_categories):
+            is_row = (dfmeta["source"] == "fred") & (dfmeta["id"] == question_id)
+            dfmeta.loc[is_row, "category"] = category
 
-        # Sample everything that is eligible so an ineligible question showing up is impossible to
-        # miss.
         result = create_question_set(
             dfmeta=dfmeta,
             questions=questions,
@@ -206,20 +259,17 @@ class TestEligibilityFilters:
             random_state=0,
         )
 
-        sampled = _ids(result.llm_question_set)
-        assert {s for s, _ in sampled} == set(questions)
-        for ineligible in (
-            "resolved",
-            "no_freeze",
-            "too_soon",
-            "too_late",
-            "invalid",
-            "other_category",
-        ):
-            assert ("polymarket", ineligible) not in sampled
-        assert ("fred", "AMERIBOR") not in sampled  # nullified in sources/_metadata.py
-        assert ("fred", "no_horizons") not in sampled
-        assert len(sampled) == 40
+        eligible = {
+            (source, f"{prefix}{i}")
+            for source, prefix in (
+                ("polymarket", "pm"),
+                ("kalshi", "ks"),
+                ("fred", "fred"),
+                ("acled", "acled"),
+            )
+            for i in range(10)
+        }
+        assert _ids(result.llm_question_set) == eligible
 
     def test_stale_forecast_horizons_are_not_asked(self, bank):
         questions, dfmeta = bank
