@@ -5,7 +5,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from sources._metadata import SOURCE_METADATA  # noqa: E402
+from sources._metadata import SOURCE_METADATA
 
 _META = SOURCE_METADATA["dbnomics"]
 SOURCE_INTRO = _META["source_intro"]

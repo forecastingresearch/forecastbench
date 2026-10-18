@@ -56,8 +56,7 @@ class FailedConditionIdsError(ValueError):
         """Initialize the error with the complete failed condition ID list."""
         self.condition_ids = list(condition_ids)
         super().__init__(
-            "Problem getting markets for condition ids: "
-            f"{json.dumps(self.condition_ids, indent=2)}"
+            f"Problem getting markets for condition ids: {json.dumps(self.condition_ids, indent=2)}"
         )
 
 
@@ -444,7 +443,7 @@ class PolymarketSource(MarketSource):
         ):
             try:
                 is_resolution_value = float(freeze_value) in _VALID_RESOLUTION_VALUES
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 is_resolution_value = False
             if not is_resolution_value:
                 suspect_ids.append(str(question_id))

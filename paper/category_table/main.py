@@ -7,7 +7,7 @@ import pandas as pd
 from variables import BUCKET_NAME
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from src.helpers import resolution  # noqa: E402
+from src.helpers import resolution
 
 dfm = pd.read_json(
     f"gs://{BUCKET_NAME}/question_metadata.jsonl",

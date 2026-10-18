@@ -14,7 +14,7 @@ from scipy.stats import norm
 from utils import gcp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import (  # noqa: E402
+from helpers import (
     acled,
     constants,
     data_utils,
@@ -24,7 +24,7 @@ from helpers import (  # noqa: E402
     wikipedia,
     yfinance,
 )
-from orchestration import _io  # noqa: E402
+from orchestration import _io
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -392,7 +392,7 @@ def prepare_df_and_set_null_values(df, forecast_due_date, last_date_for_data):
 
     # Expand resolution dates
     df["resolution_dates"] = df.apply(
-        lambda x: ([] if x["source"] in resolution.MARKET_SOURCES else x["resolution_dates"]),
+        lambda x: [] if x["source"] in resolution.MARKET_SOURCES else x["resolution_dates"],
         axis=1,
     )
     df = df.explode("resolution_dates", ignore_index=True)

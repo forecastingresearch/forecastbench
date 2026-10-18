@@ -23,11 +23,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 # Private imports from the source module are deliberate: this helper only exists until
 # `base_eval` is refactored to call `WikipediaSource.get_naive_forecast()`, after which it is
 # deleted and nothing outside `sources.wikipedia` needs these.
-from sources.wikipedia import _PAGES as PAGES  # noqa: E402
-from sources.wikipedia import (  # noqa: E402
+from sources.wikipedia import _PAGES as PAGES
+from sources.wikipedia import (
     _WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE as WIKIPEDIA_QUESTION_BANK_DATA_STORAGE_START_DATE,
 )
-from sources.wikipedia import QuestionType  # noqa: E402
+from sources.wikipedia import QuestionType
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

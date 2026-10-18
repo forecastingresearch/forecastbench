@@ -102,12 +102,10 @@ NB: `variables.mk` contains both runtime environment variables and variables tha
 
 ## Code style
 
-* Formatting: black (line length 100)
-* Import sorting: isort (black-compatible profile)
-* Linting: flake8
-* Docstrings: pydocstyle
-* Run `make lint` to apply formatting and check all of the above
-* Configuration is in `pyproject.toml` and `setup.cfg`
+* Formatting and linting: ruff (`ruff format` for formatting, `ruff check` for import sorting, lint
+  rules and docstrings), line length 100
+* Run `make lint` to apply formatting and auto-fixes, and check all of the above
+* Configuration is in `pyproject.toml`
 * Functions should use type hints
 * New ForecastBench Python files should not add `from __future__ import annotations`
 * Prefer f-strings for Python string interpolation, including log messages. Use logger

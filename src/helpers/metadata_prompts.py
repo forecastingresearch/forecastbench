@@ -66,4 +66,4 @@ Your response should take the following structure:
 Insert thinking:
 {{ insert your concise thoughts here }}
 Classification:
-{{ insert "flag" or "ok"}}"""  # noqa: B950
+{{ insert "flag" or "ok"}}"""  # noqa: E501
