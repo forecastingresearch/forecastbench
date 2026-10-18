@@ -272,21 +272,28 @@ class TestEligibilityFilters:
         assert _ids(result.llm_question_set) == eligible
 
     def test_stale_forecast_horizons_are_not_asked(self, bank):
+        """Horizons the benchmark no longer asks are dropped from the bank's lists; current ones stay."""
         questions, dfmeta = bank
         questions["fred"]["forecast_horizons"] = [[7, 30, 365, 1095, 1825, 3650]] * len(
             questions["fred"]
         )
+        questions["acled"]["forecast_horizons"] = [[30, 365]] * len(questions["acled"])
 
         result = _create(questions, dfmeta)
 
-        current = [
-            (FORECAST_DATETIME + timedelta(days=h)).date().isoformat()
-            for h in [7, 30, 365]
-            if h in constants.FORECAST_HORIZONS_IN_DAYS
-        ]
-        fred_questions = [q for q in result.llm_question_set["questions"] if q["source"] == "fred"]
-        assert fred_questions
-        assert all(q["resolution_dates"] == current for q in fred_questions)
+        def resolution_dates(horizons: list[int]) -> list[str]:
+            return [
+                (FORECAST_DATETIME + timedelta(days=h)).date().isoformat()
+                for h in horizons
+                if h in constants.FORECAST_HORIZONS_IN_DAYS
+            ]
+
+        by_source = {}
+        for question in result.llm_question_set["questions"]:
+            by_source.setdefault(question["source"], []).append(question["resolution_dates"])
+        assert by_source["fred"] and by_source["acled"]
+        assert all(dates == resolution_dates([7, 30, 365]) for dates in by_source["fred"])
+        assert all(dates == resolution_dates([30, 365]) for dates in by_source["acled"])
 
     def test_source_without_questions_is_skipped(self, bank):
         questions, dfmeta = bank

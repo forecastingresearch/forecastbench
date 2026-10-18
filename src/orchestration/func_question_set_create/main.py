@@ -66,9 +66,7 @@ def driver(_: Any) -> None:
         local_filename = f"/tmp/{filename}"
         _io.write_question_set_file(local_filename, question_set)
         if not env.RUNNING_LOCALLY:
-            _io.upload_question_set(
-                local_filename, filename=filename, latest_filename=f"latest-{target.value}.json"
-            )
+            _io.upload_question_set(local_filename, filename=filename, target=target.value)
 
     logger.info("Done.")
 
