@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from question_sampling.create_question_set import (
+from question_sampling._prepare import (
     MAX_DAYS_TO_MARKET_RESOLUTION,
     drop_questions_that_resolve_too_late,
 )

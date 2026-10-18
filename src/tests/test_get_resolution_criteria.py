@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from question_sampling.create_question_set import get_resolution_criteria
+from question_sampling._prepare import get_resolution_criteria
 
 
 @pytest.mark.parametrize("criteria", [None, "", "  ", "N/A", float("nan")])

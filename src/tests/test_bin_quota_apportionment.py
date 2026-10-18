@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from question_sampling.create_question_set import stratified_sample_questions
+from question_sampling._sampling import stratified_sample_questions
 
 
 def _pool(bin_weights: dict[str, float], available: dict[str, int] | int) -> pd.DataFrame:

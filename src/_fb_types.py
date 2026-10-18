@@ -52,6 +52,13 @@ QuestionBank = dict[str, SourceQuestionBank]
 WikipediaFetchResult = dict[str, pd.DataFrame]
 
 
+class QuestionSetTarget(str, Enum):
+    """Question set targets used throughout sampling and writing."""
+
+    LLM = "llm"
+    HUMAN = "human"
+
+
 @dataclass
 class QuestionSetResult:
     """Return value of question sampling.
