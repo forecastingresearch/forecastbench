@@ -9,7 +9,7 @@ import pytest
 
 from _fb_types import NullifiedQuestion, SourceQuestionBank
 from _schemas import KalshiFetchFrame, QuestionFrame, ResolutionFrame
-from question_sampling.create_question_set import drop_questions_that_resolve_too_soon
+from question_sampling._prepare import drop_questions_that_resolve_too_soon
 from resolve._impute import impute_missing_forecasts
 from resolve._prepare import check_and_prepare_forecast_file, set_resolution_dates
 from resolve.explode_question_set import explode_question_set, get_resolution_dates

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from helpers import constants
-from question_sampling.create_question_set import (
+from question_sampling._sampling import (
     CATEGORY_SAMPLING_WEIGHTS,
     sample_market_questions,
     thin_pool_by_category,

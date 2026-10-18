@@ -18,11 +18,8 @@ from _schemas import QuestionFrame, ResolutionFrame, SerpapiFetchFrame
 from helpers import constants, question_curation
 from llm_forecaster import prompts
 from orchestration import _io
-from question_sampling.create_question_set import (
-    QuestionSetTarget,
-    build_question_set,
-    get_resolution_criteria,
-)
+from question_sampling._prepare import get_resolution_criteria
+from question_sampling.create_question_set import QuestionSetTarget, build_question_set
 from sources import serpapi
 from sources.serpapi import SerpapiSource, question_id
 from sources.serpapi_helpers import WALMART_SELLER_ID, measurement_params
