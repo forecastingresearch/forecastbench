@@ -1,6 +1,6 @@
 """Market questions resolving within the minimum after the forecast due date are not sampled."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
@@ -9,7 +9,7 @@ from question_sampling.create_question_set import (
     drop_questions_that_resolve_too_soon,
 )
 
-FORECAST_DATETIME = datetime(2026, 10, 13)
+FORECAST_DATETIME = datetime(2026, 10, 13, tzinfo=timezone.utc)
 
 
 def _market_frame(rows: dict[str, tuple[timedelta | None, timedelta | None]]) -> pd.DataFrame:

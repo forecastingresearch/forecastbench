@@ -1577,8 +1577,9 @@ def create_question_set(
         sampling_shares (dict[str, float]): Each source's share of its question type's target,
             keyed by source name. The shares of the sources of one question type sum to 1; they
             are renormalised over the sources that have questions.
-        freeze_datetime (datetime): The datetime the question bank values were frozen at
-        forecast_datetime (datetime): The forecast due date of the question set
+        freeze_datetime (datetime): The datetime the question bank values were frozen at;
+            tz-aware UTC, like the datetimes stored in the question bank
+        forecast_datetime (datetime): The forecast due date of the question set; tz-aware UTC
         num_llm_questions_by_type (dict[str, int]): Number of LLM questions to sample per
             question type ("market" and "dataset")
         num_human_questions_by_type (dict[str, int]): Number of human questions to sample per
