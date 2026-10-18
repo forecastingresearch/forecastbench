@@ -103,7 +103,9 @@ def _ids(question_set: dict) -> set[tuple[str, str]]:
     return {(q["source"], q["id"]) for q in question_set["questions"]}
 
 
-def _create(questions, dfmeta, seed=0, **kwargs):
+def _create(questions, dfmeta, seed=0, random_state=None, **kwargs):
+    if random_state is None:
+        random_state = np.random.RandomState(seed)
     return create_question_set(
         dfmeta=dfmeta,
         questions=questions,
@@ -113,7 +115,7 @@ def _create(questions, dfmeta, seed=0, **kwargs):
         forecast_datetime=FORECAST_DATETIME,
         num_llm_questions_by_type={"market": 6, "dataset": 4},
         num_human_questions_by_type={"market": 2, "dataset": 2},
-        random_state=np.random.RandomState(seed),
+        random_state=random_state,
         **kwargs,
     )
 
@@ -177,6 +179,17 @@ class TestQuestionSetShape:
     def test_same_seed_gives_the_same_question_sets(self, bank):
         questions, dfmeta = bank
         assert _create(questions, dfmeta, seed=7) == _create(questions, dfmeta, seed=7)
+
+    def test_an_int_seed_is_one_generator_for_the_whole_run(self, bank):
+        """An int seed must behave like the equivalent generator: one sequence shared by every draw.
+
+        Otherwise each source re-seeds from the int and draws the same row positions as every
+        other source, in the LLM pass and in the human pass.
+        """
+        questions, dfmeta = bank
+        assert _create(questions, dfmeta, random_state=0) == _create(
+            questions, dfmeta, random_state=np.random.RandomState(0)
+        )
 
 
 class TestEligibilityFilters:
