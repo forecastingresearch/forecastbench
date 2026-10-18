@@ -128,6 +128,7 @@ class YfinanceSource(DatasetSource):
 
     name: ClassVar[str] = "yfinance"
     additional_required_metadata_keys: ClassVar[set[str]] = {"ticker_renames"}
+    question_types: ClassVar[frozenset[str]] = frozenset({"single", "pair"})
     # The committed pair list. An instance attribute of the same name overrides it (tests).
     pairs: ClassVar[list[tuple[str, str]]] = YFINANCE_PAIRS
 
@@ -399,6 +400,18 @@ class YfinanceSource(DatasetSource):
             dfq=dfq,
             resolution_files=resolution_files,
         )
+
+    # ------------------------------------------------------------------
+    # Public: sampling
+    # ------------------------------------------------------------------
+
+    def get_question_types(self, dfq: pd.DataFrame) -> pd.Series:
+        """Tell the pair questions (id ``X_Y``) from the single-ticker ones.
+
+        Args:
+          dfq (pd.DataFrame): yfinance questions
+        """
+        return dfq["id"].map(lambda qid: "pair" if self._is_pair_id(qid) else "single")
 
     # ------------------------------------------------------------------
     # Private: pair questions

@@ -139,6 +139,8 @@ class AcledSource(DatasetSource):
 
     name: ClassVar[str] = "acled"
     resolution_schema: ClassVar[type] = AcledResolutionFrame
+    additional_required_metadata_keys: ClassVar[set[str]] = {"retired_country_spellings"}
+    question_types: ClassVar[frozenset[str]] = frozenset(_QUESTIONS)
 
     def __init__(self) -> None:
         """Initialize with ACLED credential slots."""
@@ -190,6 +192,20 @@ class AcledSource(DatasetSource):
         dfq = dfq[constants.QUESTION_FILE_COLUMNS]
         logger.info(f"Found {len(dfq):,} questions.")
         return UpdateResult(dfq=dfq, hash_mapping=self.hash_mapping)
+
+    # ------------------------------------------------------------------
+    # Public: sampling
+    # ------------------------------------------------------------------
+
+    def get_question_types(self, dfq: pd.DataFrame) -> pd.Series:
+        """Return each question's key in `_QUESTIONS`, read from the hash mapping.
+
+        populate_hash_mapping() must be called first.
+
+        Args:
+          dfq (pd.DataFrame): ACLED questions
+        """
+        return self._question_fields(dfq)["key"]
 
     # ------------------------------------------------------------------
     # Private: API calls
@@ -639,6 +655,48 @@ class AcledSource(DatasetSource):
         from helpers.acled import get_base_comparison_value
 
         return get_base_comparison_value(key, dfr, country, col, ref_date)
+
+    # ------------------------------------------------------------------
+    # Private: sampling
+    # ------------------------------------------------------------------
+
+    def _is_retired(self, dfq: pd.DataFrame) -> pd.Series:
+        """Retire the questions ACLED cannot ask well, on top of the retired question types.
+
+        * A zero 30-day average over the past 360 days turns "more than the average" into "will
+          any event happen at all", which almost always resolves No.
+        * ACLED has served some countries under more than one spelling. The bank keeps questions
+          under each spelling so published ones resolve; only the current spelling is sampled.
+
+        Args:
+          dfq (pd.DataFrame): ACLED questions
+        """
+        is_zero_baseline = pd.to_numeric(dfq["freeze_datetime_value"], errors="coerce") == 0
+        is_retired_spelling = self._question_fields(dfq)["country"].isin(
+            self.retired_country_spellings
+        )
+        return is_zero_baseline | is_retired_spelling
+
+    def _question_fields(self, dfq: pd.DataFrame) -> pd.DataFrame:
+        """Return the `key`, `event_type` and `country` behind each question id.
+
+        Args:
+          dfq (pd.DataFrame): ACLED questions
+
+        Raises:
+          KeyError: when an id is not in the hash mapping, e.g. it was not populated
+        """
+        unmapped = [qid for qid in dfq["id"] if qid not in self.hash_mapping]
+        if unmapped:
+            raise KeyError(
+                f"{len(unmapped)} acled question ids are not in the hash mapping, e.g. "
+                f"{unmapped[:3]}. Call populate_hash_mapping() first."
+            )
+        return pd.DataFrame(
+            [self.hash_mapping[qid] for qid in dfq["id"]],
+            index=dfq.index,
+            columns=["key", "event_type", "country"],
+        )
 
     # ------------------------------------------------------------------
     # Hash mapping
