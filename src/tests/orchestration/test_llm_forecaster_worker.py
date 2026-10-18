@@ -380,10 +380,7 @@ def test_worker_deploy_stages_runtime_requirements_and_shared_code():
     assert "include $(ROOT_DIR)orchestration_upload.mk" in makefile
     assert "ORCHESTRATION_EXTRA_PACKAGES = llm_forecaster" in makefile
     assert "DEPENDENCY_GROUP = func-llm-forecaster-worker" in makefile
-    assert (
-        f"--only-group func-llm-forecaster-worker --output-file {deploy_dir}/upload/requirements.txt"
-        in deploy_recipe
-    )
+    assert f"cp {ROOT}/pyproject.toml {ROOT}/uv.lock upload/" in deploy_recipe
     assert f"cp -r {ROOT}/src/helpers upload/" in deploy_recipe
     assert f"cp -r {ROOT}/src/sources upload/" in deploy_recipe
     assert f"cp -r {ROOT}/src/llm_forecaster upload/llm_forecaster" in deploy_recipe

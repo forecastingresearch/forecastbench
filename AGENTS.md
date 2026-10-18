@@ -96,9 +96,10 @@ Dependencies are declared in `pyproject.toml` as dependency groups: `dev` for th
 tools, `runtime` for the shared `fri-utils` package, and one group per Cloud Run job, named after
 the job's directory under `src/`. A job group lists only what that job imports, directly or as a
 hard transitive import; derive it from the import graph rather than copying a sibling job. Deploying
-a job exports its group from `uv.lock` into the staged `requirements.txt`, so the image installs
-exactly the locked versions. After changing a group or the `fri-utils` revision, run `uv lock` and
-commit `uv.lock`.
+a job stages `pyproject.toml` and `uv.lock` next to its code, and the image runs
+`uv sync --locked --only-group <job>`, so it installs exactly the locked versions and the build fails
+if the lock is stale. After changing a group or the `fri-utils` revision, run `uv lock` and commit
+`uv.lock`.
 
 #### Serving the website
 

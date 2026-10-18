@@ -20,7 +20,7 @@ deploy : main.py metaculus_culled_ids.txt kalshi_culled_ids.txt polymarket_culle
 	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
 	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
 	cp $^ $(UPLOAD_DIR)/
-	$(call export-requirements,$(UPLOAD_DIR))
+	$(call stage-lockfile,$(UPLOAD_DIR))
 	gcloud run jobs deploy \
 		func-question-set-create \
 		--project $(CLOUD_PROJECT) \

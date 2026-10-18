@@ -29,7 +29,7 @@ define PREPARE_UPLOAD_DIR
 	cp $(ROOT_DIR)src/orchestration/__init__.py $1/orchestration/
 	cp $(ROOT_DIR)src/orchestration/_io.py $1/orchestration/
 	cp $(LEADERBOARD_DEPENDENCIES) $1/
-	$(call export-requirements,$1)
+	$(call stage-lockfile,$1)
 endef
 
 deploy-tournament : $(LEADERBOARD_DEPENDENCIES)

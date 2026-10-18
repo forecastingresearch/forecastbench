@@ -51,6 +51,9 @@ RUFF_FORMAT_FLAGS := $(if $(filter 1,$(MAKE_LINT_ERROR_OUT)),--check,)
 UV ?= uv
 # Extra flags for `uv sync`, e.g. `UV_SYNC_FLAGS=--locked` to fail on a stale `uv.lock`.
 UV_SYNC_FLAGS ?=
+# uv release installed into the Cloud Run images; keep in sync with the `setup-uv` pin in
+# `.github/workflows/makefile.yml`.
+export UV_VERSION := 0.13.1
 
 lint: setup-python-env
 	$(UV) run --no-sync ruff check $(RUFF_CHECK_FLAGS) .

@@ -1,4 +1,5 @@
 FROM REGION-docker.pkg.dev/serverless-runtimes/STACK/runtimes/PYTHON_VERSION
+COPY --from=ghcr.io/astral-sh/uv:UV_VERSION /uv /bin/uv
 
 RUN whoami || echo "whoami not found"
 
@@ -15,10 +16,12 @@ RUN apt-get update && \
 
 USER www-data
 
-COPY . /app
+COPY --chown=www-data:www-data . /app
 
 WORKDIR /app
 
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Install this job's locked dependency group into /app/.venv with the image's Python.
+RUN UV_PYTHON_DOWNLOADS=never uv sync --locked --no-cache --only-group DEPENDENCY_GROUP
+ENV PATH="/app/.venv/bin:$PATH"
 
 CMD ["python3", "main.py"]

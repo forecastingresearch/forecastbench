@@ -7,21 +7,23 @@
 #   include $(ROOT_DIR)deploy_config.mk
 
 DOCKERFILE_TEMPLATE ?= $(ROOT_DIR)src/helpers/Dockerfile.template
-UV ?= uv
 
 .gcloudignore: $(ROOT_DIR)src/helpers/.gcloudignore
 	cp $< $@
 
-Dockerfile: $(DOCKERFILE_TEMPLATE) $(ROOT_DIR)Makefile $(ROOT_DIR).python-version
-	sed \
+# `DEPENDENCY_GROUP` is the job's dependency group in root `pyproject.toml`; the rendered
+# Dockerfile installs only that group from `uv.lock`.
+Dockerfile: $(DOCKERFILE_TEMPLATE) Makefile $(ROOT_DIR)Makefile $(ROOT_DIR).python-version
+	$(if $(DEPENDENCY_GROUP),,$(error DEPENDENCY_GROUP must name a dependency group in pyproject.toml))sed \
 		-e 's/REGION/$(CLOUD_DEPLOY_REGION)/g' \
 		-e 's/STACK/$(RUNTIME_STACK)/g' \
 		-e 's/PYTHON_VERSION/$(PYTHON_RUNTIME)/g' \
+		-e 's/UV_VERSION/$(UV_VERSION)/g' \
+		-e 's/DEPENDENCY_GROUP/$(DEPENDENCY_GROUP)/g' \
 		$< > $@
 
-# Export a job's locked dependencies as the flat `requirements.txt` that the Dockerfile installs.
-# `DEPENDENCY_GROUP` is the job's dependency group in root `pyproject.toml`; `$(1)` is the upload
-# directory.
-define export-requirements
-	$(if $(DEPENDENCY_GROUP),,$(error DEPENDENCY_GROUP must name a dependency group in pyproject.toml))$(UV) export --project $(ROOT_DIR) --frozen --no-hashes --no-emit-project --quiet --only-group $(DEPENDENCY_GROUP) --output-file $(abspath $(1))/requirements.txt
+# Stage the project manifest and lockfile next to the job's code so the Dockerfile can run
+# `uv sync` against them. `$(1)` is the upload directory.
+define stage-lockfile
+	cp $(ROOT_DIR)pyproject.toml $(ROOT_DIR)uv.lock $(1)/
 endef

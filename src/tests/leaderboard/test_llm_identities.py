@@ -1214,7 +1214,7 @@ def test_leaderboard_deploy_stages_llm_identity_dependencies():
     assert "model_release_dates.csv" not in makefile
     assert "cp -r $(ROOT_DIR)src/llm_forecaster $1/" in makefile
     assert "DEPENDENCY_GROUP = leaderboard" in makefile
-    assert "$(call export-requirements,$1)" in makefile
+    assert "$(call stage-lockfile,$1)" in makefile
 
 
 def test_model_release_dates_include_canonical_active_llm_model_keys():

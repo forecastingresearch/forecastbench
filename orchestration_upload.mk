@@ -14,5 +14,5 @@ define stage-orchestration-upload
 $(foreach package,$(ORCHESTRATION_EXTRA_PACKAGES),	cp -r $(ROOT_DIR)src/$(package) $(UPLOAD_DIR)/$(package)
 )
 	cp $^ $(UPLOAD_DIR)/
-	$(call export-requirements,$(UPLOAD_DIR))
+	$(call stage-lockfile,$(UPLOAD_DIR))
 endef

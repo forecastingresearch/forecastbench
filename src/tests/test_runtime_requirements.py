@@ -1,4 +1,5 @@
 import re
+import shutil
 import subprocess
 import tomllib
 from pathlib import Path
@@ -11,10 +12,8 @@ SHARED_LLM_PROVIDER_REQUIREMENT_NAMES = {
     "openai",
     "together",
 }
-EXPORTED_REQUIREMENTS = re.compile(
-    r"uv export --project (?P<root>\S+) --frozen --no-hashes --no-emit-project --quiet"
-    r" --only-group (?P<group>\S+) --output-file (?P<upload_dir>\S+)/requirements\.txt"
-)
+STAGED_LOCKFILE = re.compile(r"cp (?P<root>\S+)pyproject\.toml \S+uv\.lock (?P<upload_dir>\S+)/")
+DOCKERFILE_PLACEHOLDERS = ("REGION", "STACK", "PYTHON_VERSION", "UV_VERSION", "DEPENDENCY_GROUP")
 
 
 def pyproject() -> dict:
@@ -99,17 +98,76 @@ def test_every_deploy_makefile_declares_its_dependency_group():
     assert declared == set(groups), "every job group must belong to a deploy Makefile"
 
 
-def test_deploy_makefiles_stage_locked_requirements():
+def pinned_uv_version() -> str:
+    match = re.search(r"^export UV_VERSION := (\S+)$", (ROOT / "Makefile").read_text(), re.M)
+    assert match, "root Makefile must pin the uv release used in Cloud Run images"
+    return match.group(1)
+
+
+def test_deploy_makefiles_stage_the_lockfile_next_to_the_code():
     for makefile_path in iter_deploy_makefiles():
         recipe = deploy_recipe_for(makefile_path=makefile_path)
-        matches = list(EXPORTED_REQUIREMENTS.finditer(recipe))
+        matches = list(STAGED_LOCKFILE.finditer(recipe))
 
         assert matches, makefile_path
         for match in matches:
-            assert match.group("group") == dependency_group_for(makefile_path), makefile_path
             assert Path(match.group("root")) == ROOT, makefile_path
             upload_dir = Path(match.group("upload_dir"))
             assert f"rm -rf {upload_dir.name}" in recipe[: match.start()], makefile_path
+
+
+def test_rendered_dockerfiles_install_only_the_job_dependency_group(tmp_path):
+    """Each image must install its own locked group with the pinned uv on the pinned runtime."""
+    python_runtime = "python" + (ROOT / ".python-version").read_text().strip().replace(".", "")
+    uv_version = pinned_uv_version()
+
+    for makefile_path in iter_deploy_makefiles():
+        render_dir = tmp_path / makefile_path.parent.relative_to(ROOT)
+        render_dir.mkdir(parents=True)
+        shutil.copy(makefile_path, render_dir / "Makefile")
+        local_template = makefile_path.parent / "Dockerfile.template"
+        if local_template.exists():
+            shutil.copy(local_template, render_dir / "Dockerfile.template")
+        subprocess.run(
+            [
+                "make",
+                "-C",
+                str(render_dir),
+                "Dockerfile",
+                f"ROOT_DIR={ROOT}/",
+                "CLOUD_DEPLOY_REGION=us-central1",
+                "RUNTIME_STACK=google-24-full",
+                f"PYTHON_RUNTIME={python_runtime}",
+                f"UV_VERSION={uv_version}",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        dockerfile = (render_dir / "Dockerfile").read_text()
+        group = dependency_group_for(makefile_path)
+
+        assert dockerfile.startswith(
+            f"FROM us-central1-docker.pkg.dev/serverless-runtimes/google-24-full/runtimes/{python_runtime}\n"
+        ), makefile_path
+        assert f"COPY --from=ghcr.io/astral-sh/uv:{uv_version} /uv /bin/uv" in dockerfile, (
+            makefile_path
+        )
+        assert f"uv sync --locked --no-cache --only-group {group}\n" in dockerfile, makefile_path
+        assert "pip3 install" not in dockerfile, makefile_path
+        for placeholder in DOCKERFILE_PLACEHOLDERS:
+            assert placeholder not in dockerfile, (makefile_path, placeholder)
+
+
+def test_images_and_ci_use_the_same_uv_release():
+    """`uv lock --check` in CI must validate the lock with the uv that builds the images."""
+    workflow = (ROOT / ".github/workflows/makefile.yml").read_text()
+    ci_version = re.search(
+        r'uses: astral-sh/setup-uv@\S+\s+with:\s+version: "(?P<v>[^"]+)"', workflow
+    )
+
+    assert ci_version, "CI must pin the setup-uv version"
+    assert ci_version.group("v") == pinned_uv_version()
 
 
 def test_job_groups_do_not_duplicate_utils_owned_llm_provider_deps():

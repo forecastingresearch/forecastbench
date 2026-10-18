@@ -21,7 +21,7 @@ deploy : main.py .gcloudignore Dockerfile
 	cp $(ROOT_DIR)src/orchestration/__init__.py $(UPLOAD_DIR)/orchestration/
 	cp $(ROOT_DIR)src/orchestration/_io.py $(UPLOAD_DIR)/orchestration/
 	cp $^ $(UPLOAD_DIR)/
-	$(call export-requirements,$(UPLOAD_DIR))
+	$(call stage-lockfile,$(UPLOAD_DIR))
 	gcloud run jobs deploy \
 		nightly-bucket-compression \
 		--project $(CLOUD_PROJECT) \
