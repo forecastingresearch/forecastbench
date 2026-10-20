@@ -148,9 +148,10 @@ class TestThrottle:
 
     def test_sleeps_when_called_too_soon(self, fred_source):
         """Sleeps the remaining interval when requests are too close together."""
-        with patch("sources.fred.time.monotonic", side_effect=[100.1, 100.1]), patch(
-            "sources.fred.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch("sources.fred.time.monotonic", side_effect=[100.1, 100.1]),
+            patch("sources.fred.time.sleep") as mock_sleep,
+        ):
             fred_source._last_request_time = 100.0  # elapsed = 0.1 < 0.6
             fred_source._throttle()
             mock_sleep.assert_called_once()
@@ -158,9 +159,10 @@ class TestThrottle:
 
     def test_no_sleep_when_interval_elapsed(self, fred_source):
         """Does not sleep when enough time has already passed."""
-        with patch("sources.fred.time.monotonic", side_effect=[101.0, 101.0]), patch(
-            "sources.fred.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch("sources.fred.time.monotonic", side_effect=[101.0, 101.0]),
+            patch("sources.fred.time.sleep") as mock_sleep,
+        ):
             fred_source._last_request_time = 100.0  # elapsed = 1.0 > 0.6
             fred_source._throttle()
             mock_sleep.assert_not_called()

@@ -858,7 +858,7 @@ class KalshiSource(MarketSource):
                 name: dates.convert_zulu_to_datetime(timestamp)
                 for name, timestamp in timestamps.items()
             }
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
         if any(
             parsed_datetime.utcoffset() is None for parsed_datetime in parsed_datetimes.values()
@@ -913,7 +913,7 @@ class KalshiSource(MarketSource):
         yes_sub_title = (market.get("yes_sub_title") or "").strip()
         if not yes_sub_title or yes_sub_title.lower() == "yes":
             return market["title"]
-        return f'{market["title"]} [Yes: {yes_sub_title}]'
+        return f"{market['title']} [Yes: {yes_sub_title}]"
 
     @staticmethod
     def _market_url(series_ticker: str, event_ticker: str) -> str:
@@ -933,7 +933,7 @@ class KalshiSource(MarketSource):
 
         if settlement_sources is not None:
             formatted_sources = [
-                f'{source["name"]} ({source["url"]})' if source.get("name") else source["url"]
+                f"{source['name']} ({source['url']})" if source.get("name") else source["url"]
                 for source in settlement_sources
             ]
             if formatted_sources:

@@ -10,11 +10,12 @@ deploy :
 TOURNAMENT_UPLOAD_DIR = upload-leaderboard-tournament
 BASELINE_UPLOAD_DIR = upload-leaderboard-baseline
 PRELIMINARY_UPLOAD_DIR = upload-leaderboard-preliminary
+DEPENDENCY_GROUP = leaderboard
 
 include $(ROOT_DIR)deploy_config.mk
 
 NUM_CPUS = 8
-LEADERBOARD_DEPENDENCIES = main.py llm_identities.py requirements.txt Dockerfile .gcloudignore
+LEADERBOARD_DEPENDENCIES = main.py llm_identities.py Dockerfile .gcloudignore
 
 define PREPARE_UPLOAD_DIR
 	rm -rf $1
@@ -28,7 +29,7 @@ define PREPARE_UPLOAD_DIR
 	cp $(ROOT_DIR)src/orchestration/__init__.py $1/orchestration/
 	cp $(ROOT_DIR)src/orchestration/_io.py $1/orchestration/
 	cp $(LEADERBOARD_DEPENDENCIES) $1/
-	cat $(ROOT_DIR)requirements.runtime.txt requirements.txt > $1/requirements.txt
+	$(call stage-lockfile,$1)
 endef
 
 deploy-tournament : $(LEADERBOARD_DEPENDENCIES)

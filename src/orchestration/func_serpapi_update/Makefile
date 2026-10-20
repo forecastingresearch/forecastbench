@@ -5,6 +5,7 @@ all :
 .PHONY : all clean deploy
 
 UPLOAD_DIR = upload
+DEPENDENCY_GROUP = func-serpapi-update
 ROOT_DIR ?= $(abspath ../../..)/
 include $(ROOT_DIR)orchestration_upload.mk
 
@@ -12,7 +13,7 @@ include $(ROOT_DIR)deploy_config.mk
 
 NUM_CPUS=1
 
-deploy : main.py .gcloudignore requirements.txt Dockerfile
+deploy : main.py .gcloudignore Dockerfile
 	$(stage-orchestration-upload)
 	gcloud run jobs deploy \
 		func-data-serpapi-update-questions \

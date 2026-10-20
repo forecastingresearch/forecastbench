@@ -34,6 +34,7 @@ Dig into the details of ForecastBench on the [wiki](https://github.com/forecasti
 1. `git clone --recurse-submodules <repo-url>.git`
 1. `cd forecastbench`
 1. `cp variables.example.mk variables.mk` and set the values accordingly
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 1. Setup your Python virtual environment
    1. `make setup-python-env`
    1. `source .venv/bin/activate`

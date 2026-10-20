@@ -23,9 +23,9 @@ from utils.llm.lab_registry import LABS
 
 sys.path.append(os.path.dirname(__file__))
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-import llm_identities  # noqa: E402
+import llm_identities
 
-from helpers import (  # noqa: E402
+from helpers import (
     constants,
     data_utils,
     dates,
@@ -34,11 +34,11 @@ from helpers import (  # noqa: E402
     resolution,
     slack,
 )
-from llm_forecaster.forecast_variants import (  # noqa: E402
+from llm_forecaster.forecast_variants import (
     ALL_FORECAST_VARIANT_KEYS_WITH_CONTEXT,
     ALL_FORECAST_VARIANT_KEYS_WITHOUT_CONTEXT,
 )
-from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES  # noqa: E402
+from sources import DATASET_SOURCE_NAMES, MARKET_SOURCE_NAMES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -300,11 +300,10 @@ TOOLTIP_COLUMN_DESCRIPTIONS = {
         f"Percentage of {N_REPLICATES:,} simulations in which this model ranked in the top 5%."
     ),
     "Peer": (
-        "Peer score relative to the average Brier score on each question. "
-        "Higher scores are better."
+        "Peer score relative to the average Brier score on each question. Higher scores are better."
     ),
     "BSS": (
-        "Brier Skill Score using the ForecastBench Naive Forecaster. " "Higher scores are better."
+        "Brier Skill Score using the ForecastBench Naive Forecaster. Higher scores are better."
     ),
 }
 
@@ -787,8 +786,7 @@ def write_question_fixed_effects(
     # One file per leaderboard, overwritten nightly. The history lives in the dataset repo,
     # where `push_datasets_to_git` sends this file every night.
     local_filename = (
-        f"{directory}/question-fixed-effects/"
-        f"question_fixed_effects.{leaderboard_file_stem}.json"
+        f"{directory}/question-fixed-effects/question_fixed_effects.{leaderboard_file_stem}.json"
     )
     os.makedirs(os.path.dirname(local_filename), exist_ok=True)
     df.to_json(local_filename, orient="records")
@@ -2020,10 +2018,10 @@ def write_leaderboard(
         col_name = get_comparison_p_val_col(comparison)
         col_name_simple = col_name + "_simple"
         df[col_name_simple] = df[col_name].apply(
-            lambda p: ("Yes" if p < 0.01 else "Likely" if p < 0.1 else "No")
+            lambda p: "Yes" if p < 0.01 else "Likely" if p < 0.1 else "No"
         )
         df[col_name] = df[col_name].apply(
-            lambda p: ("<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}")
+            lambda p: "<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}"
         )
         # Set the p-value for the best to N/A
         comparison_idx = get_comparison_model_index(df=df, comparison=comparison)
@@ -2190,10 +2188,10 @@ def write_preliminary_leaderboard(
         col_name = get_comparison_p_val_col(comparison)
         col_name_simple = col_name + "_simple"
         df[col_name_simple] = df[col_name].apply(
-            lambda p: ("Yes" if p < 0.01 else "Likely" if p < 0.1 else "No")
+            lambda p: "Yes" if p < 0.01 else "Likely" if p < 0.1 else "No"
         )
         df[col_name] = df[col_name].apply(
-            lambda p: ("<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}")
+            lambda p: "<0.001" if p < 0.001 else "<0.01" if p < 0.01 else f"{p:.2f}"
         )
         # Set the p-value for the best to N/A
         comparison_idx = get_comparison_model_index(df=df, comparison=comparison)
@@ -2467,9 +2465,9 @@ def brier_skill_score(df: pd.DataFrame) -> pd.DataFrame:
     ref_brier_by_question = ref_data.set_index("question_pk")["brier_score"].to_dict()
 
     # Ensure the naive forecaster has forecast on all questions across all question sets
-    assert (
-        df["question_pk"].isin(ref_brier_by_question).all()
-    ), "Reference model must predict all questions across all question sets"
+    assert df["question_pk"].isin(ref_brier_by_question).all(), (
+        "Reference model must predict all questions across all question sets"
+    )
 
     # Calculate Brier skill score per question
     df["ref_brier"] = df["question_pk"].map(ref_brier_by_question)
@@ -2679,7 +2677,7 @@ def generate_simulated_leaderboards(
     seed = env.RANDOM_SEED
 
     def bootstrap_and_score(idx):
-        logger.info(f"[replicate {idx+1}/{N}] starting...")
+        logger.info(f"[replicate {idx + 1}/{N}] starting...")
         random_state = None if seed is None else np.random.RandomState(seed + idx)
         df_bs = (
             df.groupby(["forecast_due_date", "source"])

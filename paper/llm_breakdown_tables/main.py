@@ -15,7 +15,7 @@ from variables import (
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from src.helpers import resolution  # noqa: E402
+from src.helpers import resolution
 
 
 def make_list_hashable(df, col):

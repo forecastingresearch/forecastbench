@@ -7,7 +7,7 @@ import sys
 from utils import gcp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import dates, decorator, env, git, keys, question_curation  # noqa: E402
+from helpers import dates, decorator, env, git, keys, question_curation
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

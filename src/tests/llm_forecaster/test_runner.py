@@ -1133,7 +1133,7 @@ def test_run_model_writes_llm_call_transcript_in_prod_mode(monkeypatch, tmp_path
     transcript_files = list(tmp_path.glob("*.llm-calls.md"))
     assert len(transcript_files) == 1
     assert transcript_files[0].name == (
-        "2026-05-10.ForecastBench.OpenAI.Test Lab." "test-model-run-variant-01.llm-calls.md"
+        "2026-05-10.ForecastBench.OpenAI.Test Lab.test-model-run-variant-01.llm-calls.md"
     )
 
 

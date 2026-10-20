@@ -5,12 +5,13 @@ all :
 .PHONY : all clean deploy
 
 UPLOAD_DIR = upload
+DEPENDENCY_GROUP = func-manifold-update
 ROOT_DIR ?= $(abspath ../../..)/
 include $(ROOT_DIR)orchestration_upload.mk
 
 include $(ROOT_DIR)deploy_config.mk
 
-deploy : main.py .gcloudignore requirements.txt Dockerfile
+deploy : main.py .gcloudignore Dockerfile
 	$(stage-orchestration-upload)
 	gcloud run jobs deploy \
 		func-data-manifold-update-questions \

@@ -1,13 +1,457 @@
+[project]
+name = "forecastbench"
+# The version is unused: this repository is not packaged (see `[tool.uv] package = false`).
+version = "0.0.0"
+requires-python = ">=3.14"
+# Nothing is shared by every job; each Cloud Run job declares its own dependency group below.
+dependencies = []
+
+# Dependency groups (PEP 735). `dev` is the lint/test toolchain, `runtime` is the shared `fri-utils`
+# package pinned in `[tool.uv.sources]`, and every other group is one Cloud Run job, named after its
+# directory under `src/` (`nightly-` prefixed for `src/nightly_update_workflow/`). A job group lists only
+# what that job imports, directly or as a hard transitive import, plus the `runtime` group.
+[dependency-groups]
+dev = [
+    "ruff==0.17.1",
+    "pytest==9.0.3",
+    "pytest-mock==3.15.1",
+    { include-group = "runtime" },
+]
+runtime = ["fri-utils"]
+naive-and-dummy-forecasters = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "gcsfs==2025.7.0",
+    "backoff",
+    "pandas>=2.2.2,<3.0",
+    "pandas-market-calendars",
+    "tqdm",
+    "prophet==1.3.0",
+    "cmdstanpy",
+    "scipy",
+    "termcolor",
+    "pandera",
+    "slack_sdk",
+    { include-group = "runtime" },
+]
+create-question-set = [
+    "google-cloud-storage",
+    "pandas>=2.2.2,<3.0",
+    "tqdm",
+    "scipy",
+    "pandera",
+    "termcolor",
+    { include-group = "runtime" },
+]
+publish-question-set = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "GitPython",
+    "pandas>=2.2.2,<3.0",
+    "tqdm",
+    "scipy",
+    "pandera",
+    "termcolor",
+    "slack_sdk",
+    { include-group = "runtime" },
+]
+leaderboard = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "tqdm",
+    "gcsfs==2025.7.0",
+    "termcolor",
+    "scipy",
+    "GitPython",
+    "pyfixest>=0.50.1",
+    "Jinja2>=3.1.6",
+    "joblib",
+    "pyarrow",
+    "slack_sdk",
+    "pandera",
+    { include-group = "runtime" },
+]
+tag-questions = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "functions-framework==3.*",
+    "scipy",
+    "termcolor",
+    "pandera",
+    "typesafe-sdk==0.7.2",
+    "httpx2",
+    { include-group = "runtime" },
+]
+validate-questions = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "scipy",
+    "termcolor",
+    "tqdm",
+    "pandera",
+    { include-group = "runtime" },
+]
+nightly-compress-buckets = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "termcolor",
+    "pandera",
+    { include-group = "runtime" },
+]
+nightly-manager = [
+    "google-cloud-run",
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "slack_sdk",
+    "pandas>=2.2.2,<3.0",
+    "tqdm",
+    "tabulate",
+    "gcsfs==2025.7.0",
+    "scipy",
+    "pandera",
+    "termcolor",
+    { include-group = "runtime" },
+]
+nightly-worker = [
+    "google-cloud-run",
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "slack_sdk",
+    "pytz",
+    "tqdm",
+    "pandas>=2.2.2,<3.0",
+    "scipy",
+    "pandera",
+    "termcolor",
+    { include-group = "runtime" },
+]
+func-acled-fetch = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "backoff",
+    "pandas>=2.2.2,<3.0",
+    "requests",
+    "pandera",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-acled-update = [
+    "google-cloud-storage",
+    "backoff",
+    "pandas>=2.2.2,<3.0",
+    "requests",
+    "pandera",
+    "numpy",
+    "termcolor",
+    { include-group = "runtime" },
+]
+func-dbnomics-fetch = [
+    "google-cloud-storage",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "backoff",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-dbnomics-update = [
+    "google-cloud-storage",
+    "slack_sdk",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "backoff",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-fred-fetch = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "backoff",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-fred-update = [
+    "google-cloud-storage",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "backoff",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-infer-update = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-kalshi-fetch = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "scipy",
+    "requests",
+    "certifi",
+    "backoff",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-kalshi-update = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "scipy",
+    "requests",
+    "certifi",
+    "backoff",
+    "numpy",
+    "slack_sdk",
+    { include-group = "runtime" },
+]
+func-llm-forecaster-manager = [
+    "backoff",
+    "certifi",
+    "google-api-python-client",
+    "google-cloud-artifact-registry",
+    "google-cloud-container",
+    "google-cloud-run",
+    "numpy",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "pydantic>=2.5.2,<3.0.0",
+    "python-dateutil",
+    "pytz",
+    "requests",
+    "scipy",
+    "slack_sdk",
+    "termcolor",
+    { include-group = "runtime" },
+]
+func-llm-forecaster-worker = [
+    "backoff",
+    "certifi",
+    "google-api-python-client",
+    "google-cloud-artifact-registry",
+    "google-cloud-container",
+    "google-cloud-run",
+    "numpy",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "pydantic>=2.5.2,<3.0.0",
+    "python-dateutil",
+    "pytz",
+    "requests",
+    "scipy",
+    "slack_sdk",
+    "termcolor",
+    { include-group = "runtime" },
+]
+func-manifold-update = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "termcolor",
+    "requests",
+    "certifi",
+    "backoff",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-metaculus-fetch = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "scipy",
+    "requests",
+    "certifi",
+    "backoff",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-metaculus-update = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "scipy",
+    "requests",
+    "certifi",
+    "backoff",
+    "numpy",
+    { include-group = "runtime" },
+]
+func-polymarket-fetch = [
+    "google-cloud-storage",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "certifi",
+    "backoff",
+    "numpy",
+    "scipy",
+    { include-group = "runtime" },
+]
+func-polymarket-update = [
+    "google-cloud-storage",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "certifi",
+    "backoff",
+    "numpy",
+    "scipy",
+    { include-group = "runtime" },
+]
+func-push-datasets-to-git = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "GitPython",
+    "termcolor",
+    "pandera",
+    "pytz",
+    "python-dateutil",
+    "slack_sdk",
+    { include-group = "runtime" },
+]
+func-resolve = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "pandas>=2.2.2,<3.0",
+    "tqdm",
+    "gcsfs==2025.7.0",
+    "GitPython",
+    "scipy",
+    "termcolor",
+    "slack_sdk",
+    "pandera",
+    "pytz",
+    "python-dateutil",
+    "backoff",
+    "beautifulsoup4",
+    "yfinance",
+    { include-group = "runtime" },
+]
+func-serpapi-fetch = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "slack_sdk",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "backoff",
+    "numpy",
+    "tzdata",
+    "beautifulsoup4",
+    { include-group = "runtime" },
+]
+func-serpapi-update = [
+    "google-cloud-storage",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "backoff",
+    "numpy",
+    "tzdata",
+    "beautifulsoup4",
+    { include-group = "runtime" },
+]
+func-wikipedia-fetch = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "slack_sdk",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "beautifulsoup4",
+    "lxml",
+    { include-group = "runtime" },
+]
+func-wikipedia-update = [
+    "google-cloud-storage",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "termcolor",
+    { include-group = "runtime" },
+]
+func-yfinance-fetch = [
+    "google-cloud-storage",
+    "google-cloud-secret-manager",
+    "slack_sdk",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "numpy",
+    "yfinance",
+    "beautifulsoup4",
+    { include-group = "runtime" },
+]
+func-yfinance-update = [
+    "google-cloud-storage",
+    "pandas>=2.2.2,<3.0",
+    "pandera",
+    "requests",
+    "numpy",
+    "yfinance",
+    "beautifulsoup4",
+    { include-group = "runtime" },
+]
+
+[tool.uv]
+# Oldest uv verified to read this lockfile.
+required-version = ">=0.11"
+# The repository is run from `src/`, never built or installed.
+package = false
+# `uv sync` and `uv run` install every group, so one environment serves lint, tests and all jobs.
+default-groups = "all"
+
+[tool.uv.sources]
+# Bump `rev` to update the shared utilities, then run `uv lock` and redeploy.
+fri-utils = { git = "https://github.com/forecastingresearch/utils", rev = "843ae21dc8d5a4a75402ef6b3e46168ef88747e2" }
+
 [tool.pytest.ini_options]
 testpaths = ["src/tests"]
 pythonpath = ["src"]
 
-[tool.black]
+[tool.ruff]
 line-length = 100
-force-exclude = '''
-(
-    ^/.venv.*
-    | ^/experiments/stability-analysis/
-    | ^/experiments/ranking-simulation/
-)
-'''
+target-version = "py314"
+src = [".", "src"]
+extend-exclude = [
+    ".venv*",
+    "experiments/stability-analysis",
+    "experiments/ranking-simulation",
+    "upload*",
+]
+
+[tool.ruff.lint]
+# Parity with the previous isort + flake8 (+ bugbear B950) + pydocstyle setup.
+select = ["E", "W", "F", "B", "I", "D"]
+# E203/E701 are formatter-owned; B9xx is bugbear's opt-in set (B950 is emulated by E501 below).
+ignore = ["E203", "E701", "B9"]
+
+[tool.ruff.lint.pycodestyle]
+# E501 at 110 reproduces bugbear's B950 (line-length + 10 %).
+max-line-length = 110
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["D"]
+
+[tool.ruff.format]
+exclude = ["*.md"]

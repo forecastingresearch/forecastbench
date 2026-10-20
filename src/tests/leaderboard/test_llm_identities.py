@@ -754,8 +754,7 @@ def test_two_way_fixed_effects_excludes_llm_crowd_comparison_models_from_fit(mon
     main = import_leaderboard_main()
     fitted_model_pks = []
     crowd_models = [
-        "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) "
-        "geometric mean log odds with news",
+        "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean log odds with news",
         "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean with news",
         "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) median with news",
     ]
@@ -1041,8 +1040,7 @@ def test_get_df_info_handles_llm_crowd_comparison_models_without_llm_identity(mo
     messages = []
     monkeypatch.setattr(leaderboard_main.slack, "send_message", messages.append, raising=False)
     comparison_models = [
-        "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) "
-        "geometric mean log odds with news",
+        "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean log odds with news",
         "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) geometric mean with news",
         "LLM Crowd (gpt-4o, claude-3.5-sonnet, gemini-1.5-pro) median with news",
     ]
@@ -1215,9 +1213,8 @@ def test_leaderboard_deploy_stages_llm_identity_dependencies():
     assert "deploy-preliminary : $(LEADERBOARD_DEPENDENCIES)" in makefile
     assert "model_release_dates.csv" not in makefile
     assert "cp -r $(ROOT_DIR)src/llm_forecaster $1/" in makefile
-    assert (
-        "cat $(ROOT_DIR)requirements.runtime.txt requirements.txt > $1/requirements.txt" in makefile
-    )
+    assert "DEPENDENCY_GROUP = leaderboard" in makefile
+    assert "$(call stage-lockfile,$1)" in makefile
 
 
 def test_model_release_dates_include_canonical_active_llm_model_keys():
