@@ -576,6 +576,7 @@ SOURCE_METADATA = {
                     "0x4afb076c5d9dfe1c33bf300cfd9fb93a5a8d9bfce8fe2beaeccbde5f8c269fc1",
                     "0x5642824719fa2e4d164de9a9ddaa1b5ca4f6fc57483eb222bec54082ad0bb57c",
                     "0xd8bf9a22e052cc97b14047a48552f3bd0e2605654e4fe580f48fa65e98d8487f",
+                    "0xa0917fc36c80b2aef40b3be6e7c8f5abb16c512174b75073923cb52b53d7bbe0",
                     # Markets that Polymarket resolved 50/50 because they became unresolvable.
                     # There's no outcome to score, so nullify them from the benchmark start
                     # instead of warning nightly that they resolved to 0.5.
