@@ -16,7 +16,7 @@ TL;DR of the nightly workflow is, in sequential order:
 4. Create leaderboard (code `src/leaderboard/`)
 5. Create website (code `src/www.forecastbench.org/`)
 
-Every two weeks, 10 days before the forecast due date, a new question set is created (code `src/curate_questions/`), sampling from the questions pulled in during step 1.
+Every two weeks, 10 days before the forecast due date, a new question set is created (code `src/question_sampling/`), sampling from the questions pulled in during step 1.
 
 Every two weeks, on the forecast due date, naive forecasts are generated with the code under
 `src/base_eval/`, and LLM forecasts are generated with the code under `src/llm_forecaster/`
@@ -28,13 +28,13 @@ via Cloud Run entrypoints under `src/orchestration/func_llm_forecaster_*`.
 ├── paper/                        # Inputs to the paper: https://arxiv.org/abs/2409.19839
 ├── src
 │   ├── base_eval/                # Naive forecasts and baseline forecasting experiments
-│   ├── curate_questions/         # Question sampling to create and publish the question set
 │   ├── helpers/                  # Helper functions that are used across the codebase
 │   ├── leaderboard/              # Generate the leaderboard
 │   ├── llm_forecaster/           # ForecastBench LLM forecast generation
 │   ├── metadata/                 # Generate metadata: categorize and validate forecast questions that have been pulled in
 │   ├── nightly_update_workflow/  # Orchestrate the nightly runs on GCP
 │   ├── orchestration/            # Cloud Run function and job entrypoints
+│   ├── question_sampling/        # Question sampling to create the question set
 │   ├── questions/                # Pull questions and resolution values into the system
 │   ├── resolve/                  # Resolve forecast files
 │   └── www.forecastbench.org/    # Jekyll website
