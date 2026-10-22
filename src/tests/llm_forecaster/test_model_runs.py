@@ -211,11 +211,12 @@ def test_provider_max_workers_matches_plan_exactly():
     assert fb_model_runs.DEFAULT_PROVIDER_MAX_WORKERS == 4
     assert fb_model_runs.PROVIDER_MAX_WORKERS == {
         PROVIDERS["OpenAI"]: 50,
-        PROVIDERS["Anthropic"]: 50,
+        PROVIDERS["Anthropic"]: 20,
         PROVIDERS["Google"]: 50,
         PROVIDERS["xAI"]: 50,
-        PROVIDERS["Moonshot AI"]: 50,
-        PROVIDERS["Meta"]: 50,
+        PROVIDERS["Moonshot AI"]: 12,
+        PROVIDERS["Meta"]: 10,
+        PROVIDERS["Z.ai"]: 5,
         PROVIDERS["Together"]: 4,
     }
 
