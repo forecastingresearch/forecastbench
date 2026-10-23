@@ -217,12 +217,14 @@ def test_provider_max_workers_matches_plan_exactly():
         PROVIDERS["Moonshot AI"]: 12,
         PROVIDERS["Meta"]: 10,
         PROVIDERS["Z.ai"]: 5,
-        PROVIDERS["Together"]: 4,
     }
 
 
-def test_provider_max_workers_covers_all_shared_providers():
-    assert set(fb_model_runs.PROVIDER_MAX_WORKERS) == set(PROVIDERS.values())
+def test_provider_max_workers_covers_every_provider_with_an_active_run():
+    """A retired provider needs no pool; every provider that can still run needs one."""
+    active_providers = {run.provider for run in shared_model_runs.ACTIVE_MODEL_RUNS}
+
+    assert set(fb_model_runs.PROVIDER_MAX_WORKERS) == active_providers
 
 
 def test_llm_forecaster_files_do_not_use_future_annotations():

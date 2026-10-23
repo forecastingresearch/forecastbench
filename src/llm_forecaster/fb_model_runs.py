@@ -131,7 +131,6 @@ PROVIDER_MAX_WORKERS = {
     PROVIDERS["Moonshot AI"]: 12,
     PROVIDERS["Meta"]: 10,
     PROVIDERS["Z.ai"]: 5,
-    PROVIDERS["Together"]: 4,
 }
 
 
