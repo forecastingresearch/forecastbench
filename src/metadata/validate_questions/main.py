@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import re
 import sys
 import time
 
@@ -38,15 +39,20 @@ async def _validate_single_question(index, question, semaphore):
                 logger.error(f"'Classification:' not in response for: {question}")
                 return (index, None, question)
 
-            end_resp = response.split("Classification:")[1]
-            if "ok" in end_resp:
-                return (index, True, question)
-            elif "flag" in end_resp:
-                logger.info(f"Ill-defined question: {question}")
-                return (index, False, question)
-            else:
+            # The verdict follows the LAST "Classification:" (a model that echoes the prompt's
+            # template emits an earlier one). Match the first standalone verdict word after it,
+            # accepting the inflections models produce ("flagged", "okay"). A bare
+            # ``"ok" in end_resp`` would match inside words like "looks"/"book" and, being tested
+            # first, could silently un-flag a question the model meant to flag.
+            end_resp = response.rsplit("Classification:", 1)[1]
+            verdict = re.search(r"\b(ok|okay|flag\w*)\b", end_resp, re.IGNORECASE)
+            if verdict is None:
                 logger.error(f"Ambiguous response for: {question}")
                 return (index, True, question)
+            if verdict.group(1).lower().startswith("flag"):
+                logger.info(f"Ill-defined question: {question}")
+                return (index, False, question)
+            return (index, True, question)
         except Exception as e:
             logger.error(f"Error validating question: {e}")
             return (index, True, question)
