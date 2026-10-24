@@ -6,9 +6,9 @@ routes through a lazily-instantiated ``AcledSource`` (see ``_get_source``), so i
 module stays light — only *calling* the hash funcs pulls the (now heavy) ``sources.acled``.
 
 The sole caller of those hash funcs is the unrefactored ``base_eval`` naive forecaster, which
-therefore declares ``backoff`` in its requirements. ``question_curation`` imports this module only
-for the ``SOURCE_INTRO``/``RESOLUTION_CRITERIA`` constants (served from ``_metadata``); it never
-triggers the lazy import, so it and its many consumers stay light.
+therefore declares ``backoff`` in its requirements. Nothing else imports this module at load
+time; the ``SOURCE_INTRO``/``RESOLUTION_CRITERIA`` constants are kept as a backwards-compatible
+re-export of ``_metadata`` and are no longer read by ``question_curation``.
 
 When ``base_eval`` is refactored to call ``AcledSource.get_naive_forecast()`` this computation can
 move onto the source class (Phase 1 plan) and this module shrinks to a metadata-only shim.

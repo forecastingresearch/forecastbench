@@ -1,6 +1,8 @@
 google-cloud-storage
 pandas>=2.2.2,<3.0
-tqdm
-scipy
+numpy
 pandera
+backoff
+requests
+beautifulsoup4
 termcolor

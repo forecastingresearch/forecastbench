@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from curate_questions.create_question_set import main as create_question_set
+from question_sampling._prepare import drop_questions_not_in_english
 
 
 def test_questions_not_in_english_are_dropped():
@@ -13,6 +13,6 @@ def test_questions_not_in_english_are_dropped():
             "english": [True, False, False],
         }
     )
-    result = create_question_set.drop_questions_not_in_english(dfq)
+    result = drop_questions_not_in_english(dfq)
     assert result["id"].tolist() == ["en"]
     assert "english" not in result.columns
