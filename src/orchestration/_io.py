@@ -493,6 +493,21 @@ def get_valid_forecast_files_and_dates(
     return files, sorted(date_folders)
 
 
+def _skip_forecast_file(filename: str, reason: str) -> None:
+    """Log and alert on Slack that a forecast file is skipped, then return None for the caller.
+
+    Args:
+        filename (str): Path to the forecast JSON file.
+        reason (str): Why the file is skipped.
+    """
+    from helpers import slack
+
+    message = f"Problem processing {filename}. {reason}"
+    logger.error(colored(message, "yellow"))
+    slack.send_message(message=f"*FORECAST FILE SKIPPED*\n{message}")
+    return None
+
+
 def read_forecast_file(filename: str, f: TextIO | None = None) -> dict | None:
     """Read a forecast JSON file and validate its content.
 
@@ -502,42 +517,40 @@ def read_forecast_file(filename: str, f: TextIO | None = None) -> dict | None:
     """
     logger.info(f"Reading forecast file {filename}")
 
-    if f:
-        data = json.load(f)
-    else:
-        with open(filename, "r", encoding="utf-8") as f:
+    try:
+        if f:
             data = json.load(f)
+        else:
+            with open(filename, "r", encoding="utf-8") as f:
+                data = json.load(f)
+    except json.JSONDecodeError as e:
+        return _skip_forecast_file(filename, f"Invalid JSON: {e}")
 
     if not data or not isinstance(data, dict):
-        logger.warning(colored(f"Problem processing {filename}. Can't load JSON.", "yellow"))
-        return None
+        return _skip_forecast_file(filename, "Can't load JSON.")
 
     organization = data.get("organization")
     model = data.get("model")
     model_organization = data.get("model_organization")
     question_set = data.get("question_set")
-    date_match = re.search(r"\d{4}-\d{2}-\d{2}", question_set)
-    forecast_due_date = date_match.group(0) if date_match else None
     forecasts = data.get("forecasts")
     if not organization or not model or not model_organization or not question_set or not forecasts:
-        logger.error(colored(f"Problem processing {filename}. Missing required fields.", "yellow"))
-        return None
+        return _skip_forecast_file(filename, "Missing required fields.")
 
-    if not forecast_due_date:
-        logger.error(
-            colored(
-                f"Problem processing {filename}. Issue with question set filename: {question_set}",
-                "yellow",
-            )
+    if not isinstance(question_set, str):
+        return _skip_forecast_file(filename, "`question_set` is not a string.")
+    question_set_match = re.fullmatch(r"(\d{4}-\d{2}-\d{2})-(llm|human)\.json", question_set)
+    if not question_set_match:
+        return _skip_forecast_file(filename, f"Issue with question set filename: {question_set}")
+    forecast_due_date = question_set_match.group(1)
+    if Path(filename).name[:10] != forecast_due_date:
+        return _skip_forecast_file(
+            filename, f"Forecast filename date does not match `question_set`: {question_set}"
         )
-        return None
 
     df = pd.DataFrame(forecasts)
     if df.empty:
-        logger.error(
-            colored(f"Problem processing {filename}. Couldn't load forecasts as df.", "yellow")
-        )
-        return None
+        return _skip_forecast_file(filename, "Couldn't load forecasts as df.")
 
     df = df.drop(labels="reasoning", axis=1, errors="ignore")
     data["df"] = df
