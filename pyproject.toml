@@ -1,6 +1,12 @@
 [tool.pytest.ini_options]
 testpaths = ["src/tests"]
 pythonpath = ["src"]
+# Skip @pytest.mark.live (real network/GCP) tests by default so CI stays offline.
+# Run them explicitly with: make test ARGS="-m live".
+addopts = "-m 'not live'"
+markers = [
+    "live: test needs real network/GCP access (skips the no-network guard / fake secrets).",
+]
 
 [tool.black]
 line-length = 100

@@ -1,0 +1,9 @@
+source,id,question,freeze_datetime_value,freeze_datetime,market_info_close_datetime,resolution_criteria,source_intro
+fred,fred4,Data question 4?,104,2025-01-01T00:00:00,N/A,Resolves per https://example.com/fred4.,FRED intro.
+fred,fred5,Data question 5?,105,2025-01-01T00:00:00,N/A,Resolves per https://example.com/fred5.,FRED intro.
+fred,fred6,Data question 6?,106,2025-01-01T00:00:00,N/A,Resolves per https://example.com/fred6.,FRED intro.
+fred,fred7,Data question 7?,107,2025-01-01T00:00:00,N/A,Resolves per https://example.com/fred7.,FRED intro.
+polymarket,polymarket4,Market question 4?,0.5,2025-01-01T00:00:00,2025-03-12T00:00:00,Resolves per https://example.com/polymarket4.,Polymarket intro.
+polymarket,polymarket5,Market question 5?,0.5,2025-01-01T00:00:00,2025-03-12T00:00:00,Resolves per https://example.com/polymarket5.,Polymarket intro.
+polymarket,polymarket6,Market question 6?,0.5,2025-01-01T00:00:00,2025-03-12T00:00:00,Resolves per https://example.com/polymarket6.,Polymarket intro.
+polymarket,polymarket7,Market question 7?,0.5,2025-01-01T00:00:00,2025-03-12T00:00:00,Resolves per https://example.com/polymarket7.,Polymarket intro.

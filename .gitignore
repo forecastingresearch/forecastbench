@@ -11,7 +11,8 @@ plotly_charts
 *.jsonl
 *.csv
 *.bak
--
+# Committed golden/snapshot regression files
+!src/tests/golden/**/*.csv
 __pycache__/
 *.py[cod]
 *$py.class

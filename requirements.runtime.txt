@@ -1,1 +1,1 @@
-git+https://github.com/forecastingresearch/utils@843ae21dc8d5a4a75402ef6b3e46168ef88747e2#egg=fri-utils
+git+https://github.com/nikbpetrov/utils@061619d073d8a5ec85633abca16917ad9e8b5264#egg=fri-utils

@@ -1,0 +1,6 @@
+model_pk,two_way_fixed_effects_dataset,two_way_fixed_effects_market,two_way_fixed_effects_overall,peer_score_overall,brier_skill_score_overall,brier_index_overall,n_dataset,n_market,n_overall
+ForecastBench_ForecastBench_Always 0.5,0.25,0.25,0.25,0.022363289,0.030917444,50.0,225,50,275
+ForecastBench_ForecastBench_Bad Model,0.533107556,0.532434,0.532770778,-0.260407489,-0.251853333,27.008851374,225,50,275
+ForecastBench_ForecastBench_Good Model,0.017267556,0.017154,0.017210778,0.255152511,0.263706667,86.881014606,225,50,275
+ForecastBench_ForecastBench_Imputed Forecaster,0.281160889,0.280674,0.280917444,-0.008554156,0.0,46.998354323,225,50,275
+ForecastBench_ForecastBench_Naive Forecaster,0.281160889,0.280674,0.280917444,-0.008554156,0.0,46.998354323,225,50,275

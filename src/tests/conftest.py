@@ -1,21 +1,32 @@
-"""Shared fixtures and DataFrame factories for ForecastBench tests."""
+"""Shared pytest fixtures for ForecastBench tests (builders live in factories.py)."""
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-import numpy as np
-import pandas as pd
 import pytest
 
-from sources.acled import AcledSource
-from sources.dbnomics import DbnomicsSource
-from sources.fred import FredSource
-from sources.kalshi import KalshiSource
-from sources.manifold import ManifoldSource
-from sources.metaculus import MetaculusSource
-from sources.polymarket import PolymarketSource
-from sources.wikipedia import WikipediaSource
-from sources.yfinance import YfinanceSource
+from tests._harness import network
+
+# Production modules are imported inside the fixtures, not here: this file is imported before
+# ``pytest_configure`` runs, so a module-level import would execute production code before the
+# network guard exists.
+
+
+def pytest_configure(config):
+    """Install the no-network guard before collection imports any production module.
+
+    Test modules import the jobs they test at collection time; a production module that regressed
+    to an import-time HTTP call would otherwise make that call once, unguarded, before the first
+    test's fixtures run. The guard stays installed for the whole session; ``_guard_network`` lifts
+    it only for ``@pytest.mark.live`` tests.
+    """
+    network.install()
+
+
+def pytest_unconfigure(config):
+    """Restore the real socket at session end."""
+    network.uninstall()
+
 
 # ---------------------------------------------------------------------------
 # Time-freezing fixture
@@ -47,7 +58,8 @@ def freeze_today():
 
     yield _freeze
 
-    for p in patches:
+    # Unwind in reverse so nested freezes restore the original, not an intermediate mock.
+    for p in reversed(patches):
         p.stop()
 
 
@@ -59,24 +71,32 @@ def freeze_today():
 @pytest.fixture()
 def market_source():
     """Return a concrete MarketSource instance."""
+    from sources.metaculus import MetaculusSource
+
     return MetaculusSource()
 
 
 @pytest.fixture()
 def dataset_source():
     """Return a concrete DatasetSource instance."""
+    from sources.fred import FredSource
+
     return FredSource()
 
 
 @pytest.fixture()
 def acled_source():
     """Return an AcledSource instance."""
+    from sources.acled import AcledSource
+
     return AcledSource()
 
 
 @pytest.fixture()
 def acled_source_with_creds():
     """Return an AcledSource instance with fake API credentials."""
+    from sources.acled import AcledSource
+
     src = AcledSource()
     src.api_email = "test@example.com"
     src.api_password = "test-password"
@@ -84,15 +104,19 @@ def acled_source_with_creds():
 
 
 @pytest.fixture()
-def manifold_source():
-    """Return a ManifoldSource instance."""
-    return ManifoldSource()
+def dbnomics_source():
+    """Return a DbnomicsSource instance."""
+    from sources.dbnomics import DbnomicsSource
+
+    return DbnomicsSource()
 
 
 @pytest.fixture()
-def metaculus_source():
-    """Return a MetaculusSource instance with a fake API key."""
-    src = MetaculusSource()
+def fred_source():
+    """Return a FredSource instance with a fake API key."""
+    from sources.fred import FredSource
+
+    src = FredSource()
     src.api_key = "test-key"
     return src
 
@@ -100,18 +124,42 @@ def metaculus_source():
 @pytest.fixture()
 def kalshi_source():
     """Return a KalshiSource instance."""
+    from sources.kalshi import KalshiSource
+
     return KalshiSource()
+
+
+@pytest.fixture()
+def manifold_source():
+    """Return a ManifoldSource instance."""
+    from sources.manifold import ManifoldSource
+
+    return ManifoldSource()
+
+
+@pytest.fixture()
+def metaculus_source():
+    """Return a MetaculusSource instance with a fake API key."""
+    from sources.metaculus import MetaculusSource
+
+    src = MetaculusSource()
+    src.api_key = "test-key"
+    return src
 
 
 @pytest.fixture()
 def polymarket_source():
     """Return a PolymarketSource instance."""
+    from sources.polymarket import PolymarketSource
+
     return PolymarketSource()
 
 
 @pytest.fixture()
 def wikipedia_source():
     """Return a WikipediaSource instance."""
+    from sources.wikipedia import WikipediaSource
+
     return WikipediaSource()
 
 
@@ -121,612 +169,318 @@ def yfinance_source():
 
     Tests of the pair pass set ``source.pairs`` themselves.
     """
+    from sources.yfinance import YfinanceSource
+
     source = YfinanceSource()
     source.pairs = []
     with patch("sources.yfinance.time.sleep"):
         yield source
 
 
+# ---------------------------------------------------------------------------
+# Offline harness: no-network guard, fake secrets, local bucket mount
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _guard_network(request):
+    """Block non-local network access for every test unless marked ``live``.
+
+    An accidentally-unmocked HTTP call should fail loudly and deterministically rather than
+    reach a live API: Python sockets and ``curl_cffi`` are guarded for the whole session (see
+    ``pytest_configure``), and the Google Storage / Secret Manager / Cloud Run client constructors
+    (native gRPC, invisible to the socket guard) raise. Tests that truly need the network use
+    ``@pytest.mark.live``, which lifts the guard for their duration.
+    """
+    from google.cloud import run_v2, secretmanager, storage
+
+    if request.node.get_closest_marker("live"):
+        network.uninstall()
+        try:
+            yield
+        finally:
+            network.install()
+        return
+
+    def _blocked_client(name):
+        def _construct(*args, **kwargs):
+            raise network.BlockedNetworkError(
+                f"{name} constructed in an offline test. Route the call through the local "
+                "bucket / fake secrets, or mark the test @pytest.mark.live."
+            )
+
+        return _construct
+
+    # Google's clients use native gRPC transports the socket guard cannot see, so fail closed at
+    # construction: no offline test may build a Storage, Secret Manager or Cloud Run client at all.
+    with patch.object(
+        storage, "Client", _blocked_client("google.cloud.storage.Client")
+    ), patch.object(
+        secretmanager, "SecretManagerServiceClient", _blocked_client("SecretManagerServiceClient")
+    ), patch.object(
+        run_v2, "JobsClient", _blocked_client("google.cloud.run_v2.JobsClient")
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _fake_secrets(request):
+    """Ensure secret access never hits Secret Manager during tests.
+
+    ``helpers.keys`` resolves secrets lazily; here we patch the resolver to return a
+    deterministic dummy and clear its cache, so any ``keys.API_KEY_*`` access is offline-safe
+    even for code paths that read a key we didn't explicitly set.
+
+    The metadata jobs also load the shared LLM registry's provider keys from Secret Manager
+    (``metadata_llm._get_metadata_model_run`` calls ``configure_api_keys(from_gcp=True)`` and then
+    refuses to run without them). That lookup is likewise faked here: the model run is still
+    resolved from the real registry, but no key is fetched or required, and the cached run is
+    dropped around each test so no test inherits another's. Skipped for ``@pytest.mark.live``
+    tests, which need real secrets.
+    """
+    if request.node.get_closest_marker("live"):
+        yield
+        return
+
+    from helpers import keys, metadata_llm
+
+    keys._cache.clear()
+    metadata_llm._get_metadata_model_run.cache_clear()
+    with patch.object(
+        keys, "get_secret", side_effect=lambda name, *a, **k: f"fake-{name}"
+    ), patch.object(metadata_llm, "configure_api_keys"), patch.object(
+        metadata_llm, "validate_provider_keys"
+    ):
+        yield
+    keys._cache.clear()
+    metadata_llm._get_metadata_model_run.cache_clear()
+
+
 @pytest.fixture()
-def dbnomics_source():
-    """Return a DbnomicsSource instance."""
-    return DbnomicsSource()
+def local_bucket(tmp_path, monkeypatch):
+    """Provide a temp-dir-backed stand-in for the project's GCS buckets.
 
-
-# ---------------------------------------------------------------------------
-# DataFrame factories
-# ---------------------------------------------------------------------------
-
-
-def make_forecast_df(rows):
-    """Build a DataFrame for resolution input.
-
-    Each row is a dict with keys from:
-    [id, source, direction, forecast_due_date, resolution_date].
+    Sets ``GCP_STORAGE_LOCAL_ROOT`` / ``BUCKET_MOUNT_POINT`` and the ``*_BUCKET`` env vars so
+    that all ``utils.gcp.storage`` operations read/write the temp tree instead of GCS. Returns a
+    ``LocalBucket`` with helpers to seed inputs and read outputs using the real filename
+    conventions.
     """
-    df = pd.DataFrame(rows)
-    if "direction" not in df.columns:
-        df["direction"] = [() for _ in range(len(df))]
-    if "forecast_due_date" in df.columns:
-        df["forecast_due_date"] = pd.to_datetime(df["forecast_due_date"])
-    # Default needed so error-path tests pass ExplodedQuestionSetFrame validation in resolve_all()
-    if "resolution_date" not in df.columns:
-        df["resolution_date"] = pd.to_datetime("2025-12-31")
-    else:
-        df["resolution_date"] = pd.to_datetime(df["resolution_date"])
-    # resolve_all() sets these before calling _resolve()
-    if "resolved" not in df.columns:
-        df["resolved"] = False
-    if "resolved_to" not in df.columns:
-        df["resolved_to"] = np.nan
-    if "market_value_on_due_date" not in df.columns:
-        df["market_value_on_due_date"] = np.nan
-    return df
+    import os
 
+    from google.api_core.exceptions import NotFound
+    from utils.gcp import storage
 
-def make_question_df(rows):
-    """Build a DataFrame matching QuestionFrame schema.
+    from tests._harness.buckets import LocalBucket, apply_env
 
-    Each row should have at least 'id'. Missing columns get defaults.
-    """
-    defaults = {
-        "question": "N/A",
-        "background": "N/A",
-        "url": "N/A",
-        "resolved": False,
-        "forecast_horizons": "N/A",
-        "freeze_datetime_value": "N/A",
-        "freeze_datetime_value_explanation": "N/A",
-        "market_info_resolution_criteria": "N/A",
-        "market_info_open_datetime": "N/A",
-        "market_info_close_datetime": "N/A",
-        "market_info_resolution_datetime": "N/A",
-    }
-    df = pd.DataFrame(rows)
-    for col, default in defaults.items():
-        if col not in df.columns:
-            df[col] = default
-    return df
+    bucket = LocalBucket(tmp_path / "buckets")
+    apply_env(monkeypatch, bucket.env())
 
+    # The jobs download into fixed ``/tmp/<name>`` paths and, after a tolerated 404, read whatever
+    # is already there. In production that is a stale copy from an earlier run of the same
+    # container; under pytest it would be another test's (or another process's) file. Make a
+    # missing object leave no local file behind, so a test's outcome depends only on this bucket.
+    real_tolerant_download = storage.download_no_error_message_on_404
 
-def make_resolution_df(rows):
-    """Build a DataFrame with [id, date, value] matching ResolutionFrame."""
-    df = pd.DataFrame(rows)
-    df["date"] = pd.to_datetime(df["date"])
-    return df
+    def _download_without_stale_fallback(bucket_name, filename, local_filename=None):
+        try:
+            return storage.download(
+                bucket_name=bucket_name, filename=filename, local_filename=local_filename
+            )
+        except NotFound:
+            if local_filename is None:
+                local_filename = f"/tmp/{filename}"
+            if os.path.exists(local_filename):
+                os.remove(local_filename)
+            print(f"GCP Storage: could not download {bucket_name}/{filename}.")
+            return local_filename
 
-
-def make_acled_resolution_df(rows, event_columns=None):
-    """Build a DataFrame matching AcledResolutionFrame.
-
-    Args:
-        rows: list of dicts with 'country', 'event_date', and event type columns.
-        event_columns: list of event type column names (e.g. ['Battles', 'Riots']).
-    """
-    df = pd.DataFrame(rows)
-    df["event_date"] = pd.to_datetime(df["event_date"])
-    return df
-
-
-def make_question_set_df(rows):
-    """Build a DataFrame with [id, source, resolution_dates] for explode_question_set."""
-    return pd.DataFrame(rows)
-
-
-# ---------------------------------------------------------------------------
-# ACLED-specific factories
-# ---------------------------------------------------------------------------
-
-
-def make_acled_api_auth_response(**overrides):
-    """Build a realistic ACLED OAuth token response dict."""
-    base = {
-        "token_type": "Bearer",
-        "expires_in": 86400,
-        "access_token": "test-token-abc123",
-        "refresh_token": "test-refresh-xyz",
-    }
-    base.update(overrides)
-    return base
-
-
-def make_acled_api_data_response(data, count=None, next_cursor=None, **overrides):
-    """Build a realistic ACLED data API page response dict.
-
-    `next_cursor` is None on the last page, as in the API's cursor-based pagination.
-    """
-    base = {
-        "status": 200,
-        "success": True,
-        "count": count if count is not None else len(data),
-        "data": data,
-        "filename": "results.json",
-        "next_cursor": next_cursor,
-    }
-    base.update(overrides)
-    return base
-
-
-def make_acled_event(**overrides):
-    """Build a single ACLED event dict as returned by the API."""
-    base = {
-        "event_id_cnty": "TST001",
-        "event_date": "2025-06-15",
-        "iso": 706,
-        "region": "Eastern Africa",
-        "country": "Somalia",
-        "admin1": "Banadir",
-        "event_type": "Battles",
-        "fatalities": 1,
-        "timestamp": "1750000000",
-    }
-    base.update(overrides)
-    return base
-
-
-def make_acled_fetch_df(rows):
-    """Build a DataFrame matching AcledFetchFrame from partial row dicts."""
-    defaults = make_acled_event()
-    df = pd.DataFrame(rows)
-    for col, default in defaults.items():
-        if col not in df.columns:
-            df[col] = default
-    return df
-
-
-# ---------------------------------------------------------------------------
-# Yfinance-specific factories
-# ---------------------------------------------------------------------------
-
-
-def make_yfinance_fetch_df(rows):
-    """Build a DataFrame matching YfinanceFetchFrame schema.
-
-    Each row should have at least 'id'. Missing columns get defaults.
-    """
-    defaults = {
-        "question": "Will {id} go up?",
-        "background": "N/A",
-        "url": "N/A",
-        "resolved": False,
-        "forecast_horizons": "N/A",
-        "freeze_datetime_value": "100.0",
-        "freeze_datetime_value_explanation": "N/A",
-        "market_info_resolution_criteria": "N/A",
-        "market_info_open_datetime": "N/A",
-        "market_info_close_datetime": "N/A",
-        "market_info_resolution_datetime": "N/A",
-        "fetch_datetime": "2026-03-18T00:00:00+00:00",
-        "latest_close_date": "2026-03-17",
-        "company_name": "Some Co",
-    }
-    df = pd.DataFrame(rows)
-    for col, default in defaults.items():
-        if col not in df.columns:
-            df[col] = default
-    return df
-
-
-# ---------------------------------------------------------------------------
-# Manifold-specific factories
-# ---------------------------------------------------------------------------
-
-
-def make_manifold_api_market(**overrides):
-    """Build a realistic Manifold market dict as returned by /market/{id}."""
-    base = {
-        "id": "mkt_001",
-        "question": "Will X happen by 2026?",
-        "textDescription": "Background text.",
-        "createdTime": 1704067200000,  # 2024-01-01 epoch ms
-        "closeTime": 1735689600000,  # 2025-01-01 epoch ms
-        "isResolved": False,
-        "resolution": None,
-        "resolutionTime": None,
-        "resolutionProbability": None,
-        "url": "https://manifold.markets/user/test-market",
-        "uniqueBettorCount": 20,
-        "totalLiquidity": 200,
-    }
-    base.update(overrides)
-    return base
-
-
-def make_manifold_bet(**overrides):
-    """Build a single bet dict as returned by /bets endpoint."""
-    base = {
-        "id": "bet_001",
-        "contractId": "mkt_001",
-        "createdTime": 1717200000000,  # ~2024-06-01 epoch ms
-        "probAfter": 0.6,
-        "probBefore": 0.5,
-        "isFilled": True,
-        "amount": 10,
-    }
-    base.update(overrides)
-    return base
-
-
-# ---------------------------------------------------------------------------
-# Metaculus-specific factories
-# ---------------------------------------------------------------------------
-
-
-def make_metaculus_market(**overrides):
-    """Build a realistic Metaculus per-question API response dict.
-
-    Simulates GET /api/posts/{id}/ response. Supports nested overrides for the
-    ``question`` sub-dict via the ``question`` keyword argument.
-    """
-    base = {
-        "id": 42472,
-        "title": "Will X happen by 2027?",
-        "resolved": False,
-        "nr_forecasters": 50,
-        "status": "open",
-        "question": {
-            "description": "Background text for the question.",
-            "resolution_criteria": "Resolves Yes if X happens.",
-            "open_time": "2026-01-01T00:00:00Z",
-            "actual_close_time": "2027-01-01T00:00:00Z",
-            "actual_resolve_time": None,
-            "scheduled_close_time": "2027-01-01T00:00:00Z",
-            "scheduled_resolve_time": "2027-01-02T00:00:00Z",
-            "cp_reveal_time": "2026-01-03T00:00:00Z",
-            "resolution": None,
-            "type": "binary",
-            "aggregations": {
-                "recency_weighted": {
-                    "history": [
-                        {
-                            "start_time": 1735689600.0,  # 2025-01-01 00:00 UTC
-                            "end_time": 1735776000.0,  # 2025-01-02 00:00 UTC
-                            "centers": [0.4],
-                            "forecaster_count": 10,
-                        },
-                        {
-                            "start_time": 1735776000.0,  # 2025-01-02 00:00 UTC
-                            "end_time": 1735862400.0,  # 2025-01-03 00:00 UTC
-                            "centers": [0.5],
-                            "forecaster_count": 20,
-                        },
-                        {
-                            "start_time": 1735862400.0,  # 2025-01-03 00:00 UTC
-                            "end_time": 1735948800.0,  # 2025-01-04 00:00 UTC
-                            "centers": [0.6],
-                            "forecaster_count": 30,
-                        },
-                    ],
-                }
-            },
-        },
-    }
-    question_overrides = overrides.pop("question", None)
-    base.update(overrides)
-    if question_overrides:
-        base["question"].update(question_overrides)
-    return base
-
-
-def make_metaculus_search_result(**overrides):
-    """Build a single Metaculus search result entry (lighter than full market)."""
-    base = {
-        "id": 42472,
-        "nr_forecasters": 50,
-        "question": {
-            "cp_reveal_time": "2025-01-01T00:00:00Z",
-            "scheduled_close_time": "2026-06-01T00:00:00Z",
-            "scheduled_resolve_time": "2026-06-10T00:00:00Z",
-        },
-    }
-    question_overrides = overrides.pop("question", None)
-    base.update(overrides)
-    if question_overrides:
-        base["question"].update(question_overrides)
-    return base
-
-
-def make_metaculus_fetch_df(ids):
-    """Build a DataFrame matching MetaculusFetchFrame schema."""
-    return pd.DataFrame({"id": [str(i) for i in ids]})
-
-
-# ---------------------------------------------------------------------------
-# Kalshi-specific factories
-# ---------------------------------------------------------------------------
-
-
-def make_kalshi_api_market(**overrides):
-    """Build a realistic Kalshi market dict as returned by /markets/{ticker}."""
-    base = {
-        "ticker": "KXTEST-001",
-        "event_ticker": "KXTEST",
-        "title": "Will X happen by 2026?",
-        "yes_sub_title": "X happens",
-        "market_type": "binary",
-        "open_time": "2025-06-01T00:00:00Z",
-        "occurrence_datetime": "2026-12-01T00:00:00Z",
-        "close_time": "2026-12-01T00:00:00Z",
-        "status": "active",
-        "result": "",
-        "volume_fp": "10000.00",
-        "volume_24h_fp": "500.00",
-        "open_interest_fp": "2000.00",
-        "rules_primary": "Resolves Yes if X happens.",
-        "rules_secondary": "",
-        "settlement_ts": None,
-        "expected_expiration_time": "2026-12-01T00:00:00Z",
-        "latest_expiration_time": "2026-12-08T00:00:00Z",
-    }
-    base.update(overrides)
-    return base
-
-
-def make_kalshi_event(markets=None, category="Economics", **overrides):
-    """Build a Kalshi event dict with nested markets as returned by /events."""
-    base = {
-        "event_ticker": "KXTEST",
-        "series_ticker": "KXTEST",
-        "category": category,
-        "title": "Test event",
-        "settlement_sources": [],
-        "markets": markets if markets is not None else [make_kalshi_api_market()],
-    }
-    base.update(overrides)
-    return base
-
-
-def make_kalshi_candlestick(end_period_ts, close_dollars=None, **overrides):
-    """Build a candlestick dict as returned by the candlesticks endpoint.
-
-    ``price`` is empty ({}) when no trade occurred during the period, matching the API.
-    """
-    price = {} if close_dollars is None else {"close_dollars": str(close_dollars)}
-    base = {
-        "end_period_ts": end_period_ts,
-        "price": price,
-        "volume_fp": "100.00",
-        "open_interest_fp": "500.00",
-    }
-    base.update(overrides)
-    return base
-
-
-def make_kalshi_fetch_df(rows):
-    """Build a DataFrame matching KalshiFetchFrame schema."""
-    defaults = dict(
-        event_ticker="KXTEST",
-        needs_yes_label=False,
-        series_ticker="KXTEST",
-        settlement_sources=[],
+    monkeypatch.setattr(
+        storage, "download_no_error_message_on_404", _download_without_stale_fallback
     )
-    records = [{**defaults, **row} for row in rows]
-    return pd.DataFrame(records, columns=["id", *defaults])
+    assert real_tolerant_download is not _download_without_stale_fallback
+    return bucket
 
 
 # ---------------------------------------------------------------------------
-# Polymarket-specific factories
+# Source-contract helpers: fresh instances + offline update() adapter
 # ---------------------------------------------------------------------------
 
 
-def make_polymarket_api_market(**overrides):
-    """Build a realistic Polymarket Gamma API market dict.
+def empty_question_bank():
+    """Return an empty question bank with the canonical QuestionFrame columns (prod read shape)."""
+    import pandas as pd
 
-    Override specific fields as needed. All JSON-encoded string fields
-    (outcomes, outcomePrices, clobTokenIds) match the real API format.
+    from helpers import constants
+
+    return pd.DataFrame(columns=constants.QUESTION_FILE_COLUMNS)
+
+
+@pytest.fixture()
+def fresh_source():
+    """Build a fresh source instance (never the registry singleton) for mutating tests.
+
+    Sources carry mutable state (``api_key``, ``ticker_renames``); registry singletons must not
+    be mutated across tests.
     """
-    base = {
-        "conditionId": "0xabc123",
-        "question": "Will X happen by 2026?",
-        "description": "Background text.",
-        "slug": "will-x-happen-by-2026",
-        "outcomes": '["Yes", "No"]',
-        "outcomePrices": '["0.65", "0.35"]',
-        "clobTokenIds": '["token_yes", "token_no"]',
-        "liquidityNum": 50000,
-        "active": True,
-        "closed": False,
-        "archived": False,
-        "startDateIso": "2025-01-01",
-        "endDate": "2026-06-01T00:00:00Z",
-        "umaResolutionStatus": None,
-        "umaEndDate": None,
-        "events": [{"endDate": "2026-06-01T00:00:00Z"}],
-    }
-    base.update(overrides)
-    return base
+    from sources import registry
+
+    classes = {s.name: type(s) for s in registry.SOURCES.values()}
+
+    def _make(name):
+        src = classes[name]()
+        if name in ("fred", "metaculus"):
+            src.api_key = "test-key"
+        if name == "yfinance":
+            src.ticker_renames = []  # else update() fetches replacement tickers
+        return src
+
+    return _make
 
 
-def make_polymarket_price_history(entries):
-    """Build a price history list as returned by the CLOB API.
+@pytest.fixture()
+def offline_update_case(fresh_source):
+    """Return a builder ``_case(name, stack) -> (source, dfq, dff)`` for an offline update() call.
 
-    Args:
-        entries: list of (epoch_sec, prob) tuples.
+    Most sources build their resolution data over the network inside ``update()``; patching each
+    one's own network seam makes the call run offline:
+
+    - ``kalshi``/``manifold``/``metaculus``/``yfinance``: ``_build_resolution_df`` (plus
+      ``_get_market`` where the question fields come from a per-market request);
+    - ``polymarket``: no seam either — its price history is embedded in the fetch frame, so the
+      real resolution builder runs offline;
+    - ``acled``/``dbnomics``/``fred``/``serpapi``/``wikipedia``: no seam needed — their
+      ``update()`` already reads everything it needs out of the fetch data. ``dbnomics`` only has
+      its series list pinned to a single entry so the case stays small and independent of the live
+      question config; ``serpapi`` measures one configured snapshot series today; ``acled`` gets one
+      event (its questions are generated per country x event type); ``wikipedia`` gets one FIDE
+      rating observation and an empty frame for every other configured page (its fetch result is
+      one frame per page, not a single frame).
+    - ``manifold`` (update-only, no fetch frame): ``_build_resolution_df`` + ``_get_market``, with
+      one unresolved question seeded in the bank and ``dff=None``, exactly as its driver calls it.
+
+    This exercises update()'s *assembly* contract (dfq schema + exact columns, resolution_files
+    packaging); resolution *content* is stubbed and asserted elsewhere. The caller supplies a
+    ``contextlib.ExitStack`` so patches unwind cleanly.
     """
-    return [{"t": t, "p": p} for t, p in entries]
+    import pandas as pd
 
+    from tests import factories as f
 
-def make_polymarket_fetch_df(rows):
-    """Build a DataFrame matching PolymarketFetchFrame schema."""
-    defaults = {
-        "question": "N/A",
-        "background": "N/A",
-        "url": "N/A",
-        "resolved": False,
-        "forecast_horizons": "N/A",
-        "freeze_datetime_value": "N/A",
-        "freeze_datetime_value_explanation": "N/A",
-        "market_info_resolution_criteria": "N/A",
-        "market_info_open_datetime": "N/A",
-        "market_info_close_datetime": "N/A",
-        "market_info_resolution_datetime": "N/A",
-        "fetch_datetime": "2026-01-15T00:00:00+00:00",
-        "probability": 0.5,
-        "historical_prices": [{"date": "2024-06-01", "value": 0.5}],
-    }
-    df = pd.DataFrame(rows)
-    for col, default in defaults.items():
-        if col not in df.columns:
-            df[col] = default
-    return df
+    def _stub_resolution_df(src, stack):
+        res = f.make_resolution_df([{"id": "x", "date": "2024-06-01", "value": 0.5}])
+        stack.enter_context(patch.object(type(src), "_build_resolution_df", return_value=res))
 
+    def _stub_market(src, stack, market):
+        stack.enter_context(patch.object(type(src), "_get_market", return_value=market))
 
-# ---------------------------------------------------------------------------
-# DBnomics-specific factories
-# ---------------------------------------------------------------------------
+    def _acled(src, stack):
+        # One event -> questions for one country x (its event type + fatalities) x each key.
+        return f.make_acled_fetch_df(
+            [{"event_id_cnty": "SOM1", "country": "Somalia", "event_date": "2025-06-15"}]
+        )
 
+    def _dbnomics(src, stack):
+        from helpers import dates
+        from sources import dbnomics
 
-def make_dbnomics_api_response(
-    period_values,
-    provider_code="meteofrance",
-    dataset_name="Temperature",
-    series_name="Abbeville",
-):
-    """Build a DBnomics ``/series`` API response dict.
+        question = dbnomics.DBNOMICS_QUESTIONS[0]
+        stack.enter_context(patch.object(dbnomics, "DBNOMICS_QUESTIONS", [question]))
+        # Recent enough that update() treats the series as fresh and curatable.
+        period = dates.get_date_today() - timedelta(days=2)
+        return f.make_dbnomics_fetch_df(
+            [{"id": question["id"].replace("/", "_"), "period": period.isoformat(), "value": 6.0}]
+        )
 
-    Args:
-        period_values (list): List of (period_str, value) tuples; value is a float or "NA".
-        provider_code (str): Provider code returned on the series document.
-        dataset_name (str): Dataset name on the series doc.
-        series_name (str): Series name on the series doc.
-    """
-    periods = [p for p, _ in period_values]
-    values = [v for _, v in period_values]
-    return {
-        "series": {
-            "docs": [
+    def _fred(src, stack):
+        return f.make_fred_fetch_df([{"id": "DGS10"}])
+
+    def _kalshi(src, stack):
+        _stub_resolution_df(src, stack)
+        _stub_market(src, stack, f.make_kalshi_api_market(ticker="KXTEST-001"))
+        return f.make_kalshi_fetch_df([{"id": "KXTEST-001"}])
+
+    def _manifold(src, stack):
+        # Update-only: no fetch frame exists any more, so update() works off the question bank.
+        _stub_resolution_df(src, stack)
+        _stub_market(src, stack, f.make_manifold_api_market(id="mkt1"))
+        from helpers import constants
+
+        # The bank as the driver reads it: canonical column order, one unresolved question.
+        bank = f.make_question_df([{"id": "mkt1", "resolved": False}])
+        return bank[constants.QUESTION_FILE_COLUMNS], None
+
+    def _metaculus(src, stack):
+        _stub_resolution_df(src, stack)
+        _stub_market(src, stack, f.make_metaculus_market(id="mkt1"))
+        return f.make_metaculus_fetch_df(["mkt1"])
+
+    def _polymarket(src, stack):
+        # No seam: polymarket's resolution data arrives embedded in the fetch frame, so its real
+        # ``_build_resolution_df`` runs offline.
+        return f.make_polymarket_fetch_df(
+            [{"id": "m1", "historical_prices": [{"date": "2024-06-01", "value": 0.5}]}]
+        )
+
+    def _yfinance(src, stack):
+        _stub_resolution_df(src, stack)
+        return f.make_yfinance_fetch_df([{"id": "AAPL"}])
+
+    def _serpapi(src, stack):
+        # No seam needed: update() builds each question's history from the fetch frame alone. One
+        # configured snapshot (price) series measured today, so the question is current and its
+        # resolution file carries the canonical columns (flight series add ``fetch_datetime``).
+        from helpers import dates
+        from sources import serpapi
+        from sources.serpapi_helpers import TODAY_ONLY_ENGINES
+
+        name, spec = next(
+            (n, s) for n, s in serpapi.QUESTION_SPECS.items() if s["engine"] in TODAY_ONLY_ENGINES
+        )
+        return f.make_serpapi_fetch_df(
+            [
                 {
-                    "period": periods,
-                    "value": values,
-                    "provider_code": provider_code,
-                    "dataset_name": dataset_name,
-                    "series_name": series_name,
+                    "id": serpapi.question_id(name, spec["variables"][0]),
+                    "date": dates.get_date_today().isoformat(),
+                    "value": 12.5,
                 }
             ]
-        },
+        )
+
+    def _wikipedia(src, stack):
+        # Every configured page must be present in the fetch result; an empty frame means the
+        # page had no data. One FIDE rating row is enough to assemble a question + resolution file.
+        # The bank is seeded as the driver reads it (canonical column order, one question): on an
+        # empty bank update() returns the new row's own column order, which only the first run ever
+        # saw.
+        from helpers import constants
+
+        dff = f.make_wikipedia_fetch_result(
+            FIDE_rankings_elo_rating=pd.DataFrame(
+                {"Player": ["Magnus Carlsen"], "Rating": [2850], "date": ["2024-07-01"]}
+            )
+        )
+        bank = f.make_question_df([{"id": "existing", "resolved": False}])
+        return bank[constants.QUESTION_FILE_COLUMNS], dff
+
+    builders = {
+        "acled": _acled,
+        "dbnomics": _dbnomics,
+        "fred": _fred,
+        "kalshi": _kalshi,
+        "manifold": _manifold,
+        "metaculus": _metaculus,
+        "polymarket": _polymarket,
+        "serpapi": _serpapi,
+        "wikipedia": _wikipedia,
+        "yfinance": _yfinance,
     }
 
+    def _case(name, stack):
+        src = fresh_source(name)
+        built = builders[name](src, stack)
+        if isinstance(built, tuple):  # (dfq, dff): the builder supplied the bank itself
+            dfq, dff = built
+            return src, dfq, dff
+        return src, empty_question_bank(), built
 
-def make_dbnomics_fetch_df(rows):
-    """Build a DataFrame matching DbnomicsFetchFrame (one row per observation).
-
-    Each row should have at least 'id', 'period', 'value'. Missing columns get defaults.
-    """
-    defaults = {
-        "provider_name": "MeteoFrance",
-        "dataset_name": "Temperature",
-        "series_name": "Abbeville",
-    }
-    df = pd.DataFrame(rows)
-    for col, default in defaults.items():
-        if col not in df.columns:
-            df[col] = default
-    return df
-
-
-# ---------------------------------------------------------------------------
-# FRED-specific fixtures and factories
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def fred_source():
-    """Return a FredSource instance with a fake API key."""
-    src = FredSource()
-    src.api_key = "test-key"
-    return src
-
-
-def make_fred_api_release(**overrides):
-    """Build a realistic FRED release API response dict."""
-    base = {
-        "id": 18,
-        "realtime_start": "2026-03-18",
-        "realtime_end": "2026-03-18",
-        "name": "H.15 Selected Interest Rates",
-        "press_release": True,
-        "link": "http://www.federalreserve.gov/releases/h15/",
-        "notes": "For questions on the data, please contact the data source.",
-    }
-    base.update(overrides)
-    return base
-
-
-def make_fred_api_series(**overrides):
-    """Build a realistic FRED series API response dict."""
-    base = {
-        "id": "DGS10",
-        "title": "Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity",
-        "observation_start": "1962-01-02",
-        "observation_end": "2026-03-16",
-        "frequency": "Daily",
-        "frequency_short": "D",
-        "units": "Percent",
-        "units_short": "%",
-        "seasonal_adjustment": "Not Seasonally Adjusted",
-        "seasonal_adjustment_short": "NSA",
-        "last_updated": "2026-03-17 15:16:44-05",
-        "popularity": 98,
-        "notes": "H.15 Statistical Release.",
-    }
-    base.update(overrides)
-    return base
-
-
-def make_fred_api_observations(series_id="DGS10", date_values=None):
-    """Build a list of FRED observation dicts.
-
-    Args:
-        series_id (str): The series ID for the id field.
-        date_values (list): List of (date_str, value_str) tuples.
-    """
-    if date_values is None:
-        date_values = [
-            ("2026-03-14", "4.25"),
-            ("2026-03-15", "."),
-            ("2026-03-16", "4.30"),
-        ]
-    return [
-        {
-            "realtime_start": "2026-03-18",
-            "realtime_end": "2026-03-18",
-            "date": d,
-            "value": v,
-        }
-        for d, v in date_values
-    ]
-
-
-def make_fred_fetch_df(rows):
-    """Build a DataFrame matching FredFetchFrame schema.
-
-    Each row should have at least 'id'. Missing columns get defaults.
-    """
-    defaults = {
-        "question": (
-            "Will X have increased by {resolution_date} as compared to "
-            "its value on {forecast_due_date}?"
-        ),
-        "background": "N/A",
-        "url": "https://fred.stlouisfed.org/series/DGS10",
-        "resolved": False,
-        "forecast_horizons": [7, 30, 90, 180, 365],
-        "freeze_datetime_value": 4.30,
-        "freeze_datetime_value_explanation": "The latest value released in X from the release Y.",
-        "market_info_resolution_criteria": "N/A",
-        "market_info_open_datetime": "N/A",
-        "market_info_close_datetime": "N/A",
-        "market_info_resolution_datetime": "N/A",
-        "fetch_datetime": "2026-03-18T00:00:00+00:00",
-        "probability": 4.30,
-        "resolutions": [
-            {"id": "DGS10", "date": "2026-03-14", "value": 4.25},
-            {"id": "DGS10", "date": "2026-03-15", "value": 4.25},
-            {"id": "DGS10", "date": "2026-03-16", "value": 4.30},
-        ],
-    }
-    df = pd.DataFrame(rows)
-    for col, default in defaults.items():
-        if col not in df.columns:
-            df[col] = [default] * len(df) if isinstance(default, list) else default
-    return df
+    return _case
