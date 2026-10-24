@@ -103,26 +103,26 @@ def test_active_variants_are_zero_shot_and_freeze_values():
     assert forecast_variants.DATASET_FORECAST_SHARING_VARIANT_GROUPS == (
         forecast_variants.DatasetForecastSharingVariantGroup(
             dataset_prompt_variant=forecast_variants.ZERO_SHOT,
-            output_variants=(
-                forecast_variants.ZERO_SHOT,
-                forecast_variants.ZERO_SHOT_WITH_FREEZE_VALUES,
-            ),
+            output_variants=(forecast_variants.ZERO_SHOT_WITH_FREEZE_VALUES,),
         ),
     )
     assert not hasattr(forecast_variants.ZERO_SHOT, "model_suffix")
     assert not hasattr(forecast_variants.ZERO_SHOT_WITH_FREEZE_VALUES, "model_suffix")
 
 
-def test_dataset_forecast_sharing_groups_cover_active_variants_in_run_order():
+def test_dataset_forecast_sharing_groups_use_active_variants_once_in_run_order():
     grouped_variants = [
         variant
         for group in forecast_variants.DATASET_FORECAST_SHARING_VARIANT_GROUPS
         for variant in group.output_variants
     ]
+    active_variants = list(forecast_variants.FORECAST_VARIANTS)
 
-    assert grouped_variants == list(forecast_variants.FORECAST_VARIANTS)
+    assert len(grouped_variants) == len(set(grouped_variants))
+    assert set(grouped_variants) <= set(active_variants)
+    assert grouped_variants == sorted(grouped_variants, key=active_variants.index)
     assert all(
-        group.dataset_prompt_variant in group.output_variants
+        group.dataset_prompt_variant in active_variants
         for group in forecast_variants.DATASET_FORECAST_SHARING_VARIANT_GROUPS
     )
 

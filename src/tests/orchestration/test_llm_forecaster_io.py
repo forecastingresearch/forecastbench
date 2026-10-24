@@ -122,11 +122,6 @@ def test_final_forecast_set_destination_blob_names_match_output_variants():
         (
             "2026-05-10/"
             "TEST.2026-05-10.ForecastBench.OpenAI.Test Lab."
-            "test-model-run-variant-01-zero-shot.json"
-        ),
-        (
-            "2026-05-10/"
-            "TEST.2026-05-10.ForecastBench.OpenAI.Test Lab."
             "test-model-run-variant-01-zero-shot-with-freeze-values.json"
         ),
     ]

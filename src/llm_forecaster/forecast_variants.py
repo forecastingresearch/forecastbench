@@ -104,13 +104,13 @@ ALL_FORECAST_VARIANTS_WITHOUT_CONTEXT = tuple(
 # forecasts because their dataset prompts are identical. If scratchpad variants
 # become active again, scratchpad and scratchpad-with-freeze-values belong in
 # their own group for the same reason.
+# Only the freeze-values forecast set is produced: every LLM forecaster gets the market's
+# freeze value as context. Dataset questions still use the zero-shot dataset prompt, which
+# has no freeze value.
 DATASET_FORECAST_SHARING_VARIANT_GROUPS = (
     DatasetForecastSharingVariantGroup(
         dataset_prompt_variant=ZERO_SHOT,
-        output_variants=(
-            ZERO_SHOT,
-            ZERO_SHOT_WITH_FREEZE_VALUES,
-        ),
+        output_variants=(ZERO_SHOT_WITH_FREEZE_VALUES,),
     ),
 )
 FORECAST_VARIANTS_BY_KEY = {variant.key: variant for variant in FORECAST_VARIANTS}

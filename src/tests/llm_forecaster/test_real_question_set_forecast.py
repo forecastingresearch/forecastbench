@@ -89,30 +89,22 @@ def test_real_2026_05_24_question_set_writes_example_forecasts_without_provider_
     assert len(dataset_questions) == 2
     assert len(market_questions) == 2
     assert [written_file.variant for written_file in written_files] == [
-        ZERO_SHOT,
         ZERO_SHOT_WITH_FREEZE_VALUES,
     ]
 
-    zero_shot_file = tmp_path / output.final_filename(
-        "2026-05-24",
-        model_run,
-        ZERO_SHOT,
-        is_test=True,
-    )
     freeze_values_file = tmp_path / output.final_filename(
         "2026-05-24",
         model_run,
         ZERO_SHOT_WITH_FREEZE_VALUES,
         is_test=True,
     )
-    assert [written_file.local_filename for written_file in written_files] == [
-        zero_shot_file,
-        freeze_values_file,
-    ]
+    assert [written_file.local_filename for written_file in written_files] == [freeze_values_file]
+    assert not (
+        tmp_path / output.final_filename("2026-05-24", model_run, ZERO_SHOT, is_test=True)
+    ).exists()
 
-    zero_shot_data = json.loads(zero_shot_file.read_text(encoding="utf-8"))
     freeze_values_data = json.loads(freeze_values_file.read_text(encoding="utf-8"))
-    assert set(zero_shot_data) == {
+    assert set(freeze_values_data) == {
         "organization",
         "model",
         "model_organization",
@@ -124,40 +116,27 @@ def test_real_2026_05_24_question_set_writes_example_forecasts_without_provider_
         "forecast_due_date",
         "forecasts",
     }
-    assert zero_shot_data["organization"] == "ForecastBench"
-    assert zero_shot_data["model"] == model_run.slug
-    assert zero_shot_data["model_organization"] == model_run.lab.name
-    assert zero_shot_data["model_run_key"] == model_run.model_run_key
-    assert zero_shot_data["model_run_slug"] == model_run.slug
-    assert zero_shot_data["forecast_variant_key"] == ZERO_SHOT.key
-    assert zero_shot_data["market_prompt_uses_freeze_values"] is False
-    assert zero_shot_data["question_set"] == "2026-05-24-llm.json"
-    assert zero_shot_data["forecast_due_date"] == "2026-05-24"
-    zero_shot_raw_file = zero_shot_file.read_text(encoding="utf-8")
-    freeze_values_raw_file = freeze_values_file.read_text(encoding="utf-8")
-    assert "†" not in zero_shot_raw_file
-    assert "\\u2020" not in zero_shot_raw_file
-    assert "†" not in freeze_values_raw_file
-    assert "\\u2020" not in freeze_values_raw_file
+    assert freeze_values_data["organization"] == "ForecastBench"
     assert freeze_values_data["model"] == f"{model_run.slug}-{ZERO_SHOT_WITH_FREEZE_VALUES.key}"
+    assert freeze_values_data["model_organization"] == model_run.lab.name
     assert freeze_values_data["model_run_key"] == model_run.model_run_key
     assert freeze_values_data["model_run_slug"] == model_run.slug
     assert freeze_values_data["forecast_variant_key"] == ZERO_SHOT_WITH_FREEZE_VALUES.key
     assert freeze_values_data["market_prompt_uses_freeze_values"] is True
+    assert freeze_values_data["question_set"] == "2026-05-24-llm.json"
+    assert freeze_values_data["forecast_due_date"] == "2026-05-24"
+    freeze_values_raw_file = freeze_values_file.read_text(encoding="utf-8")
+    assert "†" not in freeze_values_raw_file
+    assert "\\u2020" not in freeze_values_raw_file
 
     dataset_row_count = sum(len(question["resolution_dates"]) for question in dataset_questions)
-    assert len(zero_shot_data["forecasts"]) == dataset_row_count + len(market_questions)
     assert len(freeze_values_data["forecasts"]) == dataset_row_count + len(market_questions)
 
     dataset_source_names = set(DATASET_SOURCE_NAMES)
-    zero_shot_dataset_rows = [
-        row for row in zero_shot_data["forecasts"] if row["source"] in dataset_source_names
-    ]
     freeze_dataset_rows = [
         row for row in freeze_values_data["forecasts"] if row["source"] in dataset_source_names
     ]
-    assert zero_shot_dataset_rows == freeze_dataset_rows
-    assert {_row_key(row) for row in zero_shot_dataset_rows} == {
+    assert {_row_key(row) for row in freeze_dataset_rows} == {
         (question["source"], question["id"], resolution_date)
         for question in dataset_questions
         for resolution_date in question["resolution_dates"]
@@ -166,12 +145,8 @@ def test_real_2026_05_24_question_set_writes_example_forecasts_without_provider_
     market_row_keys = {(question["source"], question["id"], None) for question in market_questions}
     assert {
         _row_key(row)
-        for row in zero_shot_data["forecasts"]
-        if row["source"] not in dataset_source_names
-    } == market_row_keys
-    assert {
-        _row_key(row)
         for row in freeze_values_data["forecasts"]
         if row["source"] not in dataset_source_names
     } == market_row_keys
-    assert len(calls) == len(dataset_questions) + 2 * len(market_questions)
+    # One call per question: dataset questions once, market questions once with freeze values.
+    assert len(calls) == len(dataset_questions) + len(market_questions)
