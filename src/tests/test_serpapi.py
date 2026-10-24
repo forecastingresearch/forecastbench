@@ -2,7 +2,7 @@
 
 import json
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -15,9 +15,11 @@ from google.api_core.exceptions import Forbidden, NotFound, ServiceUnavailable
 
 from _fb_types import SourceType
 from _schemas import QuestionFrame, ResolutionFrame, SerpapiFetchFrame
-from curate_questions.create_question_set import main as create_question_set
 from helpers import constants, question_curation
 from llm_forecaster import prompts
+from orchestration import _io
+from question_sampling._prepare import get_resolution_criteria
+from question_sampling.create_question_set import QuestionSetTarget, build_question_set
 from sources import serpapi
 from sources.serpapi import SerpapiSource, question_id
 from sources.serpapi_helpers import WALMART_SELLER_ID, measurement_params
@@ -179,17 +181,14 @@ def test_each_api_fetches_updates_and_serializes(source, monkeypatch, tmp_path, 
     published = saved.to_frame().T.assign(
         source="serpapi", source_intro=source.source_intro, freeze_datetime="2026-09-16"
     )
-    published["resolution_criteria"] = create_question_set.get_resolution_criteria(
-        published, question_curation.FREEZE_QUESTION_DATA_SOURCES["serpapi"]["resolution_criteria"]
+    published["resolution_criteria"] = get_resolution_criteria(
+        published, source.resolution_criteria
+    )
+    question_set = build_question_set(
+        {"serpapi": {"dfq": published}}, QuestionSetTarget.LLM, datetime(2026, 9, 16)
     )
     output_path = tmp_path / "questions.json"
-    monkeypatch.setattr(
-        create_question_set, "open", lambda *a, **k: output_path.open(*a[1:], **k), raising=False
-    )
-    monkeypatch.setattr(create_question_set.env, "RUNNING_LOCALLY", True)
-    create_question_set.write_questions(
-        {"serpapi": {"dfq": published}}, create_question_set.QuestionSetTarget.LLM
-    )
+    _io.write_question_set_file(output_path, question_set)
     question = json.loads(output_path.read_text(encoding="utf-8"))["questions"][0]
     assert question["resolution_criteria"] == criteria
     prompt = prompts.render_template(

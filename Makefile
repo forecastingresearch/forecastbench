@@ -139,7 +139,7 @@ website:
 	$(MAKE) -C src/www.forecastbench.org || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 create-question-set:
-	$(MAKE) -C src/curate_questions/create_question_set || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_question_set_create || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 publish-question-set:
 	$(MAKE) -C src/curate_questions/publish_question_set || echo "* $@" >> $(MAKE_FAILURE_LOG)
