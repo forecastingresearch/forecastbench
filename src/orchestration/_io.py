@@ -516,13 +516,20 @@ def read_forecast_file(filename: str, f: TextIO | None = None) -> dict | None:
     model = data.get("model")
     model_organization = data.get("model_organization")
     question_set = data.get("question_set")
-    date_match = re.search(r"\d{4}-\d{2}-\d{2}", question_set)
-    forecast_due_date = date_match.group(0) if date_match else None
     forecasts = data.get("forecasts")
     if not organization or not model or not model_organization or not question_set or not forecasts:
         logger.error(colored(f"Problem processing {filename}. Missing required fields.", "yellow"))
         return None
 
+    # Validate question_set before the regex: re.search() raises a TypeError on a missing or
+    # non-string value, which would abort the whole resolve job instead of skipping this one file.
+    if not isinstance(question_set, str):
+        logger.error(
+            colored(f"Problem processing {filename}. `question_set` is not a string.", "yellow")
+        )
+        return None
+    date_match = re.search(r"\d{4}-\d{2}-\d{2}", question_set)
+    forecast_due_date = date_match.group(0) if date_match else None
     if not forecast_due_date:
         logger.error(
             colored(
