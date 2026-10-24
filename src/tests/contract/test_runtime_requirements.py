@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-RUNTIME_REQUIREMENT = "git+https://github.com/forecastingresearch/utils@"
+RUNTIME_REQUIREMENT = re.compile(r"git\+https://github\.com/[^/\s]+/utils@")
 LEGACY_BASELINE_ROOT = "/".join(("src", "base_eval", "llm_baselines"))
 SHARED_LLM_PROVIDER_REQUIREMENT_NAMES = {
     "anthropic",
@@ -25,9 +25,9 @@ def iter_deploy_requirements():
 def test_shared_utils_pin_only_lives_in_root_runtime_requirements():
     root_runtime_requirements = (ROOT / "requirements.runtime.txt").read_text()
 
-    assert RUNTIME_REQUIREMENT in root_runtime_requirements
+    assert RUNTIME_REQUIREMENT.search(root_runtime_requirements)
     for requirements_path, _makefile_path in iter_deploy_requirements():
-        assert RUNTIME_REQUIREMENT not in requirements_path.read_text(), requirements_path
+        assert not RUNTIME_REQUIREMENT.search(requirements_path.read_text()), requirements_path
 
 
 STAGED_RUNTIME_REQUIREMENT = re.compile(
