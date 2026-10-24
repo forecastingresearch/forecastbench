@@ -11,7 +11,7 @@ from tqdm.asyncio import tqdm_asyncio
 from utils import gcp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import (  # noqa: E402
+from helpers import (
     constants,
     data_utils,
     decorator,

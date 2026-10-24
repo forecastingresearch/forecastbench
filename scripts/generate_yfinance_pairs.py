@@ -171,8 +171,7 @@ def main() -> None:
         "--seed",
         type=int,
         default=DEFAULT_SEED,
-        help="Seed for drawing new pairs; existing pairs are never redrawn "
-        "(default: %(default)s).",
+        help="Seed for drawing new pairs; existing pairs are never redrawn (default: %(default)s).",
     )
     args = parser.parse_args()
     if not args.question_file.is_file():

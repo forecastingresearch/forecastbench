@@ -287,8 +287,10 @@ class SerpapiSource(DatasetSource):
         (requests.Timeout, requests.ConnectionError, requests.HTTPError),
         max_tries=3,
         jitter=None,
-        giveup=lambda exc: isinstance(exc, requests.HTTPError)
-        and (exc.response is None or exc.response.status_code not in {429, 500, 502, 503, 504}),
+        giveup=lambda exc: (
+            isinstance(exc, requests.HTTPError)
+            and (exc.response is None or exc.response.status_code not in {429, 500, 502, 503, 504})
+        ),
         logger=None,  # Request exception URLs can contain the API key.
     )
     def _get_response(self, params: dict, *, html_url: str | None = None) -> requests.Response:

@@ -4,7 +4,7 @@ Only consumed by ``sources.fred`` (the fetch path); kept in a separate file
 purely for maintainability.
 """
 
-# flake8: noqa: B950
+# ruff: noqa: E501
 
 FRED_QUESTIONS = [
     {

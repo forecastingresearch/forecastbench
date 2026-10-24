@@ -149,7 +149,7 @@ class TestMarketHelpers:
         """A capped fetch cannot remove a previously stored settlement source."""
         market = make_kalshi_api_market(rules_primary="Updated primary.", rules_secondary="")
         existing_criteria = (
-            "Old primary. Outcome verified from Library of Congress " "(https://www.congress.gov/)."
+            "Old primary. Outcome verified from Library of Congress (https://www.congress.gov/)."
         )
 
         criteria = KalshiSource._resolution_criteria(market, existing_criteria=existing_criteria)
@@ -1200,7 +1200,7 @@ class TestUpdate:
         row = result.dfq[result.dfq["id"] == "KXTEST-001"].iloc[0]
         assert row["question"] == "Updated question text [Yes: Specific Yes outcome]"
         assert row["market_info_resolution_criteria"] == (
-            "New rules Outcome verified from Library of Congress " "(https://www.congress.gov/)."
+            "New rules Outcome verified from Library of Congress (https://www.congress.gov/)."
         )
         assert row["url"] == "https://kalshi.com/markets/kxtest/x/kxtest"
 

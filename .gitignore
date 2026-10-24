@@ -58,8 +58,8 @@ ENV/
 # notebook checkpoints
 .ipynb_checkpoints/
 
-# isort
-*.py.isorted
+# ruff
+.ruff_cache/
 
 # OS generated files
 .DS_Store

@@ -32,7 +32,7 @@ from tqdm import tqdm
 from utils import gcp
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import (  # noqa: E402
+from helpers import (
     constants,
     data_utils,
     decorator,
@@ -40,7 +40,7 @@ from helpers import (  # noqa: E402
     question_curation,
     yfinance,
 )
-from sources import SOURCE_METADATA  # noqa: E402
+from sources import SOURCE_METADATA
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -276,7 +276,7 @@ def get_market_value_bin(value: float | str | None) -> str:
 
     try:
         val = float(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return "unknown"
 
     for bin_config in MARKET_VALUE_CONFIG:
@@ -313,7 +313,7 @@ def get_time_horizon_bin(close_datetime: str | None) -> str:
             if horizon_config["min"] <= days_until_close <= horizon_config["max"]:
                 return get_bin_label(horizon_config, "time_horizon")
         return "unknown"
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return "unknown"
 
 

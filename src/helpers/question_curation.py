@@ -95,9 +95,9 @@ FREEZE_QUESTION_DATA_SOURCES = {
 FREEZE_QUESTION_SOURCES = {**FREEZE_QUESTION_MARKET_SOURCES, **FREEZE_QUESTION_DATA_SOURCES}
 
 for _sources in (FREEZE_QUESTION_MARKET_SOURCES, FREEZE_QUESTION_DATA_SOURCES):
-    assert math.isclose(
-        sum(source["sampling_share"] for source in _sources.values()), 1
-    ), "sampling shares within a source type must sum to 1"
+    assert math.isclose(sum(source["sampling_share"] for source in _sources.values()), 1), (
+        "sampling shares within a source type must sum to 1"
+    )
 
 DATA_SOURCES = list(FREEZE_QUESTION_DATA_SOURCES.keys())
 MARKET_SOURCES = list(FREEZE_QUESTION_MARKET_SOURCES.keys())

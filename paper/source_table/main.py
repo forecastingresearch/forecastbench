@@ -8,7 +8,7 @@ import pandas as pd
 from variables import BUCKET_NAME
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from src.helpers import resolution  # noqa: E402
+from src.helpers import resolution
 
 question_counts = {}
 df = pd.DataFrame()
@@ -110,4 +110,4 @@ print(rf"""
     \multicolumn{{2}}{{l}}{{\textbf{{Question Bank Total}}}} & {total_n} & {total_pairs} \\
     \bottomrule
   \end{{tabular}}
-""")  # noqa: B950
+""")  # noqa: E501
