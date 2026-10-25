@@ -14,8 +14,9 @@ import pandas as pd
 
 from helpers import constants, question_curation
 from metadata import _tag as tag
-from metadata.validate_questions import main as validate
+from metadata import _validate as validate
 from orchestration.func_metadata_tag import main as tag_job
+from orchestration.func_metadata_validate import main as validate_job
 from orchestration.func_question_set_create import main as curate
 from question_sampling._prepare import (
     drop_invalid_questions,
@@ -81,9 +82,9 @@ def _run_metadata_jobs(
         patch.object(
             validate.metadata_llm, "get_metadata_model_response", side_effect=fake_validate
         ),
-        patch.object(validate.time, "sleep"),
+        patch.object(validate_job.time, "sleep"),
     ):
-        validate.driver(None)
+        validate_job.driver(None)
 
     return pd.read_json(local_bucket.question_bank_dir() / constants.META_DATA_FILENAME, lines=True)
 
