@@ -29,7 +29,7 @@ COLD_IMPORT_MODULES = [
     # The metadata jobs: their shared-registry key loading must stay call-time. The in-process
     # test cannot see it (the offline fixtures fake ``configure_api_keys``), the cold import can.
     "orchestration.func_metadata_tag.main",
-    "metadata.validate_questions.main",
+    "orchestration.func_metadata_validate.main",
 ]
 
 JOB_MODULES = [
@@ -59,7 +59,7 @@ JOB_MODULES = [
     "orchestration.func_llm_forecaster_worker.main",
     "orchestration.func_llm_forecaster_manager.main",
     "orchestration.func_metadata_tag.main",
-    "metadata.validate_questions.main",
+    "orchestration.func_metadata_validate.main",
     "orchestration.func_question_set_create.main",
     "orchestration.func_question_set_publish.main",
     "base_eval.naive_and_dummy_forecasters.main",
@@ -283,12 +283,16 @@ print("ok")
 
 
 def test_metadata_package_import_leaves_the_job_modules_unloaded():
-    """`import metadata` must not import `_tag`: a job that ships without the Jev SDK imports it."""
+    """`import metadata` must not import `_tag` or `_validate`: each job ships only its own deps."""
     code = (
         "import sys, metadata; "
         "assert 'metadata._tag' not in sys.modules, 'eager'; "
+        "assert 'metadata._validate' not in sys.modules, 'eager'; "
         "assert callable(metadata.tag); "
-        "assert 'metadata._tag' in sys.modules"
+        "assert 'metadata._tag' in sys.modules; "
+        "assert 'metadata._validate' not in sys.modules, 'tag loaded validate'; "
+        "assert callable(metadata.validate); "
+        "assert 'metadata._validate' in sys.modules"
     )
     result = subprocess.run(
         [sys.executable, "-c", code],

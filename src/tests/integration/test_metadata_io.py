@@ -47,6 +47,7 @@ def test_load_question_metadata_keeps_the_placeholders_and_the_string_ids_the_fi
 
     dfmeta = _io.load_question_metadata(local_filename=str(tmp_path / "question_metadata.jsonl"))
 
+    assert list(dfmeta.columns) == constants.META_DATA_FILE_COLUMNS
     assert dfmeta.to_dict("records") == rows
     MetadataFrame.validate(dfmeta)
 
@@ -62,8 +63,9 @@ def test_upload_question_metadata_writes_the_rows_as_json_lines_to_the_bucket_ro
     _io.upload_question_metadata(dfmeta, local_filename=str(tmp_path / "question_metadata.jsonl"))
 
     uploaded = local_bucket.question_bank_dir() / constants.META_DATA_FILENAME
-    lines = uploaded.read_text().splitlines()
-    assert [json.loads(line) for line in lines] == dfmeta.to_dict("records")
+    records = [json.loads(line) for line in uploaded.read_text().splitlines()]
+    assert records == dfmeta.to_dict("records")
+    assert all(list(record) == constants.META_DATA_FILE_COLUMNS for record in records)
 
 
 @pytest.mark.parametrize(
