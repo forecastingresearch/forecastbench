@@ -80,7 +80,7 @@ def test_deploy_requirements_do_not_duplicate_utils_owned_llm_provider_deps():
 def test_metadata_deploy_requirements_keep_direct_gcp_deps():
     deploy_dirs = [
         ROOT / "src/orchestration/func_metadata_tag",
-        ROOT / "src/metadata/validate_questions",
+        ROOT / "src/orchestration/func_metadata_validate",
     ]
 
     for deploy_dir in deploy_dirs:

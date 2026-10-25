@@ -10,7 +10,7 @@ def import_metadata_llm_without_secret_fetch(monkeypatch):
     """Return the shared metadata_llm module with a clear cached metadata model run.
 
     The module object must stay the one the metadata jobs imported: re-importing a fresh copy
-    here would leave ``metadata._tag``/``validate_questions`` bound to the old one, which the
+    here would leave ``metadata._tag``/``metadata._validate`` bound to the old one, which the
     offline fixtures no longer patch.
     """
     from helpers import metadata_llm

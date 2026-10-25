@@ -231,7 +231,7 @@ tag-questions:
 	$(MAKE) -C src/orchestration/func_metadata_tag || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 validate-questions:
-	$(MAKE) -C src/metadata/validate_questions || echo "* $@" >> $(MAKE_FAILURE_LOG)
+	$(MAKE) -C src/orchestration/func_metadata_validate || echo "* $@" >> $(MAKE_FAILURE_LOG)
 
 resolve-forecasts:
 	$(MAKE) -C src/orchestration/func_resolve || echo "* $@" >> $(MAKE_FAILURE_LOG)
