@@ -19,12 +19,13 @@ from urllib.request import urlopen
 
 import pandas as pd
 import pandera.pandas as pa
+from pandera.typing import DataFrame
 from termcolor import colored
 from utils import gcp
 
 from _fb_types import QuestionBank, SourceQuestionBank
-from _schemas import QuestionFrame, ResolutionFrame
-from helpers import data_utils, dates, env
+from _schemas import MetadataFrame, QuestionFrame, ResolutionFrame
+from helpers import constants, data_utils, dates, env
 from helpers.run_mode import RunMode
 from sources import ALL_SOURCE_NAMES, MARKET_SOURCE_NAMES, SOURCE_METADATA
 from sources._base import BaseSource
@@ -203,6 +204,56 @@ def upload_hash_mapping(raw_json: str, source_name: str) -> None:
         local_filename=local_filename,
         destination_folder=source_name,
         filename="hash_mapping.json",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Question metadata IO
+# ---------------------------------------------------------------------------
+
+
+def load_question_metadata(local_filename: str | None = None) -> DataFrame[MetadataFrame]:
+    """Download `question_metadata.jsonl` from the question bank bucket.
+
+    Columns are read as the file stores them, with no dtype inference, so `id` stays a string
+    and the "" placeholders in `valid_question` / `english` survive. A column an older file
+    lacks (`category`, `english`) is added with "", so every row counts as not yet tagged
+    there. An empty stored file gives the empty frame; a missing one raises, because the
+    download leaves no local file behind on a 404.
+
+    Args:
+      local_filename (str | None): Where to download the file; the job's `/tmp` path by default.
+    """
+    if local_filename is None:
+        local_filename = f"/tmp/{constants.META_DATA_FILENAME}"
+    dfmeta = data_utils.download_and_read(
+        filename=constants.META_DATA_FILENAME,
+        local_filename=local_filename,
+        df_tmp=MetadataFrame.empty(),
+        dtype={},
+    )
+    dfmeta = dfmeta.reindex(columns=list(MetadataFrame.to_schema().columns), fill_value="")
+    return MetadataFrame.validate(dfmeta)
+
+
+@pa.check_types
+def upload_question_metadata(
+    dfmeta: DataFrame[MetadataFrame], local_filename: str | None = None
+) -> None:
+    """Write `question_metadata.jsonl` and upload it to the question bank bucket.
+
+    The frame is validated against `MetadataFrame` first, so a malformed file is never written.
+
+    Args:
+      dfmeta (DataFrame[MetadataFrame]): The question metadata.
+      local_filename (str | None): Where to write the file; the job's `/tmp` path by default.
+    """
+    if local_filename is None:
+        local_filename = f"/tmp/{constants.META_DATA_FILENAME}"
+    dfmeta.to_json(local_filename, lines=True, orient="records")
+    gcp.storage.upload(
+        bucket_name=env.QUESTION_BANK_BUCKET,
+        local_filename=local_filename,
     )
 
 
