@@ -28,7 +28,7 @@ COLD_IMPORT_MODULES = [
     "orchestration.func_llm_forecaster_manager.main",  # cloud_run glue + fb_model_runs
     # The metadata jobs: their shared-registry key loading must stay call-time. The in-process
     # test cannot see it (the offline fixtures fake ``configure_api_keys``), the cold import can.
-    "metadata.tag_questions.main",
+    "orchestration.func_metadata_tag.main",
     "metadata.validate_questions.main",
 ]
 
@@ -58,7 +58,7 @@ JOB_MODULES = [
     "orchestration.func_push_datasets_to_git.main",
     "orchestration.func_llm_forecaster_worker.main",
     "orchestration.func_llm_forecaster_manager.main",
-    "metadata.tag_questions.main",
+    "orchestration.func_metadata_tag.main",
     "metadata.validate_questions.main",
     "orchestration.func_question_set_create.main",
     "orchestration.func_question_set_publish.main",
@@ -280,3 +280,21 @@ print("ok")
 
     assert completed.returncode == 0, completed.stderr
     assert completed.stdout.strip() == "ok"
+
+
+def test_metadata_package_import_leaves_the_job_modules_unloaded():
+    """`import metadata` must not import `_tag`: a job that ships without the Jev SDK imports it."""
+    code = (
+        "import sys, metadata; "
+        "assert 'metadata._tag' not in sys.modules, 'eager'; "
+        "assert callable(metadata.tag); "
+        "assert 'metadata._tag' in sys.modules"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        env={**os.environ, "PYTHONPATH": str(_SRC)},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]

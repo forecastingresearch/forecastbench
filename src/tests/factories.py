@@ -370,7 +370,7 @@ def make_serpapi_fetch_df(rows: list[dict]) -> pd.DataFrame:
 
 
 class FakeJevClient:
-    """Stand-in for the Jev (``typesafe_sdk``) language classifier used by ``tag_questions``.
+    """Stand-in for the Jev (``typesafe_sdk``) language classifier used by ``metadata._tag``.
 
     ``answers`` maps a question's text to the choice it should get (``"english"`` /
     ``"not_english"``) or to an exception to raise for it; unlisted questions get ``default``.
