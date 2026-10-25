@@ -9,8 +9,9 @@ from unittest.mock import patch
 import pandas as pd
 
 from helpers import constants, question_curation
-from metadata.tag_questions import main as tag
+from metadata import _tag as tag
 from metadata.validate_questions import main as validate
+from orchestration.func_metadata_tag import main as tag_job
 from tests.factories import FakeJevClient, make_question_df
 
 
@@ -61,9 +62,9 @@ class TestTagDriver:
                 tag.metadata_llm, "get_metadata_model_response", return_value="Science & Tech"
             ),
             patch.object(tag, "get_client", return_value=jev),
-            patch.object(tag.time, "sleep"),
+            patch.object(tag_job.time, "sleep"),
         ):
-            tag.driver(None)
+            tag_job.driver(None)
 
         meta = _read_metadata(local_bucket)
         by_id = dict(zip(meta["id"].astype(str), meta["category"]))
@@ -128,9 +129,9 @@ class TestTagDriverStatefulBehavior:
                 tag.metadata_llm, "get_metadata_model_response", **mock_kwargs
             ) as mock_llm,
             patch.object(tag, "get_client", return_value=FakeJevClient()),
-            patch.object(tag.time, "sleep"),
+            patch.object(tag_job.time, "sleep"),
         ):
-            tag.driver(None)
+            tag_job.driver(None)
         return mock_llm
 
     def test_existing_tags_kept_only_new_questions_hit_the_llm(self, local_bucket):
@@ -202,9 +203,9 @@ class TestTagDriverLanguageRetry:
                 tag.metadata_llm, "get_metadata_model_response", return_value="Sports"
             ) as mock_llm,
             patch.object(tag, "get_client", return_value=failing),
-            patch.object(tag.time, "sleep"),
+            patch.object(tag_job.time, "sleep"),
         ):
-            tag.driver(None)
+            tag_job.driver(None)
         meta = _read_metadata(local_bucket).set_index("id")
         assert meta["english"].tolist() == ["", True]  # m1 left blank: to be retried
         assert meta.loc["m1", "category"] == "Sports"
@@ -217,9 +218,9 @@ class TestTagDriverLanguageRetry:
                 tag.metadata_llm, "get_metadata_model_response", return_value="Sports"
             ) as mock_llm,
             patch.object(tag, "get_client", return_value=healthy),
-            patch.object(tag.time, "sleep"),
+            patch.object(tag_job.time, "sleep"),
         ):
-            tag.driver(None)
+            tag_job.driver(None)
         meta = _read_metadata(local_bucket).set_index("id")
         assert healthy.asked == ["Q1?"]
         assert mock_llm.call_count == 0
