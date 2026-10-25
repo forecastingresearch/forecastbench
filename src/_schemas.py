@@ -84,6 +84,29 @@ class ResolveReadyFrame(ExplodedQuestionSetFrame):
     market_value_on_due_date: Series[float] = pa.Field(nullable=True)
 
 
+class MetadataFrame(pa.DataFrameModel):
+    """Question metadata (`question_metadata.jsonl`), written by the tag and validate jobs.
+
+    Each job fills its own columns and writes the file after every source, so between the two
+    jobs the file holds the empty-string placeholder where a value is not known yet:
+    `valid_question` is "" on rows the tag job added that validate has not seen, and
+    `category` / `english` are "" on rows the validate job added that tag has not seen.
+    `valid_question` and `english` are therefore bool or "", never coerced.
+    """
+
+    source: Series[str]
+    id: Series[str]
+    category: Series[str]
+    valid_question: Series[object] = pa.Field(isin=[True, False, ""])
+    english: Series[object] = pa.Field(isin=[True, False, ""])
+
+    class Config:
+        """Schema configuration."""
+
+        strict = False
+        coerce = True
+
+
 class ForecastFrame(pa.DataFrameModel):
     """What forecasters submit."""
 
