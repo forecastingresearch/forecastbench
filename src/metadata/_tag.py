@@ -1,35 +1,25 @@
-"""Generate meta data for questions."""
+"""Tag questions: assign a category to every question of a source and classify its language."""
 
 import asyncio
 import logging
-import os
 import ssl
-import sys
-import time
 
-import functions_framework
 import httpx2
 import pandas as pd
+import pandera.pandas as pa
+from pandera.typing import DataFrame
 from typesafe_sdk import AsyncTypeSafeClient, Choice
 from typesafe_sdk.constants import DEFAULT_TIMEOUT as JEV_DEFAULT_TIMEOUT
-from utils import gcp
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import (
-    constants,
-    data_utils,
-    decorator,
-    env,
-    keys,
-    metadata_llm,
-    metadata_prompts,
-)
+from _schemas import MetadataFrame, QuestionFrame
+from helpers import constants, keys, metadata_llm, metadata_prompts, question_curation
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def _get_category_single(index, row, semaphore):
+async def _get_category_single(
+    index: int, row: pd.Series, semaphore: asyncio.Semaphore
+) -> tuple[int, str]:
     """Get category for a single question asynchronously."""
     async with semaphore:
         prompt = metadata_prompts.ASSIGN_CATEGORY_PROMPT.format(
@@ -52,7 +42,7 @@ async def _get_category_single(index, row, semaphore):
             return (index, "Other")
 
 
-async def _get_categories_async(dfq):
+async def _get_categories_async(dfq: pd.DataFrame) -> list[tuple[int, str]]:
     """Run all category lookups concurrently."""
     semaphore = asyncio.Semaphore(50)
 
@@ -64,8 +54,12 @@ async def _get_categories_async(dfq):
     return await asyncio.gather(*tasks)
 
 
-def get_categories_from_llm(dfq):
-    """Get category for questions using concurrent API calls."""
+def get_categories_from_llm(dfq: pd.DataFrame) -> pd.DataFrame:
+    """Get category for questions using concurrent API calls.
+
+    Args:
+      dfq (pd.DataFrame): Questions with `category` == "" where a category is still needed.
+    """
     n_to_tag = len(dfq[dfq["category"] == ""])
     logger.info(f"Tagging {n_to_tag} questions.")
     # Fetch the API keys once here; the cache has no lock, so the first batch of
@@ -94,7 +88,7 @@ LANGUAGE_QUESTION = Choice(
 )
 
 
-def get_client():
+def get_client() -> AsyncTypeSafeClient:
     """Return a Jev client that authenticates with the key from Secret Manager.
 
     The client gets an httpx2 client built on Python's default SSL context. httpx2 would
@@ -108,7 +102,9 @@ def get_client():
     return AsyncTypeSafeClient(api_key=keys.API_KEY_TYPESAFE, http_client=http_client)
 
 
-async def _classify_single(client, index, row, semaphore):
+async def _classify_single(
+    client: AsyncTypeSafeClient, index: int, row: pd.Series, semaphore: asyncio.Semaphore
+) -> tuple[int, bool | str]:
     """Classify one question. Return "" when the call fails so the next run retries it."""
     async with semaphore:
         try:
@@ -128,7 +124,7 @@ async def _classify_single(client, index, row, semaphore):
             return (index, "")
 
 
-async def _classify_unfilled(dfq):
+async def _classify_unfilled(dfq: pd.DataFrame) -> list[tuple[int, bool | str]]:
     """Run one Jev call per row that has no english value yet."""
     semaphore = asyncio.Semaphore(50)
     async with get_client() as client:
@@ -139,19 +135,18 @@ async def _classify_unfilled(dfq):
         return await asyncio.gather(*tasks)
 
 
-def assign_english(dfq, source):
+def assign_english(dfq: pd.DataFrame, source: str) -> pd.DataFrame:
     """Fill the `english` column of `dfq`.
 
     Dataset questions are written in English, so they get True with no call. Market
-    questions with an empty `english` value are classified by Jev. Rows that already
-    hold True or False are left alone.
+    questions with an empty `english` value are classified by Jev; when the call fails the
+    value stays "" and the next run asks again. Rows that already hold True or False are
+    left alone.
 
     Args:
-        dfq (pd.DataFrame): Questions for `source`, with `english` == "" where unknown.
-        source (str): The question source.
+      dfq (pd.DataFrame): Questions for `source`, with `english` == "" where unknown.
+      source (str): The question source.
     """
-    from helpers import question_curation
-
     if source in question_curation.DATA_SOURCES:
         dfq["english"] = True
         return dfq
@@ -163,79 +158,62 @@ def assign_english(dfq, source):
     return dfq
 
 
-@functions_framework.http
-@decorator.log_runtime
-def driver(_):
-    """Pull in fetched data and update questions and resolved values in question bank."""
-    from helpers import question_curation
+@pa.check_types
+def tag(
+    dfmeta: DataFrame[MetadataFrame], dfq: DataFrame[QuestionFrame], source: str
+) -> DataFrame[MetadataFrame]:
+    """Tag the questions of `source` and merge them into the question metadata.
 
-    local_filename = f"/tmp/{constants.META_DATA_FILENAME}"
-    dfmeta = data_utils.download_and_read(
-        filename=constants.META_DATA_FILENAME,
-        local_filename=local_filename,
-        df_tmp=pd.DataFrame(columns=constants.META_DATA_FILE_COLUMNS).astype(
-            constants.META_DATA_FILE_COLUMN_DTYPE
-        ),
-        dtype={},
+    Every question in `dfq` gets a category. Its English flag is True for a dataset source
+    and Jev's answer otherwise; when the Jev call fails the flag stays "" and the next run
+    asks again. A row already tagged in `dfmeta` keeps its values; a category that is not
+    in `constants.QUESTION_CATEGORIES` is assigned again. The rows `dfmeta` holds for
+    `source` are replaced by the tagged rows of `dfq`, so a question that left the question
+    file leaves the metadata too. Rows of other sources are untouched. The category of
+    acled, fred, yfinance and serpapi questions is fixed; the other sources are tagged by
+    the metadata LLM.
+
+    Both frames are validated against their schema on the way in, and the result on the way
+    out, so a malformed metadata file or question file fails the job instead of being written.
+
+    Args:
+      dfmeta (DataFrame[MetadataFrame]): The question metadata.
+      dfq (DataFrame[QuestionFrame]): The question file of `source`.
+      source (str): The question source.
+
+    Returns:
+      DataFrame[MetadataFrame]: The question metadata with the rows of `source` tagged, sorted
+        by source and id.
+    """
+    dfq = dfq.assign(source=source)
+
+    dfq = dfq.merge(dfmeta, on=["source", "id"], how="left").fillna("")
+    dfq["category"] = dfq["category"].apply(
+        lambda x: x if x in constants.QUESTION_CATEGORIES else ""
     )
-    if "category" not in dfmeta.columns:
-        dfmeta["category"] = ""
-    if "english" not in dfmeta.columns:
-        dfmeta["english"] = ""
+    dfmeta = dfmeta[dfmeta["source"] != source]
 
-    for source, _ in question_curation.FREEZE_QUESTION_SOURCES.items():
-        logger.info(f"Getting categories for {source} questions.")
-        dfq = data_utils.get_data_from_cloud_storage(
-            source=source,
-            return_question_data=True,
-        )
-        dfq["source"] = source
+    if source == "acled":
+        dfq["category"] = "Security & Defense"
+    elif source == "fred":
+        dfq["category"] = "Economics & Business"
+    elif source == "yfinance":
+        dfq["category"] = "Economics & Business"
+    elif source == "serpapi":
+        dfq["category"] = "Economics & Business"
+    else:
+        dfq = get_categories_from_llm(dfq)
 
-        dfq = dfq.merge(dfmeta, on=["source", "id"], how="left").fillna("")
-        dfq["category"] = dfq["category"].apply(
-            lambda x: x if x in constants.QUESTION_CATEGORIES else ""
-        )
-        dfmeta = dfmeta[dfmeta["source"] != source]
+    dfq = assign_english(dfq, source)
 
-        # Asign categories to some sources
-        if source == "acled":
-            dfq["category"] = "Security & Defense"
-        elif source == "fred":
-            dfq["category"] = "Economics & Business"
-        elif source == "yfinance":
-            dfq["category"] = "Economics & Business"
-        elif source == "serpapi":
-            dfq["category"] = "Economics & Business"
-        else:
-            dfq = get_categories_from_llm(dfq)
-
-        dfq = assign_english(dfq, source)
-
-        dfq = dfq[constants.META_DATA_FILE_COLUMNS]
-        dfq = dfq[dfq["category"] != ""]
-        dfmeta = pd.concat(
-            [
-                dfmeta,
-                dfq,
-            ],
-            ignore_index=True,
-        )
-
-        # Upload after every source is finished to save work
-        dfmeta.sort_values(by=["source", "id"], ignore_index=True, inplace=True)
-        dfmeta.to_json(local_filename, lines=True, orient="records")
-        logger.info(f"Uploading metadata for {source}.")
-        gcp.storage.upload(
-            bucket_name=env.QUESTION_BANK_BUCKET,
-            local_filename=local_filename,
-        )
-        # Sleep to avoid cloud storage 429 rate limit error
-        # Rate is 1 write/second to the same object
-        # https://cloud.google.com/storage/quotas
-        time.sleep(2)
-
-    logger.info("Done.")
-
-
-if __name__ == "__main__":
-    driver(None)
+    dfq = dfq[list(MetadataFrame.to_schema().columns)]
+    dfq = dfq[dfq["category"] != ""]
+    dfmeta = pd.concat(
+        [
+            dfmeta,
+            dfq,
+        ],
+        ignore_index=True,
+    )
+    dfmeta.sort_values(by=["source", "id"], ignore_index=True, inplace=True)
+    return dfmeta
