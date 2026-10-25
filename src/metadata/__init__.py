@@ -2,13 +2,15 @@
 
 import importlib
 
-__all__ = ["tag"]
+__all__ = ["tag", "validate"]
 
 # Each job ships only its own requirements, so the package must not import every submodule on
-# `import metadata`: the validate job has no Jev SDK, which `_tag` imports at module level.
+# `import metadata`: the validate job has no Jev SDK, which `_tag` imports at module level, and
+# the tag job has no tqdm, which `_validate` imports.
 # TODO(python 3.15): replace with `lazy from ._tag import tag` (PEP 810).
 _EXPORTS = {
     "tag": "._tag",
+    "validate": "._validate",
 }
 
 

@@ -10,8 +10,9 @@ import pandas as pd
 
 from helpers import constants, question_curation
 from metadata import _tag as tag
-from metadata.validate_questions import main as validate
+from metadata import _validate as validate
 from orchestration.func_metadata_tag import main as tag_job
+from orchestration.func_metadata_validate import main as validate_job
 from tests.factories import FakeJevClient, make_question_df
 
 
@@ -103,9 +104,9 @@ class TestValidateDriver:
             patch.object(
                 validate.metadata_llm, "get_metadata_model_response", side_effect=fake_model
             ) as mock_model,
-            patch.object(validate.time, "sleep"),
+            patch.object(validate_job.time, "sleep"),
         ):
-            validate.driver(None)
+            validate_job.driver(None)
 
         meta = _read_metadata(local_bucket)
         by_id = dict(zip(meta["id"].astype(str), meta["valid_question"]))
@@ -245,9 +246,9 @@ class TestValidateDriverStatefulBehavior:
                 "get_metadata_model_response",
                 return_value="Classification: ok",
             ) as mock_llm,
-            patch.object(validate.time, "sleep"),
+            patch.object(validate_job.time, "sleep"),
         ):
-            validate.driver(None)
+            validate_job.driver(None)
 
         meta = _read_metadata(local_bucket)
         valid = dict(zip(meta["id"].astype(str), meta["valid_question"]))
