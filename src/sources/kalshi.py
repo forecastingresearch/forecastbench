@@ -58,7 +58,7 @@ class _SettlementSource(TypedDict):
     """Kalshi event-level source used to verify the outcome."""
 
     name: str | None
-    url: str
+    url: str | None
 
 
 class _DiscoveredMarket(TypedDict):
@@ -474,8 +474,7 @@ class KalshiSource(MarketSource):
                 if not qualifying_markets:
                     continue
                 settlement_sources = [
-                    {"name": source.get("name"), "url": source["url"]}
-                    for source in event["settlement_sources"]
+                    self._parse_settlement_source(source) for source in event["settlement_sources"]
                 ]
                 for market in qualifying_markets:
                     discovered_markets[market["ticker"]] = {
@@ -921,6 +920,15 @@ class KalshiSource(MarketSource):
         return f"https://kalshi.com/markets/{series_ticker.lower()}/x/{event_ticker.lower()}"
 
     @staticmethod
+    def _parse_settlement_source(source: _SettlementSource) -> _SettlementSource:
+        """Require at least one nonblank name or URL for outcome attribution."""
+        name = (source.get("name") or "").strip() or None
+        url = (source.get("url") or "").strip() or None
+        if not name and not url:
+            raise ValueError("Kalshi settlement source must have a nonblank name or URL.")
+        return {"name": name, "url": url}
+
+    @staticmethod
     def _resolution_criteria(
         market: dict,
         *,
@@ -932,10 +940,14 @@ class KalshiSource(MarketSource):
         parts = [part for part in parts if part]
 
         if settlement_sources is not None:
-            formatted_sources = [
-                f'{source["name"]} ({source["url"]})' if source.get("name") else source["url"]
-                for source in settlement_sources
-            ]
+            formatted_sources = []
+            for source in settlement_sources:
+                source = KalshiSource._parse_settlement_source(source)
+                name, url = source["name"], source["url"]
+                if name and url:
+                    formatted_sources.append(f"{name} ({url})")
+                elif name or url:
+                    formatted_sources.append(name or url)
             if formatted_sources:
                 parts.append(f"{_SETTLEMENT_SOURCE_PREFIX}{'; '.join(formatted_sources)}.")
         elif isinstance(existing_criteria, str):
