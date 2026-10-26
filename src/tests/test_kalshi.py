@@ -175,6 +175,22 @@ class TestMarketHelpers:
         market = make_kalshi_api_market(rules_primary="", rules_secondary="")
         assert KalshiSource._resolution_criteria(market) == "N/A"
 
+    @pytest.mark.parametrize(
+        "source", [{}, {"name": None, "url": None}, {"name": "", "url": " \t"}]
+    )
+    @pytest.mark.parametrize("include_valid_source", [False, True])
+    def test_resolution_criteria_rejects_empty_source(self, source, include_valid_source):
+        """Malformed saved sources must not silently replace existing attribution."""
+        market = make_kalshi_api_market(rules_primary="Updated primary.", rules_secondary="")
+        sources = [{"name": "Valid provider"}, source] if include_valid_source else [source]
+
+        with pytest.raises(ValueError, match="settlement source.*nonblank name or URL"):
+            KalshiSource._resolution_criteria(
+                market,
+                settlement_sources=sources,
+                existing_criteria="Old primary. Outcome verified from Original provider.",
+            )
+
     def test_resolution_datetime_prefers_settlement(self):
         """settlement_ts is preferred over expiration/close."""
         market = make_kalshi_api_market(settlement_ts="2026-01-13T05:00:00Z")
@@ -467,6 +483,44 @@ class TestCallSearchEndpoint:
                 settlement_sources=[{"name": None, "url": "https://example.com/outcome"}],
             )
         }
+
+    @pytest.mark.parametrize("url_fields", [{}, {"url": None}, {"url": ""}, {"url": " \t"}])
+    @patch("sources.kalshi.requests.get")
+    def test_name_only_settlement_source_is_retained(self, mock_get, kalshi_source, url_fields):
+        """Discovery and resolution criteria preserve sources without usable URLs."""
+        market = make_kalshi_api_market(ticker="A", rules_primary="Primary.", rules_secondary="")
+        events = [
+            make_kalshi_event(
+                settlement_sources=[{"name": "Legal Monitor Worldwide", **url_fields}],
+                markets=[market],
+            )
+        ]
+        mock_get.return_value = self._mock_response(events)
+
+        tickers, _ = kalshi_source._call_search_endpoint(min_resolution_date=date(2026, 1, 25))
+        criteria = kalshi_source._resolution_criteria(
+            market, settlement_sources=tickers["A"]["settlement_sources"]
+        )
+
+        assert criteria == "Primary. Outcome verified from Legal Monitor Worldwide."
+
+    @pytest.mark.parametrize("name_fields", [{}, {"name": None}, {"name": ""}, {"name": " \t"}])
+    @pytest.mark.parametrize("url_fields", [{}, {"url": None}, {"url": ""}, {"url": " \t"}])
+    @patch("sources.kalshi.requests.get")
+    def test_settlement_source_requires_name_or_url(
+        self, mock_get, kalshi_source, name_fields, url_fields
+    ):
+        """Qualifying events cannot silently retain a source with no usable attribution."""
+        events = [
+            make_kalshi_event(
+                settlement_sources=[{"name": "Valid provider"}, {**name_fields, **url_fields}],
+                markets=[make_kalshi_api_market(ticker="A")],
+            )
+        ]
+        mock_get.return_value = self._mock_response(events)
+
+        with pytest.raises(ValueError, match="settlement source.*nonblank name or URL"):
+            kalshi_source._call_search_endpoint(min_resolution_date=date(2026, 1, 25))
 
     @patch("sources.kalshi.requests.get")
     def test_irrelevant_event_does_not_parse_settlement_sources(self, mock_get, kalshi_source):
