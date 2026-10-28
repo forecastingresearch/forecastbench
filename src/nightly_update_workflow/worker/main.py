@@ -66,6 +66,22 @@ def get_naive_and_dummy_forecasters():
     )
 
 
+def get_create_question_set():
+    """Create question set if it's the right day to do so.
+
+    If today is a multiple of 2 weeks after the original freeze date, create a question set.
+    """
+    return (
+        [
+            [
+                ("func-question-set-create", True, cloud_run.timeout_1h, 1),
+            ],
+        ]
+        if question_curation.is_today_question_curation_date()
+        else None
+    )
+
+
 def get_publish_question_set_make_llm_baseline():
     """Publish the question set if it's the right day to do so.
 
@@ -138,7 +154,7 @@ def main():
     dict_mapping = {
         "fetch_and_update": get_fetch_and_update(),
         "metadata": metadata,
-        "create_question_set": None,
+        "create_question_set": get_create_question_set(),
         "publish_question_set_make_llm_baseline": get_publish_question_set_make_llm_baseline(),
         "resolve_forecasts": get_resolve_forecasts(),
         "leaderboards": leaderboards,
