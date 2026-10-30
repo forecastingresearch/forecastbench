@@ -1,0 +1,6 @@
+model_pk,bootstrap_0,bootstrap_1
+ForecastBench_ForecastBench_Always 0.5,50.0,50.0
+ForecastBench_ForecastBench_Bad Model,27.00566232,27.287682535
+ForecastBench_ForecastBench_Good Model,86.888681734,87.151610564
+ForecastBench_ForecastBench_Imputed Forecaster,46.996058847,47.276686582
+ForecastBench_ForecastBench_Naive Forecaster,46.996058847,47.276686582

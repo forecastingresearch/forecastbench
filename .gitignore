@@ -11,7 +11,7 @@ plotly_charts
 *.jsonl
 *.csv
 *.bak
--
+!src/tests/golden/**/*.csv
 __pycache__/
 *.py[cod]
 *$py.class
