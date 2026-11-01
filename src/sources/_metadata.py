@@ -1065,6 +1065,7 @@ SOURCE_METADATA = {
             {"original_ticker": "BK", "replacement_ticker": "BNY"},
             {"original_ticker": "SATS", "replacement_ticker": "ECHO"},
             {"original_ticker": "EQR", "replacement_ticker": "VMRK"},
+            {"original_ticker": "PSKY", "replacement_ticker": "SKYD"},
         ],
         "retired_question_types": frozenset({"single"}),
     },

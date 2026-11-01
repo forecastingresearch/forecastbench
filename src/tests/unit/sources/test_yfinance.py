@@ -39,6 +39,7 @@ class TestTickerRenamesDefinition:
         assert renames["BK"] == "BNY"
         assert renames["SATS"] == "ECHO"
         assert renames["EQR"] == "VMRK"
+        assert renames["PSKY"] == "SKYD"
 
 
 class TestDelistedStocksDefinition:
