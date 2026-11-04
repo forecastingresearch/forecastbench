@@ -157,6 +157,7 @@ EXTERNAL_TOURNAMENT_ORG_TO_LOGO = {
     "Valory": "valory.png",
     "Gougu": "gougu.png",
     "CortexAlpha": "cortexalpha.svg",
+    "Eternis": "eternis.svg",
 }
 
 ORG_TO_LOGO = {
