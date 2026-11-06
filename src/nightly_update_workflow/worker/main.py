@@ -33,13 +33,13 @@ push_datasets_to_git = [
 
 leaderboards = [
     [
-        ("func-leaderboard-tournament", True, cloud_run.timeout_1h * 4, 1),
+        ("func-leaderboard-tournament", True, cloud_run.timeout_1h * 6, 1),
     ],
     [
-        ("func-leaderboard-baseline", True, cloud_run.timeout_1h * 4, 1),
+        ("func-leaderboard-baseline", True, cloud_run.timeout_1h * 6, 1),
     ],
     [
-        ("func-leaderboard-preliminary", True, cloud_run.timeout_1h * 4, 1),
+        ("func-leaderboard-preliminary", True, cloud_run.timeout_1h * 6, 1),
     ],
 ]
 

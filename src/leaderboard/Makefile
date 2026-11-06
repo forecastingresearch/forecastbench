@@ -39,7 +39,7 @@ deploy-tournament : $(LEADERBOARD_DEPENDENCIES)
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 4h \
+		--task-timeout 6h \
 		--memory 32Gi \
 		--cpu $(NUM_CPUS) \
 		--max-retries 0 \
@@ -61,7 +61,7 @@ deploy-baseline : $(LEADERBOARD_DEPENDENCIES)
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 4h \
+		--task-timeout 6h \
 		--memory 32Gi \
 		--cpu $(NUM_CPUS) \
 		--max-retries 0 \
@@ -83,7 +83,7 @@ deploy-preliminary : $(LEADERBOARD_DEPENDENCIES)
 		--region $(CLOUD_DEPLOY_REGION) \
 		--tasks 1 \
 		--parallelism 1 \
-		--task-timeout 4h \
+		--task-timeout 6h \
 		--memory 32Gi \
 		--cpu $(NUM_CPUS) \
 		--max-retries 0 \

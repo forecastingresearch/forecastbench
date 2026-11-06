@@ -205,7 +205,7 @@ def main():
 
     # Launch leaderboard jobs in parallel
     dict_to_use_leaderboards = "leaderboards"
-    timeout_leaderboards = cloud_run.timeout_1h * 4
+    timeout_leaderboards = cloud_run.timeout_1h * 6
     operation_leaderboards = call_worker(
         dict_to_use=dict_to_use_leaderboards,
         task_count=3,
