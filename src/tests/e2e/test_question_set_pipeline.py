@@ -13,8 +13,9 @@ from unittest.mock import patch
 import pandas as pd
 
 from helpers import constants, question_curation
-from metadata.tag_questions import main as tag
+from metadata import _tag as tag
 from metadata.validate_questions import main as validate
+from orchestration.func_metadata_tag import main as tag_job
 from orchestration.func_question_set_create import main as curate
 from question_sampling._prepare import (
     drop_invalid_questions,
@@ -71,9 +72,9 @@ def _run_metadata_jobs(
         patch.object(question_curation, "FREEZE_QUESTION_SOURCES", sources),
         patch.object(tag.metadata_llm, "get_metadata_model_response", side_effect=fake_tag),
         patch.object(tag, "get_client", return_value=jev),
-        patch.object(tag.time, "sleep"),
+        patch.object(tag_job.time, "sleep"),
     ):
-        tag.driver(None)
+        tag_job.driver(None)
 
     with (
         patch.object(question_curation, "FREEZE_QUESTION_SOURCES", sources),
