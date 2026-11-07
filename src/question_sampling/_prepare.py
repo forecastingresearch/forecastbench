@@ -165,6 +165,9 @@ def drop_questions_that_resolve_too_soon(
         is_na = dfq["forecast_horizons"] == "N/A"
         return dfq[~(empty_horizons | is_na)]
 
+    if dfq.empty:  # `apply(axis=1)` on an empty frame returns a Series that drops every column
+        return dfq
+
     forecast_due_date = forecast_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
     cutoff_date = forecast_due_date + timedelta(days=MIN_DAYS_TO_MARKET_RESOLUTION)
     resolves_too_soon = dfq.apply(
@@ -226,7 +229,7 @@ def drop_questions_that_resolve_too_late(
     Returns
         dfq (pd.DataFrame): Questions that resolve within the cap
     """
-    if not is_market_source(source):
+    if not is_market_source(source) or dfq.empty:
         return dfq
     cutoff_date = forecast_datetime + timedelta(days=MAX_DAYS_TO_MARKET_RESOLUTION)
     resolves_in_time = dfq.apply(

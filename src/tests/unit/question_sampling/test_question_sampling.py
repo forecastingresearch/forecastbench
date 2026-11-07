@@ -319,6 +319,16 @@ class TestEligibilityFilters:
         assert all(dates == resolution_dates([7, 30, 365]) for dates in by_source["fred"])
         assert all(dates == resolution_dates([30, 365]) for dates in by_source["acled"])
 
+    @pytest.mark.parametrize("emptied", ["polymarket", "fred"])
+    def test_source_whose_questions_are_all_filtered_out_is_skipped(self, bank, emptied):
+        questions, dfmeta = bank
+        questions[emptied] = questions[emptied].assign(resolved=True)
+
+        result = _create(questions, dfmeta)
+
+        sources = {q["source"] for q in result.llm_question_set["questions"]}
+        assert sources == {"polymarket", "kalshi", "fred", "acled"} - {emptied}
+
     def test_source_without_questions_is_skipped(self, bank):
         questions, dfmeta = bank
         questions["fred"] = pd.DataFrame(columns=constants.QUESTION_FILE_COLUMNS)
