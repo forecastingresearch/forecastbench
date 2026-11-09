@@ -6,7 +6,7 @@ gcsfs==2025.7.0
 termcolor
 scipy
 GitPython
-pyfixest>=0.50.1
+pyfixest>=0.50.1,<0.70
 Jinja2>=3.1.6
 joblib
 pyarrow
