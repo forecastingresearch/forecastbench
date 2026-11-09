@@ -7,11 +7,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from helpers import constants, metadata_llm, metadata_prompts
+from _schemas import MetadataFrame
+from helpers import metadata_llm, metadata_prompts
 from tests.factories import make_question_df
 
 ROOT = Path(__file__).resolve().parents[4]
-META_COLUMNS = constants.META_DATA_FILE_COLUMNS
+META_COLUMNS = list(MetadataFrame.to_schema().columns)
 
 main = importlib.import_module("orchestration.func_metadata_validate.main")
 

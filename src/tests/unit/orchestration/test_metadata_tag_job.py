@@ -4,13 +4,14 @@ import importlib
 import subprocess
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
 from _schemas import MetadataFrame
 from helpers import constants, metadata_llm, question_curation
 from metadata import _tag as metadata_tag
 from tests.factories import FakeJevClient, make_question_df
+
+META_COLUMNS = list(MetadataFrame.to_schema().columns)
 
 ROOT = Path(__file__).resolve().parents[4]
 DEPLOY_DIR = ROOT / "src/orchestration/func_metadata_tag"
@@ -38,9 +39,7 @@ def test_driver_tags_every_sampled_source_and_uploads_the_metadata_after_each_on
     monkeypatch.setattr(
         tag_job._io,
         "load_question_metadata",
-        lambda: pd.DataFrame(columns=constants.META_DATA_FILE_COLUMNS).astype(
-            constants.META_DATA_FILE_COLUMN_DTYPE
-        ),
+        MetadataFrame.empty,
     )
     monkeypatch.setattr(
         tag_job.data_utils,
@@ -63,7 +62,7 @@ def test_driver_tags_every_sampled_source_and_uploads_the_metadata_after_each_on
     # GCS allows one write per second to the same object.
     assert len(sleeps) == len(uploads) and all(seconds >= 1 for seconds in sleeps)
     final = uploads[-1]
-    assert list(final.columns) == constants.META_DATA_FILE_COLUMNS
+    assert list(final.columns) == META_COLUMNS
     assert final["id"].tolist() == [f"{source}-1" for source in sorted(sources)]
     assert final["category"].isin(constants.QUESTION_CATEGORIES).all()
     assert final["english"].tolist() == [True] * len(sources)

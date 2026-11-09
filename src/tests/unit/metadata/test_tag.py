@@ -15,6 +15,8 @@ from helpers import constants, keys, metadata_llm, question_curation
 from metadata import _tag as metadata_tag
 from tests.factories import FakeJevClient
 
+META_COLUMNS = list(MetadataFrame.to_schema().columns)
+
 FIXED_CATEGORIES = {
     "acled": "Security & Defense",
     "fred": "Economics & Business",
@@ -27,13 +29,11 @@ CATEGORY_OUTPUT_TOKENS = 512
 
 
 def _empty_metadata():
-    return pd.DataFrame(columns=constants.META_DATA_FILE_COLUMNS).astype(
-        constants.META_DATA_FILE_COLUMN_DTYPE
-    )
+    return MetadataFrame.empty()
 
 
 def _metadata(rows):
-    return pd.DataFrame(rows, columns=constants.META_DATA_FILE_COLUMNS)
+    return pd.DataFrame(rows, columns=META_COLUMNS)
 
 
 def _questions(ids):
@@ -338,7 +338,7 @@ def test_output_has_exactly_the_metadata_columns_sorted_by_source_then_id(no_llm
 
     dfmeta = metadata_tag.tag(dfmeta, _questions(["c", "a"]), "fred")
 
-    assert list(dfmeta.columns) == constants.META_DATA_FILE_COLUMNS
+    assert list(dfmeta.columns) == META_COLUMNS
     MetadataFrame.validate(dfmeta)
     assert list(zip(dfmeta["source"], dfmeta["id"])) == [
         ("dbnomics", "z"),
@@ -355,9 +355,7 @@ def test_output_has_exactly_the_metadata_columns_sorted_by_source_then_id(no_llm
             [("kalshi", "k1", "Sports", True)],
             columns=["source", "id", "category", "valid_question"],
         ),
-        pd.DataFrame(
-            [("kalshi", "k1", "Sports", True, "yes")], columns=constants.META_DATA_FILE_COLUMNS
-        ),
+        pd.DataFrame([("kalshi", "k1", "Sports", True, "yes")], columns=META_COLUMNS),
     ],
     ids=["missing column", "english outside True/False/empty"],
 )

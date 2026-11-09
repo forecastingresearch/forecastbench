@@ -8,7 +8,8 @@ import pandas as pd
 from tabulate import tabulate
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from helpers import cloud_run, constants, env, question_curation, slack
+from helpers import cloud_run, env, question_curation, slack
+from orchestration import _io
 from sources import ALL_SOURCE_NAMES
 
 logging.basicConfig(level=logging.INFO)
@@ -44,10 +45,7 @@ def summarize_question_bank():
     no longer sample get no fresh metadata from `validate_questions`, so their counts would be
     stale.
     """
-    dfmeta = pd.read_json(
-        f"gs://{env.QUESTION_BANK_BUCKET}/{constants.META_DATA_FILENAME}",
-        lines=True,
-    )[["id", "source", "valid_question"]]
+    dfmeta = _io.load_question_metadata()[["id", "source", "valid_question"]]
     df = pd.DataFrame()
     for source in sorted(question_curation.FREEZE_QUESTION_SOURCES):
         logger.info(f"downloading {source} question file.")
@@ -66,7 +64,7 @@ def summarize_question_bank():
             how="inner",
             on=["id", "source"],
         )
-        dfq_valid = dfq_valid[dfq_valid["valid_question"]]
+        dfq_valid = dfq_valid[dfq_valid["valid_question"].eq(True)]
 
         df = pd.concat(
             [
