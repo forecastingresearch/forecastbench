@@ -48,7 +48,10 @@ def get_resolution_criteria(dfq: pd.DataFrame, source_template: str) -> pd.Serie
 
 
 def drop_invalid_questions(dfq: pd.DataFrame, dfmeta: pd.DataFrame) -> pd.DataFrame:
-    """Drop invalid questions from dfq.
+    """Keep the questions whose metadata marks them valid.
+
+    `valid_question` is True, False or "" (not validated yet, see `MetadataFrame`); only True
+    passes, so a question the validate job has not reached is dropped like an invalid one.
 
     Args:
         dfq (pd.DataFrame): Questions to filter
@@ -65,7 +68,7 @@ def drop_invalid_questions(dfq: pd.DataFrame, dfmeta: pd.DataFrame) -> pd.DataFr
         how="inner",
         on=["id", "source"],
     )
-    return dfq[dfq["valid_question"]].drop(columns="valid_question")
+    return dfq[dfq["valid_question"].eq(True)].drop(columns="valid_question")
 
 
 def drop_questions_not_in_english(dfq: pd.DataFrame) -> pd.DataFrame:
@@ -80,7 +83,7 @@ def drop_questions_not_in_english(dfq: pd.DataFrame) -> pd.DataFrame:
     Returns
         dfq (pd.DataFrame): Only questions marked English in metadata
     """
-    return dfq[dfq["english"]].drop(columns="english")
+    return dfq[dfq["english"].eq(True)].drop(columns="english")
 
 
 def drop_nullified_questions(dfq: pd.DataFrame, source: "BaseSource") -> pd.DataFrame:

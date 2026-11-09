@@ -6,11 +6,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from _schemas import MetadataFrame
 from helpers import constants, question_curation
 from question_sampling import create_question_set
 from sources import SOURCE_METADATA
 from sources.registry import SOURCES
 from tests.factories import make_question_df
+
+META_COLUMNS = list(MetadataFrame.to_schema().columns)
 
 # tz-aware UTC, like the question bank datetimes and `question_curation.FREEZE_DATETIME`.
 FREEZE_DATETIME = datetime(2026, 10, 3, tzinfo=timezone.utc)
@@ -83,7 +86,7 @@ def _metadata(questions: dict[str, pd.DataFrame], invalid: set[str] = frozenset(
                     "english": True,
                 }
             )
-    return pd.DataFrame(rows, columns=constants.META_DATA_FILE_COLUMNS)
+    return pd.DataFrame(rows, columns=META_COLUMNS)
 
 
 def _sources(*names: str) -> dict:

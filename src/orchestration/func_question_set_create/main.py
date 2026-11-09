@@ -4,9 +4,8 @@ import logging
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
-from helpers import constants, data_utils, decorator, env, question_curation
+from helpers import data_utils, decorator, env, question_curation
 from orchestration import _io
 from question_sampling import QuestionSetTarget, create_question_set
 from sources.registry import SOURCES
@@ -22,14 +21,7 @@ def driver(_: Any) -> None:
         logger.info("Today is NOT the question set creation date.")
         return
 
-    dfmeta = data_utils.download_and_read(
-        filename=constants.META_DATA_FILENAME,
-        local_filename=f"/tmp/{constants.META_DATA_FILENAME}",
-        df_tmp=pd.DataFrame(columns=constants.META_DATA_FILE_COLUMNS).astype(
-            constants.META_DATA_FILE_COLUMN_DTYPE
-        ),
-        dtype=constants.META_DATA_FILE_COLUMN_DTYPE,
-    )
+    dfmeta = _io.load_question_metadata()
 
     sources = {name: SOURCES[name] for name in question_curation.FREEZE_QUESTION_SOURCES}
     # ACLED reads its question types from its hash mapping, see `BaseSource.is_retired()`.

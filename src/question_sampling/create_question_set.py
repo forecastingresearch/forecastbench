@@ -159,7 +159,7 @@ def create_question_set(
     """Sample the LLM and human question sets from the question bank.
 
     Args:
-        dfmeta (pd.DataFrame): Question metadata with columns `constants.META_DATA_FILE_COLUMNS`
+        dfmeta (pd.DataFrame): Question metadata, a `MetadataFrame`
         questions (dict[str, pd.DataFrame]): The question bank of each source to sample from,
             keyed by source name (`QuestionFrame`). A source with no questions is skipped.
         sources (dict[str, BaseSource]): The sources to sample from, keyed by source name

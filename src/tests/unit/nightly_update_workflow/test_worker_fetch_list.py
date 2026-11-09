@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+from _schemas import MetadataFrame
 from helpers import question_curation
 from nightly_update_workflow.manager import main as manager_main
 from nightly_update_workflow.worker import main as worker_main
@@ -70,28 +71,60 @@ def test_acled_is_fetched_on_wednesdays(worker):
     assert "func-data-acled-update-questions" in names
 
 
-def test_question_bank_summary_covers_only_sampled_sources(manager):
-    # Wikipedia and INFER still resolve but are no longer sampled, so the summary of what is
-    # available for the next question set must leave them out.
-    def fake_read_json(path, **kwargs):
-        if path.endswith(manager.constants.META_DATA_FILENAME):
-            return pd.DataFrame(
-                [
-                    {"id": "q1", "source": s, "valid_question": True}
-                    for s in manager.ALL_SOURCE_NAMES
-                ]
-            )
-        return pd.DataFrame([{"id": "q1", "resolved": False}])
-
+def _summarize(manager, dfmeta, dfq):
+    """Run the question-bank summary on the given metadata and per-source questions; return it."""
     sent = []
     with (
         patch.object(
             manager.slack, "send_message", side_effect=lambda message: sent.append(message)
         ),
-        patch.object(manager.pd, "read_json", side_effect=fake_read_json),
+        patch.object(manager._io, "load_question_metadata", return_value=dfmeta),
+        patch.object(manager.pd, "read_json", side_effect=lambda path, **kwargs: dfq.copy()),
     ):
         manager.summarize_question_bank()
-
     (message,) = sent
+    return message
+
+
+def test_question_bank_summary_covers_only_sampled_sources(manager):
+    # Wikipedia and INFER still resolve but are no longer sampled, so the summary of what is
+    # available for the next question set must leave them out.
+    dfmeta = MetadataFrame.validate(
+        pd.DataFrame(
+            [
+                {
+                    "id": "q1",
+                    "source": s,
+                    "category": "Sports",
+                    "valid_question": True,
+                    "english": True,
+                }
+                for s in manager.ALL_SOURCE_NAMES
+            ]
+        )
+    )
+    message = _summarize(manager, dfmeta, pd.DataFrame([{"id": "q1", "resolved": False}]))
     for source in manager.ALL_SOURCE_NAMES:
         assert (source in message) == (source in question_curation.FREEZE_QUESTION_SOURCES)
+
+
+def test_question_bank_summary_counts_a_question_as_valid_only_on_a_true_verdict(manager):
+    # Between the tag and validate jobs a row holds "" in `valid_question`; it is unresolved but
+    # not yet available for sampling, and the summary must still go out.
+    source = sorted(question_curation.FREEZE_QUESTION_SOURCES)[0]
+    dfmeta = MetadataFrame.validate(
+        pd.DataFrame(
+            {
+                "source": [source] * 4,
+                "id": ["q1", "q2", "q3", "q4"],
+                "category": ["Sports"] * 4,
+                "valid_question": [True, False, "", True],
+                "english": [True, True, "", True],
+            }
+        )
+    )
+    dfq = pd.DataFrame({"id": ["q1", "q2", "q3", "q4"], "resolved": [False, False, False, True]})
+    message = _summarize(manager, dfmeta, dfq)
+    (row,) = [line for line in message.splitlines() if line.startswith(f"| {source}")]
+    cells = [cell.strip() for cell in row.strip("|").split("|")]
+    assert cells == [source, "3", "1"]

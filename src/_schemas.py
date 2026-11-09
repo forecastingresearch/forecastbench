@@ -91,7 +91,9 @@ class MetadataFrame(pa.DataFrameModel):
     jobs the file holds the empty-string placeholder where a value is not known yet:
     `valid_question` is "" on rows the tag job added that validate has not seen, and
     `category` / `english` are "" on rows the validate job added that tag has not seen.
-    `valid_question` and `english` are therefore bool or "", never coerced.
+    `valid_question` and `english` are therefore bool or "", never coerced. Readers that need a
+    verdict (question sampling, the nightly question-bank summary) test for True, so a question
+    not classified yet counts as not sampleable until the next metadata run fills it in.
     """
 
     source: Series[str]

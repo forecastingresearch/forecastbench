@@ -10,6 +10,8 @@ from _schemas import MetadataFrame
 from helpers import constants
 from orchestration import _io
 
+META_COLUMNS = list(MetadataFrame.to_schema().columns)
+
 
 def test_load_question_metadata_returns_the_typed_empty_frame_when_the_file_is_empty(
     local_bucket, tmp_path
@@ -19,7 +21,7 @@ def test_load_question_metadata_returns_the_typed_empty_frame_when_the_file_is_e
     dfmeta = _io.load_question_metadata(local_filename=str(tmp_path / "question_metadata.jsonl"))
 
     assert dfmeta.empty
-    assert list(dfmeta.columns) == constants.META_DATA_FILE_COLUMNS
+    assert list(dfmeta.columns) == META_COLUMNS
 
 
 def test_load_question_metadata_keeps_the_placeholders_and_the_string_ids_the_file_holds(
@@ -47,7 +49,7 @@ def test_load_question_metadata_keeps_the_placeholders_and_the_string_ids_the_fi
 
     dfmeta = _io.load_question_metadata(local_filename=str(tmp_path / "question_metadata.jsonl"))
 
-    assert list(dfmeta.columns) == constants.META_DATA_FILE_COLUMNS
+    assert list(dfmeta.columns) == META_COLUMNS
     assert dfmeta.to_dict("records") == rows
     MetadataFrame.validate(dfmeta)
 
@@ -57,7 +59,7 @@ def test_upload_question_metadata_writes_the_rows_as_json_lines_to_the_bucket_ro
 ):
     dfmeta = pd.DataFrame(
         [("kalshi", "k1", "Sports", True, ""), ("fred", "f1", "Economics & Business", "", True)],
-        columns=constants.META_DATA_FILE_COLUMNS,
+        columns=META_COLUMNS,
     )
 
     _io.upload_question_metadata(dfmeta, local_filename=str(tmp_path / "question_metadata.jsonl"))
@@ -65,7 +67,7 @@ def test_upload_question_metadata_writes_the_rows_as_json_lines_to_the_bucket_ro
     uploaded = local_bucket.question_bank_dir() / constants.META_DATA_FILENAME
     records = [json.loads(line) for line in uploaded.read_text().splitlines()]
     assert records == dfmeta.to_dict("records")
-    assert all(list(record) == constants.META_DATA_FILE_COLUMNS for record in records)
+    assert all(list(record) == META_COLUMNS for record in records)
 
 
 @pytest.mark.parametrize(
@@ -81,7 +83,7 @@ def test_load_question_metadata_adds_the_columns_a_file_written_before_they_exis
 
     dfmeta = _io.load_question_metadata(local_filename=str(tmp_path / "question_metadata.jsonl"))
 
-    assert list(dfmeta.columns) == constants.META_DATA_FILE_COLUMNS
+    assert list(dfmeta.columns) == META_COLUMNS
     assert dfmeta.to_dict("records") == [
         {
             "source": "kalshi",
@@ -113,9 +115,7 @@ def test_load_question_metadata_rejects_a_file_with_a_value_outside_the_contract
 
 
 def test_upload_question_metadata_refuses_to_write_a_malformed_frame(local_bucket, tmp_path):
-    dfmeta = pd.DataFrame(
-        [("kalshi", "k1", "Sports", True, "yes")], columns=constants.META_DATA_FILE_COLUMNS
-    )
+    dfmeta = pd.DataFrame([("kalshi", "k1", "Sports", True, "yes")], columns=META_COLUMNS)
 
     with pytest.raises(pa.errors.SchemaError):
         _io.upload_question_metadata(
