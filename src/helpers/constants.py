@@ -66,14 +66,6 @@ RESOLUTION_FILE_COLUMN_DTYPE = {
 # value is not included in dytpe because it's of type ANY
 RESOLUTION_FILE_COLUMNS = list(RESOLUTION_FILE_COLUMN_DTYPE.keys()) + ["value"]
 
-META_DATA_FILE_COLUMN_DTYPE = {
-    "source": str,
-    "id": str,
-    "category": str,
-    "valid_question": bool,
-    "english": bool,
-}
-META_DATA_FILE_COLUMNS = list(META_DATA_FILE_COLUMN_DTYPE.keys())
 META_DATA_FILENAME = "question_metadata.jsonl"
 
 QUESTION_CATEGORIES = [

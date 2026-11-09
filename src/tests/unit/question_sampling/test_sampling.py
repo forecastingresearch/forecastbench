@@ -38,6 +38,23 @@ class TestDropInvalidQuestions:
         out = drop_invalid_questions(dfq, pd.DataFrame())
         pd.testing.assert_frame_equal(out, dfq)
 
+    def test_questions_not_validated_yet_are_dropped(self):
+        """The tag job writes `valid_question` as "" until the validate job reaches the row."""
+        dfq = pd.DataFrame(
+            [
+                {"id": "q1", "source": "manifold", "question": "a"},
+                {"id": "q2", "source": "manifold", "question": "b"},
+            ]
+        )
+        dfmeta = pd.DataFrame(
+            [
+                {"id": "q1", "source": "manifold", "valid_question": True},
+                {"id": "q2", "source": "manifold", "valid_question": ""},
+            ]
+        )
+        out = drop_invalid_questions(dfq, dfmeta)
+        assert out["id"].tolist() == ["q1"]
+
     def test_joins_on_both_id_and_source(self):
         # Same id across two sources with opposite validity: the join must key on (id, source),
         # so only the valid (dup, manifold) row survives — a join on id alone would not.

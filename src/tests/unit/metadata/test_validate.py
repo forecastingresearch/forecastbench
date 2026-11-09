@@ -5,11 +5,11 @@ import pandera.errors
 import pytest
 
 from _schemas import MetadataFrame
-from helpers import constants, metadata_llm, metadata_prompts, question_curation
+from helpers import metadata_llm, metadata_prompts, question_curation
 from metadata import validate
 from tests.factories import make_question_df
 
-META_COLUMNS = constants.META_DATA_FILE_COLUMNS
+META_COLUMNS = list(MetadataFrame.to_schema().columns)
 
 # The sampled sources that are judged by the LLM: every sampled source that is neither a dataset
 # source nor metaculus.
@@ -66,7 +66,7 @@ def _metadata(rows):
 
 def _empty_metadata():
     """The typed empty frame `load_question_metadata()` gives for an empty metadata file."""
-    return pd.DataFrame(columns=META_COLUMNS).astype(constants.META_DATA_FILE_COLUMN_DTYPE)
+    return MetadataFrame.empty()
 
 
 def _rows_of(dfmeta, source):
