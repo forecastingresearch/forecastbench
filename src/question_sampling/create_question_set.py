@@ -197,6 +197,9 @@ def create_question_set(
             forecast_datetime=forecast_datetime,
         )
         num_questions = len(dfq)
+        if dfq.empty:
+            logger.warning(f"No questions from {source_name} are eligible for sampling.")
+            continue
         QUESTIONS[source_name] = {
             "dfq": dfq,
             "num_questions_available": num_questions,
