@@ -82,13 +82,12 @@ def test_metadata_model_response_routes_through_shared_model_run(monkeypatch):
 
     assert response == "metadata response"
     assert calls == [
-        ("get_model_run", "gpt-5-mini-2025-08-07-run-variant-01"),
+        ("get_model_run", "gpt-6.1-terra-run-variant-07"),
         (
             "get_response",
             "Classify this question.",
             {
                 "max_output_tokens": 123,
-                "reasoning": {"effort": "minimal"},
                 "safety_identifier": "forecastbench-safety-id",
             },
         ),
@@ -136,7 +135,7 @@ def test_metadata_model_response_configures_model_run_provider_before_request(mo
     assert metadata_llm.get_metadata_model_response("Prompt", 50) == "metadata response"
 
     assert calls == [
-        ("get_model_run", "gpt-5-mini-2025-08-07-run-variant-01"),
+        ("get_model_run", "gpt-6.1-terra-run-variant-07"),
         ("configure", {"from_gcp": True}),
         ("validate", [PROVIDERS["OpenAI"]]),
         ("get_response", PROVIDERS["OpenAI"]),

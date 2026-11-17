@@ -10,7 +10,7 @@ from utils.llm.model_registry import (
 
 from .openai_safety import get_openai_safety_identifier
 
-_METADATA_MODEL_RUN_KEY = "gpt-5-mini-2025-08-07-run-variant-01"
+_METADATA_MODEL_RUN_KEY = "gpt-6.1-terra-run-variant-07"
 
 
 @cache
@@ -32,6 +32,5 @@ def get_metadata_model_response(prompt: str, max_output_tokens: int) -> str:
     return _get_metadata_model_run().get_response(
         prompt=prompt,
         max_output_tokens=max_output_tokens,
-        reasoning={"effort": "minimal"},
         safety_identifier=get_openai_safety_identifier(),
     )

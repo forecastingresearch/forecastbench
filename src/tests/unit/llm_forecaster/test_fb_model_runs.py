@@ -79,10 +79,7 @@ def test_providers_for_model_runs_includes_selected_and_forecast_extraction_mode
     providers = fb_model_runs.providers_for_model_runs([anthropic_run])
 
     assert providers == [PROVIDERS["Anthropic"], PROVIDERS["OpenAI"]]
-    assert (
-        fb_model_runs.FORECAST_EXTRACTION_MODEL.model_run_key
-        == "gpt-5-mini-2025-08-07-run-variant-01"
-    )
+    assert fb_model_runs.FORECAST_EXTRACTION_MODEL.model_run_key == "gpt-6.1-terra-run-variant-07"
 
 
 def test_configure_and_validate_provider_keys_uses_shared_gcp_loader():

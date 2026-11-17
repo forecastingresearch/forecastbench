@@ -113,7 +113,7 @@ FB_MODEL_RUN_KEYS = [
 FB_MODEL_RUNS = shared_model_runs.select_model_runs(FB_MODEL_RUN_KEYS)
 FB_MODEL_RUNS_BY_KEY = {run.model_run_key: run for run in FB_MODEL_RUNS}
 FB_MODEL_RUNS_BY_SLUG = {run.slug: run for run in FB_MODEL_RUNS}
-FORECAST_EXTRACTION_MODEL = shared_model_runs.get_model_run("gpt-5-mini-2025-08-07-run-variant-01")
+FORECAST_EXTRACTION_MODEL = shared_model_runs.get_model_run("gpt-6.1-terra-run-variant-07")
 
 
 DEFAULT_PROVIDER_MAX_WORKERS = 4
