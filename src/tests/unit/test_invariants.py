@@ -13,7 +13,6 @@ from sources.registry import SOURCES
 from tests.factories import make_polymarket_fetch_df, make_question_set_df
 
 _PRICE_HISTORY = [{"date": f"2025-01-{day:02d}", "value": 0.4 + day * 0.01} for day in range(1, 32)]
-_DATE_DRIVER = {"id": "date_driver", "source": "fred", "resolution_dates": ["2025-01-31"]}
 
 
 def _empty_bank_frame():
@@ -59,9 +58,7 @@ class TestNullificationOrderIndependence:
         rows = [
             {"id": qid, "source": "polymarket", "resolution_dates": "N/A"} for qid in ids_in_order
         ]
-        rows.append(_DATE_DRIVER)
         exploded = explode_question_set(make_question_set_df(rows), "2025-01-01")
-        exploded = exploded[exploded["source"] == "polymarket"].copy()
 
         resolved, _ = resolve_all(
             exploded,

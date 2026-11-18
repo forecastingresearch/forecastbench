@@ -64,7 +64,7 @@ class ExplodedQuestionSetFrame(pa.DataFrameModel):
     source: Series[str]
     direction: Series[object]
     forecast_due_date: Series[object]  # datetime64
-    resolution_date: Series[object]  # datetime64
+    resolution_date: Series[object] = pa.Field(nullable=True)  # datetime64
 
     class Config:
         """Schema configuration."""
