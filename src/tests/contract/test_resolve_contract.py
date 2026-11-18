@@ -14,18 +14,13 @@ from resolve.resolve_all import resolve_all
 from sources.registry import MARKET_SOURCES
 from tests.factories import make_question_df, make_question_set_df, make_resolution_df
 
-# A dataset "date driver" supplies the global resolution dates that market questions inherit during
-# explode (a market-only set would have none); it is filtered out before resolving.
-_DATE_DRIVER = {"id": "dd", "source": "fred", "resolution_dates": ["2025-01-31"]}
 _FORECAST_DUE = date(2025, 1, 1)
 
 
 def _exploded(name, ids):
-    """Explode a question set for ``name`` (plus the date driver), keeping only this source."""
+    """Explode a question set for ``name``."""
     rows = [{"id": qid, "source": name, "resolution_dates": "N/A"} for qid in ids]
-    rows.append(_DATE_DRIVER)
-    exploded = explode_question_set(make_question_set_df(rows), "2025-01-01")
-    return exploded[exploded["source"] == name].copy()
+    return explode_question_set(make_question_set_df(rows), "2025-01-01")
 
 
 @pytest.mark.parametrize("name", sorted(MARKET_SOURCES))
@@ -58,8 +53,8 @@ class TestResolveFailFast:
 
 
 @pytest.mark.parametrize("name", sorted(MARKET_SOURCES))
-def test_nullified_id_is_dropped(name, freeze_today):
-    """A nullified question resolves to NaN and is dropped; a normal sibling still resolves."""
+def test_nullified_id_is_kept_and_flagged(name, freeze_today):
+    """A nullified question is kept as NaN, flagged `nullified`; a normal sibling still resolves."""
     freeze_today(date(2025, 2, 1))  # yesterday == 2025-01-31, matching the resolution date
     nullified = sorted(MARKET_SOURCES[name].get_nullified_ids(as_of=_FORECAST_DUE))
     if not nullified:
@@ -78,9 +73,12 @@ def test_nullified_id_is_dropped(name, freeze_today):
         forecast_due_date=_FORECAST_DUE,
     )
 
-    # Exactly the sibling survives: an empty frame would pass the two membership checks alone.
-    assert resolved["id"].tolist() == ["norm1"]
-    assert resolved["resolved_to"].notna().all()
+    by_id = resolved.set_index("id")
+    assert sorted(by_id.index) == sorted(["norm1", nid])
+    assert bool(by_id.loc[nid, "nullified"]) is True
+    assert pd.isna(by_id.loc[nid, "resolved_to"])
+    assert bool(by_id.loc["norm1", "nullified"]) is False
+    assert pd.notna(by_id.loc["norm1", "resolved_to"])
 
 
 @pytest.mark.parametrize("name", sorted(MARKET_SOURCES))

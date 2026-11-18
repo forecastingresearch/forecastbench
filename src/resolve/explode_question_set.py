@@ -44,21 +44,15 @@ def explode_question_set(question_set_df: pd.DataFrame, forecast_due_date: str) 
 
     df["forecast_due_date"] = pd.to_datetime(forecast_due_date)
 
-    all_resolution_dates = get_resolution_dates(df)
-
-    # Market questions get all resolution dates
-    df["resolution_dates"] = df.apply(
-        lambda x: (
-            all_resolution_dates if x["source"] in MARKET_SOURCE_NAMES else x["resolution_dates"]
-        ),
-        axis=1,
-    )
+    is_market = df["source"].isin(MARKET_SOURCE_NAMES)
+    df.loc[is_market, "resolution_dates"] = None
 
     # Explode resolution dates
     df = df.explode("resolution_dates", ignore_index=True)
     df.rename(columns={"resolution_dates": "resolution_date"}, inplace=True)
-    df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.date
-    df = df[df["resolution_date"] < dates.get_date_today()]
+    df["resolution_date"] = pd.to_datetime(df["resolution_date"]).dt.normalize()
+    is_market = df["source"].isin(MARKET_SOURCE_NAMES)
+    df = df[is_market | (df["resolution_date"] < pd.Timestamp(dates.get_date_today()))]
 
     # Expand combo question directions
     df["direction"] = df.apply(

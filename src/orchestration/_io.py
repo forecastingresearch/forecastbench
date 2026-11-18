@@ -270,9 +270,12 @@ def upload_resolution_set(df: pd.DataFrame, forecast_due_date: str, question_set
     """
     basename = f"{forecast_due_date}_resolution_set.json"
     local_filename = f"/tmp/{basename}"
-    df = df[["id", "source", "direction", "resolution_date", "resolved_to", "resolved"]]
+    df = df[
+        ["id", "source", "direction", "resolution_date", "resolved_to", "resolved", "nullified"]
+    ]
     df["direction"] = df["direction"].apply(lambda x: None if len(x) == 0 else x)
-    df["resolution_date"] = df["resolution_date"].dt.strftime("%Y-%m-%d").astype(str)
+    df["resolution_date"] = df["resolution_date"].dt.strftime("%Y-%m-%d")
+    df = df.astype(object).where(df.notna(), None)
     json_data = {
         "forecast_due_date": forecast_due_date,
         "question_set": question_set_filename,

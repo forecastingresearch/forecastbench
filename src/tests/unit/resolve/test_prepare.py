@@ -248,6 +248,7 @@ class TestSetResolutionDates:
                 "forecast_due_date": pd.to_datetime(["2025-01-01", "2025-01-01"]),
                 "resolution_date": pd.to_datetime(["2025-01-14", "2025-01-15"]),
                 "resolved_to": [0.7, 0.8],
+                "nullified": [False, False],
             }
         )
 
@@ -278,9 +279,38 @@ class TestSetResolutionDates:
                 "forecast_due_date": pd.to_datetime(["2025-01-01"]),
                 "resolution_date": pd.to_datetime(["2025-01-31"]),
                 "resolved_to": [1.0],
+                "nullified": [False],
             }
         )
 
         result = set_resolution_dates(df, df_question_resolutions)
         assert len(result) == 1
         assert result.iloc[0]["resolved_to"] == 1.0
+
+    def test_forecasts_on_nullified_questions_are_not_scored(self):
+        """A nullified question is in the resolution set, but no forecast on it is kept."""
+        df = pd.DataFrame(
+            {
+                "id": ["q1", "q2", "f1"],
+                "source": ["metaculus", "metaculus", "fred"],
+                "direction": [(), (), ()],
+                "forecast": [0.5, 0.5, 0.5],
+                "forecast_due_date": pd.to_datetime(["2025-01-01"] * 3),
+                "resolution_date": pd.to_datetime(["2025-01-31"] * 3),
+            }
+        )
+        df_question_resolutions = pd.DataFrame(
+            {
+                "id": ["q1", "q2", "f1"],
+                "source": ["metaculus", "metaculus", "fred"],
+                "direction": [(), (), ()],
+                "forecast_due_date": pd.to_datetime(["2025-01-01"] * 3),
+                "resolution_date": pd.to_datetime(["2025-01-31"] * 3),
+                "resolved_to": [1.0, np.nan, np.nan],
+                "nullified": [False, True, True],
+            }
+        )
+
+        result = set_resolution_dates(df, df_question_resolutions)
+        assert result["id"].tolist() == ["q1"]
+        assert result["resolved_to"].notna().all()

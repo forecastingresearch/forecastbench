@@ -349,7 +349,7 @@ class TestResolveOrchestration:
         assert (result["resolved_to"] == 1.0).all()
         assert (result["resolved"]).all()
 
-    def test_nullified_rows_get_nan(self):
+    def test_nullified_rows_get_nan_and_are_flagged(self):
         source = _StubSourceWithNullified()
         df = make_forecast_df(
             [
@@ -365,8 +365,10 @@ class TestResolveOrchestration:
         normal_row = result[result["id"] == "normal_q"].iloc[0]
 
         assert pd.isna(null_row["resolved_to"])
-        assert bool(null_row["resolved"]) is True
+        assert bool(null_row["resolved"]) is False
+        assert bool(null_row["nullified"]) is True
         assert normal_row["resolved_to"] == 1.0
+        assert bool(normal_row["nullified"]) is False
 
     def test_nullified_combo_question(self):
         source = _StubSourceWithNullified()
@@ -385,7 +387,8 @@ class TestResolveOrchestration:
 
         result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 1, 1))
         assert pd.isna(result.iloc[0]["resolved_to"])
-        assert bool(result.iloc[0]["resolved"]) is True
+        assert bool(result.iloc[0]["resolved"]) is False
+        assert bool(result.iloc[0]["nullified"]) is True
 
     def test_empty_source_with_nullified_rows(self):
         source = _StubSourceWithNullified()
@@ -401,6 +404,7 @@ class TestResolveOrchestration:
         result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 1, 1))
         assert len(result) == 1
         assert pd.isna(result.iloc[0]["resolved_to"])
+        assert bool(result.iloc[0]["nullified"]) is True
 
     def test_resolve_rejects_foreign_source_rows(self):
         """Passing rows from a different source should raise ValueError."""

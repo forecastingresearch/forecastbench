@@ -1,5 +1,6 @@
-id,source,resolution_date,resolved,resolved_to
-fred1,fred,2025-01-08,True,1.0
-fred1,fred,2025-01-31,True,0.0
-metaculus1,metaculus,2025-01-31,True,1.0
-polymarket1,polymarket,2025-01-31,False,0.71
+id,source,resolution_date,resolved,resolved_to,nullified
+0x0ea8005efbc460378340a2f28a6d97b0d1d9d9d7fba4d16f529b8a415dca77a2,polymarket,,False,,True
+fred1,fred,2025-01-08,True,1.0,False
+fred1,fred,2025-01-31,True,0.0,False
+metaculus1,metaculus,2025-01-31,True,1.0,False
+polymarket1,polymarket,2025-01-31,False,0.71,False

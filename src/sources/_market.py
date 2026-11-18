@@ -117,6 +117,7 @@ class MarketSource(BaseSource):
 
             if resolution_date <= forecast_due_date.date():
                 df_standard.loc[df_standard["id"] == mid, "resolved_to"] = np.nan
+                df_standard.loc[df_standard["id"] == mid, "nullified"] = True
                 rd = resolution_date.strftime("%Y-%m-%d")
                 fd = forecast_due_date.strftime("%Y-%m-%d")
                 url = dfq[dfq["id"] == mid]["url"].iloc[0]
@@ -142,6 +143,9 @@ class MarketSource(BaseSource):
                 df_combo.at[index, "resolved_to"] = np.nan
                 continue
             dir0, dir1 = row["direction"]
+
+            if id0_data["nullified"] or id1_data["nullified"]:
+                df_combo.at[index, "nullified"] = True
 
             for col in ["resolved_to", "market_value_on_due_date"]:
                 update_col(

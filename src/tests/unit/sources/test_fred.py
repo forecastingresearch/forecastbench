@@ -104,7 +104,8 @@ class TestFredSourceNullification:
 
         row = result[result["id"] == "CURRCIR"].iloc[0]
         assert pd.isna(row["resolved_to"])
-        assert bool(row["resolved"]) is True
+        assert bool(row["resolved"]) is False
+        assert bool(row["nullified"]) is True
 
     def test_currcir_pre_cutoff_question_with_missing_resolution_data_is_unresolved(self):
         # A pre-cutoff forecast whose resolution_date lands after FRED stopped publishing

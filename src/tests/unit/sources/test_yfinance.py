@@ -151,7 +151,8 @@ class TestYfinanceSourceNullification:
 
         jnpr_row = result[result["id"] == "JNPR"].iloc[0]
         assert pd.isna(jnpr_row["resolved_to"])
-        assert bool(jnpr_row["resolved"]) is True
+        assert bool(jnpr_row["resolved"]) is False
+        assert bool(jnpr_row["nullified"]) is True
 
     def test_resolve_pre_delisting_question_resolves_normally(self, source):
         """JNPR asked on 2025-03-30 (before delisting 2025-07-02) should resolve via final price."""
