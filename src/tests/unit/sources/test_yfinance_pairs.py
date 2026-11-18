@@ -436,6 +436,7 @@ class TestResolvePairs:
         result = self._resolve(yfinance_source, dfr, [{"id": "AAPL_MSFT"}])
         assert pd.isna(result.iloc[0]["resolved_to"])
         assert bool(result.iloc[0]["resolved"]) is True
+        assert bool(result.iloc[0]["nullified"]) is True
 
     def test_pair_resolves_when_the_delisting_came_after_the_due_date(self, yfinance_source):
         """Asked while both stocks traded, the pair resolves against the frozen final close."""

@@ -139,7 +139,7 @@ class BaseSource(ABC):
         df must contain only rows for this source.
         forecast_due_date is used to determine which questions are nullified.
         Nullified rows are removed before _resolve() so source-specific logic never sees them,
-        then added back with resolved_to=NaN afterward.
+        then added back with resolved_to=NaN and nullified=True afterward.
 
         Returns:
             (resolved_df, warnings_for_slack)
@@ -155,23 +155,23 @@ class BaseSource(ABC):
         nullified_ids = self.get_nullified_ids(as_of=forecast_due_date)
         if nullified_ids:
             null_mask = df["id"].apply(self._id_is_nullified, nullified_ids=nullified_ids)
-            df_nullified = df[null_mask].copy()
+            df_nullified = df[null_mask].assign(resolved_to=np.nan, resolved=True, nullified=True)
+            if self.source_type == SourceType.MARKET:
+                df_nullified["resolution_date"] = pd.to_datetime(
+                    df_nullified["id"].apply(self._nullification_date, nullified_ids=nullified_ids)
+                )
             df = df[~null_mask].copy()
         else:
             df_nullified = None
 
         if df.empty:
             if df_nullified is not None and not df_nullified.empty:
-                df_nullified["resolved_to"] = np.nan
-                df_nullified["resolved"] = True
                 return df_nullified, []
             return df, []
 
         df, warnings_for_slack = self._resolve(df, dfq, dfr)
 
         if df_nullified is not None and not df_nullified.empty:
-            df_nullified["resolved_to"] = np.nan
-            df_nullified["resolved"] = True
             df = pd.concat([df, df_nullified], ignore_index=True)
 
         return df, warnings_for_slack
@@ -190,6 +190,15 @@ class BaseSource(ABC):
         if isinstance(id_val, tuple):
             return any(sub_id in nullified_ids for sub_id in id_val)
         return id_val in nullified_ids
+
+    def _nullification_date(self, id_val, nullified_ids: set[str]) -> date:
+        """Return the earliest nullification start date of a question ID (single or combo tuple)."""
+        ids = id_val if isinstance(id_val, tuple) else (id_val,)
+        return min(
+            nq.nullification_start_date
+            for nq in self.nullified_questions
+            if nq.id in ids and nq.id in nullified_ids
+        )
 
     # ------------------------------------------------------------------
     # Public sampling interface
