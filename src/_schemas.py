@@ -80,6 +80,7 @@ class ResolveReadyFrame(ExplodedQuestionSetFrame):
     """
 
     resolved: Series[bool]
+    nullified: Series[bool]
     resolved_to: Series[float] = pa.Field(nullable=True)
     market_value_on_due_date: Series[float] = pa.Field(nullable=True)
 

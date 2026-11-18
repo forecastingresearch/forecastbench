@@ -134,6 +134,9 @@ def set_resolution_dates(df: pd.DataFrame, df_question_resolutions: pd.DataFrame
         Merged DataFrame with resolution dates set.
     """
     logger.info("Setting resolution dates.")
+    df_question_resolutions = df_question_resolutions[~df_question_resolutions["nullified"]].drop(
+        columns="nullified"
+    )
 
     df_market_sources = df[df["source"].isin(MARKET_SOURCE_NAMES)].copy()
     df_dataset_sources = df[df["source"].isin(DATASET_SOURCE_NAMES)].copy()

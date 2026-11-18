@@ -720,7 +720,8 @@ class TestResolve:
         )
         row = resolved.iloc[0]
         assert pd.isna(row["resolved_to"])
-        assert row["resolved"]
+        assert not row["resolved"]
+        assert row["nullified"]
 
     def test_future_resolution_date_not_resolved(self, wikipedia_source, freeze_today):
         freeze_today(date(2025, 6, 2))

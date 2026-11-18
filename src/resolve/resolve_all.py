@@ -41,6 +41,7 @@ def resolve_all(
     ExplodedQuestionSetFrame.validate(df)
     df = df.assign(
         resolved=False,
+        nullified=False,
         resolved_to=np.nan,
         market_value_on_due_date=np.nan,
     )
@@ -96,14 +97,17 @@ def resolve_all(
 
     # Remove unresolved data-source rows
     n_pre_drop = len(df)
-    df = df[~(df["source"].isin(DATASET_SOURCE_NAMES) & (~df["resolved"]))]
+    df = df[~(df["source"].isin(DATASET_SOURCE_NAMES) & ~df["resolved"] & ~df["nullified"])]
     unresolved_drop = n_pre_drop - len(df)
     if unresolved_drop > 0:
         logger.info(f"Dropped {unresolved_drop:,} dataset questions that have not yet resolved.")
 
-    # Remove NaN resolved_to rows
+    # Remove NaN resolved_to rows, except nullified ones
+    n_nullified = int(df["nullified"].sum())
+    if n_nullified > 0:
+        logger.info(f"Keeping {n_nullified:,} nullified questions.")
     n_pre_drop = len(df)
-    df = df[~df["resolved_to"].isna()]
+    df = df[df["nullified"] | df["resolved_to"].notna()]
     na_drop = n_pre_drop - len(df)
     if na_drop > 0:
         logger.warning(f"! WARNING ! Dropped {na_drop:,} questions that have resolved to NaN.")
