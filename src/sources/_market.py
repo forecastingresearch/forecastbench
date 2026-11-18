@@ -168,7 +168,7 @@ class MarketSource(BaseSource):
                 df_combo.at[index, "resolution_date"] = resolution_date
 
         df_combo.sort_values(by=["id", "resolution_date"], inplace=True, ignore_index=True)
-        result = pd.concat([df_standard, df_combo]).drop_duplicates()
+        result = pd.concat([df_standard, df_combo])
 
         return result, warnings
 

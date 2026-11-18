@@ -27,29 +27,19 @@ class TestGetResolutionDates:
 class TestExplodeQuestionSet:
     """Test question set expansion by resolution_date x direction."""
 
-    def test_market_sources_get_all_resolution_dates(self, freeze_today):
+    def test_market_questions_get_one_row_without_a_date(self, freeze_today):
         freeze_today(date(2025, 3, 1))
-
         df = make_question_set_df(
             [
-                {
-                    "id": "q1",
-                    "source": "fred",
-                    "resolution_dates": ["2025-01-08", "2025-01-31"],
-                },
-                {
-                    "id": "m1",
-                    "source": "metaculus",
-                    "resolution_dates": "N/A",
-                },
+                {"id": "q1", "source": "fred", "resolution_dates": ["2025-01-08", "2025-01-31"]},
+                {"id": "m1", "source": "metaculus", "resolution_dates": "N/A"},
             ]
         )
         result = explode_question_set(df, "2025-01-01")
 
-        # Market source should get both dates (all resolution dates from the set)
         market_rows = result[result["source"] == "metaculus"]
-        market_dates = set(market_rows["resolution_date"].dt.strftime("%Y-%m-%d"))
-        assert market_dates == {"2025-01-08", "2025-01-31"}
+        assert len(market_rows) == 1
+        assert market_rows["resolution_date"].isna().all()
 
     def test_dataset_sources_keep_own_dates(self, freeze_today):
         freeze_today(date(2025, 3, 1))

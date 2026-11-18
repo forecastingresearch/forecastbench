@@ -14,18 +14,13 @@ from resolve.resolve_all import resolve_all
 from sources.registry import MARKET_SOURCES
 from tests.factories import make_question_df, make_question_set_df, make_resolution_df
 
-# A dataset "date driver" supplies the global resolution dates that market questions inherit during
-# explode (a market-only set would have none); it is filtered out before resolving.
-_DATE_DRIVER = {"id": "dd", "source": "fred", "resolution_dates": ["2025-01-31"]}
 _FORECAST_DUE = date(2025, 1, 1)
 
 
 def _exploded(name, ids):
-    """Explode a question set for ``name`` (plus the date driver), keeping only this source."""
+    """Explode a question set for ``name``."""
     rows = [{"id": qid, "source": name, "resolution_dates": "N/A"} for qid in ids]
-    rows.append(_DATE_DRIVER)
-    exploded = explode_question_set(make_question_set_df(rows), "2025-01-01")
-    return exploded[exploded["source"] == name].copy()
+    return explode_question_set(make_question_set_df(rows), "2025-01-01")
 
 
 @pytest.mark.parametrize("name", sorted(MARKET_SOURCES))
