@@ -59,7 +59,7 @@ def test_empty_market_frame_stays_empty():
     result = drop_questions_that_resolve_too_late(
         source="polymarket", dfq=dfq, forecast_datetime=FORECAST_DATETIME
     )
-    assert result.empty
+    assert result.empty and list(result.columns) == list(dfq.columns)
 
 
 def test_data_questions_are_untouched():
