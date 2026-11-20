@@ -97,6 +97,7 @@ def test_leaderboard_org_logo_lookup_keeps_legacy_and_external_names():
     assert main.get_org_logo("Valory") == "valory.png"
     assert main.get_org_logo("Gougu") == "gougu.png"
     assert main.get_org_logo("CortexAlpha") == "cortexalpha.svg"
+    assert main.get_org_logo("Eternis") == "eternis.svg"
     assert main.get_org_logo("anonymous 4") == "anonymous_4.svg"
     assert main.get_org_logo("Unknown Org") == "default.svg"
 
