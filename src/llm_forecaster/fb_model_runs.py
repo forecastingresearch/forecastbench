@@ -113,6 +113,7 @@ FB_MODEL_RUN_KEYS = [
     "gemini-3.1-flash-lite-run-variant-01",
     "gemini-3.1-pro-preview-run-variant-01",
     "gemini-3.1-pro-preview-run-variant-02",
+    "gemini-4-argon-run-variant-03",
     "gemini-4-carbon-run-variant-02",
 ]
 
