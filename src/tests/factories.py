@@ -28,6 +28,8 @@ def make_forecast_df(rows: list[dict]) -> pd.DataFrame:
     # resolve_all() sets these before calling _resolve()
     if "resolved" not in df.columns:
         df["resolved"] = False
+    if "nullified" not in df.columns:
+        df["nullified"] = False
     if "resolved_to" not in df.columns:
         df["resolved_to"] = np.nan
     if "market_value_on_due_date" not in df.columns:

@@ -423,9 +423,48 @@ class TestMarketResolve:
         result_source = result[result["source"] == "metaculus"]
         assert pd.isna(result_source.iloc[0]["resolved_to"])
         assert len(warnings) > 0
+        # A suspect value is a data problem to check, not a nullification to publish.
+        assert bool(result_source.iloc[0]["nullified"]) is False
+
+    def test_market_annulled_by_platform_is_nullified(self, market_source, freeze_today):
+        """Resolved question whose final value is NaN (annulled) → nullified, no warning."""
+        freeze_today(date(2025, 1, 15))
+
+        df = make_forecast_df(
+            [
+                {
+                    "id": "q1",
+                    "source": "metaculus",
+                    "forecast_due_date": "2025-01-01",
+                }
+            ]
+        )
+        dfq = make_question_df(
+            [
+                {
+                    "id": "q1",
+                    "resolved": True,
+                    "market_info_close_datetime": "2025-01-14T00:00:00Z",
+                    "market_info_resolution_datetime": "2025-01-14T00:00:00Z",
+                }
+            ]
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "q1", "date": "2024-12-31", "value": 0.3},
+                {"id": "q1", "date": "2025-01-14", "value": np.nan},
+            ]
+        )
+
+        result, warnings = market_source._resolve(df, dfq, dfr)
+        row = result[result["source"] == "metaculus"].iloc[0]
+        assert pd.isna(row["resolved_to"])
+        assert bool(row["resolved"]) is True
+        assert bool(row["nullified"]) is True
+        assert warnings == []
 
     def test_resolved_before_forecast_due_date_nullifies(self, market_source, freeze_today):
-        """Market resolved before forecast_due_date → resolved_to = NaN."""
+        """Market resolved before forecast_due_date → resolved_to = NaN, flagged nullified."""
         freeze_today(date(2025, 1, 15))
 
         df = make_forecast_df(
@@ -459,6 +498,51 @@ class TestMarketResolve:
         result, warnings = market_source._resolve(df, dfq, dfr)
         result_source = result[result["source"] == "metaculus"]
         assert pd.isna(result_source.iloc[0]["resolved_to"])
+        assert bool(result_source.iloc[0]["nullified"]) is True
+
+    def test_combo_with_question_resolved_before_due_date_is_nullified(
+        self, market_source, freeze_today
+    ):
+        """A combo is nullified when one of its questions resolved before the due date."""
+        freeze_today(date(2025, 1, 15))
+
+        df = make_forecast_df(
+            [
+                {"id": "early", "source": "metaculus", "forecast_due_date": "2025-01-10"},
+                {"id": "open", "source": "metaculus", "forecast_due_date": "2025-01-10"},
+                {
+                    "id": ("early", "open"),
+                    "source": "metaculus",
+                    "direction": (1, 1),
+                    "forecast_due_date": "2025-01-10",
+                },
+            ]
+        )
+        dfq = make_question_df(
+            [
+                {
+                    "id": "early",
+                    "resolved": True,
+                    "market_info_close_datetime": "2025-01-05T00:00:00Z",
+                    "market_info_resolution_datetime": "2025-01-05T00:00:00Z",
+                },
+                {"id": "open", "resolved": False},
+            ]
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "early", "date": "2025-01-05", "value": 1},
+                {"id": "early", "date": "2025-01-14", "value": 1},
+                {"id": "open", "date": "2025-01-10", "value": 0.4},
+                {"id": "open", "date": "2025-01-14", "value": 0.6},
+            ]
+        )
+
+        result, _ = market_source._resolve(df, dfq, dfr)
+        nullified = dict(zip(result["id"], result["nullified"].astype(bool)))
+        assert nullified == {"early": True, "open": False, ("early", "open"): True}
+        combo = result[result["id"] == ("early", "open")]
+        assert pd.isna(combo.iloc[0]["resolved_to"])
 
     def test_combo_question_resolves(self, market_source, freeze_today):
         """Combo question product of direction-adjusted sub-question values."""

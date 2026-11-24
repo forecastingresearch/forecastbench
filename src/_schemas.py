@@ -55,7 +55,9 @@ class ResolutionFrame(pa.DataFrameModel):
 class ExplodedQuestionSetFrame(pa.DataFrameModel):
     """Output of explode_question_set(), input to resolve_all().
 
-    One row per (question x resolution_date x direction).
+    Dataset questions: one row per (question x resolution_date x direction).
+    Market questions: one row per (question x direction) with `resolution_date` NaT. The source
+    sets the date when it resolves the question.
     `id` is str for standard questions, tuple for combos.
     `direction` is tuple for combos, empty tuple for standard.
     """
@@ -64,7 +66,7 @@ class ExplodedQuestionSetFrame(pa.DataFrameModel):
     source: Series[str]
     direction: Series[object]
     forecast_due_date: Series[object]  # datetime64
-    resolution_date: Series[object]  # datetime64
+    resolution_date: Series[object] = pa.Field(nullable=True)  # datetime64
 
     class Config:
         """Schema configuration."""
@@ -80,6 +82,7 @@ class ResolveReadyFrame(ExplodedQuestionSetFrame):
     """
 
     resolved: Series[bool]
+    nullified: Series[bool]
     resolved_to: Series[float] = pa.Field(nullable=True)
     market_value_on_due_date: Series[float] = pa.Field(nullable=True)
 

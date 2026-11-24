@@ -3,6 +3,7 @@
 import json
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -91,6 +92,7 @@ class TestUploadResolutionSet:
                     "resolution_date": pd.Timestamp("2025-01-31"),
                     "resolved_to": 1.0,
                     "resolved": True,
+                    "nullified": False,
                 },
                 {
                     "id": "q2",
@@ -99,6 +101,16 @@ class TestUploadResolutionSet:
                     "resolution_date": pd.Timestamp("2025-02-15"),
                     "resolved_to": 0.0,
                     "resolved": True,
+                    "nullified": False,
+                },
+                {
+                    "id": "q3",
+                    "source": "polymarket",
+                    "direction": (),
+                    "resolution_date": pd.NaT,
+                    "resolved_to": np.nan,
+                    "resolved": True,
+                    "nullified": True,
                 },
             ]
         )
@@ -119,6 +131,12 @@ class TestUploadResolutionSet:
         assert by_id["q2"]["direction"] == ["Battles", 1]
         assert by_id["q1"]["resolution_date"] == "2025-01-31"
         assert by_id["q2"]["resolution_date"] == "2025-02-15"
+        assert all(
+            set(r) == {"id", "source", "direction", "resolution_date", "resolved_to", "resolved"}
+            for r in written["resolutions"]
+        )
+        assert by_id["q3"]["resolved_to"] is None
+        assert by_id["q3"]["resolution_date"] is None
 
 
 class TestReadForecastFile:

@@ -36,6 +36,7 @@ QUESTION_SET_FIELDS = [
     "resolution_date",
     "resolved_to",
     "resolved",
+    "nullified",
 ]
 
 FORECAST_FILE_METADATA_FIELDS = [

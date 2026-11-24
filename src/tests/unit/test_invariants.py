@@ -13,7 +13,6 @@ from sources.registry import SOURCES
 from tests.factories import make_polymarket_fetch_df, make_question_set_df
 
 _PRICE_HISTORY = [{"date": f"2025-01-{day:02d}", "value": 0.4 + day * 0.01} for day in range(1, 32)]
-_DATE_DRIVER = {"id": "date_driver", "source": "fred", "resolution_dates": ["2025-01-31"]}
 
 
 def _empty_bank_frame():
@@ -42,7 +41,7 @@ class TestUpdateIdempotency:
 
 
 class TestNullificationOrderIndependence:
-    """A nullified question is dropped from resolution regardless of its row position."""
+    """A nullified question is flagged regardless of its row position."""
 
     def _resolve_with_order(self, ids_in_order, nullified_id):
         dff = make_polymarket_fetch_df(
@@ -59,9 +58,7 @@ class TestNullificationOrderIndependence:
         rows = [
             {"id": qid, "source": "polymarket", "resolution_dates": "N/A"} for qid in ids_in_order
         ]
-        rows.append(_DATE_DRIVER)
         exploded = explode_question_set(make_question_set_df(rows), "2025-01-01")
-        exploded = exploded[exploded["source"] == "polymarket"].copy()
 
         resolved, _ = resolve_all(
             exploded,
@@ -71,7 +68,7 @@ class TestNullificationOrderIndependence:
         )
         return resolved
 
-    def test_nullified_dropped_regardless_of_position(self, freeze_today):
+    def test_nullified_flagged_regardless_of_position(self, freeze_today):
         freeze_today(date(2025, 2, 1))
         nullified_id = sorted(PolymarketSource().get_nullified_ids())[0]
 
@@ -79,6 +76,9 @@ class TestNullificationOrderIndependence:
         second = self._resolve_with_order([nullified_id, "happy1"], nullified_id)
 
         for resolved in (first, second):
-            # Exactly the happy sibling survives, with a value: never vacuous over an empty frame.
-            assert resolved["id"].tolist() == ["happy1"]
-            assert resolved["resolved_to"].notna().all()
+            by_id = resolved.set_index("id")
+            assert sorted(by_id.index) == sorted(["happy1", nullified_id])
+            assert bool(by_id.loc[nullified_id, "nullified"]) is True
+            assert pd.isna(by_id.loc[nullified_id, "resolved_to"])
+            assert bool(by_id.loc["happy1", "nullified"]) is False
+            assert pd.notna(by_id.loc["happy1", "resolved_to"])

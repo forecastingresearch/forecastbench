@@ -3,7 +3,7 @@
 polymarket comes through a real bucket update and stays open (a tracked value, ``resolved=False``,
 excluded from the leaderboard); metaculus is a resolved market and fred a dataset with two
 resolution dates. The ``nullified`` scenario adds a nullified polymarket question that must be
-dropped end to end.
+kept in the resolutions, flagged ``nullified``, and never scored.
 """
 
 from datetime import date
@@ -124,7 +124,11 @@ def _leaderboard_entry(
                 "source": row["source"],
                 "direction": (),
                 "forecast": forecast_fn(row["resolved_to"]),
-                "resolution_date": pd.Timestamp(row["resolution_date"]).strftime("%Y-%m-%d"),
+                "resolution_date": (
+                    None
+                    if pd.isna(row["resolution_date"])
+                    else pd.Timestamp(row["resolution_date"]).strftime("%Y-%m-%d")
+                ),
             }
             for _, row in resolved.iterrows()
         ]
@@ -160,8 +164,11 @@ def test_full_pipeline(nullified, local_bucket, freeze_today):
         sources={name: SOURCES[name] for name in bank},
         forecast_due_date=_DUE,
     )
-    # The nullified question is dropped; the real questions are present in every scenario.
-    assert set(resolved["id"]) == {"polymarket1", "metaculus1", "fred1"}
+    # The real questions are present in every scenario; the nullified one is kept and flagged.
+    real_ids = {"polymarket1", "metaculus1", "fred1"}
+    nullified_ids = {nullified_id} if nullified else set()
+    assert set(resolved["id"]) == real_ids | nullified_ids
+    assert set(resolved.loc[resolved["nullified"], "id"]) == nullified_ids
     polymarket = resolved[resolved["id"] == "polymarket1"].iloc[0]
     assert 0 <= polymarket["resolved_to"] <= 1 and not bool(polymarket["resolved"])
     metaculus = resolved[resolved["id"] == "metaculus1"].iloc[0]
@@ -215,14 +222,14 @@ def test_full_pipeline(nullified, local_bucket, freeze_today):
     assert ranked[0] == "Good"
     assert ranked.index("Good") < ranked.index("Bad")
 
-    # The nullified goldens equal the base ones, so only the id assertion pins the drop; the
-    # arithmetic is pure pandas/numpy, so rtol=0.
+    # The nullified leaderboard golden equals the base one: the flagged question is never scored.
+    # The arithmetic is pure pandas/numpy, so rtol=0.
     scenario = "nullified" if nullified else "base"
     check_golden(
         f"e2e_resolved_{scenario}",
         resolved,
         key=["id", "resolution_date"],
-        cols=["id", "source", "resolution_date", "resolved", "resolved_to"],
+        cols=["id", "source", "resolution_date", "resolved", "resolved_to", "nullified"],
         rtol=0,
     )
     check_golden(f"e2e_leaderboard_{scenario}", lb, key="model_pk", rtol=0)

@@ -135,6 +135,41 @@ class TestResolveAll:
         )
         assert len(result) == 0  # NaN resolved_to rows are dropped
 
+    def test_keeps_nullified_rows(self):
+        """A nullified question stays in the output with NaN, unlike an unexplained NaN."""
+
+        class _NullifyingSource:
+            name = "test"
+
+            def resolve(self, df, dfq, dfr, *, forecast_due_date):
+                df["resolved"] = True
+                df["resolved_to"] = np.nan
+                df["nullified"] = df["id"] == "nullified_q"
+                return df, []
+
+        df = make_forecast_df(
+            [
+                {"id": "nullified_q", "source": "test", "forecast_due_date": "2025-01-01"},
+                {"id": "broken_q", "source": "test", "forecast_due_date": "2025-01-01"},
+            ]
+        )
+        qb = {
+            "test": SourceQuestionBank(
+                dfq=make_question_df([{"id": "nullified_q"}, {"id": "broken_q"}]),
+                dfr=make_resolution_df([{"id": "nullified_q", "date": "2025-01-01", "value": 1}]),
+            )
+        }
+
+        result, _ = resolve_all(
+            df,
+            question_bank=qb,
+            sources={"test": _NullifyingSource()},
+            forecast_due_date=date(2025, 1, 1),
+        )
+        assert result["id"].tolist() == ["nullified_q"]
+        assert bool(result.iloc[0]["nullified"]) is True
+        assert pd.isna(result.iloc[0]["resolved_to"])
+
     def test_drops_unresolved_dataset_rows(self):
         """Unresolved dataset rows are dropped."""
 

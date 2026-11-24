@@ -59,6 +59,11 @@ class _StubSourceWithNullified(BaseSource):
         raise NotImplementedError
 
 
+class _StubMarketSourceWithNullified(_StubSourceWithNullified):
+    name = "stub_null_market"
+    source_type = SourceType.MARKET
+
+
 # ---------------------------------------------------------------------------
 # __init_subclass__
 # ---------------------------------------------------------------------------
@@ -349,7 +354,7 @@ class TestResolveOrchestration:
         assert (result["resolved_to"] == 1.0).all()
         assert (result["resolved"]).all()
 
-    def test_nullified_rows_get_nan(self):
+    def test_nullified_rows_get_nan_and_are_flagged(self):
         source = _StubSourceWithNullified()
         df = make_forecast_df(
             [
@@ -366,7 +371,9 @@ class TestResolveOrchestration:
 
         assert pd.isna(null_row["resolved_to"])
         assert bool(null_row["resolved"]) is True
+        assert bool(null_row["nullified"]) is True
         assert normal_row["resolved_to"] == 1.0
+        assert bool(normal_row["nullified"]) is False
 
     def test_nullified_combo_question(self):
         source = _StubSourceWithNullified()
@@ -386,6 +393,42 @@ class TestResolveOrchestration:
         result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 1, 1))
         assert pd.isna(result.iloc[0]["resolved_to"])
         assert bool(result.iloc[0]["resolved"]) is True
+        assert bool(result.iloc[0]["nullified"]) is True
+
+    def test_nullified_market_rows_are_dated_by_nullification_start(self):
+        source = _StubMarketSourceWithNullified()
+        df = make_forecast_df(
+            [
+                {"id": "null_q1", "source": "stub_null_market", "forecast_due_date": "2025-06-01"},
+                {
+                    "id": ("null_q2", "null_q1"),
+                    "source": "stub_null_market",
+                    "direction": (1, 1),
+                    "forecast_due_date": "2025-06-01",
+                },
+            ]
+        )
+        dfq = make_question_df([{"id": "null_q1"}, {"id": "null_q2"}])
+
+        result, _ = source.resolve(df, dfq, pd.DataFrame(), forecast_due_date=date(2025, 6, 1))
+        assert (result["resolution_date"] == pd.Timestamp("2024-06-01")).all()
+
+    def test_nullified_dataset_rows_keep_their_resolution_date(self):
+        source = _StubSourceWithNullified()
+        df = make_forecast_df(
+            [
+                {
+                    "id": "null_q1",
+                    "source": "stub_null",
+                    "forecast_due_date": "2025-01-01",
+                    "resolution_date": "2025-01-31",
+                },
+            ]
+        )
+        dfq = make_question_df([{"id": "null_q1"}])
+
+        result, _ = source.resolve(df, dfq, pd.DataFrame(), forecast_due_date=date(2025, 1, 1))
+        assert result.iloc[0]["resolution_date"] == pd.Timestamp("2025-01-31")
 
     def test_empty_source_with_nullified_rows(self):
         source = _StubSourceWithNullified()
@@ -401,6 +444,7 @@ class TestResolveOrchestration:
         result, _ = source.resolve(df, dfq, dfr, forecast_due_date=date(2025, 1, 1))
         assert len(result) == 1
         assert pd.isna(result.iloc[0]["resolved_to"])
+        assert bool(result.iloc[0]["nullified"]) is True
 
     def test_resolve_rejects_foreign_source_rows(self):
         """Passing rows from a different source should raise ValueError."""
