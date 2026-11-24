@@ -130,6 +130,31 @@ def test_dataset_threshold_is_enforced_independently_of_the_market_threshold(
     assert entries == []
 
 
+def test_round_without_naive_forecast_is_dropped_and_reported_to_slack(
+    local_bucket, freeze_today, monkeypatch
+):
+    # A round missing its Naive Forecaster file can't be scored, but must not stop the leaderboard.
+    freeze_today(date(2025, 6, 1))
+    messages = []
+    monkeypatch.setattr(lb.slack, "send_message", messages.append)
+    _seed_naive(local_bucket, _KEEP, _resolved_mix())
+    _seed_model(local_bucket, _KEEP, "OrgA", "ModelA", _resolved_mix())
+    _seed_model(local_bucket, _SPARSE, "OrgA", "ModelA", _resolved_mix())
+
+    with patch.object(lb, "MIN_NUM_DATASET_QUESTIONS", 2):
+        entries, valid_dates = lb.download_and_compile_processed_forecast_files(
+            bucket=env.PROCESSED_FORECAST_SETS_BUCKET,
+            min_days=50,
+            min_num_market_questions=1,
+        )
+
+    assert valid_dates == [_KEEP]
+    assert {str(d) for e in entries for d in e["forecast_due_date"]} == {_KEEP}
+    assert len(messages) == 1
+    assert _SPARSE in messages[0]
+    assert _NAIVE["model"] in messages[0]
+
+
 def test_forecastbench_llm_files_without_prompt_context_are_skipped(local_bucket, freeze_today):
     # Processed files from the retired baseline leaderboard stay in the bucket; compiling one would
     # make `get_df_info` reject it as an unclassified ForecastBench model and stop the leaderboard.

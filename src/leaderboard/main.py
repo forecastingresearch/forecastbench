@@ -494,7 +494,8 @@ def filter_forecast_files_by_min_resolved_questions(
     """Filter forecast files to exclude dates with too few resolved questions.
 
     For each forecast due date, reads the Naive Forecaster file and counts resolved questions
-    for each mask_key. Dates that fail any threshold are excluded.
+    for each mask_key. Dates that fail any threshold are excluded. Dates without a readable Naive
+    Forecaster file are excluded and reported to Slack.
 
     Args:
         forecast_files (List[str]): List of forecast file paths on GCP bucket, where each path
@@ -521,13 +522,19 @@ def filter_forecast_files_by_min_resolved_questions(
         naive_filename = data_utils.get_forecast_filename(
             forecast_due_date, BASELINE_ORG_NAIVE_MODEL["model"]
         )
-        data = resolution.read_forecast_file(
-            filename=f"{local_forecast_set_dir}/{forecast_due_date}/{naive_filename}"
+        naive_filepath = f"{local_forecast_set_dir}/{forecast_due_date}/{naive_filename}"
+        data = (
+            resolution.read_forecast_file(filename=naive_filepath)
+            if os.path.exists(naive_filepath)
+            else None
         )
         if data is None:
-            logger.warning(
-                f"Could not read Naive Forecaster file for {forecast_due_date}. Excluding date."
+            message = (
+                f"Leaderboard: could not read {BASELINE_ORG_NAIVE_MODEL['model']} file "
+                f"`{naive_filepath}`. Dropping the {forecast_due_date} round from evaluation."
             )
+            logger.warning(message)
+            slack.send_message(message)
             continue
 
         df = resolution.make_columns_hashable(data["df"])
