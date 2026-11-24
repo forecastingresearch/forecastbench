@@ -426,6 +426,43 @@ class TestMarketResolve:
         # A suspect value is a data problem to check, not a nullification to publish.
         assert bool(result_source.iloc[0]["nullified"]) is False
 
+    def test_market_annulled_by_platform_is_nullified(self, market_source, freeze_today):
+        """Resolved question whose final value is NaN (annulled) → nullified, no warning."""
+        freeze_today(date(2025, 1, 15))
+
+        df = make_forecast_df(
+            [
+                {
+                    "id": "q1",
+                    "source": "metaculus",
+                    "forecast_due_date": "2025-01-01",
+                }
+            ]
+        )
+        dfq = make_question_df(
+            [
+                {
+                    "id": "q1",
+                    "resolved": True,
+                    "market_info_close_datetime": "2025-01-14T00:00:00Z",
+                    "market_info_resolution_datetime": "2025-01-14T00:00:00Z",
+                }
+            ]
+        )
+        dfr = make_resolution_df(
+            [
+                {"id": "q1", "date": "2024-12-31", "value": 0.3},
+                {"id": "q1", "date": "2025-01-14", "value": np.nan},
+            ]
+        )
+
+        result, warnings = market_source._resolve(df, dfq, dfr)
+        row = result[result["source"] == "metaculus"].iloc[0]
+        assert pd.isna(row["resolved_to"])
+        assert bool(row["resolved"]) is True
+        assert bool(row["nullified"]) is True
+        assert warnings == []
+
     def test_resolved_before_forecast_due_date_nullifies(self, market_source, freeze_today):
         """Market resolved before forecast_due_date → resolved_to = NaN, flagged nullified."""
         freeze_today(date(2025, 1, 15))

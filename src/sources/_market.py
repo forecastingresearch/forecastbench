@@ -112,7 +112,9 @@ class MarketSource(BaseSource):
                 )
                 logger.warning(message)
                 df_standard.loc[df_standard["id"] == mid, "resolved_to"] = np.nan
-                if not pd.isna(resolved_value):
+                if pd.isna(resolved_value):
+                    df_standard.loc[df_standard["id"] == mid, "nullified"] = True
+                else:
                     warnings.append(message)
 
             if resolution_date <= forecast_due_date.date():
