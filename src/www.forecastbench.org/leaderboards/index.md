@@ -7,7 +7,6 @@ head_css:
   - https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css
   - https://cdn.datatables.net/1.13.7/css/dataTables.semanticui.min.css
   - https://cdn.datatables.net/responsive/2.4.1/css/responsive.semanticui.min.css
-  - https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.6.3/dist/floating-ui.dom.min.css
   - /assets/css/tooltips.css
 footer_scripts:
   - /assets/js/smooth-scroll.js
@@ -15,7 +14,6 @@ after_footer_scripts:
   - https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js
   - https://cdn.datatables.net/1.13.7/js/dataTables.semanticui.min.js
   - https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js
-  - https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.6.3/dist/floating-ui.dom.min.js
   - /assets/js/leaderboard_tournament_full.js
   - /assets/js/leaderboard_preliminary_full.js
   - /assets/js/tooltip-init.js
