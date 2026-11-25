@@ -63,7 +63,15 @@ def test_empty_market_frame_stays_empty():
     result = drop_questions_that_resolve_too_soon(
         source="polymarket", dfq=dfq, forecast_datetime=FORECAST_DATETIME
     )
-    assert result.empty
+    assert result.empty and list(result.columns) == list(dfq.columns)
+
+
+def test_empty_data_frame_keeps_its_columns():
+    dfq = pd.DataFrame({"id": [], "forecast_horizons": []})
+    result = drop_questions_that_resolve_too_soon(
+        source="acled", dfq=dfq, forecast_datetime=FORECAST_DATETIME
+    )
+    assert result.empty and list(result.columns) == list(dfq.columns)
 
 
 def test_data_questions_without_horizons_are_dropped():
